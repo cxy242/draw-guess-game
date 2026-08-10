@@ -1202,3 +1202,89 @@ const start = async () => {
 start();
 
 
+
+// ===== MCP Endpoint (Streamable HTTP) =====
+const MCP_GAME_URL = process.env.GAME_URL || 'https://web-production-54961.up.railway.app';
+
+fastify.route({
+  method: ['POST', 'GET', 'DELETE'],
+  url: '/mcp',
+  handler: async (req, reply) => {
+    try {
+      const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
+      const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+      const { z } = await import('zod');
+
+      const port = process.env.PORT || 3001;
+      function api(method, path, body) {
+        const opts = { method };
+        if (body) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
+        return fetch(`http://127.0.0.1:${port}${path}`, opts).then(r => r.json()).catch(e => ({ ok: false, message: e.message }));
+      }
+
+      const server = new McpServer({ name: 'draw-game', version: '3.0.0' });
+
+      server.tool('draw_user_start', '用户要画画给你猜。', {}, async () => {
+        return { content: [{ type: 'text', text: `去这里画画：\n${MCP_GAME_URL}\n\n画完说"画好了"` }] };
+      });
+
+      server.tool('draw_check', '用户画好了时调用，查看画作并猜。', {}, async () => {
+        const r = await api('GET', '/api/status');
+        if (!r.ok || !r.current) return { content: [{ type: 'text', text: `还没有画~去这里画：\n${MCP_GAME_URL}` }] };
+        const c = r.current;
+        const author = c.artist === 'user' ? (c.author || '用户') : 'AI';
+        const desc = c.description || '无法描述';
+        return { content: [{ type: 'text', text: `画师: ${author}\n描述:\n${desc}\n\n画布1000x700。根据描述猜画的是什么。` }] };
+      });
+
+      server.tool('draw_submit_guess', '提交猜测', { guess: z.string() }, async ({ guess }) => {
+        const st = await api('GET', '/api/status');
+        if (st.ok && st.current && st.current.artist === 'user') {
+          const r = await api('POST', '/api/ai_guess', { guess });
+          return { content: [{ type: 'text', text: r.ok ? `猜「${guess}」！对吗？` : `失败: ${r.message}` }] };
+        }
+        const r = await api('POST', '/api/guess', { guesser: 'AI', content: guess });
+        return { content: [{ type: 'text', text: r.correct ? `🎉 猜对了！是「${guess}」！` : `❌「${guess}」不对~` }] };
+      });
+
+      server.tool('draw_ai_draw', '用户让你画画', {
+        answer: z.string(), aliases: z.array(z.string()).optional(),
+        content: z.array(z.object({ tool: z.literal('polyline'), points: z.array(z.array(z.number())), color: z.string().optional().default('#4f454b'), width: z.number().optional().default(8) })),
+      }, async ({ answer, aliases, content }) => {
+        const r = await api('POST', '/api/start', { answer, content, aliases: aliases || [], artist: 'AI' });
+        if (!r.ok) return { content: [{ type: 'text', text: `画失败: ${r.message}` }] };
+        const st = await api('GET', '/api/status');
+        const desc = st.ok && st.current ? st.current.description : '';
+        return { content: [{ type: 'text', text: `画好了！描述:\n${desc}\n\n让用户猜~` }] };
+      });
+
+      server.tool('draw_guess', '用户猜AI的画', { guesser: z.string(), content: z.string() }, async ({ guesser, content }) => {
+        const r = await api('POST', '/api/guess', { guesser, content });
+        return { content: [{ type: 'text', text: r.correct ? `🎉 ${guesser}猜对！` : `❌ 不对~` }] };
+      });
+
+      server.tool('draw_random', '随机开一局', {}, async () => {
+        const r = await api('GET', '/api/random');
+        if (!r.ok) return { content: [{ type: 'text', text: '开局失败' }] };
+        const st = await api('GET', '/api/status');
+        const desc = st.ok && st.current ? st.current.description : '';
+        return { content: [{ type: 'text', text: `来猜画！\n${desc}\n猜猜是什么？` }] };
+      });
+
+      server.tool('draw_score', '查看分数', {}, async () => {
+        const r = await api('GET', '/api/score');
+        if (!r.ok || !r.scores || !Object.keys(r.scores).length) return { content: [{ type: 'text', text: '还没有分数~' }] };
+        const lines = Object.entries(r.scores).sort((a, b) => b[1] - a[1]).map(([n, s], i) => `${i + 1}. ${n}: ${s}分`);
+        return { content: [{ type: 'text', text: `📊 排名:\n${lines.join('\n')}` }] };
+      });
+
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      await server.connect(transport);
+      await transport.handleRequest(req.raw, reply.raw, req.body);
+      reply.hijack();
+    } catch (e) {
+      console.error('MCP error:', e.message);
+      if (!reply.sent) reply.code(500).send({ error: e.message });
+    }
+  }
+});
