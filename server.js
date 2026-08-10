@@ -1603,6 +1603,7 @@ fastify.get('/api/comments/:id', async (req) => {
 });
 
 // ===== 画廊 API =====
+// Redeploy trigger: b97bc460
 fastify.get('/api/gallery', async () => {
   return { ok: true, drawings: savedDrawings.slice().reverse() };
 });
