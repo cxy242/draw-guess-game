@@ -1064,7 +1064,7 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
         <div style="display:flex;gap:8px">
           <input id="draw-answer" placeholder="答案（例如：猫）" style="flex:1;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0">
-          <input id="draw-author" placeholder="署名" style="width:80px;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0;text-align:center">
+          <input id="draw-author" placeholder="你的名字" style="width:100px;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0;text-align:center">
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-pink" style="flex:1" onclick="submitDrawing()">📤 提交画作</button>
@@ -1282,7 +1282,7 @@ function initCanvas(){
 }
 setTimeout(initCanvas,200);
 // 初始化署名
-if(currentPlayerName){const ae=document.getElementById('draw-author');if(ae)ae.value=currentPlayerName;}
+
 
 function getXY(e){
   const r=canvas.getBoundingClientRect();
@@ -1510,7 +1510,7 @@ function saveDrawing(){
   const tmpCtx=tmpCanvas.getContext('2d');
   tmpCtx.fillStyle='#fffafc';tmpCtx.fillRect(0,0,tmpCanvas.width,tmpCanvas.height);
   tmpCtx.drawImage(canvas,0,0);
-  const authorEl=$('draw-author');const author=authorEl?authorEl.value.trim()||'匿名':'匿名';
+  const authorEl=$('draw-author');const author=authorEl?authorEl.value.trim()||getPlayer()||'匿名':'匿名';
   const fontSize=Math.max(12,Math.round(canvas.width/40));
   tmpCtx.fillStyle='#999';tmpCtx.font=fontSize+'px sans-serif';tmpCtx.textAlign='right';
   tmpCtx.fillText('—— '+author,canvas.width-fontSize,canvas.height-fontSize);
@@ -1545,7 +1545,7 @@ function getPlayer() { return localStorage.getItem("draw-player") || ""; }
     var badge = document.getElementById("player-badge");
     if (badge) badge.textContent = "\u{1F464} " + saved;
     var authorEl = document.getElementById("draw-author");
-    if (authorEl && !authorEl.value) authorEl.value = saved;
+    if (authorEl) authorEl.placeholder = saved;
   }
 })();
 
@@ -1728,7 +1728,7 @@ function getPlayer() { return localStorage.getItem("draw-player") || ""; }
     var badge = document.getElementById("player-badge");
     if (badge) badge.textContent = "\u{1F464} " + saved;
     var authorEl = document.getElementById("draw-author");
-    if (authorEl && !authorEl.value) authorEl.value = saved;
+    if (authorEl) authorEl.placeholder = saved;
   }
 })();
 
