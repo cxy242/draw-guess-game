@@ -805,6 +805,7 @@ fastify.post('/api/draw', async (req) => {
   savedDrawings.push({
     id: Date.now(),
     artist: 'user',
+    comments: [],
     author: author || '匿名',
     answer: answer || null,
     drawing_svg: currentRound.drawing_svg,
@@ -836,6 +837,7 @@ fastify.post('/api/demo', async () => {
   savedDrawings.push({
     id: Date.now(),
     artist: 'AI',
+    comments: [],
     author: '艾因',
     answer: demo.answer,
     aliases: demo.aliases,
@@ -1064,7 +1066,7 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
         <div style="display:flex;gap:8px">
           <input id="draw-answer" placeholder="答案（例如：猫）" style="flex:1;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0">
-          <input id="draw-author" placeholder="你的名字" style="width:100px;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0;text-align:center">
+          <input id="draw-author" placeholder="写你的名字" style="width:120px;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0;text-align:center">
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-pink" style="flex:1" onclick="submitDrawing()">📤 提交画作</button>
@@ -1565,6 +1567,20 @@ function setTheme(name) {
   if (saved) setTheme(saved);
 })();
 
+
+
+// ===== 评论功能 =====
+function addComment(drawingId) {
+  var nameEl = document.getElementById('cmt-name-'+drawingId);
+  var textEl = document.getElementById('cmt-text-'+drawingId);
+  var author = nameEl ? nameEl.value.trim() : '';
+  var text = textEl ? textEl.value.trim() : '';
+  if (!author) { alert('请输入署名'); return; }
+  if (!text) { alert('请输入评论'); return; }
+  fetch('/api/comment', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({drawing_id:drawingId, author:author, text:text, is_ai:false}) })
+    .then(function(){ location.reload(); });
+}
+
 </script>
 
 <div class="theme-switcher">
@@ -1576,6 +1592,18 @@ function setTheme(name) {
 </body>
 </html>`;
 
+
+
+// ===== 评论 API =====
+fastify.post('/api/comment', async (req) => {
+  const { drawing_id, author, text, is_ai } = req.body || {};
+  if (!drawing_id || !author || !text) return { ok: false, message: '需要 drawing_id, author, text' };
+  const drawing = savedDrawings.find(d => d.id === drawing_id);
+  if (!drawing) return { ok: false, message: '画作不存在' };
+  if (!drawing.comments) drawing.comments = [];
+  drawing.comments.push({ author, text, is_ai: !!is_ai, time: new Date().toISOString() });
+  return { ok: true, comments: drawing.comments };
+});
 
 // ===== 画廊 API =====
 fastify.get('/api/gallery', async () => {
@@ -1747,6 +1775,20 @@ function setTheme(name) {
   var saved = localStorage.getItem("draw-theme");
   if (saved) setTheme(saved);
 })();
+
+
+
+// ===== 评论功能 =====
+function addComment(drawingId) {
+  var nameEl = document.getElementById('cmt-name-'+drawingId);
+  var textEl = document.getElementById('cmt-text-'+drawingId);
+  var author = nameEl ? nameEl.value.trim() : '';
+  var text = textEl ? textEl.value.trim() : '';
+  if (!author) { alert('请输入署名'); return; }
+  if (!text) { alert('请输入评论'); return; }
+  fetch('/api/comment', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({drawing_id:drawingId, author:author, text:text, is_ai:false}) })
+    .then(function(){ location.reload(); });
+}
 
 </script>
 
