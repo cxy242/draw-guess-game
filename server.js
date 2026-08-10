@@ -666,12 +666,31 @@ fastify.get('/leaderboard', async (req, reply) => {
   const html = `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><meta name="color-scheme" content="light"><title>🏆 排行榜</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#1a1a2e;color:#eee;font-family:system-ui,sans-serif;min-height:100vh;padding:16px}h1{text-align:center;color:#FFD700;margin-bottom:16px}table{width:100%;border-collapse:collapse;margin-bottom:24px}th,td{padding:10px;text-align:center;border-bottom:1px solid #2a2a4a}th{color:#87CEEB;font-size:13px}td{font-size:14px}.back{display:inline-block;color:#87CEEB;text-decoration:none;margin-bottom:12px;font-size:14px}.back:hover{text-decoration:underline}h2{color:#87CEEB;margin-bottom:12px;font-size:1.1em}.empty{text-align:center;color:#999;padding:40px}</style>
-</head><body>
+</head><body class="theme-space">
 <a href="/" class="back">← 返回游戏</a>
 <h1>🏆 排行榜</h1>
 ${entries.length ? '<table><thead><tr><th>排名</th><th>玩家</th><th>猜对</th><th>得分</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>' : '<div class="empty">还没有人猜对过~</div>'}
 <h2>📜 最近画作</h2>
 ${savedDrawings.length ? recentHtml : '<div class="empty">还没有画作~</div>'}
+
+<!-- 主题切换 -->
+<div class="theme-switcher">
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#fff5f5,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#1b2d1b,#2d4a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+</div>
+<script>
+function setTheme(name) {
+  document.body.className = 'theme-' + name;
+  localStorage.setItem('draw-theme', name);
+  document.querySelectorAll('.theme-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['space','sakura','forest'][i] === name);
+  });
+}
+// 加载保存的主题
+const saved = localStorage.getItem('draw-theme');
+if (saved) setTheme(saved);
+</script>
 </body></html>`;
   reply.type('text/html; charset=utf-8');
   return html;
@@ -918,7 +937,7 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
 }
 </style>
 </head>
-<body>
+<body class="theme-space">
 <div class="header"><h1>🎨 你画我猜</h1></div>
 <div class="tabs">
   <button class="tab active-blue" id="tab-guess" onclick="switchMode('guess')">🎯 猜画</button>
@@ -1461,6 +1480,25 @@ async function addComment(drawingId) {
   location.reload();
 }
 </script>
+
+<!-- 主题切换 -->
+<div class="theme-switcher">
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#fff5f5,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#1b2d1b,#2d4a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+</div>
+<script>
+function setTheme(name) {
+  document.body.className = 'theme-' + name;
+  localStorage.setItem('draw-theme', name);
+  document.querySelectorAll('.theme-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['space','sakura','forest'][i] === name);
+  });
+}
+// 加载保存的主题
+const saved = localStorage.getItem('draw-theme');
+if (saved) setTheme(saved);
+</script>
 </body>
 </html>`;
 
@@ -1533,10 +1571,29 @@ h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
 .empty{text-align:center;color:#999;padding:60px;font-size:16px}
 </style>
 </head>
-<body>
+<body class="theme-space">
 <a href="/" class="back-link">← 返回游戏</a>
 <h1>🎨 画廊</h1>
 ${drawings.length ? '<div class="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
+
+<!-- 主题切换 -->
+<div class="theme-switcher">
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#fff5f5,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#1b2d1b,#2d4a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+</div>
+<script>
+function setTheme(name) {
+  document.body.className = 'theme-' + name;
+  localStorage.setItem('draw-theme', name);
+  document.querySelectorAll('.theme-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['space','sakura','forest'][i] === name);
+  });
+}
+// 加载保存的主题
+const saved = localStorage.getItem('draw-theme');
+if (saved) setTheme(saved);
+</script>
 </body>
 </html>`;
   reply.type('text/html; charset=utf-8');
