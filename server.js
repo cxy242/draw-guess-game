@@ -2008,6 +2008,25 @@ fastify.route({
         return { content: [{ type: 'text', text: `来猜画！\n${desc}\n猜猜是什么？` }] };
       });
 
+      server.tool('draw_comment', '对画作发表评论', {
+        drawing_id: z.number().describe('画作ID，从画廊获取'),
+        author: z.string().describe('评论者署名'),
+        text: z.string().describe('评论内容'),
+      }, async ({ drawing_id, author, text }) => {
+        const r = await api('POST', '/api/comment', { drawing_id, author, text, is_ai: true });
+        return { content: [{ type: 'text', text: r.ok ? `评论成功！「${author}」说：${text}` : `评论失败：${r.message}` }] };
+      });
+
+      server.tool('draw_gallery', '查看画廊里的画作列表', {}, async () => {
+        const r = await api('GET', '/api/gallery');
+        if (!r.ok || !r.drawings || !r.drawings.length) return { content: [{ type: 'text', text: '画廊里还没有画作~' }] };
+        const list = r.drawings.slice(0, 10).map((d, i) => {
+          const label = d.artist === 'AI' ? '🤖 ' + (d.author || 'AI画师') : '✏️ ' + (d.author || '匿名');
+          return `${i+1}. [ID:${d.id}] ${label} - 答案：${d.answer || '未知'} (${(d.created_at||'').slice(0,16)})`;
+        }).join('\n');
+        return { content: [{ type: 'text', text: `🖼 画廊（最近10幅）：\n${list}\n\n用 draw_comment 可以对画作发表评论` }] };
+      });
+
       server.tool('draw_score', '查看分数', {}, async () => {
         const r = await api('GET', '/api/score');
         if (!r.ok || !r.scores || !Object.keys(r.scores).length) return { content: [{ type: 'text', text: '还没有分数~' }] };
