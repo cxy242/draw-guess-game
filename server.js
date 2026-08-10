@@ -951,6 +951,31 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
   .color-btn{width:22px;height:22px}
   .hint-display{font-size:1.1em;letter-spacing:5px}
 }
+
+/* 樱花粉 */
+body.theme-sakura{background:#fff0f3;color:#333}
+body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2;box-shadow:0 2px 12px rgba(233,30,99,0.08)}
+body.theme-sakura .tab{background:#fff;color:#999;border:1px solid #ffcdd2}
+body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
+body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
+body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
+body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
+body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
+/* 森林绿 */
+body.theme-forest{background:#0d1f0d;color:#d4e8d4}
+body.theme-forest .card{background:#1a3a1a;border:1px solid #2d5a2d;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+body.theme-forest .tab{background:#1a3a1a;color:#88aa88;border:1px solid #2d5a2d}
+body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
+body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
+body.theme-forest input{background:#0d1f0d;border:2px solid #2d5a2d;color:#d4e8d4}
+body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
+body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+/* 主题切换按钮 */
+.theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
+.theme-btn{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:all .25s}
+.theme-btn:hover{transform:scale(1.15);border-color:rgba(255,255,255,0.6)}
+.theme-btn.active{border-color:#FFD700;box-shadow:0 0 16px rgba(255,215,0,0.5)}
+
 </style>
 </head>
 <body>
@@ -959,6 +984,7 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
   <button class="tab active-blue" id="tab-guess" onclick="switchMode('guess')">🎯 猜画</button>
   <button class="tab" id="tab-draw" onclick="switchMode('draw')">🖌️ 画板</button>
   <button class="tab" id="tab-leaderboard" onclick="switchMode('leaderboard')">🏆 排行榜</button>
+  <span id="player-badge" style="padding:6px 12px;border-radius:20px;background:#e91e63;color:#fff;font-size:.8em;font-weight:600">👤</span>
   <a href="/gallery" class="tab" style="text-decoration:none;color:inherit">🖼 画廊</a>
 </div>
 
@@ -1487,7 +1513,60 @@ function saveDrawing(){
   link.href=tmpCanvas.toDataURL('image/png');
   link.click();
 }
+
+
+// ===== 加入游戏 =====
+function joinGame() {
+  var input = document.getElementById("player-name-input");
+  var name = input ? input.value.trim() : "";
+  if (!name) { alert("请输入你的名字！"); return; }
+  localStorage.setItem("draw-player", name);
+  var modal = document.getElementById("join-modal");
+  if (modal) modal.style.display = "none";
+  var badge = document.getElementById("player-badge");
+  if (badge) badge.textContent = "\u{1F464} " + name;
+  var authorEl = document.getElementById("draw-author");
+  if (authorEl) authorEl.value = name;
+  fetch('/api/join', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})});
+}
+function getPlayer() { return localStorage.getItem("draw-player") || ""; }
+// 检查是否已加入
+(function(){
+  var saved = localStorage.getItem("draw-player");
+  if (saved) {
+    var modal = document.getElementById("join-modal");
+    if (modal) modal.style.display = "none";
+    var badge = document.getElementById("player-badge");
+    if (badge) badge.textContent = "\u{1F464} " + saved;
+    var authorEl = document.getElementById("draw-author");
+    if (authorEl && !authorEl.value) authorEl.value = saved;
+  }
+})();
+
+// ===== 主题切换 =====
+function setTheme(name) {
+  document.body.className = "theme-" + name;
+  localStorage.setItem("draw-theme", name);
+  var btns = document.querySelectorAll(".theme-btn");
+  var themes = ["space","sakura","forest"];
+  for (var i = 0; i < btns.length; i++) {
+    if (themes[i] === name) btns[i].classList.add("active");
+    else btns[i].classList.remove("active");
+  }
+}
+(function(){
+  var saved = localStorage.getItem("draw-theme");
+  if (saved) setTheme(saved);
+})();
+
 </script>
+
+<div class="theme-switcher">
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#ffe4e8,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#1b3a1b,#2d5a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+</div>
+
 </body>
 </html>`;
 
@@ -1542,6 +1621,31 @@ h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
 .filter-bar select,.filter-bar input{padding:8px 12px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:.9em;outline:0}
 .filter-bar label{color:#888;font-size:.85em}
 .filter-count{color:#87CEEB;font-size:.85em}
+
+/* 樱花粉 */
+body.theme-sakura{background:#fff0f3;color:#333}
+body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2;box-shadow:0 2px 12px rgba(233,30,99,0.08)}
+body.theme-sakura .tab{background:#fff;color:#999;border:1px solid #ffcdd2}
+body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
+body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
+body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
+body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
+body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
+/* 森林绿 */
+body.theme-forest{background:#0d1f0d;color:#d4e8d4}
+body.theme-forest .card{background:#1a3a1a;border:1px solid #2d5a2d;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+body.theme-forest .tab{background:#1a3a1a;color:#88aa88;border:1px solid #2d5a2d}
+body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
+body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
+body.theme-forest input{background:#0d1f0d;border:2px solid #2d5a2d;color:#d4e8d4}
+body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
+body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+/* 主题切换按钮 */
+.theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
+.theme-btn{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:all .25s}
+.theme-btn:hover{transform:scale(1.15);border-color:rgba(255,255,255,0.6)}
+.theme-btn.active{border-color:#FFD700;box-shadow:0 0 16px rgba(255,215,0,0.5)}
+
 </style>
 </head>
 <body>
@@ -1586,7 +1690,60 @@ function filterGallery(){
   document.getElementById('filter-count').textContent='显示 '+visible+' / '+cards.length+' 幅';
 }
 filterGallery();
+
+
+// ===== 加入游戏 =====
+function joinGame() {
+  var input = document.getElementById("player-name-input");
+  var name = input ? input.value.trim() : "";
+  if (!name) { alert("请输入你的名字！"); return; }
+  localStorage.setItem("draw-player", name);
+  var modal = document.getElementById("join-modal");
+  if (modal) modal.style.display = "none";
+  var badge = document.getElementById("player-badge");
+  if (badge) badge.textContent = "\u{1F464} " + name;
+  var authorEl = document.getElementById("draw-author");
+  if (authorEl) authorEl.value = name;
+  fetch('/api/join', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})});
+}
+function getPlayer() { return localStorage.getItem("draw-player") || ""; }
+// 检查是否已加入
+(function(){
+  var saved = localStorage.getItem("draw-player");
+  if (saved) {
+    var modal = document.getElementById("join-modal");
+    if (modal) modal.style.display = "none";
+    var badge = document.getElementById("player-badge");
+    if (badge) badge.textContent = "\u{1F464} " + saved;
+    var authorEl = document.getElementById("draw-author");
+    if (authorEl && !authorEl.value) authorEl.value = saved;
+  }
+})();
+
+// ===== 主题切换 =====
+function setTheme(name) {
+  document.body.className = "theme-" + name;
+  localStorage.setItem("draw-theme", name);
+  var btns = document.querySelectorAll(".theme-btn");
+  var themes = ["space","sakura","forest"];
+  for (var i = 0; i < btns.length; i++) {
+    if (themes[i] === name) btns[i].classList.add("active");
+    else btns[i].classList.remove("active");
+  }
+}
+(function(){
+  var saved = localStorage.getItem("draw-theme");
+  if (saved) setTheme(saved);
+})();
+
 </script>
+
+<div class="theme-switcher">
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#ffe4e8,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#1b3a1b,#2d5a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+</div>
+
 </body>
 </html>`;
   reply.type('text/html; charset=utf-8');
@@ -1633,6 +1790,31 @@ td{border-bottom:1px solid #1a1a2e}
 .back-link:hover{text-decoration:underline}
 .section-title{color:#FFB6C1;font-size:1.1em;font-weight:600;margin:20px 0 10px}
 .scroll-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+
+/* 樱花粉 */
+body.theme-sakura{background:#fff0f3;color:#333}
+body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2;box-shadow:0 2px 12px rgba(233,30,99,0.08)}
+body.theme-sakura .tab{background:#fff;color:#999;border:1px solid #ffcdd2}
+body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
+body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
+body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
+body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
+body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
+/* 森林绿 */
+body.theme-forest{background:#0d1f0d;color:#d4e8d4}
+body.theme-forest .card{background:#1a3a1a;border:1px solid #2d5a2d;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+body.theme-forest .tab{background:#1a3a1a;color:#88aa88;border:1px solid #2d5a2d}
+body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
+body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
+body.theme-forest input{background:#0d1f0d;border:2px solid #2d5a2d;color:#d4e8d4}
+body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
+body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+/* 主题切换按钮 */
+.theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
+.theme-btn{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:all .25s}
+.theme-btn:hover{transform:scale(1.15);border-color:rgba(255,255,255,0.6)}
+.theme-btn.active{border-color:#FFD700;box-shadow:0 0 16px rgba(255,215,0,0.5)}
+
 </style>
 </head>
 <body>
@@ -1647,6 +1829,13 @@ ${players.length ? players.map(p => '<span style="padding:6px 14px;border-radius
 </div>
 <div class="section-title">🖼 最近画作</div>
 ${recentDrawings.length ? '<div class="scroll-row">' + recentCards + '</div>' : '<div style="color:#666;text-align:center;padding:24px">暂无画作</div>'}
+
+<div class="theme-switcher">
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#ffe4e8,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#1b3a1b,#2d5a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+</div>
+
 </body>
 </html>`;
   reply.type('text/html; charset=utf-8');
