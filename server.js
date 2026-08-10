@@ -745,7 +745,8 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
 </div>
 <script>
 function joinGame() {
-  const name = document.getElementById("player-name-input").value.trim();
+  const input = document.getElementById("player-name-input");
+  const name = input ? input.value.trim() : "";
   if (!name) return alert("请输入你的名字！");
   localStorage.setItem("draw-player", name);
   document.getElementById("join-modal").style.display = "none";
@@ -914,7 +915,7 @@ fastify.post('/api/demo', async () => {
   savedDrawings.push({
     id: Date.now(),
     artist: 'AI',
-    author: '艾因',
+    author: 'AI画师',
     comments: [],
     answer: demo.answer,
     aliases: demo.aliases,
@@ -926,7 +927,7 @@ fastify.post('/api/demo', async () => {
   });
   if (savedDrawings.length > 50) savedDrawings = savedDrawings.slice(-50);
   
-  return { ok: true, message: '新一局开始！画师: 艾因', answer: demo.answer };
+  return { ok: true, message: '新一局开始！画师: AI画师', answer: demo.answer };
 });
 
 fastify.get('/api/random', async () => {
@@ -946,10 +947,10 @@ fastify.get('/api/random', async () => {
       hintsRevealed: 0,
       startTime: Date.now(),
     };
-    return { ok: true, message: '随机一局开始！（画师：艾因）', answer: demo.answer };
+    return { ok: true, message: '随机一局开始！（画师：AI画师）', answer: demo.answer };
   }
   currentRound = {
-    answer: entry.word, aliases: entry.aliases, artist: 'AI', author: '艾因', content: drawing,
+    answer: entry.word, aliases: entry.aliases, artist: 'AI', author: 'AI画师', content: drawing,
     drawing_svg: strokesToSvg(drawing),
     ascii_grid: makeAsciiGrid(drawing),
     ascii_grid_note: ASCII_NOTE,
@@ -959,7 +960,7 @@ fastify.get('/api/random', async () => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
-  return { ok: true, message: '随机一局开始！（画师：艾因）', answer: entry.word };
+  return { ok: true, message: '随机一局开始！（画师：AI画师）', answer: entry.word };
 });
 
 fastify.get('/api/score', async () => {
@@ -1032,32 +1033,6 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
 </style>
 </head>
 <body class="theme-space">
-<!-- 加入游戏弹窗 -->
-<div id="join-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center">
-  <div style="background:#16213e;border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%">
-    <div style="font-size:2em;margin-bottom:16px">🎨 你画我猜</div>
-    <div style="color:#999;margin-bottom:20px">输入你的名字开始游戏</div>
-    <input id="player-name-input" placeholder="你的名字（如：月汐）" style="width:100%;padding:12px;border-radius:10px;border:2px solid #3498db;background:#0f3460;color:#eee;font-size:1.1em;text-align:center;outline:0;margin-bottom:16px">
-    <button onclick="joinGame()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;font-size:1.1em;font-weight:600;cursor:pointer">开始游戏 🎮</button>
-  </div>
-</div>
-<script>
-function joinGame() {
-  const name = document.getElementById("player-name-input").value.trim();
-  if (!name) return alert("请输入你的名字！");
-  localStorage.setItem("draw-player", name);
-  document.getElementById("join-modal").style.display = "none";
-  document.getElementById("player-badge").textContent = "👤 " + name;
-}
-// 检查是否已加入
-const saved = localStorage.getItem("draw-player");
-if (saved) {
-  document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("join-modal").style.display = "none";
-    document.getElementById("player-badge").textContent = "👤 " + saved;
-  });
-}
-function getPlayer() { return localStorage.getItem("draw-player") || "匿名"; }
 </script>
 
 <div class="header"><h1>🎨 你画我猜</h1></div>
@@ -1192,10 +1167,7 @@ if(currentPlayerName){
   $('player-status').textContent='已加入';
   fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:currentPlayerName})});
 }
-async function joinGame(){
-  const name=$('player-name').value.trim();
-  if(!name)return alert('请输入名字！');
-  const r=await fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+async ,body:JSON.stringify({name})});
   const d=await r.json();
   if(d.ok){
     currentPlayerName=name;
@@ -1308,7 +1280,7 @@ async function loadLeaderboard(){
       // 最近画作
       const rd=d.recentDrawings||[];
       $('recent-drawings').innerHTML=rd.length?rd.slice(0,8).map(d=>{
-        const label=d.artist==='AI'?'🤖 '+(d.author||'艾因'):'✏️ '+(d.author||'匿名');
+        const label=d.artist==='AI'?'🤖 '+(d.author||'AI画师'):'✏️ '+(d.author||'匿名');
         return '<div style="display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #2a2a4a">'+label+'<span style="color:#87CEEB;font-size:.85em">'+(d.answer||'自由画')+'</span><span style="color:#666;font-size:.8em;margin-left:auto">'+(d.created_at||'').slice(11,16)+'</span></div>';
       }).join(''):'<div style="color:#666;text-align:center;padding:12px">暂无画作</div>';
     }
@@ -1606,24 +1578,7 @@ async function addComment(drawingId) {
 }
 </script>
 
-<!-- 主题切换 -->
-<div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#fff5f5,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#1b2d1b,#2d4a2d)" onclick="setTheme('forest')" title="森林绿"></div>
-</div>
-<script>
-function setTheme(name) {
-  document.body.className = 'theme-' + name;
-  localStorage.setItem('draw-theme', name);
-  document.querySelectorAll('.theme-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['space','sakura','forest'][i] === name);
-  });
-}
-// 加载保存的主题
-const saved = localStorage.getItem('draw-theme');
-if (saved) setTheme(saved);
-</script>
+
 </body>
 </html>`;
 
@@ -1697,56 +1652,13 @@ h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
 </style>
 </head>
 <body class="theme-space">
-<!-- 加入游戏弹窗 -->
-<div id="join-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center">
-  <div style="background:#16213e;border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%">
-    <div style="font-size:2em;margin-bottom:16px">🎨 你画我猜</div>
-    <div style="color:#999;margin-bottom:20px">输入你的名字开始游戏</div>
-    <input id="player-name-input" placeholder="你的名字（如：月汐）" style="width:100%;padding:12px;border-radius:10px;border:2px solid #3498db;background:#0f3460;color:#eee;font-size:1.1em;text-align:center;outline:0;margin-bottom:16px">
-    <button onclick="joinGame()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;font-size:1.1em;font-weight:600;cursor:pointer">开始游戏 🎮</button>
-  </div>
-</div>
-<script>
-function joinGame() {
-  const name = document.getElementById("player-name-input").value.trim();
-  if (!name) return alert("请输入你的名字！");
-  localStorage.setItem("draw-player", name);
-  document.getElementById("join-modal").style.display = "none";
-  document.getElementById("player-badge").textContent = "👤 " + name;
-}
-// 检查是否已加入
-const saved = localStorage.getItem("draw-player");
-if (saved) {
-  document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("join-modal").style.display = "none";
-    document.getElementById("player-badge").textContent = "👤 " + saved;
-  });
-}
-function getPlayer() { return localStorage.getItem("draw-player") || "匿名"; }
 </script>
 
 <a href="/" class="back-link">← 返回游戏</a>
 <h1>🎨 画廊</h1>
 ${drawings.length ? '<div class="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
 
-<!-- 主题切换 -->
-<div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#fff5f5,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#1b2d1b,#2d4a2d)" onclick="setTheme('forest')" title="森林绿"></div>
-</div>
-<script>
-function setTheme(name) {
-  document.body.className = 'theme-' + name;
-  localStorage.setItem('draw-theme', name);
-  document.querySelectorAll('.theme-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['space','sakura','forest'][i] === name);
-  });
-}
-// 加载保存的主题
-const saved = localStorage.getItem('draw-theme');
-if (saved) setTheme(saved);
-</script>
+
 </body>
 </html>`;
   reply.type('text/html; charset=utf-8');
@@ -1820,7 +1732,7 @@ fastify.route({
         answer: z.string(), aliases: z.array(z.string()).optional(),
         content: z.array(z.object({ tool: z.literal('polyline'), points: z.array(z.array(z.number())), color: z.string().optional().default('#4f454b'), width: z.number().optional().default(8) })),
       }, async ({ answer, aliases, content }) => {
-        const r = await api('POST', '/api/start', { answer, content, aliases: aliases || [], artist: 'AI', author: '艾因' });
+        const r = await api('POST', '/api/start', { answer, content, aliases: aliases || [], artist: 'AI', author: 'AI画师' });
         if (!r.ok) return { content: [{ type: 'text', text: `画失败: ${r.message}` }] };
         const st = await api('GET', '/api/status');
         const desc = st.ok && st.current ? st.current.description : '';
