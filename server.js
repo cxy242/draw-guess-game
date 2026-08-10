@@ -1,3 +1,10 @@
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT:', err.message, err.stack);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED:', err.message, err.stack);
+});
+
 const fastify = require('fastify')({ logger: false });
 
 // ============ In-memory state ============
