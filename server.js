@@ -1167,7 +1167,6 @@ if(currentPlayerName){
   $('player-status').textContent='已加入';
   fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:currentPlayerName})});
 }
-async ,body:JSON.stringify({name})});
   const d=await r.json();
   if(d.ok){
     currentPlayerName=name;
