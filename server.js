@@ -769,6 +769,7 @@ fastify.post('/api/draw', async (req) => {
     id: Date.now(),
     artist: 'user',
     author: author || '匿名',
+    comments: [],
     answer: answer || null,
     drawing_svg: currentRound.drawing_svg,
     ascii_grid: currentRound.ascii_grid,
@@ -800,6 +801,7 @@ fastify.post('/api/demo', async () => {
     id: Date.now(),
     artist: 'AI',
     author: '艾因',
+    comments: [],
     answer: demo.answer,
     aliases: demo.aliases,
     drawing_svg: currentRound.drawing_svg,
@@ -1446,10 +1448,41 @@ function saveDrawing(){
   link.href=tmpCanvas.toDataURL('image/png');
   link.click();
 }
+
+async function addComment(drawingId) {
+  const nameEl = document.querySelector('.cmt-name-'+drawingId);
+  const textEl = document.querySelector('.cmt-text-'+drawingId);
+  const author = nameEl ? nameEl.value.trim() : '';
+  const text = textEl ? textEl.value.trim() : '';
+  if (!author) return alert('请输入署名');
+  if (!text) return alert('请输入评论');
+  await fetch('/api/comment', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ drawing_id: drawingId, author, text, is_ai: false }) });
+  if (textEl) textEl.value = '';
+  location.reload();
+}
 </script>
 </body>
 </html>`;
 
+
+
+// ===== 评论API =====
+fastify.post('/api/comment', async (req) => {
+  const { drawing_id, author, text, is_ai } = req.body || {};
+  if (!drawing_id || !author || !text) return { ok: false, message: '需要 drawing_id, author, text' };
+  const drawing = savedDrawings.find(d => d.id === drawing_id);
+  if (!drawing) return { ok: false, message: '画作不存在' };
+  if (!drawing.comments) drawing.comments = [];
+  drawing.comments.push({ author, text, is_ai: !!is_ai, time: new Date().toISOString() });
+  return { ok: true, comments: drawing.comments };
+});
+
+fastify.get('/api/comments/:id', async (req) => {
+  const id = Number(req.params.id);
+  const drawing = savedDrawings.find(d => d.id === id);
+  if (!drawing) return { ok: false, message: '画作不存在' };
+  return { ok: true, comments: drawing.comments || [] };
+});
 
 // ===== 画廊 API =====
 fastify.get('/api/gallery', async () => {
@@ -1462,6 +1495,11 @@ fastify.get('/gallery', async (req, reply) => {
     const label = d.artist === 'AI' ? '🤖 ' + (d.author || '艾因') : '✏️ ' + (d.author || '匿名');
     const answerHtml = d.answer ? '<div style="color:#87CEEB;font-size:13px;margin-top:4px">答案：' + d.answer + '</div>' : '';
     const descHtml = d.description ? '<div style="color:#999;font-size:11px;margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">' + d.description.replace(/</g,'&lt;') + '</div>' : '';
+    const commentsHtml = (d.comments || []).map(c => {
+      const cLabel = c.is_ai ? '🤖 ' + c.author : '✏️ ' + c.author;
+      return '<div style="margin:4px 0;padding:4px 8px;background:#0f3460;border-radius:6px;font-size:12px"><span style="color:#FFB6C1">' + cLabel + ':</span> ' + c.text.replace(/</g,'&lt;') + '</div>';
+    }).join('');
+    const commentForm = '<div style="margin-top:6px;display:flex;gap:4px"><input class="cmt-name-'+d.id+'" placeholder="署名" style="width:60px;padding:4px;border-radius:4px;border:1px solid #333;background:#0f3460;color:#eee;font-size:11px"><input class="cmt-text-'+d.id+'" placeholder="评论..." style="flex:1;padding:4px;border-radius:4px;border:1px solid #333;background:#0f3460;color:#eee;font-size:11px"><button onclick="addComment('+d.id+')" style="padding:4px 8px;border-radius:4px;border:none;background:#e91e63;color:#fff;font-size:11px;cursor:pointer">发送</button></div>';
     return '<div class="gallery-card">' +
       '<div class="drawing-preview">' + d.drawing_svg + '</div>' +
       '<div style="padding:8px">' +
@@ -1470,6 +1508,8 @@ fastify.get('/gallery', async (req, reply) => {
           '<span style="color:#666;font-size:11px">' + (d.created_at || '').slice(0,16) + '</span>' +
         '</div>' +
         answerHtml + descHtml +
+        (commentsHtml ? '<div style="margin-top:6px">' + commentsHtml + '</div>' : '') +
+        commentForm +
       '</div>' +
     '</div>';
   }).join('');
