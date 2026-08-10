@@ -734,6 +734,34 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
   .theme-btn{width:30px;height:30px}
 }</style>
 </head><body class="theme-space">
+<!-- 加入游戏弹窗 -->
+<div id="join-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:#16213e;border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%">
+    <div style="font-size:2em;margin-bottom:16px">🎨 你画我猜</div>
+    <div style="color:#999;margin-bottom:20px">输入你的名字开始游戏</div>
+    <input id="player-name-input" placeholder="你的名字（如：月汐）" style="width:100%;padding:12px;border-radius:10px;border:2px solid #3498db;background:#0f3460;color:#eee;font-size:1.1em;text-align:center;outline:0;margin-bottom:16px">
+    <button onclick="joinGame()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;font-size:1.1em;font-weight:600;cursor:pointer">开始游戏 🎮</button>
+  </div>
+</div>
+<script>
+function joinGame() {
+  const name = document.getElementById("player-name-input").value.trim();
+  if (!name) return alert("请输入你的名字！");
+  localStorage.setItem("draw-player", name);
+  document.getElementById("join-modal").style.display = "none";
+  document.getElementById("player-badge").textContent = "👤 " + name;
+}
+// 检查是否已加入
+const saved = localStorage.getItem("draw-player");
+if (saved) {
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("join-modal").style.display = "none";
+    document.getElementById("player-badge").textContent = "👤 " + saved;
+  });
+}
+function getPlayer() { return localStorage.getItem("draw-player") || "匿名"; }
+</script>
+
 <a href="/" class="back">← 返回游戏</a>
 <h1>🏆 排行榜</h1>
 ${entries.length ? '<table><thead><tr><th>排名</th><th>玩家</th><th>猜对</th><th>得分</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>' : '<div class="empty">还没有人猜对过~</div>'}
@@ -1004,10 +1032,39 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
 </style>
 </head>
 <body class="theme-space">
+<!-- 加入游戏弹窗 -->
+<div id="join-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:#16213e;border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%">
+    <div style="font-size:2em;margin-bottom:16px">🎨 你画我猜</div>
+    <div style="color:#999;margin-bottom:20px">输入你的名字开始游戏</div>
+    <input id="player-name-input" placeholder="你的名字（如：月汐）" style="width:100%;padding:12px;border-radius:10px;border:2px solid #3498db;background:#0f3460;color:#eee;font-size:1.1em;text-align:center;outline:0;margin-bottom:16px">
+    <button onclick="joinGame()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;font-size:1.1em;font-weight:600;cursor:pointer">开始游戏 🎮</button>
+  </div>
+</div>
+<script>
+function joinGame() {
+  const name = document.getElementById("player-name-input").value.trim();
+  if (!name) return alert("请输入你的名字！");
+  localStorage.setItem("draw-player", name);
+  document.getElementById("join-modal").style.display = "none";
+  document.getElementById("player-badge").textContent = "👤 " + name;
+}
+// 检查是否已加入
+const saved = localStorage.getItem("draw-player");
+if (saved) {
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("join-modal").style.display = "none";
+    document.getElementById("player-badge").textContent = "👤 " + saved;
+  });
+}
+function getPlayer() { return localStorage.getItem("draw-player") || "匿名"; }
+</script>
+
 <div class="header"><h1>🎨 你画我猜</h1></div>
 <div class="tabs">
   <button class="tab active-blue" id="tab-guess" onclick="switchMode('guess')">🎯 猜画</button>
   <button class="tab" id="tab-draw" onclick="switchMode('draw')">🖌️ 画板</button>
+  <span id="player-badge" style="padding:8px 12px;border-radius:20px;background:#e91e63;color:#fff;font-size:.85em;font-weight:600;white-space:nowrap">👤 匿名</span>
   <a href="/gallery" class="tab" style="text-decoration:none;color:inherit">🖼️ 画廊</a>
   <a href="/leaderboard" class="tab" style="text-decoration:none;color:inherit">🏆 排行榜</a>
 </div>
@@ -1537,6 +1594,7 @@ function saveDrawing(){
 async function addComment(drawingId) {
   const nameEl = document.getElementById('cmt-name-'+drawingId);
   const textEl = document.getElementById('cmt-text-'+drawingId);
+  if (nameEl && !nameEl.value) nameEl.value = getPlayer();
   const author = nameEl ? nameEl.value.trim() : '';
   const text = textEl ? textEl.value.trim() : '';
   if (!author) return alert('请输入署名');
@@ -1639,6 +1697,34 @@ h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
 </style>
 </head>
 <body class="theme-space">
+<!-- 加入游戏弹窗 -->
+<div id="join-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:#16213e;border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%">
+    <div style="font-size:2em;margin-bottom:16px">🎨 你画我猜</div>
+    <div style="color:#999;margin-bottom:20px">输入你的名字开始游戏</div>
+    <input id="player-name-input" placeholder="你的名字（如：月汐）" style="width:100%;padding:12px;border-radius:10px;border:2px solid #3498db;background:#0f3460;color:#eee;font-size:1.1em;text-align:center;outline:0;margin-bottom:16px">
+    <button onclick="joinGame()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;font-size:1.1em;font-weight:600;cursor:pointer">开始游戏 🎮</button>
+  </div>
+</div>
+<script>
+function joinGame() {
+  const name = document.getElementById("player-name-input").value.trim();
+  if (!name) return alert("请输入你的名字！");
+  localStorage.setItem("draw-player", name);
+  document.getElementById("join-modal").style.display = "none";
+  document.getElementById("player-badge").textContent = "👤 " + name;
+}
+// 检查是否已加入
+const saved = localStorage.getItem("draw-player");
+if (saved) {
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("join-modal").style.display = "none";
+    document.getElementById("player-badge").textContent = "👤 " + saved;
+  });
+}
+function getPlayer() { return localStorage.getItem("draw-player") || "匿名"; }
+</script>
+
 <a href="/" class="back-link">← 返回游戏</a>
 <h1>🎨 画廊</h1>
 ${drawings.length ? '<div class="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
