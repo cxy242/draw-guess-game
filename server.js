@@ -76,22 +76,47 @@ ${paths}</svg>`;
 function makeAsciiGrid(strokes, w = 1000, h = 700, cols = 80, rows = 56) {
   const grid = Array.from({ length: rows }, () => Array(cols).fill('.'));
   const sx = cols / w, sy = rows / h;
+  function plotLine(x0,y0,x1,y1){
+    let cx=Math.round(x0*sx),cy=Math.round(y0*sy);
+    const cx1=Math.round(x1*sx),cy1=Math.round(y1*sy);
+    const dx=Math.abs(cx1-cx),dy=Math.abs(cy1-cy);
+    const ssx=cx<cx1?1:-1,ssy=cy<cy1?1:-1;
+    let err=dx-dy;
+    while(true){
+      if(cx>=0&&cx<cols&&cy>=0&&cy<rows)grid[cy][cx]='#';
+      if(cx===cx1&&cy===cy1)break;
+      const e2=2*err;
+      if(e2>-dy){err-=dy;cx+=ssx;}
+      if(e2<dx){err+=dx;cy+=ssy;}
+    }
+  }
   for (const s of (strokes || [])) {
-    const pairs = normalizePointPairs(s.points || s);
-    for (let i = 0; i < pairs.length - 1; i++) {
-      const [x0, y0] = pairs[i], [x1, y1] = pairs[i + 1];
-      let cx = Math.round(x0 * sx), cy = Math.round(y0 * sy);
-      const cx1 = Math.round(x1 * sx), cy1 = Math.round(y1 * sy);
-      const dx = Math.abs(cx1 - cx), dy = Math.abs(cy1 - cy);
-      const ssx = cx < cx1 ? 1 : -1, ssy = cy < cy1 ? 1 : -1;
-      let err = dx - dy;
-      while (true) {
-        if (cx >= 0 && cx < cols && cy >= 0 && cy < rows) grid[cy][cx] = '#';
-        if (cx === cx1 && cy === cy1) break;
-        const e2 = 2 * err;
-        if (e2 > -dy) { err -= dy; cx += ssx; }
-        if (e2 < dx) { err += dx; cy += ssy; }
+    const tool=s.tool||'polyline';
+    if(tool==='polyline'){
+      const pairs = normalizePointPairs(s.points || s);
+      for (let i = 0; i < pairs.length - 1; i++) {
+        plotLine(pairs[i][0],pairs[i][1],pairs[i+1][0],pairs[i+1][1]);
       }
+    } else if(tool==='rect'){
+      const pairs = normalizePointPairs(s.points || s);
+      if(pairs.length<2)continue;
+      const[x1,y1]=pairs[0],[x2,y2]=pairs[1];
+      plotLine(x1,y1,x2,y1);plotLine(x2,y1,x2,y2);plotLine(x2,y2,x1,y2);plotLine(x1,y2,x1,y1);
+    } else if(tool==='circle'){
+      const pairs = normalizePointPairs(s.points || s);
+      if(pairs.length<2)continue;
+      const[x1,y1]=pairs[0],[x2,y2]=pairs[1];
+      const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2;
+      for(let a=0;a<360;a+=5){
+        const rad=a*Math.PI/180;
+        const px=cx+rx*Math.cos(rad),py=cy+ry*Math.sin(rad);
+        const px2=cx+rx*Math.cos(rad+5*Math.PI/180),py2=cy+ry*Math.sin(rad+5*Math.PI/180);
+        plotLine(px,py,px2,py2);
+      }
+    } else if(tool==='line'||tool==='arrow'){
+      const pairs = normalizePointPairs(s.points || s);
+      if(pairs.length<2)continue;
+      plotLine(pairs[0][0],pairs[0][1],pairs[1][0],pairs[1][1]);
     }
   }
   return grid.map(r => r.join('')).join('\n');
@@ -101,15 +126,63 @@ function makeAsciiGrid(strokes, w = 1000, h = 700, cols = 80, rows = 56) {
 // 把线条数据转成自然语言描述，帮助AI理解画作
 function describeStrokes(strokes) {
   if (!strokes || !strokes.length) return '（空白画布）';
-  const colorName = {'#000':'黑色','#fff':'白色','#e53935':'红色','#ff9800':'橙色','#ffeb3b':'黄色','#4caf50':'绿色','#2196f3':'蓝色','#9c27b0':'紫色','#e91e63':'粉色','#795548':'棕色','#607d8b':'灰色','#ff5722':'深橙','#4f454b':'深灰'};
+  const colorName = {'#000':'黑色','#fff':'白色','#e53935':'红色','#ff9800':'橙色','#ffeb3b':'黄色','#4caf50':'绿色','#2196f3':'蓝色','#9c27b0':'紫色','#e91e63':'粉色','#795548':'棕色','#607d8b':'灰色','#ff5722':'深橙','#4f454b':'深灰','#f44336':'亮红','#ffc107':'金黄','#cddc39':'黄绿','#009688':'青色','#00bcd4':'天蓝','#1565c0':'深蓝','#f48fb1':'浅粉','#9e9e9e':'中灰','#90a4ae':'蓝灰','#d7ccc8':'米色','#a1887f':'驼色'};
   const parts = [];
   let totalPoints = 0;
   
   strokes.forEach((s, i) => {
+    const tool = s.tool || 'polyline';
+    const c = colorName[s.color] || s.color || '黑色';
+    
+    if (tool === 'rect') {
+      if (!s.points || s.points.length < 2) return;
+      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
+      const w=Math.abs(x2-x1),h=Math.abs(y2-y1);
+      const cx=Math.round((x1+x2)/2),cy=Math.round((y1+y2)/2);
+      let desc=`${c}的矩形(${w}x${h}像素)，中心在(${cx},${cy})`;
+      desc+=`，位于画布${cx<400?'左侧':cx>600?'右侧':'中间'}${cy<300?'偏上':cy>450?'偏下':'中间'}`;
+      parts.push(desc);
+      return;
+    } else if (tool === 'circle') {
+      if (!s.points || s.points.length < 2) return;
+      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
+      const rx=Math.round(Math.abs(x2-x1)/2),ry=Math.round(Math.abs(y2-y1)/2);
+      const cx=Math.round((x1+x2)/2),cy=Math.round((y1+y2)/2);
+      const ratio=rx/Math.max(ry,1);
+      let desc;
+      if(ratio>0.8&&ratio<1.2) desc=`${c}的圆形(半径约${rx})`;
+      else desc=`${c}的椭圆(${rx}x${ry})`;
+      desc+=`，中心在(${cx},${cy})`;
+      parts.push(desc);
+      return;
+    } else if (tool === 'line') {
+      if (!s.points || s.points.length < 2) return;
+      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
+      const len=Math.round(Math.sqrt((x2-x1)**2+(y2-y1)**2));
+      const angle=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
+      let dir='';
+      if(angle>-22.5&&angle<=22.5)dir='水平向右';
+      else if(angle>22.5&&angle<=67.5)dir='右下';
+      else if(angle>67.5&&angle<=112.5)dir='垂直向下';
+      else if(angle>112.5&&angle<=157.5)dir='左下';
+      else if(angle>157.5||angle<=-157.5)dir='水平向左';
+      else if(angle>-157.5&&angle<=-112.5)dir='左上';
+      else if(angle>-112.5&&angle<=-67.5)dir='垂直向上';
+      else dir='右上';
+      parts.push(`${c}的直线，从(${x1},${y1})到(${x2},${y2})，长${len}px，${dir}`);
+      return;
+    } else if (tool === 'arrow') {
+      if (!s.points || s.points.length < 2) return;
+      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
+      const len=Math.round(Math.sqrt((x2-x1)**2+(y2-y1)**2));
+      parts.push(`${c}的箭头，从(${x1},${y1})指向(${x2},${y2})，长${len}px`);
+      return;
+    }
+    
+    // polyline handling
     if (!s.points || s.points.length < 2) return;
     const pts = s.points;
     totalPoints += pts.length;
-    const c = colorName[s.color] || s.color || '黑色';
     const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
     const minX=Math.min(...xs), maxX=Math.max(...xs);
     const minY=Math.min(...ys), maxY=Math.max(...ys);
@@ -121,7 +194,6 @@ function describeStrokes(strokes) {
     
     let desc = '';
     if (closed && w>20 && h>20) {
-      // 闭合形状
       const ratio = w/Math.max(h,1);
       if (ratio > 0.7 && ratio < 1.4) desc = `${c}的圆形或方形`;
       else if (ratio >= 1.4) desc = `${c}的横向椭圆或长方形(宽${w}高${h})`;
@@ -130,7 +202,6 @@ function describeStrokes(strokes) {
     } else if (w<15 && h<15) {
       desc = `${c}的一个小点`;
     } else {
-      // 开放线条 - 描述走向
       const turns = [];
       for (let j=1; j<pts.length; j++) {
         const dx=pts[j][0]-pts[j-1][0], dy=pts[j][1]-pts[j-1][1];
@@ -159,7 +230,6 @@ function describeStrokes(strokes) {
     parts.push(desc);
   });
   
-  // 添加整体描述
   let summary = `\n整体：画布上有${strokes.length}条线（${totalPoints}个点），`;
   if (strokes.length === 1) summary += '用一笔完成';
   else summary += `分${strokes.length}笔画成`;
@@ -644,160 +714,12 @@ fastify.get('/api/leaderboard', async () => {
   return { ok: true, leaderboard: entries, recentDrawings: savedDrawings.slice(-20).reverse() };
 });
 
-// 排行榜页面
-fastify.get('/leaderboard', async (req, reply) => {
-  const entries = Object.entries(playerGuessCorrect)
-    .map(([name, correct]) => ({ name, correct, score: scores[name] || 0 }))
-    .sort((a, b) => b.correct - a.correct);
-  
-  const rowsHtml = entries.map((e, i) => {
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1);
-    return `<tr><td>${medal}</td><td style="color:#FFB6C1;font-weight:600">${e.name}</td><td>${e.correct}</td><td>${e.score}</td></tr>`;
-  }).join('');
-  
-  const recentHtml = savedDrawings.slice(-10).reverse().map(d => {
-    const label = d.artist === 'AI' ? '🤖 ' + (d.author || 'AI画师') : '✏️ ' + (d.author || '匿名');
-    return `<div style="background:#16213e;border-radius:8px;padding:8px;margin-bottom:8px;border:1px solid #2a2a4a">
-      <div style="display:flex;justify-content:space-between"><span style="color:#FFB6C1">${label}</span><span style="color:#666;font-size:11px">${(d.created_at||'').slice(0,16)}</span></div>
-      ${d.answer ? '<div style="color:#87CEEB;font-size:13px">答案：'+d.answer+'</div>' : ''}
-    </div>`;
-  }).join('');
-
-  const html = `<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><meta name="color-scheme" content="light"><title>🏆 排行榜</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:system-ui,sans-serif;min-height:100vh;transition:all 0.3s}
-
-/* 主题1: 深蓝星空 */
-body.theme-space{background:#0a0a2e;color:#eee}
-body.theme-space .card{background:#16213e;border:1px solid #2a2a4a}
-body.theme-space .tab{background:#16213e;color:#aaa;border:1px solid #2a2a4a}
-body.theme-space .tab.active-blue{background:linear-gradient(135deg,#3498db,#2196f3);color:#fff;border-color:#3498db}
-body.theme-space .tab.active-pink{background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;border-color:#e91e63}
-body.theme-space .drawing-area{background:#fffafc}
-body.theme-space .btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
-body.theme-space .btn-pink{background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff}
-body.theme-space .btn-blue{background:linear-gradient(135deg,#3498db,#2196f3);color:#fff}
-body.theme-space input{background:#0f3460;border:2px solid #333;color:#eee}
-
-/* 主题2: 樱花粉 */
-body.theme-sakura{background:#fff5f5;color:#333}
-body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2}
-body.theme-sakura .tab{background:#fff;color:#888;border:1px solid #ffcdd2}
-body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
-body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
-body.theme-sakura .drawing-area{background:#fffafc}
-body.theme-sakura .btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
-body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
-body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
-body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
-
-/* 主题3: 森林绿 */
-body.theme-forest{background:#1b2d1b;color:#e0e0e0}
-body.theme-forest .card{background:#2d4a2d;border:1px solid #3d6b3d}
-body.theme-forest .tab{background:#2d4a2d;color:#aaa;border:1px solid #3d6b3d}
-body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
-body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
-body.theme-forest .drawing-area{background:#fffafc}
-body.theme-forest .btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
-body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
-body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
-body.theme-forest input{background:#1b2d1b;border:2px solid #3d6b3d;color:#e0e0e0}
-
-/* 通用样式 */
-.drawing-area{border-radius:12px;overflow:hidden;margin-bottom:12px;min-height:200px;color-scheme:light}
-.drawing-area svg{width:100%;height:auto;display:block}
-canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor:crosshair;display:block;color-scheme:light}
-.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
-.tab{flex:1;min-width:60px;padding:10px 8px;border-radius:10px;text-align:center;cursor:pointer;font-weight:600;font-size:.85em;transition:all .2s;user-select:none}
-.empty-state{text-align:center;padding:60px 20px;color:#999}
-.input-row{display:flex;gap:8px}
-.input-row input{flex:1;padding:10px 14px;border-radius:10px;font-size:1em;outline:0}
-.input-row input:focus{border-color:#3498db}
-.btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
-.btn:active{transform:scale(0.95)}
-.correct-banner{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:100}
-.correct-banner>div{font-size:2em;color:#FFD700;text-align:center}
-.color-btn{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:all .2s}
-.color-btn.sel{border-color:#fff;transform:scale(1.2)}
-.color-btn:active{transform:scale(0.9)}
-.tool-btn{padding:6px 10px;border-radius:8px;border:2px solid transparent;cursor:pointer;font-size:.8em;transition:all .2s}
-.tool-btn.active{border-color:#e91e63;background:#e91e63;color:#fff}
-.theme-switcher{position:fixed;bottom:16px;right:16px;z-index:999;display:flex;gap:6px}
-.theme-btn{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.5);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all .2s}
-.theme-btn:hover{transform:scale(1.1)}
-.theme-btn.active{border-color:#FFD700;box-shadow:0 0 12px #FFD700}
-@media(max-width:480px){
-  .color-btn{width:24px;height:24px}
-  .tab{padding:8px 6px;font-size:.8em}
-  .theme-btn{width:30px;height:30px}
-}</style>
-</head><body class="theme-space">
-<!-- 加入游戏弹窗 -->
-<div id="join-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center">
-  <div style="background:#16213e;border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%">
-    <div style="font-size:2em;margin-bottom:16px">🎨 你画我猜</div>
-    <div style="color:#999;margin-bottom:20px">输入你的名字开始游戏</div>
-    <input id="player-name-input" placeholder="你的名字（如：月汐）" style="width:100%;padding:12px;border-radius:10px;border:2px solid #3498db;background:#0f3460;color:#eee;font-size:1.1em;text-align:center;outline:0;margin-bottom:16px">
-    <button onclick="joinGame()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;font-size:1.1em;font-weight:600;cursor:pointer">开始游戏 🎮</button>
-  </div>
-</div>
-<script>
-function joinGame() {
-  const input = document.getElementById("player-name-input");
-  const name = input ? input.value.trim() : "";
-  if (!name) return alert("请输入你的名字！");
-  localStorage.setItem("draw-player", name);
-  document.getElementById("join-modal").style.display = "none";
-  document.getElementById("player-badge").textContent = "👤 " + name;
-}
-// 检查是否已加入
-const saved = localStorage.getItem("draw-player");
-if (saved) {
-  document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("join-modal").style.display = "none";
-    document.getElementById("player-badge").textContent = "👤 " + saved;
-  });
-}
-function getPlayer() { return localStorage.getItem("draw-player") || "匿名"; }
-</script>
-
-<a href="/" class="back">← 返回游戏</a>
-<h1>🏆 排行榜</h1>
-${entries.length ? '<table><thead><tr><th>排名</th><th>玩家</th><th>猜对</th><th>得分</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>' : '<div class="empty">还没有人猜对过~</div>'}
-<h2>📜 最近画作</h2>
-${savedDrawings.length ? recentHtml : '<div class="empty">还没有画作~</div>'}
-
-<!-- 主题切换 -->
-<div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#fff5f5,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#1b2d1b,#2d4a2d)" onclick="setTheme('forest')" title="森林绿"></div>
-</div>
-<script>
-function setTheme(name) {
-  document.body.className = 'theme-' + name;
-  localStorage.setItem('draw-theme', name);
-  document.querySelectorAll('.theme-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['space','sakura','forest'][i] === name);
-  });
-}
-// 加载保存的主题
-const saved = localStorage.getItem('draw-theme');
-if (saved) setTheme(saved);
-</script>
-</body></html>`;
-  reply.type('text/html; charset=utf-8');
-  return html;
-});
-
 fastify.post('/api/start', async (req) => {
   const body = req.body || {};
-  const { answer, content, aliases = [], artist = 'AI', author = 'AI画师' } = body;
+  const { answer, content, aliases = [], artist = 'AI', author = '艾因' } = body;
   if (!answer || !content) return { ok: false, message: '需要 answer 和 content' };
   currentRound = {
-    answer, aliases, artist, author: (author || (artist === 'AI' ? 'AI画师' : '匿名')), content,
+    answer, aliases, artist, author: artist === 'AI' ? '艾因' : (author || '匿名'), content,
     drawing_svg: strokesToSvg(content),
     ascii_grid: makeAsciiGrid(content),
     ascii_grid_note: ASCII_NOTE,
@@ -807,7 +729,7 @@ fastify.post('/api/start', async (req) => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
-  return { ok: true, message: '新一局开始！画师: ' + author };
+  return { ok: true, message: '新一局开始！画师: ' + (artist === 'AI' ? '艾因' : author) };
 });
 
 fastify.get('/api/status', async () => {
@@ -884,7 +806,6 @@ fastify.post('/api/draw', async (req) => {
     id: Date.now(),
     artist: 'user',
     author: author || '匿名',
-    comments: [],
     answer: answer || null,
     drawing_svg: currentRound.drawing_svg,
     ascii_grid: currentRound.ascii_grid,
@@ -901,7 +822,7 @@ fastify.post('/api/draw', async (req) => {
 fastify.post('/api/demo', async () => {
   const demo = DEMO_DRAWINGS[Math.floor(Math.random() * DEMO_DRAWINGS.length)];
   currentRound = {
-    answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: 'AI画师', content: demo.content,
+    answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: '艾因', content: demo.content,
     drawing_svg: strokesToSvg(demo.content),
     ascii_grid: makeAsciiGrid(demo.content),
     ascii_grid_note: ASCII_NOTE,
@@ -915,8 +836,7 @@ fastify.post('/api/demo', async () => {
   savedDrawings.push({
     id: Date.now(),
     artist: 'AI',
-    author: 'AI画师',
-    comments: [],
+    author: '艾因',
     answer: demo.answer,
     aliases: demo.aliases,
     drawing_svg: currentRound.drawing_svg,
@@ -927,7 +847,7 @@ fastify.post('/api/demo', async () => {
   });
   if (savedDrawings.length > 50) savedDrawings = savedDrawings.slice(-50);
   
-  return { ok: true, message: '新一局开始！画师: AI画师', answer: demo.answer };
+  return { ok: true, message: '新一局开始！画师: 艾因', answer: demo.answer };
 });
 
 fastify.get('/api/random', async () => {
@@ -937,7 +857,7 @@ fastify.get('/api/random', async () => {
     // Fallback to a demo drawing
     const demo = DEMO_DRAWINGS[Math.floor(Math.random() * DEMO_DRAWINGS.length)];
     currentRound = {
-      answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: 'AI画师', content: demo.content,
+      answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: '艾因', content: demo.content,
       drawing_svg: strokesToSvg(demo.content),
       ascii_grid: makeAsciiGrid(demo.content),
       ascii_grid_note: ASCII_NOTE,
@@ -947,10 +867,10 @@ fastify.get('/api/random', async () => {
       hintsRevealed: 0,
       startTime: Date.now(),
     };
-    return { ok: true, message: '随机一局开始！（画师：AI画师）', answer: demo.answer };
+    return { ok: true, message: '随机一局开始！（画师：艾因）', answer: demo.answer };
   }
   currentRound = {
-    answer: entry.word, aliases: entry.aliases, artist: 'AI', author: 'AI画师', content: drawing,
+    answer: entry.word, aliases: entry.aliases, artist: 'AI', author: '艾因', content: drawing,
     drawing_svg: strokesToSvg(drawing),
     ascii_grid: makeAsciiGrid(drawing),
     ascii_grid_note: ASCII_NOTE,
@@ -960,7 +880,7 @@ fastify.get('/api/random', async () => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
-  return { ok: true, message: '随机一局开始！（画师：AI画师）', answer: entry.word };
+  return { ok: true, message: '随机一局开始！（画师：艾因）', answer: entry.word };
 });
 
 fastify.get('/api/score', async () => {
@@ -978,6 +898,7 @@ const FRONTEND = String.raw`<!DOCTYPE html>
 <title>🎨 你画我猜</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--card:#16213e;--border:#2a2a4a;--pink:#FFB6C1;--blue:#87CEEB;--text:#eee;--muted:#999}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;overflow-x:hidden}
 .header{text-align:center;padding:16px 12px 4px}
 .header h1{font-size:1.5em;background:linear-gradient(135deg,var(--blue),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -1032,16 +953,13 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
 }
 </style>
 </head>
-<body class="theme-space">
-</script>
-
+<body>
 <div class="header"><h1>🎨 你画我猜</h1></div>
 <div class="tabs">
   <button class="tab active-blue" id="tab-guess" onclick="switchMode('guess')">🎯 猜画</button>
   <button class="tab" id="tab-draw" onclick="switchMode('draw')">🖌️ 画板</button>
-  <span id="player-badge" style="padding:8px 12px;border-radius:20px;background:#e91e63;color:#fff;font-size:.85em;font-weight:600;white-space:nowrap">👤 匿名</span>
-  <a href="/gallery" class="tab" style="text-decoration:none;color:inherit">🖼️ 画廊</a>
-  <a href="/leaderboard" class="tab" style="text-decoration:none;color:inherit">🏆 排行榜</a>
+  <button class="tab" id="tab-leaderboard" onclick="switchMode('leaderboard')">🏆 排行榜</button>
+  <a href="/gallery" class="tab" style="text-decoration:none;color:inherit">🖼 画廊</a>
 </div>
 
 <!-- Guessing Mode -->
@@ -1167,6 +1085,10 @@ if(currentPlayerName){
   $('player-status').textContent='已加入';
   fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:currentPlayerName})});
 }
+async function joinGame(){
+  const name=$('player-name').value.trim();
+  if(!name)return alert('请输入名字！');
+  const r=await fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
   const d=await r.json();
   if(d.ok){
     currentPlayerName=name;
@@ -1279,7 +1201,7 @@ async function loadLeaderboard(){
       // 最近画作
       const rd=d.recentDrawings||[];
       $('recent-drawings').innerHTML=rd.length?rd.slice(0,8).map(d=>{
-        const label=d.artist==='AI'?'🤖 '+(d.author||'AI画师'):'✏️ '+(d.author||'匿名');
+        const label=d.artist==='AI'?'🤖 '+(d.author||'艾因'):'✏️ '+(d.author||'匿名');
         return '<div style="display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #2a2a4a">'+label+'<span style="color:#87CEEB;font-size:.85em">'+(d.answer||'自由画')+'</span><span style="color:#666;font-size:.8em;margin-left:auto">'+(d.created_at||'').slice(11,16)+'</span></div>';
       }).join(''):'<div style="color:#666;text-align:center;padding:12px">暂无画作</div>';
     }
@@ -1310,7 +1232,7 @@ loadScores();
 const canvas=$('draw-canvas');
 const ctx=canvas.getContext('2d');
 let drawing=false,strokes=[],curStroke=null,curColor='#000',isEraser=false;
-let currentTool='polyline',shapeStart=null;
+let currentTool='polyline',shapeStart=null,lastDrawPos=null;
 
 // 初始化canvas尺寸
 function initCanvas(){
@@ -1327,6 +1249,8 @@ function initCanvas(){
   ctx.lineJoin='round';
 }
 setTimeout(initCanvas,200);
+// 初始化署名
+if(currentPlayerName){const ae=document.getElementById('draw-author');if(ae)ae.value=currentPlayerName;}
 
 function getXY(e){
   const r=canvas.getBoundingClientRect();
@@ -1390,6 +1314,7 @@ function moveDraw(e){
   if(!drawing)return;
   e.preventDefault();
   const p=getXY(e);
+  lastDrawPos={x:Math.round(p.x),y:Math.round(p.y)};
   if(isShapeTool(currentTool)&&shapeStart&&!isEraser){
     // Preview: redraw canvas then overlay preview shape
     redraw();
@@ -1407,14 +1332,15 @@ function endDraw(e){
   if(e)e.preventDefault();
   drawing=false;
   if(isShapeTool(currentTool)&&shapeStart&&!isEraser){
-    const p=getXY(e)||{x:shapeStart.x,y:shapeStart.y};
+    const p=lastDrawPos||shapeStart;
     const w=parseInt($('stroke-width').value)||6;
-    const x1=shapeStart.x,y1=shapeStart.y,x2=Math.round(p.x),y2=Math.round(p.y);
+    const x1=shapeStart.x,y1=shapeStart.y,x2=p.x,y2=p.y;
     // Only add if shape has some size
     if(Math.abs(x2-x1)>3||Math.abs(y2-y1)>3){
       strokes.push({tool:currentTool,points:[[x1,y1],[x2,y2]],color:curColor,width:w});
     }
     shapeStart=null;
+    lastDrawPos=null;
     redraw();
   } else {
     if(curStroke&&curStroke.points.length>1)strokes.push(curStroke);
@@ -1561,76 +1487,39 @@ function saveDrawing(){
   link.href=tmpCanvas.toDataURL('image/png');
   link.click();
 }
-
-async function addComment(drawingId) {
-  const nameEl = document.getElementById('cmt-name-'+drawingId);
-  const textEl = document.getElementById('cmt-text-'+drawingId);
-  if (nameEl && !nameEl.value) nameEl.value = getPlayer();
-  const author = nameEl ? nameEl.value.trim() : '';
-  const text = textEl ? textEl.value.trim() : '';
-  if (!author) return alert('请输入署名');
-  if (!text) return alert('请输入评论');
-  await fetch('/api/comment', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ drawing_id: drawingId, author, text, is_ai: false }) });
-  if (textEl) textEl.value = '';
-  // 不刷新，直接在页面上显示新评论
-  location.reload();
-}
 </script>
-
-
 </body>
 </html>`;
 
 
-
-// ===== 评论API =====
-fastify.post('/api/comment', async (req) => {
-  const { drawing_id, author, text, is_ai } = req.body || {};
-  if (!drawing_id || !author || !text) return { ok: false, message: '需要 drawing_id, author, text' };
-  const drawing = savedDrawings.find(d => d.id === drawing_id);
-  if (!drawing) return { ok: false, message: '画作不存在' };
-  if (!drawing.comments) drawing.comments = [];
-  drawing.comments.push({ author, text, is_ai: !!is_ai, time: new Date().toISOString() });
-  return { ok: true, comments: drawing.comments };
-});
-
-fastify.get('/api/comments/:id', async (req) => {
-  const id = Number(req.params.id);
-  const drawing = savedDrawings.find(d => d.id === id);
-  if (!drawing) return { ok: false, message: '画作不存在' };
-  return { ok: true, comments: drawing.comments || [] };
-});
-
 // ===== 画廊 API =====
-// Redeploy trigger: b97bc460
 fastify.get('/api/gallery', async () => {
   return { ok: true, drawings: savedDrawings.slice().reverse() };
 });
 
 fastify.get('/gallery', async (req, reply) => {
   const drawings = savedDrawings.slice().reverse();
+  const authors = [...new Set(drawings.map(d => d.artist === 'AI' ? '艾因' : (d.author || '匿名')))].filter(Boolean);
+  
   const cardsHtml = drawings.map((d, i) => {
-    const label = d.artist === 'AI' ? '🤖 ' + (d.author || 'AI画师') : '✏️ ' + (d.author || '匿名');
+    const label = d.artist === 'AI' ? '🤖 ' + (d.author || '艾因') : '✏️ ' + (d.author || '匿名');
+    const authorKey = d.artist === 'AI' ? '艾因' : (d.author || '匿名');
     const answerHtml = d.answer ? '<div style="color:#87CEEB;font-size:13px;margin-top:4px">答案：' + d.answer + '</div>' : '';
     const descHtml = d.description ? '<div style="color:#999;font-size:11px;margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">' + d.description.replace(/</g,'&lt;') + '</div>' : '';
-    const commentsHtml = (d.comments || []).map(c => {
-      const cLabel = c.is_ai ? '🤖 ' + c.author : '✏️ ' + c.author;
-      return '<div style="margin:4px 0;padding:4px 8px;background:#0f3460;border-radius:6px;font-size:12px"><span style="color:#FFB6C1">' + cLabel + ':</span> ' + c.text.replace(/</g,'&lt;') + '</div>';
-    }).join('');
-    const commentForm = '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap"><input id="cmt-name-'+d.id+'" placeholder="你的署名" style="width:70px;padding:6px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:12px"><input id="cmt-text-'+d.id+'" placeholder="写评论..." style="flex:1;min-width:100px;padding:6px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:12px"><button onclick="addComment('+d.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:#e91e63;color:#fff;font-size:12px;cursor:pointer;font-weight:600">发送</button></div>';
-    return '<div class="gallery-card">' +
+    const timeStr = (d.created_at || '').slice(0,16);
+    return '<div class="gallery-card" data-author="' + authorKey + '" data-time="' + (d.created_at || '') + '">' +
       '<div class="drawing-preview">' + d.drawing_svg + '</div>' +
       '<div style="padding:8px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center">' +
           '<span style="color:#FFB6C1;font-weight:600">' + label + '</span>' +
-          '<span style="color:#666;font-size:11px">' + (d.created_at || '').slice(0,16) + '</span>' +
+          '<span style="color:#666;font-size:11px">' + timeStr + '</span>' +
         '</div>' +
         answerHtml + descHtml +
-        (commentsHtml ? '<div style="margin-top:6px">' + commentsHtml + '</div>' : '') +
-        commentForm +
       '</div>' +
     '</div>';
   }).join('');
+
+  const filterOptions = authors.map(a => '<option value="' + a + '">' + a + '</option>').join('');
 
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1649,16 +1538,115 @@ h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
 .back-link{display:inline-block;color:#87CEEB;text-decoration:none;margin-bottom:12px;font-size:14px}
 .back-link:hover{text-decoration:underline}
 .empty{text-align:center;color:#999;padding:60px;font-size:16px}
+.filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.filter-bar select,.filter-bar input{padding:8px 12px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:.9em;outline:0}
+.filter-bar label{color:#888;font-size:.85em}
+.filter-count{color:#87CEEB;font-size:.85em}
 </style>
 </head>
-<body class="theme-space">
-</script>
-
+<body>
 <a href="/" class="back-link">← 返回游戏</a>
+<a href="/leaderboard" class="back-link" style="margin-left:16px">🏆 排行榜</a>
 <h1>🎨 画廊</h1>
-${drawings.length ? '<div class="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
+<div class="filter-bar">
+  <label>作者</label>
+  <select id="filter-author" onchange="filterGallery()">
+    <option value="">全部</option>
+    ${filterOptions}
+  </select>
+  <label>排序</label>
+  <select id="filter-sort" onchange="filterGallery()">
+    <option value="newest">最新优先</option>
+    <option value="oldest">最早优先</option>
+  </select>
+  <span id="filter-count" class="filter-count"></span>
+</div>
+${drawings.length ? '<div class="gallery-grid" id="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
+<script>
+function filterGallery(){
+  const author=document.getElementById('filter-author').value;
+  const sort=document.getElementById('filter-sort').value;
+  const cards=Array.from(document.querySelectorAll('.gallery-card'));
+  let visible=0;
+  cards.forEach(card=>{
+    const ca=card.dataset.author;
+    const show=!author||ca===author;
+    card.style.display=show?'':'none';
+    if(show)visible++;
+  });
+  // Sort
+  const grid=document.getElementById('gallery-grid');
+  if(grid){
+    cards.sort((a,b)=>{
+      const ta=a.dataset.time,tb=b.dataset.time;
+      return sort==='newest'?tb.localeCompare(ta):ta.localeCompare(tb);
+    });
+    cards.forEach(c=>grid.appendChild(c));
+  }
+  document.getElementById('filter-count').textContent='显示 '+visible+' / '+cards.length+' 幅';
+}
+filterGallery();
+</script>
+</body>
+</html>`;
+  reply.type('text/html; charset=utf-8');
+  return html;
+});
 
+fastify.get('/leaderboard', async (req, reply) => {
+  const entries = Object.entries(playerGuessCorrect)
+    .map(([name, correct]) => ({ name, correct, score: scores[name] || 0 }))
+    .sort((a, b) => b.correct - a.correct);
+  const recentDrawings = savedDrawings.slice(-20).reverse();
+  const players = Object.keys(onlinePlayers).map(name => ({
+    name, score: scores[name] || 0, correctCount: playerGuessCorrect[name] || 0,
+  }));
 
+  const lbRows = entries.map((e, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)+'.';
+    return '<tr><td style="padding:10px 14px;font-size:1.1em">'+medal+'</td><td style="padding:10px 14px;font-weight:600;color:#FFB6C1">'+e.name+'</td><td style="padding:10px 14px;color:#87CEEB;text-align:center">'+e.correct+'次</td><td style="padding:10px 14px;color:#666;text-align:center">'+e.score+'分</td></tr>';
+  }).join('');
+
+  const recentCards = recentDrawings.slice(0, 10).map(d => {
+    const label = d.artist === 'AI' ? '🤖 ' + (d.author || '艾因') : '✏️ ' + (d.author || '匿名');
+    return '<div style="background:#16213e;border-radius:10px;border:1px solid #2a2a4a;overflow:hidden;min-width:180px;flex-shrink:0">' +
+      '<div style="background:#fffafc;padding:2px">' + d.drawing_svg + '</div>' +
+      '<div style="padding:6px 8px"><span style="color:#FFB6C1;font-size:.85em">'+label+'</span>' +
+      (d.answer ? '<span style="color:#87CEEB;font-size:.8em;margin-left:6px">'+d.answer+'</span>' : '') +
+      '<span style="color:#666;font-size:.75em;float:right">'+(d.created_at||'').slice(11,16)+'</span></div></div>';
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>🏆 排行榜</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:system-ui,sans-serif;min-height:100vh;padding:16px}
+h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
+table{width:100%;border-collapse:collapse;background:#16213e;border-radius:12px;overflow:hidden}
+th{padding:12px 14px;text-align:left;color:#87CEEB;font-size:.9em;border-bottom:1px solid #2a2a4a}
+td{border-bottom:1px solid #1a1a2e}
+.back-link{display:inline-block;color:#87CEEB;text-decoration:none;margin-bottom:12px;font-size:14px}
+.back-link:hover{text-decoration:underline}
+.section-title{color:#FFB6C1;font-size:1.1em;font-weight:600;margin:20px 0 10px}
+.scroll-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+</style>
+</head>
+<body>
+<a href="/" class="back-link">← 返回游戏</a>
+<a href="/gallery" class="back-link" style="margin-left:16px">🖼 画廊</a>
+<h1>🏆 排行榜</h1>
+<div class="section-title">🎯 猜对排行</div>
+${entries.length ? '<table><thead><tr><th>#</th><th>玩家</th><th style="text-align:center">猜对次数</th><th style="text-align:center">总分</th></tr></thead><tbody>' + lbRows + '</tbody></table>' : '<div style="color:#666;text-align:center;padding:24px">还没有人猜对过～</div>'}
+<div class="section-title">👥 在线玩家 (${players.length}人)</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+${players.length ? players.map(p => '<span style="padding:6px 14px;border-radius:12px;background:#0f3460;color:#87CEEB;font-size:.9em">'+p.name+(p.correctCount>0?' ('+p.correctCount+'次猜对)':'')+'</span>').join('') : '<span style="color:#666">暂无在线玩家</span>'}
+</div>
+<div class="section-title">🖼 最近画作</div>
+${recentDrawings.length ? '<div class="scroll-row">' + recentCards + '</div>' : '<div style="color:#666;text-align:center;padding:24px">暂无画作</div>'}
 </body>
 </html>`;
   reply.type('text/html; charset=utf-8');
@@ -1682,8 +1670,4 @@ const start = async () => {
 };
 start();
 
-
-
-// ===== MCP Endpoint (Streamable HTTP) =====
-const MCP_GAME_URL = process.env.GAME_URL || 'https://web-production-54961.up.railway.app';
 
