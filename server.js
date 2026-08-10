@@ -1005,7 +1005,8 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
     <div id="guess-drawing" class="drawing-area"><div class="empty-state">点击「新一局」或「随机一局」开始游戏～</div></div>
     <div id="correct-banner" style="display:none"></div>
     <div class="input-row" style="margin:10px 0">
-      <input id="guess-input" placeholder="输入你的猜测..." autocomplete="off">
+      <input id="guess-player" placeholder="你的名字" style="width:90px;font-size:0.9em">
+      <input id="guess-input" placeholder="输入猜测..." autocomplete="off" style="flex:1">
       <button class="btn btn-blue" onclick="submitGuess()">猜！</button>
     </div>
     <div id="guess-history" class="guess-list"></div>
@@ -1207,7 +1208,8 @@ async function submitGuess(){
   if(solved)return;
   const inp=$('guess-input'),val=inp.value.trim();
   if(!val)return;inp.value='';
-  const guesserName=currentPlayerName||'玩家';const r=await fetch('/api/guess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({guesser:guesserName,content:val})});
+  const guessInput2=document.getElementById('guess-player');
+  const guesserName=(guessInput2?guessInput2.value.trim():'')||currentPlayerName||'玩家';const r=await fetch('/api/guess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({guesser:guesserName,content:val})});
   const d=await r.json();
   guessHistory.unshift({correct:d.correct,content:val});
   renderGuesses(guessHistory);
@@ -1535,6 +1537,8 @@ function joinGame() {
   if (badge) badge.textContent = "\u{1F464} " + name;
   var authorEl = document.getElementById("draw-author");
   if (authorEl) authorEl.value = name;
+  var guessPlayerEl = document.getElementById("guess-player");
+  if (guessPlayerEl) guessPlayerEl.value = name;
   fetch('/api/join', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})});
 }
 function getPlayer() { return localStorage.getItem("draw-player") || ""; }
@@ -1547,7 +1551,9 @@ function getPlayer() { return localStorage.getItem("draw-player") || ""; }
     var badge = document.getElementById("player-badge");
     if (badge) badge.textContent = "\u{1F464} " + saved;
     var authorEl = document.getElementById("draw-author");
-    if (authorEl) authorEl.placeholder = saved;
+    if (authorEl) authorEl.value = saved;
+    var guessPlayerEl = document.getElementById("guess-player");
+    if (guessPlayerEl) guessPlayerEl.value = saved;
   }
 })();
 
@@ -1628,6 +1634,14 @@ fastify.get('/gallery', async (req, reply) => {
           '<span style="color:#666;font-size:11px">' + timeStr + '</span>' +
         '</div>' +
         answerHtml + descHtml +
+        '<div style="margin-top:8px">' +
+          (d.comments||[]).map(function(c){return '<div style="margin:3px 0;padding:4px 8px;background:#0f3460;border-radius:6px;font-size:12px"><span style="color:#FFB6C1">'+(c.is_ai?'🤖 ':'✏️ ')+c.author+':</span> '+c.text.replace(/</g,'&lt;')+'</div>';}).join('') +
+          '<div style="display:flex;gap:4px;margin-top:6px">' +
+            '<input id="cmt-n-'+d.id+'" placeholder="署名" style="width:60px;padding:5px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:11px">' +
+            '<input id="cmt-t-'+d.id+'" placeholder="评论..." style="flex:1;padding:5px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:11px">' +
+            '<button onclick="addCmt('+d.id+')" style="padding:5px 10px;border-radius:6px;border:none;background:#e91e63;color:#fff;font-size:11px;cursor:pointer">发送</button>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -1707,6 +1721,18 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
 </div>
 ${drawings.length ? '<div class="gallery-grid" id="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
 <script>
+
+function addCmt(drawingId) {
+  var n = document.getElementById('cmt-n-'+drawingId);
+  var t = document.getElementById('cmt-t-'+drawingId);
+  var author = n ? n.value.trim() : '';
+  var text = t ? t.value.trim() : '';
+  if (!author) { alert('请输入署名'); return; }
+  if (!text) { alert('请输入评论'); return; }
+  fetch('/api/comment', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({drawing_id:drawingId, author:author, text:text, is_ai:false})})
+    .then(function(){ location.reload(); });
+}
+
 function filterGallery(){
   const author=document.getElementById('filter-author').value;
   const sort=document.getElementById('filter-sort').value;
@@ -1744,6 +1770,8 @@ function joinGame() {
   if (badge) badge.textContent = "\u{1F464} " + name;
   var authorEl = document.getElementById("draw-author");
   if (authorEl) authorEl.value = name;
+  var guessPlayerEl = document.getElementById("guess-player");
+  if (guessPlayerEl) guessPlayerEl.value = name;
   fetch('/api/join', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})});
 }
 function getPlayer() { return localStorage.getItem("draw-player") || ""; }
@@ -1756,7 +1784,9 @@ function getPlayer() { return localStorage.getItem("draw-player") || ""; }
     var badge = document.getElementById("player-badge");
     if (badge) badge.textContent = "\u{1F464} " + saved;
     var authorEl = document.getElementById("draw-author");
-    if (authorEl) authorEl.placeholder = saved;
+    if (authorEl) authorEl.value = saved;
+    var guessPlayerEl = document.getElementById("guess-player");
+    if (guessPlayerEl) guessPlayerEl.value = saved;
   }
 })();
 
