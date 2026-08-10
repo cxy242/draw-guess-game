@@ -1255,7 +1255,7 @@ fastify.route({
         if (!r.ok) return { content: [{ type: 'text', text: `画失败: ${r.message}` }] };
         const st = await api('GET', '/api/status');
         const desc = st.ok && st.current ? st.current.description : '';
-        return { content: [{ type: 'text', text: `画好了！描述:\n${desc}\n\n让用户猜~` }] };
+        return { content: [{ type: 'text', text: `画好了！描述:\n${desc}\n\n让用户猜~\n看画链接：${MCP_GAME_URL}` }] };
       });
 
       server.tool('draw_guess', '用户猜AI的画', { guesser: z.string(), content: z.string() }, async ({ guesser, content }) => {
@@ -1268,7 +1268,7 @@ fastify.route({
         if (!r.ok) return { content: [{ type: 'text', text: '开局失败' }] };
         const st = await api('GET', '/api/status');
         const desc = st.ok && st.current ? st.current.description : '';
-        return { content: [{ type: 'text', text: `来猜画！\n${desc}\n猜猜是什么？` }] };
+        return { content: [{ type: 'text', text: `来猜画！\n${desc}\n猜猜是什么？\n看画链接：${MCP_GAME_URL}` }] };
       });
 
       server.tool('draw_score', '查看分数', {}, async () => {
