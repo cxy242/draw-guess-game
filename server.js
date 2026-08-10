@@ -952,29 +952,35 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
   .hint-display{font-size:1.1em;letter-spacing:5px}
 }
 
-/* 樱花粉 */
-body.theme-sakura{background:#fff0f3;color:#333}
-body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2;box-shadow:0 2px 12px rgba(233,30,99,0.08)}
-body.theme-sakura .tab{background:#fff;color:#999;border:1px solid #ffcdd2}
-body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
-body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
-body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
-body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
-body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
-/* 森林绿 */
-body.theme-forest{background:#0d1f0d;color:#d4e8d4}
-body.theme-forest .card{background:#1a3a1a;border:1px solid #2d5a2d;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
-body.theme-forest .tab{background:#1a3a1a;color:#88aa88;border:1px solid #2d5a2d}
-body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
-body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
-body.theme-forest input{background:#0d1f0d;border:2px solid #2d5a2d;color:#d4e8d4}
-body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
-body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+/* 🌸 樱花物语 */
+body.theme-sakura{background:linear-gradient(135deg,#fce4ec,#f8bbd0,#f3e5f5);color:#4a2040}
+body.theme-sakura .card{background:rgba(255,255,255,0.85);border:1px solid rgba(236,64,122,0.15);box-shadow:0 4px 20px rgba(233,30,99,0.08);backdrop-filter:blur(10px)}
+body.theme-sakura .tab{background:rgba(255,255,255,0.7);color:#c2185b;border:1px solid rgba(236,64,122,0.2)}
+body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;border-color:#ec407a;box-shadow:0 2px 12px rgba(236,64,122,0.3)}
+body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#f48fb1,#ec407a);color:#fff;border-color:#f48fb1;box-shadow:0 2px 12px rgba(244,143,177,0.3)}
+body.theme-sakura input{background:rgba(255,255,255,0.9);border:2px solid #f8bbd0;color:#4a2040}
+body.theme-sakura input:focus{border-color:#ec407a;box-shadow:0 0 8px rgba(236,64,122,0.2)}
+body.theme-sakura .btn-pink{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;box-shadow:0 2px 10px rgba(236,64,122,0.3)}
+body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#26a69a);color:#fff}
+body.theme-sakura .empty-state{color:#e91e63}
+body.theme-sakura .color-btn.sel{border-color:#e91e63}
+/* 🌿 薄荷森林 */
+body.theme-forest{background:linear-gradient(135deg,#e8f5e9,#c8e6c9,#a5d6a7);color:#1b3a1b}
+body.theme-forest .card{background:rgba(255,255,255,0.85);border:1px solid rgba(76,175,80,0.15);box-shadow:0 4px 20px rgba(76,175,80,0.08);backdrop-filter:blur(10px)}
+body.theme-forest .tab{background:rgba(255,255,255,0.7);color:#2e7d32;border:1px solid rgba(76,175,80,0.2)}
+body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;border-color:#66bb6a;box-shadow:0 2px 12px rgba(76,175,80,0.3)}
+body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;border-color:#ffb74d;box-shadow:0 2px 12px rgba(255,152,0,0.3)}
+body.theme-forest input{background:rgba(255,255,255,0.9);border:2px solid #c8e6c9;color:#1b3a1b}
+body.theme-forest input:focus{border-color:#43a047;box-shadow:0 0 8px rgba(67,160,71,0.2)}
+body.theme-forest .btn-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;box-shadow:0 2px 10px rgba(255,152,0,0.3)}
+body.theme-forest .btn-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;box-shadow:0 2px 10px rgba(76,175,80,0.3)}
+body.theme-forest .empty-state{color:#43a047}
+body.theme-forest .color-btn.sel{border-color:#43a047}
 /* 主题切换按钮 */
 .theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
-.theme-btn{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:all .25s}
-.theme-btn:hover{transform:scale(1.15);border-color:rgba(255,255,255,0.6)}
-.theme-btn.active{border-color:#FFD700;box-shadow:0 0 16px rgba(255,215,0,0.5)}
+.theme-btn{width:38px;height:38px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all .3s ease}
+.theme-btn:hover{transform:scale(1.2);border-color:rgba(255,255,255,0.8);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
 
 </style>
 </head>
@@ -1562,9 +1568,9 @@ function setTheme(name) {
 </script>
 
 <div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#ffe4e8,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#1b3a1b,#2d5a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#1a237e,#283593)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#f48fb1,#ec407a)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#66bb6a,#2e7d32)" onclick="setTheme('forest')" title="森林绿"></div>
 </div>
 
 </body>
@@ -1622,29 +1628,35 @@ h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
 .filter-bar label{color:#888;font-size:.85em}
 .filter-count{color:#87CEEB;font-size:.85em}
 
-/* 樱花粉 */
-body.theme-sakura{background:#fff0f3;color:#333}
-body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2;box-shadow:0 2px 12px rgba(233,30,99,0.08)}
-body.theme-sakura .tab{background:#fff;color:#999;border:1px solid #ffcdd2}
-body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
-body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
-body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
-body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
-body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
-/* 森林绿 */
-body.theme-forest{background:#0d1f0d;color:#d4e8d4}
-body.theme-forest .card{background:#1a3a1a;border:1px solid #2d5a2d;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
-body.theme-forest .tab{background:#1a3a1a;color:#88aa88;border:1px solid #2d5a2d}
-body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
-body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
-body.theme-forest input{background:#0d1f0d;border:2px solid #2d5a2d;color:#d4e8d4}
-body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
-body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+/* 🌸 樱花物语 */
+body.theme-sakura{background:linear-gradient(135deg,#fce4ec,#f8bbd0,#f3e5f5);color:#4a2040}
+body.theme-sakura .card{background:rgba(255,255,255,0.85);border:1px solid rgba(236,64,122,0.15);box-shadow:0 4px 20px rgba(233,30,99,0.08);backdrop-filter:blur(10px)}
+body.theme-sakura .tab{background:rgba(255,255,255,0.7);color:#c2185b;border:1px solid rgba(236,64,122,0.2)}
+body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;border-color:#ec407a;box-shadow:0 2px 12px rgba(236,64,122,0.3)}
+body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#f48fb1,#ec407a);color:#fff;border-color:#f48fb1;box-shadow:0 2px 12px rgba(244,143,177,0.3)}
+body.theme-sakura input{background:rgba(255,255,255,0.9);border:2px solid #f8bbd0;color:#4a2040}
+body.theme-sakura input:focus{border-color:#ec407a;box-shadow:0 0 8px rgba(236,64,122,0.2)}
+body.theme-sakura .btn-pink{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;box-shadow:0 2px 10px rgba(236,64,122,0.3)}
+body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#26a69a);color:#fff}
+body.theme-sakura .empty-state{color:#e91e63}
+body.theme-sakura .color-btn.sel{border-color:#e91e63}
+/* 🌿 薄荷森林 */
+body.theme-forest{background:linear-gradient(135deg,#e8f5e9,#c8e6c9,#a5d6a7);color:#1b3a1b}
+body.theme-forest .card{background:rgba(255,255,255,0.85);border:1px solid rgba(76,175,80,0.15);box-shadow:0 4px 20px rgba(76,175,80,0.08);backdrop-filter:blur(10px)}
+body.theme-forest .tab{background:rgba(255,255,255,0.7);color:#2e7d32;border:1px solid rgba(76,175,80,0.2)}
+body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;border-color:#66bb6a;box-shadow:0 2px 12px rgba(76,175,80,0.3)}
+body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;border-color:#ffb74d;box-shadow:0 2px 12px rgba(255,152,0,0.3)}
+body.theme-forest input{background:rgba(255,255,255,0.9);border:2px solid #c8e6c9;color:#1b3a1b}
+body.theme-forest input:focus{border-color:#43a047;box-shadow:0 0 8px rgba(67,160,71,0.2)}
+body.theme-forest .btn-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;box-shadow:0 2px 10px rgba(255,152,0,0.3)}
+body.theme-forest .btn-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;box-shadow:0 2px 10px rgba(76,175,80,0.3)}
+body.theme-forest .empty-state{color:#43a047}
+body.theme-forest .color-btn.sel{border-color:#43a047}
 /* 主题切换按钮 */
 .theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
-.theme-btn{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:all .25s}
-.theme-btn:hover{transform:scale(1.15);border-color:rgba(255,255,255,0.6)}
-.theme-btn.active{border-color:#FFD700;box-shadow:0 0 16px rgba(255,215,0,0.5)}
+.theme-btn{width:38px;height:38px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all .3s ease}
+.theme-btn:hover{transform:scale(1.2);border-color:rgba(255,255,255,0.8);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
 
 </style>
 </head>
@@ -1739,9 +1751,9 @@ function setTheme(name) {
 </script>
 
 <div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#ffe4e8,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#1b3a1b,#2d5a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#1a237e,#283593)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#f48fb1,#ec407a)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#66bb6a,#2e7d32)" onclick="setTheme('forest')" title="森林绿"></div>
 </div>
 
 </body>
@@ -1791,29 +1803,35 @@ td{border-bottom:1px solid #1a1a2e}
 .section-title{color:#FFB6C1;font-size:1.1em;font-weight:600;margin:20px 0 10px}
 .scroll-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
 
-/* 樱花粉 */
-body.theme-sakura{background:#fff0f3;color:#333}
-body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2;box-shadow:0 2px 12px rgba(233,30,99,0.08)}
-body.theme-sakura .tab{background:#fff;color:#999;border:1px solid #ffcdd2}
-body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
-body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
-body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
-body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
-body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
-/* 森林绿 */
-body.theme-forest{background:#0d1f0d;color:#d4e8d4}
-body.theme-forest .card{background:#1a3a1a;border:1px solid #2d5a2d;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
-body.theme-forest .tab{background:#1a3a1a;color:#88aa88;border:1px solid #2d5a2d}
-body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
-body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
-body.theme-forest input{background:#0d1f0d;border:2px solid #2d5a2d;color:#d4e8d4}
-body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
-body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+/* 🌸 樱花物语 */
+body.theme-sakura{background:linear-gradient(135deg,#fce4ec,#f8bbd0,#f3e5f5);color:#4a2040}
+body.theme-sakura .card{background:rgba(255,255,255,0.85);border:1px solid rgba(236,64,122,0.15);box-shadow:0 4px 20px rgba(233,30,99,0.08);backdrop-filter:blur(10px)}
+body.theme-sakura .tab{background:rgba(255,255,255,0.7);color:#c2185b;border:1px solid rgba(236,64,122,0.2)}
+body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;border-color:#ec407a;box-shadow:0 2px 12px rgba(236,64,122,0.3)}
+body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#f48fb1,#ec407a);color:#fff;border-color:#f48fb1;box-shadow:0 2px 12px rgba(244,143,177,0.3)}
+body.theme-sakura input{background:rgba(255,255,255,0.9);border:2px solid #f8bbd0;color:#4a2040}
+body.theme-sakura input:focus{border-color:#ec407a;box-shadow:0 0 8px rgba(236,64,122,0.2)}
+body.theme-sakura .btn-pink{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;box-shadow:0 2px 10px rgba(236,64,122,0.3)}
+body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#26a69a);color:#fff}
+body.theme-sakura .empty-state{color:#e91e63}
+body.theme-sakura .color-btn.sel{border-color:#e91e63}
+/* 🌿 薄荷森林 */
+body.theme-forest{background:linear-gradient(135deg,#e8f5e9,#c8e6c9,#a5d6a7);color:#1b3a1b}
+body.theme-forest .card{background:rgba(255,255,255,0.85);border:1px solid rgba(76,175,80,0.15);box-shadow:0 4px 20px rgba(76,175,80,0.08);backdrop-filter:blur(10px)}
+body.theme-forest .tab{background:rgba(255,255,255,0.7);color:#2e7d32;border:1px solid rgba(76,175,80,0.2)}
+body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;border-color:#66bb6a;box-shadow:0 2px 12px rgba(76,175,80,0.3)}
+body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;border-color:#ffb74d;box-shadow:0 2px 12px rgba(255,152,0,0.3)}
+body.theme-forest input{background:rgba(255,255,255,0.9);border:2px solid #c8e6c9;color:#1b3a1b}
+body.theme-forest input:focus{border-color:#43a047;box-shadow:0 0 8px rgba(67,160,71,0.2)}
+body.theme-forest .btn-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;box-shadow:0 2px 10px rgba(255,152,0,0.3)}
+body.theme-forest .btn-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;box-shadow:0 2px 10px rgba(76,175,80,0.3)}
+body.theme-forest .empty-state{color:#43a047}
+body.theme-forest .color-btn.sel{border-color:#43a047}
 /* 主题切换按钮 */
 .theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
-.theme-btn{width:36px;height:36px;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:all .25s}
-.theme-btn:hover{transform:scale(1.15);border-color:rgba(255,255,255,0.6)}
-.theme-btn.active{border-color:#FFD700;box-shadow:0 0 16px rgba(255,215,0,0.5)}
+.theme-btn{width:38px;height:38px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all .3s ease}
+.theme-btn:hover{transform:scale(1.2);border-color:rgba(255,255,255,0.8);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
 
 </style>
 </head>
@@ -1831,9 +1849,9 @@ ${players.length ? players.map(p => '<span style="padding:6px 14px;border-radius
 ${recentDrawings.length ? '<div class="scroll-row">' + recentCards + '</div>' : '<div style="color:#666;text-align:center;padding:24px">暂无画作</div>'}
 
 <div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#0a0a2e,#1a1a2e)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#ffe4e8,#ffcdd2)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#1b3a1b,#2d5a2d)" onclick="setTheme('forest')" title="森林绿"></div>
+  <div class="theme-btn active" style="background:linear-gradient(135deg,#1a237e,#283593)" onclick="setTheme('space')" title="深蓝星空"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#f48fb1,#ec407a)" onclick="setTheme('sakura')" title="樱花粉"></div>
+  <div class="theme-btn" style="background:linear-gradient(135deg,#66bb6a,#2e7d32)" onclick="setTheme('forest')" title="森林绿"></div>
 </div>
 
 </body>
