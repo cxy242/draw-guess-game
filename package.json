@@ -1,7 +1,7 @@
 {
   "name": "draw-guess-game",
   "version": "2.0.0",
-  "description": "你画我猜 - Draw & Guess Web Game with MCP",
+  "description": "你画我猜 - Draw & Guess Web Game",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,8 +10,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "fastify": "^4.28.0",
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "zod": "^3.22.0"
+    "fastify": "^4.28.0"
   }
 }
