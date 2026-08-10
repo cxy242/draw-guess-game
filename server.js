@@ -3,6 +3,7 @@ const fastify = require('fastify')({ logger: false });
 // ============ In-memory state ============
 let currentRound = null;
 let scores = {}; // { player: score }
+let savedDrawings = []; // 画廊：所有完成的画作
 
 // ============ SVG helpers ============
 function svgEscape(v) {
@@ -27,12 +28,12 @@ function strokesToSvg(strokes, w = 1000, h = 700) {
     const d = pairs.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ');
     paths += `  <path d="${svgEscape(d)}" stroke="${svgEscape(c)}" stroke-width="${sw}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>\n`;
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="color-scheme:light">
   <rect width="${w}" height="${h}" fill="#fffafc" rx="16"/>
 ${paths}</svg>`;
 }
 
-function makeAsciiGrid(strokes, w = 1000, h = 700, cols = 60, rows = 42) {
+function makeAsciiGrid(strokes, w = 1000, h = 700, cols = 80, rows = 56) {
   const grid = Array.from({ length: rows }, () => Array(cols).fill('.'));
   const sx = cols / w, sy = rows / h;
   for (const s of (strokes || [])) {
@@ -56,7 +57,77 @@ function makeAsciiGrid(strokes, w = 1000, h = 700, cols = 60, rows = 42) {
   return grid.map(r => r.join('')).join('\n');
 }
 
-const ASCII_NOTE = 'ascii_grid 为 60列 x 42行；# 表示线条经过，. 表示空白。请结合 SVG 路径和整体轮廓判断。';
+
+// 把线条数据转成自然语言描述，帮助AI理解画作
+function describeStrokes(strokes) {
+  if (!strokes || !strokes.length) return '（空白画布）';
+  const colorName = {'#000':'黑色','#fff':'白色','#e53935':'红色','#ff9800':'橙色','#ffeb3b':'黄色','#4caf50':'绿色','#2196f3':'蓝色','#9c27b0':'紫色','#e91e63':'粉色','#795548':'棕色','#607d8b':'灰色','#ff5722':'深橙','#4f454b':'深灰'};
+  const parts = [];
+  let totalPoints = 0;
+  
+  strokes.forEach((s, i) => {
+    if (!s.points || s.points.length < 2) return;
+    const pts = s.points;
+    totalPoints += pts.length;
+    const c = colorName[s.color] || s.color || '黑色';
+    const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+    const minX=Math.min(...xs), maxX=Math.max(...xs);
+    const minY=Math.min(...ys), maxY=Math.max(...ys);
+    const w=maxX-minX, h=maxY-minY;
+    const cx=Math.round((minX+maxX)/2), cy=Math.round((minY+maxY)/2);
+    const sx=pts[0][0], sy=pts[0][1];
+    const ex=pts[pts.length-1][0], ey=pts[pts.length-1][1];
+    const closed = Math.abs(sx-ex)<25 && Math.abs(sy-ey)<25;
+    
+    let desc = '';
+    if (closed && w>20 && h>20) {
+      // 闭合形状
+      const ratio = w/Math.max(h,1);
+      if (ratio > 0.7 && ratio < 1.4) desc = `${c}的圆形或方形`;
+      else if (ratio >= 1.4) desc = `${c}的横向椭圆或长方形(宽${w}高${h})`;
+      else desc = `${c}的纵向椭圆或长方形(宽${w}高${h})`;
+      desc += `，位置在画布${cx<400?'左侧':cx>600?'右侧':'中间'}${cy<300?'偏上':cy>450?'偏下':'中间'}`;
+    } else if (w<15 && h<15) {
+      desc = `${c}的一个小点`;
+    } else {
+      // 开放线条 - 描述走向
+      const turns = [];
+      for (let j=1; j<pts.length; j++) {
+        const dx=pts[j][0]-pts[j-1][0], dy=pts[j][1]-pts[j-1][1];
+        if (Math.abs(dx)>5 || Math.abs(dy)>5) {
+          const angle = Math.atan2(dy,dx)*180/Math.PI;
+          let dir = '';
+          if (angle>-22.5&&angle<=22.5) dir='右';
+          else if (angle>22.5&&angle<=67.5) dir='右下';
+          else if (angle>67.5&&angle<=112.5) dir='下';
+          else if (angle>112.5&&angle<=157.5) dir='左下';
+          else if (angle>157.5||angle<=-157.5) dir='左';
+          else if (angle>-157.5&&angle<=-112.5) dir='左上';
+          else if (angle>-112.5&&angle<=-67.5) dir='上';
+          else dir='右上';
+          if (!turns.length || turns[turns.length-1]!==dir) turns.push(dir);
+        }
+      }
+      desc = `${c}的线条，从(${sx},${sy})开始`;
+      if (turns.length <= 3) {
+        desc += `，走向：${turns.join('→')}`;
+      } else {
+        desc += `，弯曲走向：${turns.slice(0,5).join('→')}${turns.length>5?'...':''}`;
+      }
+      desc += `，到(${ex},${ey})结束，覆盖范围${w}x${h}像素`;
+    }
+    parts.push(desc);
+  });
+  
+  // 添加整体描述
+  let summary = `\n整体：画布上有${strokes.length}条线（${totalPoints}个点），`;
+  if (strokes.length === 1) summary += '用一笔完成';
+  else summary += `分${strokes.length}笔画成`;
+  
+  return parts.join('\n') + summary;
+}
+
+const ASCII_NOTE = 'ascii_grid 为 80列 x 56行；# 表示线条经过，. 表示空白。请结合 SVG 路径和整体轮廓判断。';
 
 // ============ Demo Drawings (centered around 500,350) ============
 
@@ -521,6 +592,7 @@ fastify.get('/api/status', async () => {
       canvas: currentRound.canvas,
       artist: currentRound.artist,
       author: currentRound.author || '匿名',
+      description: describeStrokes(currentRound.content),
       created_at: currentRound.created_at,
       drawing_svg: currentRound.drawing_svg,
       ascii_grid: currentRound.ascii_grid,
@@ -575,6 +647,21 @@ fastify.post('/api/draw', async (req) => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
+  // 保存到画廊
+  savedDrawings.push({
+    id: Date.now(),
+    artist: 'user',
+    author: author || '匿名',
+    answer: answer || null,
+    drawing_svg: currentRound.drawing_svg,
+    ascii_grid: currentRound.ascii_grid,
+    description: describeStrokes(content),
+    created_at: currentRound.created_at,
+    guesses: []
+  });
+  // 保留最近50幅
+  if (savedDrawings.length > 50) savedDrawings = savedDrawings.slice(-50);
+  
   return { ok: true, ascii_grid: currentRound.ascii_grid, ascii_grid_note: ASCII_NOTE };
 });
 
@@ -591,6 +678,21 @@ fastify.post('/api/demo', async () => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
+  // 保存到画廊
+  savedDrawings.push({
+    id: Date.now(),
+    artist: 'AI',
+    author: 'AI',
+    answer: demo.answer,
+    aliases: demo.aliases,
+    drawing_svg: currentRound.drawing_svg,
+    ascii_grid: currentRound.ascii_grid,
+    description: describeStrokes(currentRound.content),
+    created_at: currentRound.created_at,
+    guesses: []
+  });
+  if (savedDrawings.length > 50) savedDrawings = savedDrawings.slice(-50);
+  
   return { ok: true, message: '新一局开始！画师: AI', answer: demo.answer };
 });
 
@@ -638,6 +740,7 @@ const FRONTEND = String.raw`<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="color-scheme" content="light">
 <title>🎨 你画我猜</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -652,9 +755,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-ap
 .mode{display:none;max-width:640px;margin:0 auto;padding:0 12px 32px}
 .mode.active{display:block}
 .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
-.drawing-area{background:#fffafc;border-radius:12px;overflow:hidden;margin-bottom:12px;min-height:200px}
+.drawing-area{background:#fffafc;border-radius:12px;overflow:hidden;margin-bottom:12px;min-height:200px;color-scheme:light}
 .drawing-area svg{width:100%;height:auto;display:block}
-canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor:crosshair;display:block}
+canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor:crosshair;display:block;color-scheme:light}
 .input-row{display:flex;gap:8px}
 .input-row input{flex:1;padding:10px 14px;border-radius:10px;border:2px solid #333;background:#0f3460;color:#eee;font-size:1em;outline:0}
 .input-row input:focus{border-color:var(--blue)}
@@ -782,16 +885,31 @@ async function loadStatus(){
   try{
     const r=await fetch('/api/status');const d=await r.json();
     if(d.ok&&d.current&&d.current.drawing_svg){
-      $('guess-drawing').innerHTML=d.current.drawing_svg;
+      // 显示署名
+      const authorLabel = d.current.artist==='user' ? '✏️ '+(d.current.author||'匿名') : '🤖 AI';
+      const authorHtml = '<div style="text-align:center;color:#FFB6C1;font-size:13px;margin-bottom:8px">'+authorLabel+' 的画作</div>';
+      $('guess-drawing').innerHTML = authorHtml + d.current.drawing_svg;
+      // 显示ASCII网格+文字描述
+      let infoBox = document.getElementById('info-box');
+      if(!infoBox){infoBox=document.createElement('div');infoBox.id='info-box';infoBox.style.cssText='margin-top:8px';$('guess-drawing').parentNode.insertBefore(infoBox,$('guess-drawing').nextSibling);}
+      let infoHtml = '';
+      if(d.current.ascii_grid){
+        infoHtml += '<div style="color:#87CEEB;font-size:11px;font-family:monospace;background:#0a0a1a;padding:8px;border-radius:8px;overflow-x:auto;white-space:pre;line-height:1.1">'+d.current.ascii_grid+'</div>';
+      }
+      if(d.current.description){
+        infoHtml += '<div style="color:#999;font-size:12px;margin-top:6px;padding:8px;background:#0a0a1a;border-radius:8px;white-space:pre-line">'+d.current.description+'</div>';
+      }
+      infoBox.innerHTML = infoHtml;
       roundActive=true;solved=false;
       $('correct-banner').style.display='none';
       startTimer(d.current.elapsed||0);
-      updateHint();
       if(d.current.guesses)renderGuesses(d.current.guesses);
     }
   }catch(e){}
 }
 loadStatus();
+// 每5秒自动刷新，AI画完后页面自动更新
+setInterval(loadStatus, 5000);
 
 async function newDemoRound(){
   await fetch('/api/demo',{method:'POST'});
@@ -875,6 +993,7 @@ function initCanvas(){
   canvas.style.height=h+'px';
   ctx.fillStyle='#fffafc';
   ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#000';
   ctx.lineCap='round';
   ctx.lineJoin='round';
 }
@@ -1005,6 +1124,59 @@ function saveDrawing(){
 </body>
 </html>`;
 
+
+// ===== 画廊 API =====
+fastify.get('/api/gallery', async () => {
+  return { ok: true, drawings: savedDrawings.slice().reverse() };
+});
+
+fastify.get('/gallery', async (req, reply) => {
+  const drawings = savedDrawings.slice().reverse();
+  const cardsHtml = drawings.map((d, i) => {
+    const label = d.artist === 'AI' ? '🤖 AI' : '✏️ ' + (d.author || '匿名');
+    const answerHtml = d.answer ? '<div style="color:#87CEEB;font-size:13px;margin-top:4px">答案：' + d.answer + '</div>' : '';
+    const descHtml = d.description ? '<div style="color:#999;font-size:11px;margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">' + d.description.replace(/</g,'&lt;') + '</div>' : '';
+    return '<div class="gallery-card">' +
+      '<div class="drawing-preview">' + d.drawing_svg + '</div>' +
+      '<div style="padding:8px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="color:#FFB6C1;font-weight:600">' + label + '</span>' +
+          '<span style="color:#666;font-size:11px">' + (d.created_at || '').slice(0,16) + '</span>' +
+        '</div>' +
+        answerHtml + descHtml +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>🎨 画廊</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:system-ui,sans-serif;min-height:100vh;padding:16px}
+h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.gallery-card{background:#16213e;border-radius:12px;border:1px solid #2a2a4a;overflow:hidden}
+.drawing-preview{background:#fffafc;padding:4px}
+.drawing-preview svg{width:100%;height:auto;display:block}
+.back-link{display:inline-block;color:#87CEEB;text-decoration:none;margin-bottom:12px;font-size:14px}
+.back-link:hover{text-decoration:underline}
+.empty{text-align:center;color:#999;padding:60px;font-size:16px}
+</style>
+</head>
+<body>
+<a href="/" class="back-link">← 返回游戏</a>
+<h1>🎨 画廊</h1>
+${drawings.length ? '<div class="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
+</body>
+</html>`;
+  reply.type('text/html; charset=utf-8');
+  return html;
+});
+
 fastify.get('/', async (req, reply) => {
   reply.type('text/html; charset=utf-8');
   return FRONTEND;
@@ -1012,8 +1184,8 @@ fastify.get('/', async (req, reply) => {
 
 const start = async () => {
   try {
-    await fastify.listen({ port: Number(process.env.PORT) || 3001, host: '0.0.0.0' });
-    console.log(`🎨 Draw & Guess running at http://localhost:${process.env.PORT || 3001}`);
+    await fastify.listen({ port: 3001, host: '0.0.0.0' });
+    console.log('🎨 Draw & Guess running at http://localhost:3001');
   } catch (err) {
     console.error(err);
     process.exit(1);
