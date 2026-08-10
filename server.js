@@ -2027,6 +2027,39 @@ fastify.route({
         return { content: [{ type: 'text', text: `🖼 画廊（最近10幅）：\n${list}\n\n用 draw_comment 可以对画作发表评论` }] };
       });
 
+      server.tool('draw_leaderboard', '查看排行榜（猜对排名+最近画作）', {}, async () => {
+        const r = await api('GET', '/api/leaderboard');
+        if (!r.ok) return { content: [{ type: 'text', text: '获取排行榜失败' }] };
+        const lb = r.leaderboard || [];
+        const rd = r.recentDrawings || [];
+        let text = '🏆 猜对排行榜：\n';
+        if (lb.length) {
+          text += lb.map((e, i) => { const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '+(i+1)+'.'; return medal+' '+e.name+' - '+e.correct+'次猜对'; }).join('\n');
+        } else {
+          text += '还没有人猜对过~';
+        }
+        text += '\n\n🖼 最近画作：\n';
+        if (rd.length) {
+          text += rd.slice(0, 10).map((d, i) => {
+            const label = d.artist==='AI' ? '🤖 '+(d.author||'AI画师') : '✏️ '+(d.author||'匿名');
+            return (i+1)+'. [ID:'+d.id+'] '+label+' - 答案：'+(d.answer||'未知');
+          }).join('\n');
+        } else {
+          text += '暂无画作';
+        }
+        text += '\n\n评论画作用 draw_comment，查看画廊用 draw_gallery';
+        return { content: [{ type: 'text', text }] };
+      });
+
+      server.tool('draw_players', '查看在线玩家', {}, async () => {
+        const r = await api('GET', '/api/players');
+        if (!r.ok) return { content: [{ type: 'text', text: '获取失败' }] };
+        const players = r.players || [];
+        if (!players.length) return { content: [{ type: 'text', text: '当前没有在线玩家~' }] };
+        const list = players.map(p => p.name + (p.correctCount > 0 ? ' ('+p.correctCount+'次猜对)' : '')).join('\n');
+        return { content: [{ type: 'text', text: '👥 在线玩家 ('+r.count+'人)：\n'+list }] };
+      });
+
       server.tool('draw_score', '查看分数', {}, async () => {
         const r = await api('GET', '/api/score');
         if (!r.ok || !r.scores || !Object.keys(r.scores).length) return { content: [{ type: 'text', text: '还没有分数~' }] };
