@@ -665,7 +665,74 @@ fastify.get('/leaderboard', async (req, reply) => {
 
   const html = `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><meta name="color-scheme" content="light"><title>🏆 排行榜</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#1a1a2e;color:#eee;font-family:system-ui,sans-serif;min-height:100vh;padding:16px}h1{text-align:center;color:#FFD700;margin-bottom:16px}table{width:100%;border-collapse:collapse;margin-bottom:24px}th,td{padding:10px;text-align:center;border-bottom:1px solid #2a2a4a}th{color:#87CEEB;font-size:13px}td{font-size:14px}.back{display:inline-block;color:#87CEEB;text-decoration:none;margin-bottom:12px;font-size:14px}.back:hover{text-decoration:underline}h2{color:#87CEEB;margin-bottom:12px;font-size:1.1em}.empty{text-align:center;color:#999;padding:40px}</style>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;min-height:100vh;transition:all 0.3s}
+
+/* 主题1: 深蓝星空 */
+body.theme-space{background:#0a0a2e;color:#eee}
+body.theme-space .card{background:#16213e;border:1px solid #2a2a4a}
+body.theme-space .tab{background:#16213e;color:#aaa;border:1px solid #2a2a4a}
+body.theme-space .tab.active-blue{background:linear-gradient(135deg,#3498db,#2196f3);color:#fff;border-color:#3498db}
+body.theme-space .tab.active-pink{background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;border-color:#e91e63}
+body.theme-space .drawing-area{background:#fffafc}
+body.theme-space .btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
+body.theme-space .btn-pink{background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff}
+body.theme-space .btn-blue{background:linear-gradient(135deg,#3498db,#2196f3);color:#fff}
+body.theme-space input{background:#0f3460;border:2px solid #333;color:#eee}
+
+/* 主题2: 樱花粉 */
+body.theme-sakura{background:#fff5f5;color:#333}
+body.theme-sakura .card{background:#fff;border:1px solid #ffcdd2}
+body.theme-sakura .tab{background:#fff;color:#888;border:1px solid #ffcdd2}
+body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff;border-color:#f48fb1}
+body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#ff80ab,#ff4081);color:#fff;border-color:#ff80ab}
+body.theme-sakura .drawing-area{background:#fffafc}
+body.theme-sakura .btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
+body.theme-sakura .btn-pink{background:linear-gradient(135deg,#f48fb1,#e91e63);color:#fff}
+body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#009688);color:#fff}
+body.theme-sakura input{background:#fff;border:2px solid #ffcdd2;color:#333}
+
+/* 主题3: 森林绿 */
+body.theme-forest{background:#1b2d1b;color:#e0e0e0}
+body.theme-forest .card{background:#2d4a2d;border:1px solid #3d6b3d}
+body.theme-forest .tab{background:#2d4a2d;color:#aaa;border:1px solid #3d6b3d}
+body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-color:#4caf50}
+body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff;border-color:#ff9800}
+body.theme-forest .drawing-area{background:#fffafc}
+body.theme-forest .btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
+body.theme-forest .btn-pink{background:linear-gradient(135deg,#ff9800,#f57c00);color:#fff}
+body.theme-forest .btn-blue{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+body.theme-forest input{background:#1b2d1b;border:2px solid #3d6b3d;color:#e0e0e0}
+
+/* 通用样式 */
+.drawing-area{border-radius:12px;overflow:hidden;margin-bottom:12px;min-height:200px;color-scheme:light}
+.drawing-area svg{width:100%;height:auto;display:block}
+canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor:crosshair;display:block;color-scheme:light}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
+.tab{flex:1;min-width:60px;padding:10px 8px;border-radius:10px;text-align:center;cursor:pointer;font-weight:600;font-size:.85em;transition:all .2s;user-select:none}
+.empty-state{text-align:center;padding:60px 20px;color:#999}
+.input-row{display:flex;gap:8px}
+.input-row input{flex:1;padding:10px 14px;border-radius:10px;font-size:1em;outline:0}
+.input-row input:focus{border-color:#3498db}
+.btn{border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
+.btn:active{transform:scale(0.95)}
+.correct-banner{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:100}
+.correct-banner>div{font-size:2em;color:#FFD700;text-align:center}
+.color-btn{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:all .2s}
+.color-btn.sel{border-color:#fff;transform:scale(1.2)}
+.color-btn:active{transform:scale(0.9)}
+.tool-btn{padding:6px 10px;border-radius:8px;border:2px solid transparent;cursor:pointer;font-size:.8em;transition:all .2s}
+.tool-btn.active{border-color:#e91e63;background:#e91e63;color:#fff}
+.theme-switcher{position:fixed;bottom:16px;right:16px;z-index:999;display:flex;gap:6px}
+.theme-btn{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.5);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all .2s}
+.theme-btn:hover{transform:scale(1.1)}
+.theme-btn.active{border-color:#FFD700;box-shadow:0 0 12px #FFD700}
+@media(max-width:480px){
+  .color-btn{width:24px;height:24px}
+  .tab{padding:8px 6px;font-size:.8em}
+  .theme-btn{width:30px;height:30px}
+}</style>
 </head><body class="theme-space">
 <a href="/" class="back">← 返回游戏</a>
 <h1>🏆 排行榜</h1>
@@ -882,7 +949,6 @@ const FRONTEND = String.raw`<!DOCTYPE html>
 <title>🎨 你画我猜</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#1a1a2e;--card:#16213e;--border:#2a2a4a;--pink:#FFB6C1;--blue:#87CEEB;--text:#eee;--muted:#999}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;overflow-x:hidden}
 .header{text-align:center;padding:16px 12px 4px}
 .header h1{font-size:1.5em;background:linear-gradient(135deg,var(--blue),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
