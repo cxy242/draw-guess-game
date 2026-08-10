@@ -656,7 +656,7 @@ fastify.get('/leaderboard', async (req, reply) => {
   }).join('');
   
   const recentHtml = savedDrawings.slice(-10).reverse().map(d => {
-    const label = d.artist === 'AI' ? '🤖 ' + (d.author || '艾因') : '✏️ ' + (d.author || '匿名');
+    const label = d.artist === 'AI' ? '🤖 ' + (d.author || 'AI画师') : '✏️ ' + (d.author || '匿名');
     return `<div style="background:#16213e;border-radius:8px;padding:8px;margin-bottom:8px;border:1px solid #2a2a4a">
       <div style="display:flex;justify-content:space-between"><span style="color:#FFB6C1">${label}</span><span style="color:#666;font-size:11px">${(d.created_at||'').slice(0,16)}</span></div>
       ${d.answer ? '<div style="color:#87CEEB;font-size:13px">答案：'+d.answer+'</div>' : ''}
@@ -765,10 +765,10 @@ if (saved) setTheme(saved);
 
 fastify.post('/api/start', async (req) => {
   const body = req.body || {};
-  const { answer, content, aliases = [], artist = 'AI', author = '艾因' } = body;
+  const { answer, content, aliases = [], artist = 'AI', author = 'AI画师' } = body;
   if (!answer || !content) return { ok: false, message: '需要 answer 和 content' };
   currentRound = {
-    answer, aliases, artist, author: artist === 'AI' ? '艾因' : (author || '匿名'), content,
+    answer, aliases, artist, author: (author || (artist === 'AI' ? 'AI画师' : '匿名')), content,
     drawing_svg: strokesToSvg(content),
     ascii_grid: makeAsciiGrid(content),
     ascii_grid_note: ASCII_NOTE,
@@ -778,7 +778,7 @@ fastify.post('/api/start', async (req) => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
-  return { ok: true, message: '新一局开始！画师: ' + (artist === 'AI' ? '艾因' : author) };
+  return { ok: true, message: '新一局开始！画师: ' + author };
 });
 
 fastify.get('/api/status', async () => {
@@ -872,7 +872,7 @@ fastify.post('/api/draw', async (req) => {
 fastify.post('/api/demo', async () => {
   const demo = DEMO_DRAWINGS[Math.floor(Math.random() * DEMO_DRAWINGS.length)];
   currentRound = {
-    answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: '艾因', content: demo.content,
+    answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: 'AI画师', content: demo.content,
     drawing_svg: strokesToSvg(demo.content),
     ascii_grid: makeAsciiGrid(demo.content),
     ascii_grid_note: ASCII_NOTE,
@@ -908,7 +908,7 @@ fastify.get('/api/random', async () => {
     // Fallback to a demo drawing
     const demo = DEMO_DRAWINGS[Math.floor(Math.random() * DEMO_DRAWINGS.length)];
     currentRound = {
-      answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: '艾因', content: demo.content,
+      answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: 'AI画师', content: demo.content,
       drawing_svg: strokesToSvg(demo.content),
       ascii_grid: makeAsciiGrid(demo.content),
       ascii_grid_note: ASCII_NOTE,
@@ -1535,14 +1535,15 @@ function saveDrawing(){
 }
 
 async function addComment(drawingId) {
-  const nameEl = document.querySelector('.cmt-name-'+drawingId);
-  const textEl = document.querySelector('.cmt-text-'+drawingId);
+  const nameEl = document.getElementById('cmt-name-'+drawingId);
+  const textEl = document.getElementById('cmt-text-'+drawingId);
   const author = nameEl ? nameEl.value.trim() : '';
   const text = textEl ? textEl.value.trim() : '';
   if (!author) return alert('请输入署名');
   if (!text) return alert('请输入评论');
   await fetch('/api/comment', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ drawing_id: drawingId, author, text, is_ai: false }) });
   if (textEl) textEl.value = '';
+  // 不刷新，直接在页面上显示新评论
   location.reload();
 }
 </script>
@@ -1596,14 +1597,14 @@ fastify.get('/api/gallery', async () => {
 fastify.get('/gallery', async (req, reply) => {
   const drawings = savedDrawings.slice().reverse();
   const cardsHtml = drawings.map((d, i) => {
-    const label = d.artist === 'AI' ? '🤖 ' + (d.author || '艾因') : '✏️ ' + (d.author || '匿名');
+    const label = d.artist === 'AI' ? '🤖 ' + (d.author || 'AI画师') : '✏️ ' + (d.author || '匿名');
     const answerHtml = d.answer ? '<div style="color:#87CEEB;font-size:13px;margin-top:4px">答案：' + d.answer + '</div>' : '';
     const descHtml = d.description ? '<div style="color:#999;font-size:11px;margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">' + d.description.replace(/</g,'&lt;') + '</div>' : '';
     const commentsHtml = (d.comments || []).map(c => {
       const cLabel = c.is_ai ? '🤖 ' + c.author : '✏️ ' + c.author;
       return '<div style="margin:4px 0;padding:4px 8px;background:#0f3460;border-radius:6px;font-size:12px"><span style="color:#FFB6C1">' + cLabel + ':</span> ' + c.text.replace(/</g,'&lt;') + '</div>';
     }).join('');
-    const commentForm = '<div style="margin-top:6px;display:flex;gap:4px"><input class="cmt-name-'+d.id+'" placeholder="署名" style="width:60px;padding:4px;border-radius:4px;border:1px solid #333;background:#0f3460;color:#eee;font-size:11px"><input class="cmt-text-'+d.id+'" placeholder="评论..." style="flex:1;padding:4px;border-radius:4px;border:1px solid #333;background:#0f3460;color:#eee;font-size:11px"><button onclick="addComment('+d.id+')" style="padding:4px 8px;border-radius:4px;border:none;background:#e91e63;color:#fff;font-size:11px;cursor:pointer">发送</button></div>';
+    const commentForm = '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap"><input id="cmt-name-'+d.id+'" placeholder="你的署名" style="width:70px;padding:6px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:12px"><input id="cmt-text-'+d.id+'" placeholder="写评论..." style="flex:1;min-width:100px;padding:6px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:12px"><button onclick="addComment('+d.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:#e91e63;color:#fff;font-size:12px;cursor:pointer;font-weight:600">发送</button></div>';
     return '<div class="gallery-card">' +
       '<div class="drawing-preview">' + d.drawing_svg + '</div>' +
       '<div style="padding:8px">' +
