@@ -1,18 +1,18 @@
-process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT:', err.message, err.stack);
-});
-process.on('unhandledRejection', (err) => {
-  console.error('UNHANDLED:', err.message, err.stack);
-});
-
 const fastify = require('fastify')({ logger: false });
+
+// ============ 安全防护：防止浏览器注入和劫持 ============
+fastify.addHook('onSend', async (request, reply) => {
+  reply.header('X-Frame-Options', 'DENY');
+  reply.header('X-Content-Type-Options', 'nosniff');
+  reply.header('X-XSS-Protection', '1; mode=block');
+  reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  reply.header('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; img-src 'self' data: blob: https:; media-src 'self' blob: https:;");
+});
 
 // ============ In-memory state ============
 let currentRound = null;
 let scores = {}; // { player: score }
 let savedDrawings = []; // 画廊：所有完成的画作
-let onlinePlayers = {}; // { name: lastSeen }
-let playerGuessCorrect = {}; // { name: correctCount } 玩家猜对次数
 
 // ============ SVG helpers ============
 function svgEscape(v) {
@@ -31,42 +31,11 @@ function strokesToSvg(strokes, w = 1000, h = 700) {
   const limited = (strokes || []).slice(0, 100);
   let paths = '';
   for (const s of limited) {
+    const pairs = normalizePointPairs(s.points || s);
+    if (pairs.length < 2) continue;
     const c = s.color || '#4f454b', sw = s.width || 8;
-    const tool = s.tool || 'polyline';
-    if (tool === 'polyline') {
-      const pairs = normalizePointPairs(s.points || s);
-      if (pairs.length < 2) continue;
-      const d = pairs.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ');
-      paths += `  <path d="${svgEscape(d)}" stroke="${svgEscape(c)}" stroke-width="${sw}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>\n`;
-    } else if (tool === 'rect') {
-      const pairs = normalizePointPairs(s.points || s);
-      if (pairs.length < 2) continue;
-      const [x1,y1]=pairs[0],[x2,y2]=pairs[1];
-      const rx=Math.min(x1,x2),ry=Math.min(y1,y2),rw=Math.abs(x2-x1),rh=Math.abs(y2-y1);
-      paths += `  <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" stroke="${svgEscape(c)}" stroke-width="${sw}" fill="none" stroke-linejoin="round"/>\n`;
-    } else if (tool === 'circle') {
-      const pairs = normalizePointPairs(s.points || s);
-      if (pairs.length < 2) continue;
-      const [x1,y1]=pairs[0],[x2,y2]=pairs[1];
-      const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2;
-      paths += `  <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" stroke="${svgEscape(c)}" stroke-width="${sw}" fill="none"/>\n`;
-    } else if (tool === 'line') {
-      const pairs = normalizePointPairs(s.points || s);
-      if (pairs.length < 2) continue;
-      const [x1,y1]=pairs[0],[x2,y2]=pairs[1];
-      paths += `  <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${svgEscape(c)}" stroke-width="${sw}" stroke-linecap="round"/>\n`;
-    } else if (tool === 'arrow') {
-      const pairs = normalizePointPairs(s.points || s);
-      if (pairs.length < 2) continue;
-      const [x1,y1]=pairs[0],[x2,y2]=pairs[1];
-      const angle=Math.atan2(y2-y1,x2-x1);
-      const hl=Math.max(12,sw*3);
-      const ax1=x2-hl*Math.cos(angle-Math.PI/6), ay1=y2-hl*Math.sin(angle-Math.PI/6);
-      const ax2=x2-hl*Math.cos(angle+Math.PI/6), ay2=y2-hl*Math.sin(angle+Math.PI/6);
-      paths += `  <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${svgEscape(c)}" stroke-width="${sw}" stroke-linecap="round"/>\n`;
-      paths += `  <line x1="${x2}" y1="${y2}" x2="${ax1.toFixed(1)}" y2="${ay1.toFixed(1)}" stroke="${svgEscape(c)}" stroke-width="${sw}" stroke-linecap="round"/>\n`;
-      paths += `  <line x1="${x2}" y1="${y2}" x2="${ax2.toFixed(1)}" y2="${ay2.toFixed(1)}" stroke="${svgEscape(c)}" stroke-width="${sw}" stroke-linecap="round"/>\n`;
-    }
+    const d = pairs.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ');
+    paths += `  <path d="${svgEscape(d)}" stroke="${svgEscape(c)}" stroke-width="${sw}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>\n`;
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="color-scheme:light">
   <rect width="${w}" height="${h}" fill="#fffafc" rx="16"/>
@@ -76,47 +45,22 @@ ${paths}</svg>`;
 function makeAsciiGrid(strokes, w = 1000, h = 700, cols = 80, rows = 56) {
   const grid = Array.from({ length: rows }, () => Array(cols).fill('.'));
   const sx = cols / w, sy = rows / h;
-  function plotLine(x0,y0,x1,y1){
-    let cx=Math.round(x0*sx),cy=Math.round(y0*sy);
-    const cx1=Math.round(x1*sx),cy1=Math.round(y1*sy);
-    const dx=Math.abs(cx1-cx),dy=Math.abs(cy1-cy);
-    const ssx=cx<cx1?1:-1,ssy=cy<cy1?1:-1;
-    let err=dx-dy;
-    while(true){
-      if(cx>=0&&cx<cols&&cy>=0&&cy<rows)grid[cy][cx]='#';
-      if(cx===cx1&&cy===cy1)break;
-      const e2=2*err;
-      if(e2>-dy){err-=dy;cx+=ssx;}
-      if(e2<dx){err+=dx;cy+=ssy;}
-    }
-  }
   for (const s of (strokes || [])) {
-    const tool=s.tool||'polyline';
-    if(tool==='polyline'){
-      const pairs = normalizePointPairs(s.points || s);
-      for (let i = 0; i < pairs.length - 1; i++) {
-        plotLine(pairs[i][0],pairs[i][1],pairs[i+1][0],pairs[i+1][1]);
+    const pairs = normalizePointPairs(s.points || s);
+    for (let i = 0; i < pairs.length - 1; i++) {
+      const [x0, y0] = pairs[i], [x1, y1] = pairs[i + 1];
+      let cx = Math.round(x0 * sx), cy = Math.round(y0 * sy);
+      const cx1 = Math.round(x1 * sx), cy1 = Math.round(y1 * sy);
+      const dx = Math.abs(cx1 - cx), dy = Math.abs(cy1 - cy);
+      const ssx = cx < cx1 ? 1 : -1, ssy = cy < cy1 ? 1 : -1;
+      let err = dx - dy;
+      while (true) {
+        if (cx >= 0 && cx < cols && cy >= 0 && cy < rows) grid[cy][cx] = '#';
+        if (cx === cx1 && cy === cy1) break;
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; cx += ssx; }
+        if (e2 < dx) { err += dx; cy += ssy; }
       }
-    } else if(tool==='rect'){
-      const pairs = normalizePointPairs(s.points || s);
-      if(pairs.length<2)continue;
-      const[x1,y1]=pairs[0],[x2,y2]=pairs[1];
-      plotLine(x1,y1,x2,y1);plotLine(x2,y1,x2,y2);plotLine(x2,y2,x1,y2);plotLine(x1,y2,x1,y1);
-    } else if(tool==='circle'){
-      const pairs = normalizePointPairs(s.points || s);
-      if(pairs.length<2)continue;
-      const[x1,y1]=pairs[0],[x2,y2]=pairs[1];
-      const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2;
-      for(let a=0;a<360;a+=5){
-        const rad=a*Math.PI/180;
-        const px=cx+rx*Math.cos(rad),py=cy+ry*Math.sin(rad);
-        const px2=cx+rx*Math.cos(rad+5*Math.PI/180),py2=cy+ry*Math.sin(rad+5*Math.PI/180);
-        plotLine(px,py,px2,py2);
-      }
-    } else if(tool==='line'||tool==='arrow'){
-      const pairs = normalizePointPairs(s.points || s);
-      if(pairs.length<2)continue;
-      plotLine(pairs[0][0],pairs[0][1],pairs[1][0],pairs[1][1]);
     }
   }
   return grid.map(r => r.join('')).join('\n');
@@ -126,63 +70,15 @@ function makeAsciiGrid(strokes, w = 1000, h = 700, cols = 80, rows = 56) {
 // 把线条数据转成自然语言描述，帮助AI理解画作
 function describeStrokes(strokes) {
   if (!strokes || !strokes.length) return '（空白画布）';
-  const colorName = {'#000':'黑色','#fff':'白色','#e53935':'红色','#ff9800':'橙色','#ffeb3b':'黄色','#4caf50':'绿色','#2196f3':'蓝色','#9c27b0':'紫色','#e91e63':'粉色','#795548':'棕色','#607d8b':'灰色','#ff5722':'深橙','#4f454b':'深灰','#f44336':'亮红','#ffc107':'金黄','#cddc39':'黄绿','#009688':'青色','#00bcd4':'天蓝','#1565c0':'深蓝','#f48fb1':'浅粉','#9e9e9e':'中灰','#90a4ae':'蓝灰','#d7ccc8':'米色','#a1887f':'驼色'};
+  const colorName = {'#000':'黑色','#fff':'白色','#e53935':'红色','#ff9800':'橙色','#ffeb3b':'黄色','#4caf50':'绿色','#2196f3':'蓝色','#9c27b0':'紫色','#e91e63':'粉色','#795548':'棕色','#607d8b':'灰色','#ff5722':'深橙','#4f454b':'深灰'};
   const parts = [];
   let totalPoints = 0;
   
   strokes.forEach((s, i) => {
-    const tool = s.tool || 'polyline';
-    const c = colorName[s.color] || s.color || '黑色';
-    
-    if (tool === 'rect') {
-      if (!s.points || s.points.length < 2) return;
-      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
-      const w=Math.abs(x2-x1),h=Math.abs(y2-y1);
-      const cx=Math.round((x1+x2)/2),cy=Math.round((y1+y2)/2);
-      let desc=`${c}的矩形(${w}x${h}像素)，中心在(${cx},${cy})`;
-      desc+=`，位于画布${cx<400?'左侧':cx>600?'右侧':'中间'}${cy<300?'偏上':cy>450?'偏下':'中间'}`;
-      parts.push(desc);
-      return;
-    } else if (tool === 'circle') {
-      if (!s.points || s.points.length < 2) return;
-      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
-      const rx=Math.round(Math.abs(x2-x1)/2),ry=Math.round(Math.abs(y2-y1)/2);
-      const cx=Math.round((x1+x2)/2),cy=Math.round((y1+y2)/2);
-      const ratio=rx/Math.max(ry,1);
-      let desc;
-      if(ratio>0.8&&ratio<1.2) desc=`${c}的圆形(半径约${rx})`;
-      else desc=`${c}的椭圆(${rx}x${ry})`;
-      desc+=`，中心在(${cx},${cy})`;
-      parts.push(desc);
-      return;
-    } else if (tool === 'line') {
-      if (!s.points || s.points.length < 2) return;
-      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
-      const len=Math.round(Math.sqrt((x2-x1)**2+(y2-y1)**2));
-      const angle=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
-      let dir='';
-      if(angle>-22.5&&angle<=22.5)dir='水平向右';
-      else if(angle>22.5&&angle<=67.5)dir='右下';
-      else if(angle>67.5&&angle<=112.5)dir='垂直向下';
-      else if(angle>112.5&&angle<=157.5)dir='左下';
-      else if(angle>157.5||angle<=-157.5)dir='水平向左';
-      else if(angle>-157.5&&angle<=-112.5)dir='左上';
-      else if(angle>-112.5&&angle<=-67.5)dir='垂直向上';
-      else dir='右上';
-      parts.push(`${c}的直线，从(${x1},${y1})到(${x2},${y2})，长${len}px，${dir}`);
-      return;
-    } else if (tool === 'arrow') {
-      if (!s.points || s.points.length < 2) return;
-      const [x1,y1]=s.points[0],[x2,y2]=s.points[1];
-      const len=Math.round(Math.sqrt((x2-x1)**2+(y2-y1)**2));
-      parts.push(`${c}的箭头，从(${x1},${y1})指向(${x2},${y2})，长${len}px`);
-      return;
-    }
-    
-    // polyline handling
     if (!s.points || s.points.length < 2) return;
     const pts = s.points;
     totalPoints += pts.length;
+    const c = colorName[s.color] || s.color || '黑色';
     const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
     const minX=Math.min(...xs), maxX=Math.max(...xs);
     const minY=Math.min(...ys), maxY=Math.max(...ys);
@@ -194,6 +90,7 @@ function describeStrokes(strokes) {
     
     let desc = '';
     if (closed && w>20 && h>20) {
+      // 闭合形状
       const ratio = w/Math.max(h,1);
       if (ratio > 0.7 && ratio < 1.4) desc = `${c}的圆形或方形`;
       else if (ratio >= 1.4) desc = `${c}的横向椭圆或长方形(宽${w}高${h})`;
@@ -202,6 +99,7 @@ function describeStrokes(strokes) {
     } else if (w<15 && h<15) {
       desc = `${c}的一个小点`;
     } else {
+      // 开放线条 - 描述走向
       const turns = [];
       for (let j=1; j<pts.length; j++) {
         const dx=pts[j][0]-pts[j-1][0], dy=pts[j][1]-pts[j-1][1];
@@ -230,6 +128,7 @@ function describeStrokes(strokes) {
     parts.push(desc);
   });
   
+  // 添加整体描述
   let summary = `\n整体：画布上有${strokes.length}条线（${totalPoints}个点），`;
   if (strokes.length === 1) summary += '用一笔完成';
   else summary += `分${strokes.length}笔画成`;
@@ -675,51 +574,12 @@ function generateSimpleDrawing(entry) {
 
 // ============ API Routes ============
 
-// 清理离线玩家（5分钟无活动）
-setInterval(() => {
-  const now = Date.now();
-  for (const [name, lastSeen] of Object.entries(onlinePlayers)) {
-    if (now - lastSeen > 5 * 60 * 1000) delete onlinePlayers[name];
-  }
-}, 60000);
-
-// 玩家加入
-fastify.post('/api/join', async (req) => {
-  const { name } = req.body || {};
-  if (!name || !name.trim()) return { ok: false, message: '请输入名字' };
-  const playerName = name.trim().substring(0, 20);
-  onlinePlayers[playerName] = Date.now();
-  return { ok: true, name: playerName, message: playerName + ' 加入了游戏！' };
-});
-
-// 获取在线玩家
-fastify.get('/api/players', async () => {
-  const now = Date.now();
-  for (const [name, lastSeen] of Object.entries(onlinePlayers)) {
-    if (now - lastSeen > 5 * 60 * 1000) delete onlinePlayers[name];
-  }
-  const players = Object.keys(onlinePlayers).map(name => ({
-    name,
-    score: scores[name] || 0,
-    correctCount: playerGuessCorrect[name] || 0,
-  }));
-  return { ok: true, players, count: players.length };
-});
-
-// 排行榜API
-fastify.get('/api/leaderboard', async () => {
-  const entries = Object.entries(playerGuessCorrect)
-    .map(([name, correct]) => ({ name, correct, score: scores[name] || 0 }))
-    .sort((a, b) => b.correct - a.correct);
-  return { ok: true, leaderboard: entries, recentDrawings: savedDrawings.slice(-20).reverse() };
-});
-
 fastify.post('/api/start', async (req) => {
   const body = req.body || {};
-  const { answer, content, aliases = [], artist = 'AI', author = '艾因' } = body;
+  const { answer, content, aliases = [], artist = 'AI' } = body;
   if (!answer || !content) return { ok: false, message: '需要 answer 和 content' };
   currentRound = {
-    answer, aliases, artist, author: artist === 'AI' ? '艾因' : (author || '匿名'), content,
+    answer, aliases, artist, content,
     drawing_svg: strokesToSvg(content),
     ascii_grid: makeAsciiGrid(content),
     ascii_grid_note: ASCII_NOTE,
@@ -729,7 +589,7 @@ fastify.post('/api/start', async (req) => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
-  return { ok: true, message: '新一局开始！画师: ' + (artist === 'AI' ? '艾因' : author) };
+  return { ok: true, message: `新一局开始！画师: ${artist}` };
 });
 
 fastify.get('/api/status', async () => {
@@ -765,12 +625,9 @@ fastify.post('/api/guess', async (req) => {
   const correct = validAnswers.includes(guess);
   currentRound.guesses.push({ guesser, content: content.trim(), correct, time: new Date().toISOString() });
   if (correct) {
-    // Update score and correct count
+    // Update score
     scores[guesser] = (scores[guesser] || 0) + 1;
-    playerGuessCorrect[guesser] = (playerGuessCorrect[guesser] || 0) + 1;
-    // 更新在线状态
-    if (onlinePlayers[guesser]) onlinePlayers[guesser] = Date.now();
-    return { ok: true, correct: true, message: '🎉 恭喜 ' + guesser + '，猜对了！答案是「' + currentRound.answer + '」', answer: currentRound.answer };
+    return { ok: true, correct: true, message: `🎉 恭喜 ${guesser}，猜对了！答案是「${currentRound.answer}」`, answer: currentRound.answer };
   }
   return { ok: true, correct: false, message: `❌ 「${content.trim()}」不对哦，再想想～` };
 });
@@ -788,8 +645,6 @@ fastify.post('/api/ai_guess', async (req) => {
 fastify.post('/api/draw', async (req) => {
   const { content, answer, aliases, author } = req.body || {};
   if (!content || !Array.isArray(content) || content.length === 0) return { ok: false, message: '需要 content（笔画数组）' };
-  if (!answer || !answer.trim()) return { ok: false, message: '请填写答案！' };
-  if (!author || !author.trim()) return { ok: false, message: '请填写署名！' };
   currentRound = {
     answer: answer || null, aliases: aliases || [], artist: 'user', author: author || '匿名', content,
     drawing_svg: strokesToSvg(content),
@@ -805,7 +660,6 @@ fastify.post('/api/draw', async (req) => {
   savedDrawings.push({
     id: Date.now(),
     artist: 'user',
-    comments: [],
     author: author || '匿名',
     answer: answer || null,
     drawing_svg: currentRound.drawing_svg,
@@ -823,7 +677,7 @@ fastify.post('/api/draw', async (req) => {
 fastify.post('/api/demo', async () => {
   const demo = DEMO_DRAWINGS[Math.floor(Math.random() * DEMO_DRAWINGS.length)];
   currentRound = {
-    answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: '艾因', content: demo.content,
+    answer: demo.answer, aliases: demo.aliases, artist: 'AI', content: demo.content,
     drawing_svg: strokesToSvg(demo.content),
     ascii_grid: makeAsciiGrid(demo.content),
     ascii_grid_note: ASCII_NOTE,
@@ -837,8 +691,7 @@ fastify.post('/api/demo', async () => {
   savedDrawings.push({
     id: Date.now(),
     artist: 'AI',
-    comments: [],
-    author: '艾因',
+    author: 'AI',
     answer: demo.answer,
     aliases: demo.aliases,
     drawing_svg: currentRound.drawing_svg,
@@ -849,7 +702,7 @@ fastify.post('/api/demo', async () => {
   });
   if (savedDrawings.length > 50) savedDrawings = savedDrawings.slice(-50);
   
-  return { ok: true, message: '新一局开始！画师: 艾因', answer: demo.answer };
+  return { ok: true, message: '新一局开始！画师: AI', answer: demo.answer };
 });
 
 fastify.get('/api/random', async () => {
@@ -859,7 +712,7 @@ fastify.get('/api/random', async () => {
     // Fallback to a demo drawing
     const demo = DEMO_DRAWINGS[Math.floor(Math.random() * DEMO_DRAWINGS.length)];
     currentRound = {
-      answer: demo.answer, aliases: demo.aliases, artist: 'AI', author: '艾因', content: demo.content,
+      answer: demo.answer, aliases: demo.aliases, artist: 'AI', content: demo.content,
       drawing_svg: strokesToSvg(demo.content),
       ascii_grid: makeAsciiGrid(demo.content),
       ascii_grid_note: ASCII_NOTE,
@@ -869,10 +722,10 @@ fastify.get('/api/random', async () => {
       hintsRevealed: 0,
       startTime: Date.now(),
     };
-    return { ok: true, message: '随机一局开始！（画师：艾因）', answer: demo.answer };
+    return { ok: true, message: '随机一局开始！', answer: demo.answer };
   }
   currentRound = {
-    answer: entry.word, aliases: entry.aliases, artist: 'AI', author: '艾因', content: drawing,
+    answer: entry.word, aliases: entry.aliases, artist: 'AI', content: drawing,
     drawing_svg: strokesToSvg(drawing),
     ascii_grid: makeAsciiGrid(drawing),
     ascii_grid_note: ASCII_NOTE,
@@ -882,7 +735,7 @@ fastify.get('/api/random', async () => {
     hintsRevealed: 0,
     startTime: Date.now(),
   };
-  return { ok: true, message: '随机一局开始！（画师：艾因）', answer: entry.word };
+  return { ok: true, message: '随机一局开始！', answer: entry.word };
 });
 
 fastify.get('/api/score', async () => {
@@ -953,47 +806,42 @@ canvas{width:100%;border-radius:12px;touch-action:none;background:#fffafc;cursor
   .color-btn{width:22px;height:22px}
   .hint-display{font-size:1.1em;letter-spacing:5px}
 }
-
-/* 🌸 樱花物语 */
-body.theme-sakura{background:linear-gradient(135deg,#fce4ec,#f8bbd0,#f3e5f5);color:#4a2040}
-body.theme-sakura .card{background:rgba(255,255,255,0.85);border:1px solid rgba(236,64,122,0.15);box-shadow:0 4px 20px rgba(233,30,99,0.08);backdrop-filter:blur(10px)}
-body.theme-sakura .tab{background:rgba(255,255,255,0.7);color:#c2185b;border:1px solid rgba(236,64,122,0.2)}
-body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;border-color:#ec407a;box-shadow:0 2px 12px rgba(236,64,122,0.3)}
-body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#f48fb1,#ec407a);color:#fff;border-color:#f48fb1;box-shadow:0 2px 12px rgba(244,143,177,0.3)}
-body.theme-sakura input{background:rgba(255,255,255,0.9);border:2px solid #f8bbd0;color:#4a2040}
-body.theme-sakura input:focus{border-color:#ec407a;box-shadow:0 0 8px rgba(236,64,122,0.2)}
-body.theme-sakura .btn-pink{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;box-shadow:0 2px 10px rgba(236,64,122,0.3)}
-body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#26a69a);color:#fff}
-body.theme-sakura .empty-state{color:#e91e63}
-body.theme-sakura .color-btn.sel{border-color:#e91e63}
-/* 🌿 薄荷森林 */
-body.theme-forest{background:linear-gradient(135deg,#e8f5e9,#c8e6c9,#a5d6a7);color:#1b3a1b}
-body.theme-forest .card{background:rgba(255,255,255,0.85);border:1px solid rgba(76,175,80,0.15);box-shadow:0 4px 20px rgba(76,175,80,0.08);backdrop-filter:blur(10px)}
-body.theme-forest .tab{background:rgba(255,255,255,0.7);color:#2e7d32;border:1px solid rgba(76,175,80,0.2)}
-body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;border-color:#66bb6a;box-shadow:0 2px 12px rgba(76,175,80,0.3)}
-body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;border-color:#ffb74d;box-shadow:0 2px 12px rgba(255,152,0,0.3)}
-body.theme-forest input{background:rgba(255,255,255,0.9);border:2px solid #c8e6c9;color:#1b3a1b}
-body.theme-forest input:focus{border-color:#43a047;box-shadow:0 0 8px rgba(67,160,71,0.2)}
-body.theme-forest .btn-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;box-shadow:0 2px 10px rgba(255,152,0,0.3)}
-body.theme-forest .btn-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;box-shadow:0 2px 10px rgba(76,175,80,0.3)}
-body.theme-forest .empty-state{color:#43a047}
-body.theme-forest .color-btn.sel{border-color:#43a047}
-/* 主题切换按钮 */
-.theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
-.theme-btn{width:38px;height:38px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all .3s ease}
-.theme-btn:hover{transform:scale(1.2);border-color:rgba(255,255,255,0.8);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
-.theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
-
 </style>
+<script>
+// ===== 安全防护：防止浏览器劫持和注入 =====
+(function(){
+  if(window.self!==window.top){try{window.top.location=window.self.location}catch(e){}}
+  function cleanDOM(){
+    var host=location.hostname;
+    document.querySelectorAll('script[src],iframe[src]').forEach(function(el){
+      var src=el.src||'';
+      if(src&&!src.includes(host)&&!src.startsWith('data:')&&!src.startsWith('blob:')){
+        var ok=['fonts.googleapis.com','fonts.gstatic.com','cdnjs.cloudflare.com'];
+        try{var u=new URL(src);if(!ok.some(function(d){return u.hostname.includes(d)}))el.remove()}catch(e){}
+      }
+    });
+    document.querySelectorAll('div[style*="position: fixed"],div[style*="position: absolute"]').forEach(function(el){
+      var z=parseInt(el.style.zIndex)||0;
+      if(z>9000&&!el.classList.length&&!el.id&&!el.closest('.header,.tabs,.mode,.card,.theme-switcher,.tools'))el.remove();
+    });
+  }
+  var obs=new MutationObserver(function(m){m.forEach(function(x){x.addedNodes.forEach(function(n){
+    if(n.nodeType===1&&(n.tagName==='SCRIPT'||n.tagName==='IFRAME')){
+      var s=n.src||'';if(s&&!s.includes(location.hostname)&&!s.startsWith('data:'))n.remove();
+    }
+  })})});
+  obs.observe(document.documentElement,{childList:true,subtree:true});
+  var origOpen=window.open;window.open=function(u){if(u&&!u.includes(location.hostname))return null;return origOpen.apply(this,arguments)};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanDOM);else cleanDOM();
+  setInterval(cleanDOM,2000);
+})();
+</script>
 </head>
 <body>
 <div class="header"><h1>🎨 你画我猜</h1></div>
 <div class="tabs">
   <button class="tab active-blue" id="tab-guess" onclick="switchMode('guess')">🎯 猜画</button>
   <button class="tab" id="tab-draw" onclick="switchMode('draw')">🖌️ 画板</button>
-  <button class="tab" id="tab-leaderboard" onclick="switchMode('leaderboard')">🏆 排行榜</button>
-  <span id="player-badge" style="padding:6px 12px;border-radius:20px;background:#e91e63;color:#fff;font-size:.8em;font-weight:600">👤</span>
-  <a href="/gallery" class="tab" style="text-decoration:none;color:inherit">🖼 画廊</a>
 </div>
 
 <!-- Guessing Mode -->
@@ -1005,8 +853,7 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
     <div id="guess-drawing" class="drawing-area"><div class="empty-state">点击「新一局」或「随机一局」开始游戏～</div></div>
     <div id="correct-banner" style="display:none"></div>
     <div class="input-row" style="margin:10px 0">
-      <input id="guess-player" placeholder="你的名字" style="width:90px;font-size:0.9em">
-      <input id="guess-input" placeholder="输入猜测..." autocomplete="off" style="flex:1">
+      <input id="guess-input" placeholder="输入你的猜测..." autocomplete="off">
       <button class="btn btn-blue" onclick="submitGuess()">猜！</button>
     </div>
     <div id="guess-history" class="guess-list"></div>
@@ -1020,44 +867,24 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
 <!-- Drawing Mode -->
 <div class="mode" id="mode-draw">
   <div class="card">
-    <div class="tools" style="gap:5px">
+    <div class="tools">
       <div class="color-btn sel" style="background:#000" data-c="#000" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#4f454b" data-c="#4f454b" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#9e9e9e" data-c="#9e9e9e" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#fff;border:1px solid #555" data-c="#fff" onclick="pickColor(this)"></div>
+      <div class="color-btn" style="background:#fff" data-c="#fff" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#e53935" data-c="#e53935" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#f44336" data-c="#f44336" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#ff5722" data-c="#ff5722" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#ff9800" data-c="#ff9800" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#ffc107" data-c="#ffc107" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#ffeb3b" data-c="#ffeb3b" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#cddc39" data-c="#cddc39" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#4caf50" data-c="#4caf50" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#009688" data-c="#009688" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#00bcd4" data-c="#00bcd4" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#2196f3" data-c="#2196f3" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#1565c0" data-c="#1565c0" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#9c27b0" data-c="#9c27b0" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#e91e63" data-c="#e91e63" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#f48fb1" data-c="#f48fb1" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#795548" data-c="#795548" onclick="pickColor(this)"></div>
       <div class="color-btn" style="background:#607d8b" data-c="#607d8b" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#90a4ae" data-c="#90a4ae" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#d7ccc8" data-c="#d7ccc8" onclick="pickColor(this)"></div>
-      <div class="color-btn" style="background:#a1887f" data-c="#a1887f" onclick="pickColor(this)"></div>
-      <input type="color" id="custom-color" value="#000" style="width:26px;height:26px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none" onchange="pickCustomColor(this.value)" title="自选颜色">
+      <div class="color-btn" style="background:#ff5722" data-c="#ff5722" onclick="pickColor(this)"></div>
     </div>
     <div class="tools">
       <span style="color:#888;font-size:.8em">粗细</span>
       <input type="range" class="width-slider" min="2" max="20" value="6" id="stroke-width" oninput="document.getElementById('wlabel').textContent=this.value+'px'">
       <span id="wlabel" style="color:#888;font-size:.8em">6px</span>
-      <span style="color:#555;margin:0 2px">|</span>
-      <button class="tool-btn active" id="pen-btn" onclick="setTool('polyline')">✏️ 画笔</button>
-      <button class="tool-btn" id="rect-btn" onclick="setTool('rect')">▭ 矩形</button>
-      <button class="tool-btn" id="circle-btn" onclick="setTool('circle')">◯ 圆形</button>
-      <button class="tool-btn" id="line-btn" onclick="setTool('line')">╱ 直线</button>
-      <button class="tool-btn" id="arrow-btn" onclick="setTool('arrow')">→ 箭头</button>
-      <span style="color:#555;margin:0 2px">|</span>
       <button class="tool-btn" id="eraser-btn" onclick="toggleEraser()">🧹 橡皮</button>
       <button class="tool-btn" onclick="undoStroke()">↩ 撤销</button>
       <button class="tool-btn" onclick="clearCanvas()">🗑 清除</button>
@@ -1067,7 +894,7 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
         <div style="display:flex;gap:8px">
           <input id="draw-answer" placeholder="答案（例如：猫）" style="flex:1;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0">
-          <input id="draw-author" placeholder="写你的名字" style="width:120px;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0;text-align:center">
+          <input id="draw-author" placeholder="署名" value="月汐" style="width:80px;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:#0f3460;color:#eee;font-size:1em;outline:0;text-align:center">
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-pink" style="flex:1" onclick="submitDrawing()">📤 提交画作</button>
@@ -1078,60 +905,17 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
   </div>
 </div>
 
-<!-- Leaderboard Mode -->
-<div class="mode" id="mode-leaderboard">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <span style="color:#FFB6C1;font-size:1.1em;font-weight:600">🏆 猜对排行榜</span>
-      <span id="online-count" style="color:#87CEEB;font-size:.85em"></span>
-    </div>
-    <div id="leaderboard-list"></div>
-    <div style="margin-top:16px">
-      <span style="color:#87CEEB;font-size:.9em;font-weight:600">👥 在线玩家</span>
-      <div id="players-list" style="margin-top:8px"></div>
-    </div>
-    <div style="margin-top:16px">
-      <span style="color:#FFB6C1;font-size:.9em;font-weight:600">🖼 最近画作</span>
-      <div id="recent-drawings" style="margin-top:8px"></div>
-    </div>
-  </div>
-</div>
-
 <script>
 const $=id=>document.getElementById(id);
 let guessHistory=[],timerInterval=null,currentTime=0,roundActive=false,solved=false;
-let currentPlayerName=localStorage.getItem('playerName')||'';
 
 // ===== Mode switching =====
 function switchMode(m){
   $('mode-guess').classList.toggle('active',m==='guess');
   $('mode-draw').classList.toggle('active',m==='draw');
-  $('mode-leaderboard').classList.toggle('active',m==='leaderboard');
   $('tab-guess').className='tab'+(m==='guess'?' active-blue':'');
   $('tab-draw').className='tab'+(m==='draw'?' active-pink':'');
-  $('tab-leaderboard').className='tab'+(m==='leaderboard'?' active-blue':'');
   if(m==='draw')initCanvas();
-  if(m==='leaderboard')loadLeaderboard();
-}
-
-// ===== Player Join =====
-if(currentPlayerName){
-  $('player-name').value=currentPlayerName;
-  $('player-status').textContent='已加入';
-  fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:currentPlayerName})});
-}
-async function joinGame(){
-  const name=$('player-name').value.trim();
-  if(!name)return alert('请输入名字！');
-  const r=await fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
-  const d=await r.json();
-  if(d.ok){
-    currentPlayerName=name;
-    localStorage.setItem('playerName',name);
-    $('player-status').textContent='✅ '+d.message;
-  }else{
-    $('player-status').textContent='❌ '+d.message;
-  }
 }
 
 // ===== Guessing =====
@@ -1140,7 +924,7 @@ async function loadStatus(){
     const r=await fetch('/api/status');const d=await r.json();
     if(d.ok&&d.current&&d.current.drawing_svg){
       // 显示署名
-      const authorLabel = d.current.artist==='user' ? '✏️ '+(d.current.author||'匿名') : '🤖 '+(d.current.author||'艾因');
+      const authorLabel = d.current.artist==='user' ? '✏️ '+(d.current.author||'匿名') : '🤖 AI';
       const authorHtml = '<div style="text-align:center;color:#FFB6C1;font-size:13px;margin-bottom:8px">'+authorLabel+' 的画作</div>';
       $('guess-drawing').innerHTML = authorHtml + d.current.drawing_svg;
       // 显示ASCII网格+文字描述
@@ -1208,8 +992,7 @@ async function submitGuess(){
   if(solved)return;
   const inp=$('guess-input'),val=inp.value.trim();
   if(!val)return;inp.value='';
-  const guessInput2=document.getElementById('guess-player');
-  const guesserName=(guessInput2?guessInput2.value.trim():'')||currentPlayerName||'玩家';const r=await fetch('/api/guess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({guesser:guesserName,content:val})});
+  const r=await fetch('/api/guess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({guesser:'玩家',content:val})});
   const d=await r.json();
   guessHistory.unshift({correct:d.correct,content:val});
   renderGuesses(guessHistory);
@@ -1222,37 +1005,6 @@ async function submitGuess(){
   inp.focus();
 }
 $('guess-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitGuess()});
-
-// ===== Leaderboard =====
-async function loadLeaderboard(){
-  try{
-    const r=await fetch('/api/leaderboard');const d=await r.json();
-    if(d.ok){
-      // 排行榜
-      const lb=d.leaderboard||[];
-      $('leaderboard-list').innerHTML=lb.length?lb.map((e,i)=>{
-        const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '+(i+1)+'.';
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;margin-bottom:4px;background:'+(i<3?'rgba(135,206,235,.08)':'#0f3460')+'">'+medal+' <b>'+e.name+'</b><span style="color:#87CEEB">'+e.correct+'次猜对</span></div>';
-      }).join(''):'<div style="color:#666;text-align:center;padding:12px">还没有人猜对过～</div>';
-      // 最近画作
-      const rd=d.recentDrawings||[];
-      $('recent-drawings').innerHTML=rd.length?rd.slice(0,8).map(d=>{
-        const label=d.artist==='AI'?'🤖 '+(d.author||'艾因'):'✏️ '+(d.author||'匿名');
-        return '<div style="display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #2a2a4a">'+label+'<span style="color:#87CEEB;font-size:.85em">'+(d.answer||'自由画')+'</span><span style="color:#666;font-size:.8em;margin-left:auto">'+(d.created_at||'').slice(11,16)+'</span></div>';
-      }).join(''):'<div style="color:#666;text-align:center;padding:12px">暂无画作</div>';
-    }
-  }catch(e){}
-  // 在线玩家
-  try{
-    const r=await fetch('/api/players');const d=await r.json();
-    if(d.ok){
-      $('online-count').textContent='在线: '+d.count+'人';
-      $('players-list').innerHTML=d.players.length?d.players.map(p=>
-        '<span style="display:inline-block;padding:4px 10px;border-radius:12px;background:#0f3460;margin:2px 4px;font-size:.85em;color:'+(p.name===currentPlayerName?'#FFB6C1':'#87CEEB')+'">'+p.name+(p.correctCount>0?' ('+p.correctCount+'次)':'')+'</span>'
-      ).join(''):'<span style="color:#666;font-size:.85em">暂无在线玩家</span>';
-    }
-  }catch(e){}
-}
 
 // ===== Scores =====
 async function loadScores(){
@@ -1268,7 +1020,6 @@ loadScores();
 const canvas=$('draw-canvas');
 const ctx=canvas.getContext('2d');
 let drawing=false,strokes=[],curStroke=null,curColor='#000',isEraser=false;
-let currentTool='polyline',shapeStart=null,lastDrawPos=null;
 
 // 初始化canvas尺寸
 function initCanvas(){
@@ -1285,103 +1036,38 @@ function initCanvas(){
   ctx.lineJoin='round';
 }
 setTimeout(initCanvas,200);
-// 初始化署名
-
 
 function getXY(e){
   const r=canvas.getBoundingClientRect();
   const t=e.touches?e.touches[0]:e;
   return{x:t.clientX-r.left, y:t.clientY-r.top};
 }
-
-function isShapeTool(t){return t==='rect'||t==='circle'||t==='line'||t==='arrow';}
-
 function startDraw(e){
   e.preventDefault();
   drawing=true;
   const p=getXY(e);
   const w=parseInt($('stroke-width').value)||6;
   const c=isEraser?'#fffafc':curColor;
-  if(isShapeTool(currentTool)&&!isEraser){
-    shapeStart={x:Math.round(p.x),y:Math.round(p.y)};
-    curStroke=null;
-  } else {
-    curStroke={tool:'polyline',points:[[Math.round(p.x),Math.round(p.y)]],color:c,width:isEraser?w*2:w};
-    ctx.beginPath();
-    ctx.moveTo(p.x,p.y);
-    ctx.strokeStyle=c;
-    ctx.lineWidth=isEraser?w*2:w;
-  }
-}
-
-function drawShapePreview(tool,x1,y1,x2,y2,color,lineWidth){
-  ctx.save();
-  ctx.strokeStyle=color;
-  ctx.lineWidth=lineWidth;
-  ctx.lineCap='round';
-  ctx.lineJoin='round';
-  ctx.setLineDash([6,4]);
+  curStroke={tool:'polyline',points:[[Math.round(p.x),Math.round(p.y)]],color:c,width:isEraser?w*2:w};
   ctx.beginPath();
-  if(tool==='rect'){
-    ctx.strokeRect(x1,y1,x2-x1,y2-y1);
-  } else if(tool==='circle'){
-    const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2;
-    ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
-    ctx.stroke();
-  } else if(tool==='line'){
-    ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-  } else if(tool==='arrow'){
-    ctx.setLineDash([]);
-    ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-    // arrowhead
-    const angle=Math.atan2(y2-y1,x2-x1);
-    const headLen=Math.max(12,lineWidth*3);
-    ctx.beginPath();
-    ctx.moveTo(x2,y2);
-    ctx.lineTo(x2-headLen*Math.cos(angle-Math.PI/6),y2-headLen*Math.sin(angle-Math.PI/6));
-    ctx.moveTo(x2,y2);
-    ctx.lineTo(x2-headLen*Math.cos(angle+Math.PI/6),y2-headLen*Math.sin(angle+Math.PI/6));
-    ctx.stroke();
-  }
-  ctx.restore();
+  ctx.moveTo(p.x,p.y);
+  ctx.strokeStyle=c;
+  ctx.lineWidth=isEraser?w*2:w;
 }
-
 function moveDraw(e){
   if(!drawing)return;
   e.preventDefault();
   const p=getXY(e);
-  lastDrawPos={x:Math.round(p.x),y:Math.round(p.y)};
-  if(isShapeTool(currentTool)&&shapeStart&&!isEraser){
-    // Preview: redraw canvas then overlay preview shape
-    redraw();
-    const w=parseInt($('stroke-width').value)||6;
-    drawShapePreview(currentTool,shapeStart.x,shapeStart.y,Math.round(p.x),Math.round(p.y),curColor,w);
-  } else if(curStroke){
-    curStroke.points.push([Math.round(p.x),Math.round(p.y)]);
-    ctx.lineTo(p.x,p.y);
-    ctx.stroke();
-  }
+  curStroke.points.push([Math.round(p.x),Math.round(p.y)]);
+  ctx.lineTo(p.x,p.y);
+  ctx.stroke();
 }
-
 function endDraw(e){
   if(!drawing)return;
   if(e)e.preventDefault();
   drawing=false;
-  if(isShapeTool(currentTool)&&shapeStart&&!isEraser){
-    const p=lastDrawPos||shapeStart;
-    const w=parseInt($('stroke-width').value)||6;
-    const x1=shapeStart.x,y1=shapeStart.y,x2=p.x,y2=p.y;
-    // Only add if shape has some size
-    if(Math.abs(x2-x1)>3||Math.abs(y2-y1)>3){
-      strokes.push({tool:currentTool,points:[[x1,y1],[x2,y2]],color:curColor,width:w});
-    }
-    shapeStart=null;
-    lastDrawPos=null;
-    redraw();
-  } else {
-    if(curStroke&&curStroke.points.length>1)strokes.push(curStroke);
-    curStroke=null;
-  }
+  if(curStroke&&curStroke.points.length>1)strokes.push(curStroke);
+  curStroke=null;
 }
 canvas.addEventListener('mousedown',startDraw);
 canvas.addEventListener('mousemove',moveDraw);
@@ -1391,39 +1077,16 @@ canvas.addEventListener('touchstart',startDraw,{passive:false});
 canvas.addEventListener('touchmove',moveDraw,{passive:false});
 canvas.addEventListener('touchend',endDraw,{passive:false});
 
-function setTool(tool){
-  currentTool=tool;
-  isEraser=false;
-  document.querySelectorAll('[id$="-btn"]').forEach(b=>{
-    if(['pen-btn','rect-btn','circle-btn','line-btn','arrow-btn','eraser-btn'].includes(b.id))b.classList.remove('active');
-  });
-  const btn=$(tool==='polyline'?'pen-btn':tool+'-btn');
-  if(btn)btn.classList.add('active');
-  $('eraser-btn').classList.remove('active');
-}
 function pickColor(el){
   document.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('sel'));
   el.classList.add('sel');
   curColor=el.dataset.c;
   isEraser=false;
   $('eraser-btn').classList.remove('active');
-  // Reset custom color input
-  const cc=$('custom-color');if(cc)cc.value=curColor;
-}
-function pickCustomColor(val){
-  curColor=val;
-  document.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('sel'));
-  isEraser=false;
-  $('eraser-btn').classList.remove('active');
 }
 function toggleEraser(){
   isEraser=!isEraser;
   $('eraser-btn').classList.toggle('active',isEraser);
-  if(isEraser){
-    document.querySelectorAll('[id$="-btn"]').forEach(b=>{
-      if(['pen-btn','rect-btn','circle-btn','line-btn','arrow-btn'].includes(b.id))b.classList.remove('active');
-    });
-  }
 }
 function undoStroke(){
   strokes.pop();
@@ -1434,67 +1097,35 @@ function clearCanvas(){
   ctx.fillStyle='#fffafc';
   ctx.fillRect(0,0,canvas.width,canvas.height);
 }
-
-function renderStroke(ctx2,s){
-  if(s.tool==='polyline'){
-    if(s.points.length<2)return;
-    ctx2.beginPath();
-    ctx2.strokeStyle=s.color;
-    ctx2.lineWidth=s.width;
-    ctx2.lineCap='round';
-    ctx2.lineJoin='round';
-    ctx2.moveTo(s.points[0][0],s.points[0][1]);
-    for(let i=1;i<s.points.length;i++)ctx2.lineTo(s.points[i][0],s.points[i][1]);
-    ctx2.stroke();
-  } else if(s.tool==='rect'){
-    const[x1,y1]=s.points[0],[x2,y1b]=s.points[1];
-    ctx2.strokeStyle=s.color;ctx2.lineWidth=s.width;ctx2.lineJoin='round';
-    ctx2.strokeRect(x1,y1,x2-x1,y1b-y1);
-  } else if(s.tool==='circle'){
-    const[x1,y1]=s.points[0],[x2,y2]=s.points[1];
-    const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2;
-    ctx2.beginPath();ctx2.strokeStyle=s.color;ctx2.lineWidth=s.width;
-    ctx2.ellipse(cx,cy,Math.max(rx,1),Math.max(ry,1),0,0,Math.PI*2);ctx2.stroke();
-  } else if(s.tool==='line'){
-    const[x1,y1]=s.points[0],[x2,y2]=s.points[1];
-    ctx2.beginPath();ctx2.strokeStyle=s.color;ctx2.lineWidth=s.width;ctx2.lineCap='round';
-    ctx2.moveTo(x1,y1);ctx2.lineTo(x2,y2);ctx2.stroke();
-  } else if(s.tool==='arrow'){
-    const[x1,y1]=s.points[0],[x2,y2]=s.points[1];
-    ctx2.beginPath();ctx2.strokeStyle=s.color;ctx2.lineWidth=s.width;ctx2.lineCap='round';
-    ctx2.moveTo(x1,y1);ctx2.lineTo(x2,y2);ctx2.stroke();
-    const angle=Math.atan2(y2-y1,x2-x1);
-    const headLen=Math.max(12,s.width*3);
-    ctx2.beginPath();
-    ctx2.moveTo(x2,y2);ctx2.lineTo(x2-headLen*Math.cos(angle-Math.PI/6),y2-headLen*Math.sin(angle-Math.PI/6));
-    ctx2.moveTo(x2,y2);ctx2.lineTo(x2-headLen*Math.cos(angle+Math.PI/6),y2-headLen*Math.sin(angle+Math.PI/6));
-    ctx2.stroke();
-  }
-}
-
 function redraw(){
   ctx.fillStyle='#fffafc';
   ctx.fillRect(0,0,canvas.width,canvas.height);
-  for(const s of strokes)renderStroke(ctx,s);
+  for(const s of strokes){
+    if(s.points.length<2)continue;
+    ctx.beginPath();
+    ctx.strokeStyle=s.color;
+    ctx.lineWidth=s.width;
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    ctx.moveTo(s.points[0][0],s.points[0][1]);
+    for(let i=1;i<s.points.length;i++)ctx.lineTo(s.points[i][0],s.points[i][1]);
+    ctx.stroke();
+  }
 }
-
 async function submitDrawing(){
   if(!strokes.length)return alert('先画点什么吧！');
   const answerInput=$('draw-answer');
   const answer=answerInput?answerInput.value.trim():'';
   if(!answer)return alert('请输入答案！');
   const sx=1000/canvas.width, sy=700/canvas.height;
-  const serverStrokes=strokes.map(s=>{
-    const base={tool:s.tool,color:s.color,width:s.width};
-    if(s.tool==='polyline'){
-      base.points=s.points.map(p=>[Math.round(p[0]*sx),Math.round(p[1]*sy)]);
-    } else {
-      base.points=s.points.map(p=>[Math.round(p[0]*sx),Math.round(p[1]*sy)]);
-    }
-    return base;
-  });
+  const serverStrokes=strokes.map(s=>({
+    tool:'polyline',
+    points:s.points.map(p=>[Math.round(p[0]*sx),Math.round(p[1]*sy)]),
+    color:s.color, width:s.width
+  }));
   const authorEl=$('draw-author');
   const author=authorEl?authorEl.value.trim()||'匿名':'匿名';
+  // 在画作底部加上署名
   serverStrokes.push({tool:'polyline',points:[[500,680],[500,680]],color:'#999',width:1,author:author});
   const r=await fetch('/api/draw',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:serverStrokes,answer:answer,aliases:[],author:author})});
   const d=await r.json();
@@ -1509,107 +1140,28 @@ async function submitDrawing(){
 }
 function saveDrawing(){
   if(!strokes.length)return alert('先画点什么吧！');
+  // 创建一个临时canvas，画上署名
   const tmpCanvas=document.createElement('canvas');
   tmpCanvas.width=canvas.width;tmpCanvas.height=canvas.height;
   const tmpCtx=tmpCanvas.getContext('2d');
   tmpCtx.fillStyle='#fffafc';tmpCtx.fillRect(0,0,tmpCanvas.width,tmpCanvas.height);
+  // 复制画作
   tmpCtx.drawImage(canvas,0,0);
-  const authorEl=$('draw-author');const author=authorEl?authorEl.value.trim()||getPlayer()||'匿名':'匿名';
+  // 加上署名
+  const authorEl=$('draw-author');const author=authorEl?authorEl.value.trim()||'匿名':'匿名';
   const fontSize=Math.max(12,Math.round(canvas.width/40));
   tmpCtx.fillStyle='#999';tmpCtx.font=fontSize+'px sans-serif';tmpCtx.textAlign='right';
   tmpCtx.fillText('—— '+author,canvas.width-fontSize,canvas.height-fontSize);
+  // 下载
   const link=document.createElement('a');
   link.download='你画我猜_'+author+'_'+new Date().toISOString().slice(0,10)+'.png';
   link.href=tmpCanvas.toDataURL('image/png');
   link.click();
 }
-
-
-// ===== 加入游戏 =====
-function joinGame() {
-  var input = document.getElementById("player-name-input");
-  var name = input ? input.value.trim() : "";
-  if (!name) { alert("请输入你的名字！"); return; }
-  localStorage.setItem("draw-player", name);
-  var modal = document.getElementById("join-modal");
-  if (modal) modal.style.display = "none";
-  var badge = document.getElementById("player-badge");
-  if (badge) badge.textContent = "\u{1F464} " + name;
-  var authorEl = document.getElementById("draw-author");
-  if (authorEl) authorEl.value = name;
-  var guessPlayerEl = document.getElementById("guess-player");
-  if (guessPlayerEl) guessPlayerEl.value = name;
-  fetch('/api/join', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})});
-}
-function getPlayer() { return localStorage.getItem("draw-player") || ""; }
-// 检查是否已加入
-(function(){
-  var saved = localStorage.getItem("draw-player");
-  if (saved) {
-    var modal = document.getElementById("join-modal");
-    if (modal) modal.style.display = "none";
-    var badge = document.getElementById("player-badge");
-    if (badge) badge.textContent = "\u{1F464} " + saved;
-    var authorEl = document.getElementById("draw-author");
-    if (authorEl) authorEl.value = saved;
-    var guessPlayerEl = document.getElementById("guess-player");
-    if (guessPlayerEl) guessPlayerEl.value = saved;
-  }
-})();
-
-// ===== 主题切换 =====
-function setTheme(name) {
-  document.body.className = "theme-" + name;
-  localStorage.setItem("draw-theme", name);
-  var btns = document.querySelectorAll(".theme-btn");
-  var themes = ["space","sakura","forest"];
-  for (var i = 0; i < btns.length; i++) {
-    if (themes[i] === name) btns[i].classList.add("active");
-    else btns[i].classList.remove("active");
-  }
-}
-(function(){
-  var saved = localStorage.getItem("draw-theme");
-  if (saved) setTheme(saved);
-})();
-
-
-
-// ===== 评论功能 =====
-function addComment(drawingId) {
-  var nameEl = document.getElementById('cmt-name-'+drawingId);
-  var textEl = document.getElementById('cmt-text-'+drawingId);
-  var author = nameEl ? nameEl.value.trim() : '';
-  var text = textEl ? textEl.value.trim() : '';
-  if (!author) { alert('请输入署名'); return; }
-  if (!text) { alert('请输入评论'); return; }
-  fetch('/api/comment', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({drawing_id:drawingId, author:author, text:text, is_ai:false}) })
-    .then(function(){ location.reload(); });
-}
-
 </script>
-
-<div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#1a237e,#283593)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#f48fb1,#ec407a)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#66bb6a,#2e7d32)" onclick="setTheme('forest')" title="森林绿"></div>
-</div>
-
 </body>
 </html>`;
 
-
-
-// ===== 评论 API =====
-fastify.post('/api/comment', async (req) => {
-  const { drawing_id, author, text, is_ai } = req.body || {};
-  if (!drawing_id || !author || !text) return { ok: false, message: '需要 drawing_id, author, text' };
-  const drawing = savedDrawings.find(d => d.id === drawing_id);
-  if (!drawing) return { ok: false, message: '画作不存在' };
-  if (!drawing.comments) drawing.comments = [];
-  drawing.comments.push({ author, text, is_ai: !!is_ai, time: new Date().toISOString() });
-  return { ok: true, comments: drawing.comments };
-});
 
 // ===== 画廊 API =====
 fastify.get('/api/gallery', async () => {
@@ -1618,35 +1170,21 @@ fastify.get('/api/gallery', async () => {
 
 fastify.get('/gallery', async (req, reply) => {
   const drawings = savedDrawings.slice().reverse();
-  const authors = [...new Set(drawings.map(d => d.artist === 'AI' ? '艾因' : (d.author || '匿名')))].filter(Boolean);
-  
   const cardsHtml = drawings.map((d, i) => {
-    const label = d.artist === 'AI' ? '🤖 ' + (d.author || '艾因') : '✏️ ' + (d.author || '匿名');
-    const authorKey = d.artist === 'AI' ? '艾因' : (d.author || '匿名');
+    const label = d.artist === 'AI' ? '🤖 AI' : '✏️ ' + (d.author || '匿名');
     const answerHtml = d.answer ? '<div style="color:#87CEEB;font-size:13px;margin-top:4px">答案：' + d.answer + '</div>' : '';
     const descHtml = d.description ? '<div style="color:#999;font-size:11px;margin-top:4px;white-space:pre-line;max-height:60px;overflow:hidden">' + d.description.replace(/</g,'&lt;') + '</div>' : '';
-    const timeStr = (d.created_at || '').slice(0,16);
-    return '<div class="gallery-card" data-author="' + authorKey + '" data-time="' + (d.created_at || '') + '">' +
+    return '<div class="gallery-card">' +
       '<div class="drawing-preview">' + d.drawing_svg + '</div>' +
       '<div style="padding:8px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center">' +
           '<span style="color:#FFB6C1;font-weight:600">' + label + '</span>' +
-          '<span style="color:#666;font-size:11px">' + timeStr + '</span>' +
+          '<span style="color:#666;font-size:11px">' + (d.created_at || '').slice(0,16) + '</span>' +
         '</div>' +
         answerHtml + descHtml +
-        '<div style="margin-top:8px">' +
-          (d.comments||[]).map(function(c){return '<div style="margin:3px 0;padding:4px 8px;background:#0f3460;border-radius:6px;font-size:12px"><span style="color:#FFB6C1">'+(c.is_ai?'🤖 ':'✏️ ')+c.author+':</span> '+c.text.replace(/</g,'&lt;')+'</div>';}).join('') +
-          '<div style="display:flex;gap:4px;margin-top:6px">' +
-            '<input id="cmt-n-'+d.id+'" placeholder="署名" style="width:60px;padding:5px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:11px">' +
-            '<input id="cmt-t-'+d.id+'" placeholder="评论..." style="flex:1;padding:5px;border-radius:6px;border:1px solid #444;background:#0f3460;color:#eee;font-size:11px">' +
-            '<button onclick="addCmt('+d.id+')" style="padding:5px 10px;border-radius:6px;border:none;background:#e91e63;color:#fff;font-size:11px;cursor:pointer">发送</button>' +
-          '</div>' +
-        '</div>' +
       '</div>' +
     '</div>';
   }).join('');
-
-  const filterOptions = authors.map(a => '<option value="' + a + '">' + a + '</option>').join('');
 
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1665,267 +1203,12 @@ h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
 .back-link{display:inline-block;color:#87CEEB;text-decoration:none;margin-bottom:12px;font-size:14px}
 .back-link:hover{text-decoration:underline}
 .empty{text-align:center;color:#999;padding:60px;font-size:16px}
-.filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
-.filter-bar select,.filter-bar input{padding:8px 12px;border-radius:8px;border:1px solid #333;background:#0f3460;color:#eee;font-size:.9em;outline:0}
-.filter-bar label{color:#888;font-size:.85em}
-.filter-count{color:#87CEEB;font-size:.85em}
-
-/* 🌸 樱花物语 */
-body.theme-sakura{background:linear-gradient(135deg,#fce4ec,#f8bbd0,#f3e5f5);color:#4a2040}
-body.theme-sakura .card{background:rgba(255,255,255,0.85);border:1px solid rgba(236,64,122,0.15);box-shadow:0 4px 20px rgba(233,30,99,0.08);backdrop-filter:blur(10px)}
-body.theme-sakura .tab{background:rgba(255,255,255,0.7);color:#c2185b;border:1px solid rgba(236,64,122,0.2)}
-body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;border-color:#ec407a;box-shadow:0 2px 12px rgba(236,64,122,0.3)}
-body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#f48fb1,#ec407a);color:#fff;border-color:#f48fb1;box-shadow:0 2px 12px rgba(244,143,177,0.3)}
-body.theme-sakura input{background:rgba(255,255,255,0.9);border:2px solid #f8bbd0;color:#4a2040}
-body.theme-sakura input:focus{border-color:#ec407a;box-shadow:0 0 8px rgba(236,64,122,0.2)}
-body.theme-sakura .btn-pink{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;box-shadow:0 2px 10px rgba(236,64,122,0.3)}
-body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#26a69a);color:#fff}
-body.theme-sakura .empty-state{color:#e91e63}
-body.theme-sakura .color-btn.sel{border-color:#e91e63}
-/* 🌿 薄荷森林 */
-body.theme-forest{background:linear-gradient(135deg,#e8f5e9,#c8e6c9,#a5d6a7);color:#1b3a1b}
-body.theme-forest .card{background:rgba(255,255,255,0.85);border:1px solid rgba(76,175,80,0.15);box-shadow:0 4px 20px rgba(76,175,80,0.08);backdrop-filter:blur(10px)}
-body.theme-forest .tab{background:rgba(255,255,255,0.7);color:#2e7d32;border:1px solid rgba(76,175,80,0.2)}
-body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;border-color:#66bb6a;box-shadow:0 2px 12px rgba(76,175,80,0.3)}
-body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;border-color:#ffb74d;box-shadow:0 2px 12px rgba(255,152,0,0.3)}
-body.theme-forest input{background:rgba(255,255,255,0.9);border:2px solid #c8e6c9;color:#1b3a1b}
-body.theme-forest input:focus{border-color:#43a047;box-shadow:0 0 8px rgba(67,160,71,0.2)}
-body.theme-forest .btn-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;box-shadow:0 2px 10px rgba(255,152,0,0.3)}
-body.theme-forest .btn-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;box-shadow:0 2px 10px rgba(76,175,80,0.3)}
-body.theme-forest .empty-state{color:#43a047}
-body.theme-forest .color-btn.sel{border-color:#43a047}
-/* 主题切换按钮 */
-.theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
-.theme-btn{width:38px;height:38px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all .3s ease}
-.theme-btn:hover{transform:scale(1.2);border-color:rgba(255,255,255,0.8);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
-.theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
-
 </style>
 </head>
 <body>
 <a href="/" class="back-link">← 返回游戏</a>
-<a href="/leaderboard" class="back-link" style="margin-left:16px">🏆 排行榜</a>
 <h1>🎨 画廊</h1>
-<div class="filter-bar">
-  <label>作者</label>
-  <select id="filter-author" onchange="filterGallery()">
-    <option value="">全部</option>
-    ${filterOptions}
-  </select>
-  <label>排序</label>
-  <select id="filter-sort" onchange="filterGallery()">
-    <option value="newest">最新优先</option>
-    <option value="oldest">最早优先</option>
-  </select>
-  <span id="filter-count" class="filter-count"></span>
-</div>
-${drawings.length ? '<div class="gallery-grid" id="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
-<script>
-
-function addCmt(drawingId) {
-  var n = document.getElementById('cmt-n-'+drawingId);
-  var t = document.getElementById('cmt-t-'+drawingId);
-  var author = n ? n.value.trim() : '';
-  var text = t ? t.value.trim() : '';
-  if (!author) { alert('请输入署名'); return; }
-  if (!text) { alert('请输入评论'); return; }
-  fetch('/api/comment', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({drawing_id:drawingId, author:author, text:text, is_ai:false})})
-    .then(function(){ location.reload(); });
-}
-
-function filterGallery(){
-  const author=document.getElementById('filter-author').value;
-  const sort=document.getElementById('filter-sort').value;
-  const cards=Array.from(document.querySelectorAll('.gallery-card'));
-  let visible=0;
-  cards.forEach(card=>{
-    const ca=card.dataset.author;
-    const show=!author||ca===author;
-    card.style.display=show?'':'none';
-    if(show)visible++;
-  });
-  // Sort
-  const grid=document.getElementById('gallery-grid');
-  if(grid){
-    cards.sort((a,b)=>{
-      const ta=a.dataset.time,tb=b.dataset.time;
-      return sort==='newest'?tb.localeCompare(ta):ta.localeCompare(tb);
-    });
-    cards.forEach(c=>grid.appendChild(c));
-  }
-  document.getElementById('filter-count').textContent='显示 '+visible+' / '+cards.length+' 幅';
-}
-filterGallery();
-
-
-// ===== 加入游戏 =====
-function joinGame() {
-  var input = document.getElementById("player-name-input");
-  var name = input ? input.value.trim() : "";
-  if (!name) { alert("请输入你的名字！"); return; }
-  localStorage.setItem("draw-player", name);
-  var modal = document.getElementById("join-modal");
-  if (modal) modal.style.display = "none";
-  var badge = document.getElementById("player-badge");
-  if (badge) badge.textContent = "\u{1F464} " + name;
-  var authorEl = document.getElementById("draw-author");
-  if (authorEl) authorEl.value = name;
-  var guessPlayerEl = document.getElementById("guess-player");
-  if (guessPlayerEl) guessPlayerEl.value = name;
-  fetch('/api/join', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})});
-}
-function getPlayer() { return localStorage.getItem("draw-player") || ""; }
-// 检查是否已加入
-(function(){
-  var saved = localStorage.getItem("draw-player");
-  if (saved) {
-    var modal = document.getElementById("join-modal");
-    if (modal) modal.style.display = "none";
-    var badge = document.getElementById("player-badge");
-    if (badge) badge.textContent = "\u{1F464} " + saved;
-    var authorEl = document.getElementById("draw-author");
-    if (authorEl) authorEl.value = saved;
-    var guessPlayerEl = document.getElementById("guess-player");
-    if (guessPlayerEl) guessPlayerEl.value = saved;
-  }
-})();
-
-// ===== 主题切换 =====
-function setTheme(name) {
-  document.body.className = "theme-" + name;
-  localStorage.setItem("draw-theme", name);
-  var btns = document.querySelectorAll(".theme-btn");
-  var themes = ["space","sakura","forest"];
-  for (var i = 0; i < btns.length; i++) {
-    if (themes[i] === name) btns[i].classList.add("active");
-    else btns[i].classList.remove("active");
-  }
-}
-(function(){
-  var saved = localStorage.getItem("draw-theme");
-  if (saved) setTheme(saved);
-})();
-
-
-
-// ===== 评论功能 =====
-function addComment(drawingId) {
-  var nameEl = document.getElementById('cmt-name-'+drawingId);
-  var textEl = document.getElementById('cmt-text-'+drawingId);
-  var author = nameEl ? nameEl.value.trim() : '';
-  var text = textEl ? textEl.value.trim() : '';
-  if (!author) { alert('请输入署名'); return; }
-  if (!text) { alert('请输入评论'); return; }
-  fetch('/api/comment', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({drawing_id:drawingId, author:author, text:text, is_ai:false}) })
-    .then(function(){ location.reload(); });
-}
-
-</script>
-
-<div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#1a237e,#283593)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#f48fb1,#ec407a)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#66bb6a,#2e7d32)" onclick="setTheme('forest')" title="森林绿"></div>
-</div>
-
-</body>
-</html>`;
-  reply.type('text/html; charset=utf-8');
-  return html;
-});
-
-fastify.get('/leaderboard', async (req, reply) => {
-  const entries = Object.entries(playerGuessCorrect)
-    .map(([name, correct]) => ({ name, correct, score: scores[name] || 0 }))
-    .sort((a, b) => b.correct - a.correct);
-  const recentDrawings = savedDrawings.slice(-20).reverse();
-  const players = Object.keys(onlinePlayers).map(name => ({
-    name, score: scores[name] || 0, correctCount: playerGuessCorrect[name] || 0,
-  }));
-
-  const lbRows = entries.map((e, i) => {
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)+'.';
-    return '<tr><td style="padding:10px 14px;font-size:1.1em">'+medal+'</td><td style="padding:10px 14px;font-weight:600;color:#FFB6C1">'+e.name+'</td><td style="padding:10px 14px;color:#87CEEB;text-align:center">'+e.correct+'次</td><td style="padding:10px 14px;color:#666;text-align:center">'+e.score+'分</td></tr>';
-  }).join('');
-
-  const recentCards = recentDrawings.slice(0, 10).map(d => {
-    const label = d.artist === 'AI' ? '🤖 ' + (d.author || '艾因') : '✏️ ' + (d.author || '匿名');
-    return '<div style="background:#16213e;border-radius:10px;border:1px solid #2a2a4a;overflow:hidden;min-width:180px;flex-shrink:0">' +
-      '<div style="background:#fffafc;padding:2px">' + d.drawing_svg + '</div>' +
-      '<div style="padding:6px 8px"><span style="color:#FFB6C1;font-size:.85em">'+label+'</span>' +
-      (d.answer ? '<span style="color:#87CEEB;font-size:.8em;margin-left:6px">'+d.answer+'</span>' : '') +
-      '<span style="color:#666;font-size:.75em;float:right">'+(d.created_at||'').slice(11,16)+'</span></div></div>';
-  }).join('');
-
-  const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>🏆 排行榜</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#1a1a2e;color:#eee;font-family:system-ui,sans-serif;min-height:100vh;padding:16px}
-h1{text-align:center;color:#87CEEB;margin-bottom:16px;font-size:1.5em}
-table{width:100%;border-collapse:collapse;background:#16213e;border-radius:12px;overflow:hidden}
-th{padding:12px 14px;text-align:left;color:#87CEEB;font-size:.9em;border-bottom:1px solid #2a2a4a}
-td{border-bottom:1px solid #1a1a2e}
-.back-link{display:inline-block;color:#87CEEB;text-decoration:none;margin-bottom:12px;font-size:14px}
-.back-link:hover{text-decoration:underline}
-.section-title{color:#FFB6C1;font-size:1.1em;font-weight:600;margin:20px 0 10px}
-.scroll-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
-
-/* 🌸 樱花物语 */
-body.theme-sakura{background:linear-gradient(135deg,#fce4ec,#f8bbd0,#f3e5f5);color:#4a2040}
-body.theme-sakura .card{background:rgba(255,255,255,0.85);border:1px solid rgba(236,64,122,0.15);box-shadow:0 4px 20px rgba(233,30,99,0.08);backdrop-filter:blur(10px)}
-body.theme-sakura .tab{background:rgba(255,255,255,0.7);color:#c2185b;border:1px solid rgba(236,64,122,0.2)}
-body.theme-sakura .tab.active-blue{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;border-color:#ec407a;box-shadow:0 2px 12px rgba(236,64,122,0.3)}
-body.theme-sakura .tab.active-pink{background:linear-gradient(135deg,#f48fb1,#ec407a);color:#fff;border-color:#f48fb1;box-shadow:0 2px 12px rgba(244,143,177,0.3)}
-body.theme-sakura input{background:rgba(255,255,255,0.9);border:2px solid #f8bbd0;color:#4a2040}
-body.theme-sakura input:focus{border-color:#ec407a;box-shadow:0 0 8px rgba(236,64,122,0.2)}
-body.theme-sakura .btn-pink{background:linear-gradient(135deg,#ec407a,#e91e63);color:#fff;box-shadow:0 2px 10px rgba(236,64,122,0.3)}
-body.theme-sakura .btn-blue{background:linear-gradient(135deg,#80cbc4,#26a69a);color:#fff}
-body.theme-sakura .empty-state{color:#e91e63}
-body.theme-sakura .color-btn.sel{border-color:#e91e63}
-/* 🌿 薄荷森林 */
-body.theme-forest{background:linear-gradient(135deg,#e8f5e9,#c8e6c9,#a5d6a7);color:#1b3a1b}
-body.theme-forest .card{background:rgba(255,255,255,0.85);border:1px solid rgba(76,175,80,0.15);box-shadow:0 4px 20px rgba(76,175,80,0.08);backdrop-filter:blur(10px)}
-body.theme-forest .tab{background:rgba(255,255,255,0.7);color:#2e7d32;border:1px solid rgba(76,175,80,0.2)}
-body.theme-forest .tab.active-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;border-color:#66bb6a;box-shadow:0 2px 12px rgba(76,175,80,0.3)}
-body.theme-forest .tab.active-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;border-color:#ffb74d;box-shadow:0 2px 12px rgba(255,152,0,0.3)}
-body.theme-forest input{background:rgba(255,255,255,0.9);border:2px solid #c8e6c9;color:#1b3a1b}
-body.theme-forest input:focus{border-color:#43a047;box-shadow:0 0 8px rgba(67,160,71,0.2)}
-body.theme-forest .btn-pink{background:linear-gradient(135deg,#ffb74d,#ff9800);color:#fff;box-shadow:0 2px 10px rgba(255,152,0,0.3)}
-body.theme-forest .btn-blue{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;box-shadow:0 2px 10px rgba(76,175,80,0.3)}
-body.theme-forest .empty-state{color:#43a047}
-body.theme-forest .color-btn.sel{border-color:#43a047}
-/* 主题切换按钮 */
-.theme-switcher{position:fixed;bottom:20px;right:20px;z-index:998;display:flex;gap:8px}
-.theme-btn{width:38px;height:38px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all .3s ease}
-.theme-btn:hover{transform:scale(1.2);border-color:rgba(255,255,255,0.8);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
-.theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
-
-</style>
-</head>
-<body>
-<a href="/" class="back-link">← 返回游戏</a>
-<a href="/gallery" class="back-link" style="margin-left:16px">🖼 画廊</a>
-<h1>🏆 排行榜</h1>
-<div class="section-title">🎯 猜对排行</div>
-${entries.length ? '<table><thead><tr><th>#</th><th>玩家</th><th style="text-align:center">猜对次数</th><th style="text-align:center">总分</th></tr></thead><tbody>' + lbRows + '</tbody></table>' : '<div style="color:#666;text-align:center;padding:24px">还没有人猜对过～</div>'}
-<div class="section-title">👥 在线玩家 (${players.length}人)</div>
-<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
-${players.length ? players.map(p => '<span style="padding:6px 14px;border-radius:12px;background:#0f3460;color:#87CEEB;font-size:.9em">'+p.name+(p.correctCount>0?' ('+p.correctCount+'次猜对)':'')+'</span>').join('') : '<span style="color:#666">暂无在线玩家</span>'}
-</div>
-<div class="section-title">🖼 最近画作</div>
-${recentDrawings.length ? '<div class="scroll-row">' + recentCards + '</div>' : '<div style="color:#666;text-align:center;padding:24px">暂无画作</div>'}
-
-<div class="theme-switcher">
-  <div class="theme-btn active" style="background:linear-gradient(135deg,#1a237e,#283593)" onclick="setTheme('space')" title="深蓝星空"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#f48fb1,#ec407a)" onclick="setTheme('sakura')" title="樱花粉"></div>
-  <div class="theme-btn" style="background:linear-gradient(135deg,#66bb6a,#2e7d32)" onclick="setTheme('forest')" title="森林绿"></div>
-</div>
-
+${drawings.length ? '<div class="gallery-grid">' + cardsHtml + '</div>' : '<div class="empty">还没有画作哦~<br>去画一幅吧！</div>'}
 </body>
 </html>`;
   reply.type('text/html; charset=utf-8');
@@ -1939,152 +1222,11 @@ fastify.get('/', async (req, reply) => {
 
 const start = async () => {
   try {
-    const port = Number(process.env.PORT) || 3001;
-    await 
-
-// ===== MCP Endpoint =====
-fastify.route({
-  method: ['POST', 'GET', 'DELETE'],
-  url: '/mcp',
-  handler: async (req, reply) => {
-    try {
-      const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
-      const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
-      const { z } = await import('zod');
-
-      const port = process.env.PORT || 3001;
-      function api(method, path, body) {
-        const opts = { method };
-        if (body) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
-        return fetch(`http://127.0.0.1:${port}${path}`, opts).then(r => r.json()).catch(e => ({ ok: false, message: e.message }));
-      }
-
-      const server = new McpServer({ name: 'draw-game', version: '3.0.0' });
-
-      server.tool('draw_user_start', '用户要画画给你猜。', {}, async () => {
-        return { content: [{ type: 'text', text: `去这里画画：\nhttps://draw-guess-game-production-0fdb.up.railway.app\n\n画完说"画好了"` }] };
-      });
-
-      server.tool('draw_check', '用户画好了时调用，查看画作并猜。', {}, async () => {
-        const r = await api('GET', '/api/status');
-        if (!r.ok || !r.current) return { content: [{ type: 'text', text: `还没有画~去这里画：\nhttps://draw-guess-game-production-0fdb.up.railway.app` }] };
-        const c = r.current;
-        const author = c.artist === 'user' ? (c.author || '用户') : '艾因';
-        const desc = c.description || '无法描述';
-        return { content: [{ type: 'text', text: `画师: ${author}\n描述:\n${desc}\n\n根据描述猜画的是什么。` }] };
-      });
-
-      server.tool('draw_submit_guess', '提交猜测', { guess: z.string() }, async ({ guess }) => {
-        const st = await api('GET', '/api/status');
-        if (st.ok && st.current && st.current.artist === 'user') {
-          const r = await api('POST', '/api/ai_guess', { guess });
-          return { content: [{ type: 'text', text: r.ok ? `猜「${guess}」！对吗？` : `失败: ${r.message}` }] };
-        }
-        const r = await api('POST', '/api/guess', { guesser: '艾因', content: guess });
-        return { content: [{ type: 'text', text: r.correct ? `🎉 猜对了！是「${guess}」！` : `❌「${guess}」不对~` }] };
-      });
-
-      server.tool('draw_ai_draw', '用户让你画画', {
-        answer: z.string(), aliases: z.array(z.string()).optional(),
-        content: z.array(z.object({ tool: z.literal('polyline'), points: z.array(z.array(z.number())), color: z.string().optional().default('#4f454b'), width: z.number().optional().default(8) })),
-      }, async ({ answer, aliases, content }) => {
-        const r = await api('POST', '/api/start', { answer, content, aliases: aliases || [], artist: 'AI', author: '艾因' });
-        if (!r.ok) return { content: [{ type: 'text', text: `画失败: ${r.message}` }] };
-        const st = await api('GET', '/api/status');
-        const desc = st.ok && st.current ? st.current.description : '';
-        return { content: [{ type: 'text', text: `画好了！描述:\n${desc}\n\n让用户猜~` }] };
-      });
-
-      server.tool('draw_guess', '用户猜AI的画', { guesser: z.string(), content: z.string() }, async ({ guesser, content }) => {
-        const r = await api('POST', '/api/guess', { guesser, content });
-        return { content: [{ type: 'text', text: r.correct ? `🎉 ${guesser}猜对！` : `❌ 不对~` }] };
-      });
-
-      server.tool('draw_random', '随机开一局', {}, async () => {
-        const r = await api('GET', '/api/random');
-        if (!r.ok) return { content: [{ type: 'text', text: '开局失败' }] };
-        const st = await api('GET', '/api/status');
-        const desc = st.ok && st.current ? st.current.description : '';
-        return { content: [{ type: 'text', text: `来猜画！\n${desc}\n猜猜是什么？` }] };
-      });
-
-      server.tool('draw_comment', '对画作发表评论', {
-        drawing_id: z.number().describe('画作ID，从画廊获取'),
-        author: z.string().describe('评论者署名'),
-        text: z.string().describe('评论内容'),
-      }, async ({ drawing_id, author, text }) => {
-        const r = await api('POST', '/api/comment', { drawing_id, author, text, is_ai: true });
-        return { content: [{ type: 'text', text: r.ok ? `评论成功！「${author}」说：${text}` : `评论失败：${r.message}` }] };
-      });
-
-      server.tool('draw_gallery', '查看画廊里的画作列表', {}, async () => {
-        const r = await api('GET', '/api/gallery');
-        if (!r.ok || !r.drawings || !r.drawings.length) return { content: [{ type: 'text', text: '画廊里还没有画作~' }] };
-        const list = r.drawings.slice(0, 10).map((d, i) => {
-          const label = d.artist === 'AI' ? '🤖 ' + (d.author || 'AI画师') : '✏️ ' + (d.author || '匿名');
-          return `${i+1}. [ID:${d.id}] ${label} - 答案：${d.answer || '未知'} (${(d.created_at||'').slice(0,16)})`;
-        }).join('\n');
-        return { content: [{ type: 'text', text: `🖼 画廊（最近10幅）：\n${list}\n\n用 draw_comment 可以对画作发表评论` }] };
-      });
-
-      server.tool('draw_leaderboard', '查看排行榜（猜对排名+最近画作）', {}, async () => {
-        const r = await api('GET', '/api/leaderboard');
-        if (!r.ok) return { content: [{ type: 'text', text: '获取排行榜失败' }] };
-        const lb = r.leaderboard || [];
-        const rd = r.recentDrawings || [];
-        let text = '🏆 猜对排行榜：\n';
-        if (lb.length) {
-          text += lb.map((e, i) => { const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '+(i+1)+'.'; return medal+' '+e.name+' - '+e.correct+'次猜对'; }).join('\n');
-        } else {
-          text += '还没有人猜对过~';
-        }
-        text += '\n\n🖼 最近画作：\n';
-        if (rd.length) {
-          text += rd.slice(0, 10).map((d, i) => {
-            const label = d.artist==='AI' ? '🤖 '+(d.author||'AI画师') : '✏️ '+(d.author||'匿名');
-            return (i+1)+'. [ID:'+d.id+'] '+label+' - 答案：'+(d.answer||'未知');
-          }).join('\n');
-        } else {
-          text += '暂无画作';
-        }
-        text += '\n\n评论画作用 draw_comment，查看画廊用 draw_gallery';
-        return { content: [{ type: 'text', text }] };
-      });
-
-      server.tool('draw_players', '查看在线玩家', {}, async () => {
-        const r = await api('GET', '/api/players');
-        if (!r.ok) return { content: [{ type: 'text', text: '获取失败' }] };
-        const players = r.players || [];
-        if (!players.length) return { content: [{ type: 'text', text: '当前没有在线玩家~' }] };
-        const list = players.map(p => p.name + (p.correctCount > 0 ? ' ('+p.correctCount+'次猜对)' : '')).join('\n');
-        return { content: [{ type: 'text', text: '👥 在线玩家 ('+r.count+'人)：\n'+list }] };
-      });
-
-      server.tool('draw_score', '查看分数', {}, async () => {
-        const r = await api('GET', '/api/score');
-        if (!r.ok || !r.scores || !Object.keys(r.scores).length) return { content: [{ type: 'text', text: '还没有分数~' }] };
-        const lines = Object.entries(r.scores).sort((a, b) => b[1] - a[1]).map(([n, s], i) => `${i + 1}. ${n}: ${s}分`);
-        return { content: [{ type: 'text', text: `📊 排名:\n${lines.join('\n')}` }] };
-      });
-
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-      await server.connect(transport);
-      await transport.handleRequest(req.raw, reply.raw, req.body);
-      reply.hijack();
-    } catch (e) {
-      console.error('MCP error:', e.message);
-      if (!reply.sent) reply.code(500).send({ error: e.message });
-    }
-  }
-});
-
-fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`🎨 Draw & Guess running at http://localhost:${process.env.PORT || 3001}`);
+    await fastify.listen({ port: 3001, host: '0.0.0.0' });
+    console.log('🎨 Draw & Guess running at http://localhost:3001');
   } catch (err) {
     console.error(err);
     process.exit(1);
   }
 };
 start();
-
-
