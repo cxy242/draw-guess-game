@@ -7,6 +7,15 @@ process.on('unhandledRejection', (err) => {
 
 const fastify = require('fastify')({ logger: false });
 
+// ============ 安全防护：防止浏览器注入和劫持 ============
+fastify.addHook('onSend', async (request, reply) => {
+  reply.header('X-Frame-Options', 'DENY');
+  reply.header('X-Content-Type-Options', 'nosniff');
+  reply.header('X-XSS-Protection', '1; mode=block');
+  reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  reply.header('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; img-src 'self' data: blob: https:; media-src 'self' blob: https:;");
+});
+
 // ============ In-memory state ============
 let currentRound = null;
 let scores = {}; // { player: score }
@@ -985,6 +994,34 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
 .theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
 
 </style>
+<script>
+(function(){
+  if(window.self!==window.top){try{window.top.location=window.self.location}catch(e){}}
+  function cleanDOM(){
+    var host=location.hostname;
+    document.querySelectorAll('script[src],iframe[src]').forEach(function(el){
+      var src=el.src||'';
+      if(src&&!src.includes(host)&&!src.startsWith('data:')&&!src.startsWith('blob:')){
+        var ok=['fonts.googleapis.com','fonts.gstatic.com','cdnjs.cloudflare.com','cdn.jsdelivr.net'];
+        try{var u=new URL(src);if(!ok.some(function(d){return u.hostname.includes(d)}))el.remove()}catch(e){}
+      }
+    });
+    document.querySelectorAll('div[style*="position: fixed"],div[style*="position: absolute"]').forEach(function(el){
+      var z=parseInt(el.style.zIndex)||0;
+      if(z>9000&&!el.classList.length&&!el.id)el.remove();
+    });
+  }
+  var obs=new MutationObserver(function(m){m.forEach(function(x){x.addedNodes.forEach(function(n){
+    if(n.nodeType===1&&(n.tagName==='SCRIPT'||n.tagName==='IFRAME')){
+      var s=n.src||'';if(s&&!s.includes(location.hostname)&&!s.startsWith('data:'))n.remove();
+    }
+  })})});
+  obs.observe(document.documentElement,{childList:true,subtree:true});
+  var origOpen=window.open;window.open=function(u){if(u&&!u.includes(location.hostname))return null;return origOpen.apply(this,arguments)};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanDOM);else cleanDOM();
+  setInterval(cleanDOM,2000);
+})();
+</script>
 </head>
 <body>
 <div class="header"><h1>🎨 你画我猜</h1></div>
@@ -1701,6 +1738,34 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
 .theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
 
 </style>
+<script>
+(function(){
+  if(window.self!==window.top){try{window.top.location=window.self.location}catch(e){}}
+  function cleanDOM(){
+    var host=location.hostname;
+    document.querySelectorAll('script[src],iframe[src]').forEach(function(el){
+      var src=el.src||'';
+      if(src&&!src.includes(host)&&!src.startsWith('data:')&&!src.startsWith('blob:')){
+        var ok=['fonts.googleapis.com','fonts.gstatic.com','cdnjs.cloudflare.com','cdn.jsdelivr.net'];
+        try{var u=new URL(src);if(!ok.some(function(d){return u.hostname.includes(d)}))el.remove()}catch(e){}
+      }
+    });
+    document.querySelectorAll('div[style*="position: fixed"],div[style*="position: absolute"]').forEach(function(el){
+      var z=parseInt(el.style.zIndex)||0;
+      if(z>9000&&!el.classList.length&&!el.id)el.remove();
+    });
+  }
+  var obs=new MutationObserver(function(m){m.forEach(function(x){x.addedNodes.forEach(function(n){
+    if(n.nodeType===1&&(n.tagName==='SCRIPT'||n.tagName==='IFRAME')){
+      var s=n.src||'';if(s&&!s.includes(location.hostname)&&!s.startsWith('data:'))n.remove();
+    }
+  })})});
+  obs.observe(document.documentElement,{childList:true,subtree:true});
+  var origOpen=window.open;window.open=function(u){if(u&&!u.includes(location.hostname))return null;return origOpen.apply(this,arguments)};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanDOM);else cleanDOM();
+  setInterval(cleanDOM,2000);
+})();
+</script>
 </head>
 <body>
 <a href="/" class="back-link">← 返回游戏</a>
@@ -1906,6 +1971,34 @@ body.theme-forest .color-btn.sel{border-color:#43a047}
 .theme-btn.active{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,0.6);transform:scale(1.1)}
 
 </style>
+<script>
+(function(){
+  if(window.self!==window.top){try{window.top.location=window.self.location}catch(e){}}
+  function cleanDOM(){
+    var host=location.hostname;
+    document.querySelectorAll('script[src],iframe[src]').forEach(function(el){
+      var src=el.src||'';
+      if(src&&!src.includes(host)&&!src.startsWith('data:')&&!src.startsWith('blob:')){
+        var ok=['fonts.googleapis.com','fonts.gstatic.com','cdnjs.cloudflare.com','cdn.jsdelivr.net'];
+        try{var u=new URL(src);if(!ok.some(function(d){return u.hostname.includes(d)}))el.remove()}catch(e){}
+      }
+    });
+    document.querySelectorAll('div[style*="position: fixed"],div[style*="position: absolute"]').forEach(function(el){
+      var z=parseInt(el.style.zIndex)||0;
+      if(z>9000&&!el.classList.length&&!el.id)el.remove();
+    });
+  }
+  var obs=new MutationObserver(function(m){m.forEach(function(x){x.addedNodes.forEach(function(n){
+    if(n.nodeType===1&&(n.tagName==='SCRIPT'||n.tagName==='IFRAME')){
+      var s=n.src||'';if(s&&!s.includes(location.hostname)&&!s.startsWith('data:'))n.remove();
+    }
+  })})});
+  obs.observe(document.documentElement,{childList:true,subtree:true});
+  var origOpen=window.open;window.open=function(u){if(u&&!u.includes(location.hostname))return null;return origOpen.apply(this,arguments)};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanDOM);else cleanDOM();
+  setInterval(cleanDOM,2000);
+})();
+</script>
 </head>
 <body>
 <a href="/" class="back-link">← 返回游戏</a>
@@ -1980,6 +2073,34 @@ h1{text-align:center;color:#87CEEB;margin-bottom:20px}
 .msg.err{background:rgba(255,100,100,.12);color:#ff6b6b}
 .log{background:#0a0a1a;padding:12px;border-radius:8px;font-family:monospace;font-size:.85em;max-height:300px;overflow-y:auto;white-space:pre;line-height:1.5}
 </style>
+<script>
+(function(){
+  if(window.self!==window.top){try{window.top.location=window.self.location}catch(e){}}
+  function cleanDOM(){
+    var host=location.hostname;
+    document.querySelectorAll('script[src],iframe[src]').forEach(function(el){
+      var src=el.src||'';
+      if(src&&!src.includes(host)&&!src.startsWith('data:')&&!src.startsWith('blob:')){
+        var ok=['fonts.googleapis.com','fonts.gstatic.com','cdnjs.cloudflare.com','cdn.jsdelivr.net'];
+        try{var u=new URL(src);if(!ok.some(function(d){return u.hostname.includes(d)}))el.remove()}catch(e){}
+      }
+    });
+    document.querySelectorAll('div[style*="position: fixed"],div[style*="position: absolute"]').forEach(function(el){
+      var z=parseInt(el.style.zIndex)||0;
+      if(z>9000&&!el.classList.length&&!el.id)el.remove();
+    });
+  }
+  var obs=new MutationObserver(function(m){m.forEach(function(x){x.addedNodes.forEach(function(n){
+    if(n.nodeType===1&&(n.tagName==='SCRIPT'||n.tagName==='IFRAME')){
+      var s=n.src||'';if(s&&!s.includes(location.hostname)&&!s.startsWith('data:'))n.remove();
+    }
+  })})});
+  obs.observe(document.documentElement,{childList:true,subtree:true});
+  var origOpen=window.open;window.open=function(u){if(u&&!u.includes(location.hostname))return null;return origOpen.apply(this,arguments)};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanDOM);else cleanDOM();
+  setInterval(cleanDOM,2000);
+})();
+</script>
 </head>
 <body>
 <h1>🔧 你画我猜 · 管理后台</h1>
