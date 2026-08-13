@@ -1222,7 +1222,7 @@ fastify.get('/', async (req, reply) => {
 
 const start = async () => {
   try {
-    await fastify.listen({ port: 3001, host: '0.0.0.0' });
+    await fastify.listen({ port: Number(process.env.PORT) || 3001, host: '0.0.0.0' });
     console.log('🎨 Draw & Guess running at http://localhost:3001');
   } catch (err) {
     console.error(err);
