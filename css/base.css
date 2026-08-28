@@ -215,173 +215,106 @@ input, textarea, select { font-family: var(--font); outline: none; font-size: 16
 /* ===== 开屏页 ===== */
 #loading {
   position: fixed; inset: 0;
-  background: #fefbff;
+  background: linear-gradient(180deg, #f0f4ff 0%, #fdf2f8 50%, #eff6ff 100%);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   z-index: 9999;
   overflow: hidden;
   cursor: pointer;
-  transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #loading.hidden { opacity: 0; pointer-events: none; }
 
-/* 粒子画布 */
+/* 画布 */
 #splash-canvas {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   pointer-events: none;
 }
 
-/* 极光背景 */
+/* 光晕 - 蓝粉 */
 .splash-glow {
   position: absolute;
   border-radius: 50%;
   filter: blur(100px);
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0;
+  animation: glowIn 3s ease-out forwards;
 }
 .splash-glow.g1 {
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.2), transparent 70%);
-  top: -10%; left: -10%;
-  animation: aurora1 12s ease-in-out infinite alternate;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.2), transparent 70%);
+  top: 20%; left: 30%;
+  animation-delay: 0.5s;
 }
 .splash-glow.g2 {
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.15), transparent 70%);
-  bottom: -10%; right: -10%;
-  animation: aurora2 10s ease-in-out infinite alternate;
-}
-.splash-glow.g3 {
   width: 350px; height: 350px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.12), transparent 70%);
-  top: 40%; left: 50%;
-  animation: aurora3 14s ease-in-out infinite alternate;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.15), transparent 70%);
+  bottom: 25%; right: 25%;
+  animation-delay: 1.5s;
 }
-@keyframes aurora1 {
-  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-  100% { transform: translate(80px, 60px) scale(1.3) rotate(30deg); }
-}
-@keyframes aurora2 {
-  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-  100% { transform: translate(-60px, -40px) scale(1.2) rotate(-20deg); }
-}
-@keyframes aurora3 {
-  0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 0.3; }
-  100% { transform: translate(-30%, -60%) scale(1.4) rotate(45deg); opacity: 0.6; }
+@keyframes glowIn {
+  0% { opacity: 0; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-/* 中心内容 */
-.splash-center {
-  display: flex; flex-direction: column;
+/* 场景容器 */
+.splash-scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  position: relative; z-index: 1;
+  justify-content: center;
+  pointer-events: none;
 }
 
-/* 原创光环设计 */
-.splash-moon {
-  position: relative;
-  width: 140px; height: 140px;
-  margin-bottom: 36px;
-  animation: floatIn 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+/* 场景1: 线条 */
+.scene-line {
+  width: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.5), rgba(244, 114, 182, 0.5), transparent);
+  animation: lineGrow 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
-@keyframes floatIn {
-  from { opacity: 0; transform: translateY(40px) scale(0.7); filter: blur(10px); }
-  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-}
-
-/* 核心 - 玻璃质感球体 */
-.moon-core {
-  position: absolute;
-  inset: 20px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 25%, #c084fc 50%, #a855f7 75%, #7c3aed 100%);
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.3),
-    0 20px 60px rgba(168, 85, 247, 0.3),
-    0 8px 24px rgba(168, 85, 247, 0.2),
-    inset 0 -10px 30px rgba(124, 58, 237, 0.3),
-    inset 0 4px 12px rgba(255,255,255,0.4);
-  animation: breathe 4s ease-in-out infinite alternate;
-}
-@keyframes breathe {
-  0% {
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,0.3),
-      0 20px 60px rgba(168, 85, 247, 0.3),
-      0 8px 24px rgba(168, 85, 247, 0.2),
-      inset 0 -10px 30px rgba(124, 58, 237, 0.3),
-      inset 0 4px 12px rgba(255,255,255,0.4);
-  }
-  100% {
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,0.5),
-      0 30px 80px rgba(168, 85, 247, 0.45),
-      0 12px 32px rgba(168, 85, 247, 0.3),
-      inset 0 -10px 30px rgba(124, 58, 237, 0.4),
-      inset 0 4px 12px rgba(255,255,255,0.6);
-  }
+@keyframes lineGrow {
+  0% { width: 0; opacity: 0; }
+  20% { opacity: 1; }
+  100% { width: 50vw; opacity: 1; }
 }
 
-/* 球体表面光泽 */
-.moon-core::before {
-  content: '';
-  position: absolute;
-  top: 12%; left: 18%;
-  width: 35%; height: 25%;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(255,255,255,0.6), transparent);
-  transform: rotate(-25deg);
-}
-
-/* 旋转光环 */
-.moon-ring {
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(168, 85, 247, 0.2);
-  animation: ringExpand 5s ease-out infinite;
-}
-.moon-ring.r2 { animation-delay: 1.7s; border-color: rgba(236, 72, 153, 0.15); }
-.moon-ring.r3 { animation-delay: 3.4s; border-color: rgba(59, 130, 246, 0.12); }
-@keyframes ringExpand {
-  0% { transform: scale(1); opacity: 0.7; }
-  100% { transform: scale(3); opacity: 0; }
-}
-
-/* 标题 - 高级渐变 */
-.splash-title {
-  font-size: 46px;
+/* 场景2: 标题 */
+.scene-title {
+  font-size: 44px;
   font-weight: 100;
-  letter-spacing: 0.35em;
-  background: linear-gradient(135deg, #6d28d9 0%, #a855f7 30%, #ec4899 60%, #6d28d9 100%);
-  background-size: 300% 300%;
+  letter-spacing: 0.4em;
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 30%, #f472b6 70%, #ec4899 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: titleFlow 6s ease-in-out infinite, fadeUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  opacity: 0;
+  animation: textReveal 3s cubic-bezier(0.22, 1, 0.36, 1) 1s forwards;
 }
-@keyframes titleFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); filter: blur(8px); }
-  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+@keyframes textReveal {
+  0% { opacity: 0; transform: translateY(15px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
-/* 副标题 */
-.splash-tagline {
-  font-size: 13px;
-  color: rgba(109, 40, 217, 0.45);
-  letter-spacing: 0.4em;
+/* 场景3: 副标题 */
+.scene-sub {
+  font-size: 12px;
+  color: rgba(100, 116, 139, 0.5);
+  letter-spacing: 0.5em;
   font-weight: 300;
-  margin-top: 12px;
-  animation: fadeUp 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.6s both;
+  margin-top: 20px;
+  opacity: 0;
+  animation: subFade 2s ease 2s forwards;
+}
+@keyframes subFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
 }
 
-/* 底部 Tap */
+/* 底部提示 */
 .splash-tap {
   position: absolute;
   bottom: calc(70px + env(safe-area-inset-bottom));
@@ -389,32 +322,29 @@ input, textarea, select { font-family: var(--font); outline: none; font-size: 16
   display: flex; flex-direction: column;
   align-items: center; gap: 14px;
   opacity: 0;
-  transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1;
+  transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
   pointer-events: none;
 }
-.splash-tap.ready { opacity: 1; pointer-events: auto; }
+.splash-tap.ready {
+  opacity: 1;
+  pointer-events: auto;
+}
 .splash-tap span {
   font-size: 11px;
-  color: rgba(109, 40, 217, 0.35);
+  color: rgba(100, 116, 139, 0.3);
   letter-spacing: 0.35em;
   font-weight: 300;
 }
-.tap-pulse {
-  width: 8px; height: 8px;
+.tap-dot {
+  width: 5px; height: 5px;
   border-radius: 50%;
-  background: rgba(168, 85, 247, 0.5);
-  animation: pulse 2.5s ease-in-out infinite;
+  background: linear-gradient(135deg, #60a5fa, #f472b6);
+  animation: dotPulse 3s ease-in-out infinite;
 }
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.3);
-  }
-  50% {
-    transform: scale(1.3);
-    box-shadow: 0 0 30px 12px rgba(168, 85, 247, 0.1);
-  }
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.3); }
 }
 
 /* ===== 卡片 ===== */

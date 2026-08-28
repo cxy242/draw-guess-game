@@ -79,28 +79,18 @@
 <body>
   <!-- 开屏页 -->
   <div id="loading">
-    <div class="splash-bg">
-      <canvas id="splash-canvas"></canvas>
-      <div class="splash-glow g1"></div>
-      <div class="splash-glow g2"></div>
-      <div class="splash-glow g3"></div>
+    <canvas id="splash-canvas"></canvas>
+    <div class="splash-glow g1"></div>
+    <div class="splash-glow g2"></div>
+    <div class="splash-scene">
+      <div class="scene-line"></div>
     </div>
-    <div class="splash-center">
-      <div class="splash-moon">
-        <div class="moon-ring"></div>
-        <div class="moon-ring r2"></div>
-        <div class="moon-ring r3"></div>
-        <div class="moon-core">
-          <div class="moon-crater c1"></div>
-          <div class="moon-crater c2"></div>
-          <div class="moon-crater c3"></div>
-        </div>
-      </div>
-      <div class="splash-title">月月机</div>
-      <div class="splash-tagline">✨ 你的专属小世界 ✨</div>
+    <div class="splash-scene">
+      <div class="scene-title">月月机</div>
+      <div class="scene-sub">你的专属小世界</div>
     </div>
     <div class="splash-tap" id="splash-tap">
-      <div class="tap-pulse"></div>
+      <div class="tap-dot"></div>
       <span>轻触进入</span>
     </div>
   </div>
@@ -405,6 +395,85 @@
       drawShapes();
       drawParticles();
       drawShootingStars();
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+  </script>
+
+  </body>
+  <!-- 粒子动画 -->
+  <script>
+  (function(){
+    var c = document.getElementById('splash-canvas');
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var W, H, t = 0;
+    var particles = [];
+
+    function resize() { W = c.width = window.innerWidth; H = c.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // 柔和粒子
+    for (var i = 0; i < 40; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 2 + 0.5,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2,
+        phase: Math.random() * Math.PI * 2,
+        blue: Math.random() > 0.5
+      });
+    }
+
+    function draw() {
+      t += 0.01;
+      ctx.clearRect(0, 0, W, H);
+
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        p.phase += 0.01;
+        p.x += p.vx + Math.sin(p.phase) * 0.15;
+        p.y += p.vy + Math.cos(p.phase * 0.8) * 0.1;
+
+        if (p.x < -20) p.x = W + 20;
+        if (p.x > W + 20) p.x = -20;
+        if (p.y < -20) p.y = H + 20;
+        if (p.y > H + 20) p.y = -20;
+
+        var alpha = (Math.sin(p.phase * 2) + 1) * 0.15 + 0.05;
+        var col = p.blue ? '96, 165, 250' : '244, 114, 182';
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
+        var grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
+        grad.addColorStop(0, 'rgba(' + col + ',' + alpha + ')');
+        grad.addColorStop(1, 'rgba(' + col + ',0)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      // 连线
+      for (var i = 0; i < particles.length; i++) {
+        for (var j = i + 1; j < particles.length; j++) {
+          var dx = particles[i].x - particles[j].x;
+          var dy = particles[i].y - particles[j].y;
+          var d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 120) {
+            var a = (1 - d / 120) * 0.04;
+            var mix = particles[i].blue ? '96, 165, 250' : '244, 114, 182';
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = 'rgba(' + mix + ',' + a + ')';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
       requestAnimationFrame(draw);
     }
     draw();
