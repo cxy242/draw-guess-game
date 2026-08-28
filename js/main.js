@@ -349,7 +349,7 @@ var _splashTapped = false
 var _splashStarting = false
 var _appStarted = false
 
-function _onSplashReady() {
+function _onSplashReady() { return; // MoonScape接管
   _splashReady = true
   var tap = document.getElementById('splash-tap')
   if (tap) tap.classList.add('ready')
@@ -386,7 +386,7 @@ async function removeLegacyHostedServiceState() {
   }
 }
 
-async function _handleSplashStart() {
+async function _handleSplashStart() { return; // MoonScape接管
   if (_splashStarting) return
   if (!_splashReady) { _splashTapped = true; return }
   _splashStarting = true

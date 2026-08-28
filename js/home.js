@@ -3628,7 +3628,7 @@ async function showWidgetsGalleryPage() {
   window.openPage(page)
   await loadCustomWidgetTemplates()
   renderCustomHtmlWidgetList(page)
-  renderWidgetsGallery(page, false)
+  renderWidgetsGallery(page, true)
 }
 
 function buildCustomTemplatePreviewWidget(tpl) {
