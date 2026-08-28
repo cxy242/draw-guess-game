@@ -426,7 +426,7 @@ window.startWanWanApp = async function() {
   if (window.WanWanMCP && window.WanWanMCP.resumePendingOAuthResult) {
     await window.WanWanMCP.resumePendingOAuthResult()
   }
-  if (window.showDisclaimerIfNeeded) await window.showDisclaimerIfNeeded()
+  // 弹窗已禁用
 }
 
 // ===== 主入口 =====

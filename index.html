@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" id="app-apple-touch-icon" href="img/wanwan.png">
   <link rel="icon" id="app-favicon" type="image/png" href="img/wanwan.png">
   <link rel="manifest" id="app-manifest" href="manifest.json">
-  <title>弯弯</title>
+  <title>月月机</title>
 
   <!-- Font Awesome 7.2.0 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css">
@@ -80,22 +80,28 @@
   <!-- 开屏页 -->
   <div id="loading">
     <div class="splash-bg">
-      <div class="splash-blob b1"></div>
-      <div class="splash-blob b2"></div>
-      <div class="splash-blob b3"></div>
-      <div class="splash-ring r1"></div>
-      <div class="splash-ring r2"></div>
-      <div class="splash-ring r3"></div>
+      <canvas id="splash-canvas"></canvas>
+      <div class="splash-glow g1"></div>
+      <div class="splash-glow g2"></div>
+      <div class="splash-glow g3"></div>
     </div>
     <div class="splash-center">
-      <div class="splash-icon"><img src="img/wanwan.png" alt="弯弯"></div>
-      <div class="splash-title">弯弯</div>
-      <div class="splash-tagline">ワンワン</div>
+      <div class="splash-moon">
+        <div class="moon-ring"></div>
+        <div class="moon-ring r2"></div>
+        <div class="moon-ring r3"></div>
+        <div class="moon-core">
+          <div class="moon-crater c1"></div>
+          <div class="moon-crater c2"></div>
+          <div class="moon-crater c3"></div>
+        </div>
+      </div>
+      <div class="splash-title">月月机</div>
+      <div class="splash-tagline">✨ 你的专属小世界 ✨</div>
     </div>
     <div class="splash-tap" id="splash-tap">
-      <div class="tap-line"></div>
-      <span>Tap to Start</span>
-      <div class="tap-line"></div>
+      <div class="tap-pulse"></div>
+      <span>轻触进入</span>
     </div>
   </div>
 
@@ -146,5 +152,105 @@
   <script src="js/werewolf-game.js?v=1.0.3"></script>
   <script src="js/avg.js?v=1.1.0"></script>
   <script src="js/terminal.js?v=1.1.5"></script>
+  <!-- 粒子动画 -->
+  <script>
+  (function(){
+    var canvas = document.getElementById('splash-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+    var stars = [];
+    var W, H;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // 星星（静态闪烁）
+    for (var i = 0; i < 80; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.5 + 0.3,
+        a: Math.random(),
+        da: (Math.random() - 0.5) * 0.015,
+        color: ['rgba(167,139,202,', 'rgba(138,92,246,', 'rgba(236,72,153,', 'rgba(59,130,246,'][Math.floor(Math.random()*4)]
+      });
+    }
+
+    // 浮动粒子
+    for (var i = 0; i < 25; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: -Math.random() * 0.4 - 0.1,
+        r: Math.random() * 2 + 1,
+        life: Math.random(),
+        color: ['rgba(138,92,246,', 'rgba(167,139,202,', 'rgba(236,72,153,'][Math.floor(Math.random()*3)]
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // 绘制星星
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        s.a += s.da;
+        if (s.a > 1 || s.a < 0.1) s.da = -s.da;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = s.color + s.a + ')';
+        ctx.fill();
+      }
+
+      // 绘制浮动粒子
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.003;
+        if (p.life <= 0 || p.y < -10) {
+          p.x = Math.random() * W;
+          p.y = H + 10;
+          p.life = 1;
+        }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + (p.life * 0.6) + ')';
+        ctx.fill();
+        // 发光效果
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * p.life * 3, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + (p.life * 0.08) + ')';
+        ctx.fill();
+      }
+
+      // 连线效果（近距离粒子之间）
+      for (var i = 0; i < particles.length; i++) {
+        for (var j = i + 1; j < particles.length; j++) {
+          var dx = particles[i].x - particles[j].x;
+          var dy = particles[i].y - particles[j].y;
+          var dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = 'rgba(138,92,246,' + (0.06 * (1 - dist/120)) + ')';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+  </script>
 </body>
 </html>
