@@ -10,12 +10,12 @@
   "description": "月月 - 你的专属应用",
   "icons": [
     {
-      "src": "img/yueyue-icon.png?v=2.1.8",
+      "src": "img/wanwan.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "img/yueyue-icon-512.png?v=2.1.8",
+      "src": "img/wanwan-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
