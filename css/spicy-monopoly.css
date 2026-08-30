@@ -428,14 +428,26 @@
 /* === 抽卡飞出动画 === */
 .spicy-flying-card {
   position: fixed;
-  z-index: 100;
-  width: 240px;
-  border-radius: 16px;
+  z-index: 100001;
+  width: 280px;
+  border-radius: 20px;
   overflow: hidden;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  background: linear-gradient(145deg, #1a1428 0%, #0d0a14 100%);
+  border: 1px solid rgba(180,160,220,0.15);
+  box-shadow: 
+    0 20px 60px rgba(0,0,0,0.6),
+    0 8px 24px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.05);
   animation: spicy-card-fly-out 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   pointer-events: none;
+}
+.spicy-flying-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(180,160,220,0.3), transparent);
+  z-index: 1;
 }
 .spicy-flying-card.animating-in { pointer-events: none; }
 .spicy-flying-card.ready { pointer-events: auto; animation: none; }
@@ -468,35 +480,72 @@
   padding: 0;
 }
 .spicy-card-header {
-  padding: 12px 16px 8px;
+  padding: 16px 20px 12px;
   text-align: center;
+  position: relative;
 }
 .spicy-card-header-chance {
-  background: linear-gradient(135deg, #00c8ff, #0088cc);
+  background: linear-gradient(135deg, #0a4a5a 0%, #0d6b8a 50%, #0a4a5a 100%);
+  border-bottom: 1px solid rgba(0,200,255,0.2);
 }
 .spicy-card-header-fate {
-  background: linear-gradient(135deg, #c864ff, #8832cc);
+  background: linear-gradient(135deg, #3a1a5a 0%, #5a2a8a 50%, #3a1a5a 100%);
+  border-bottom: 1px solid rgba(200,100,255,0.2);
 }
 .spicy-card-header-tax {
-  background: linear-gradient(135deg, #ffa500, #cc6600);
+  background: linear-gradient(135deg, #4a2a0a 0%, #6a4a1a 50%, #4a2a0a 100%);
+  border-bottom: 1px solid rgba(255,165,0,0.2);
 }
-.spicy-card-type { font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 2px; }
-.spicy-card-name { font-size: 17px; font-weight: 700; color: #fff; }
-.spicy-card-
-.spicy-card-desc { font-size: 13px; color: #ccc; line-height: 1.6; margin-bottom: 12px; }
+.spicy-card-type { 
+  font-size: 10px; 
+  color: rgba(255,255,255,0.5); 
+  margin-bottom: 4px; 
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.spicy-card-name { 
+  font-size: 20px; 
+  font-weight: 700; 
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.spicy-card-body {
+  padding: 16px 20px 20px;
+  text-align: center;
+}
+.spicy-card-desc { 
+  font-size: 13px; 
+  color: rgba(255,255,255,0.7); 
+  line-height: 1.7; 
+  margin-bottom: 16px;
+}
 .spicy-card-confirm {
-  display: inline-block; padding: 8px 24px;
-  border-radius: 8px; border: none; font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
+  display: inline-block;
+  padding: 10px 28px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+.spicy-card-confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 .spicy-card-confirm:active { transform: scale(0.95); }
 .spicy-card-confirm-chance {
-  background: linear-gradient(135deg, #00c8ff, #0088cc);
+  background: linear-gradient(135deg, #0a6a8a, #088aaa);
   color: #fff;
+  border: 1px solid rgba(0,200,255,0.3);
+  box-shadow: 0 4px 16px rgba(0,100,150,0.3);
 }
 .spicy-card-confirm-fate {
-  background: linear-gradient(135deg, #ff4444, #cc2222);
+  background: linear-gradient(135deg, #8a2a4a, #aa3a5a);
   color: #fff;
+  border: 1px solid rgba(200,100,255,0.3);
+  box-shadow: 0 4px 16px rgba(150,50,100,0.3);
 }
 
 /* === 底部操作栏 === */
