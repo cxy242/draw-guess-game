@@ -190,7 +190,13 @@
 }
 
 /* 我方棋子：银白星舰 */
-.spicy-token-p1 .piece-
+.spicy-token-p1 .piece-body {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  width: 16px; height: 20px;
+  background: linear-gradient(180deg, #c8dcff 0%, #667eea 60%, #3a4a8a 100%);
+  clip-path: polygon(50% 0%, 85% 40%, 100% 100%, 0% 100%, 15% 40%);
+  animation: spicy-p1-glow 2s ease-in-out infinite;
+}
 .spicy-token-p1 .piece-body::after {
   content: '';
   position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
@@ -204,7 +210,13 @@
 }
 
 /* AI棋子：紫晶星芒 */
-.spicy-token-p2 .piece-
+.spicy-token-p2 .piece-body {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  width: 16px; height: 16px;
+  background: radial-gradient(circle at 40% 40%, #c4a7ff 0%, #7b42d8 50%, #3d1a6e 100%);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  animation: spicy-p2-glow 2s ease-in-out infinite;
+}
 .spicy-token-p2 .piece-body::after {
   content: '';
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);

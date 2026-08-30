@@ -262,8 +262,8 @@
       '<div class="spicy-card-body"><div class="spicy-card-desc">'+esc(cardData.desc||'')+'</div>'+
       (autoConfirm?'':'<button class="spicy-card-confirm '+btnClass+'" id="sp-card-confirm-btn">'+(isPenalty?'确认并执行惩罚':'确认')+'</button>')+
       '</div></div>'
-    card.style.cssText = 'left:50%;top:50%;transform:translate(-50%,-50%)'
-    var gameRoot = document.getElementById('spicy-monopoly-page') || document.querySelector('.spicy-root') || document.body; gameRoot.appendChild(card)
+    card.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100001;'
+    document.body.appendChild(card)
     setTimeout(function() {
       card.classList.remove('animating-in'); card.classList.add('ready')
       if (autoConfirm) { setTimeout(function(){flyCardBack(card,callback)},1500) }
