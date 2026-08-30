@@ -569,30 +569,25 @@
                 window.showWechatPage()
               }
               // 调API让AI发消息+决定（1次API）
-              // 显示顶栏"对方正在输入…"
-              var headerName = document.querySelector('.chat-header-name')
-              var origName = null
-              if(headerName) {
-                origName = headerName.textContent
-                headerName.textContent = '对方正在输入…'
-              }
-              // 先在聊天中插入typing指示
-              var typingMsgId = null
-              if(window.db) {
-                try {
-                  typingMsgId = window.db.messages.add({
-                    chatId: chatId, charId: selected.id,
-                    role: 'assistant', content: '...',
-                    createdAt: Date.now(), _typing: true
-                  }).then(function(id){ typingMsgId = id })
-                } catch(e){}
-              }
+              // 等页面加载完再显示"对方正在输入…"
+              setTimeout(function() {
+                var headerName = document.querySelector('.chat-header-name')
+                var origName = null
+                if(headerName) {
+                  origName = headerName.textContent
+                  headerName.textContent = '对方正在输入…'
+                }
+              }, 1200)
               var prompt = selfName+'向你发起了「星途财弈」对局邀请。这是一款双人棋盘游戏，掷骰子走格子，踩到任务格完成趣味任务，有真心话大冒险、抽卡等玩法。\n\n请用你的角色语气做以下事情：\n1. 先发2-3条消息表达你对邀请的态度（惊讶/感兴趣/犹豫等）\n2. 最后决定是否同意参加\n\n返回JSON格式：\n{"messages": ["消息1", "消息2", "消息3"], "decision": "同意或拒绝"}\n只返回JSON，不要其他内容。'
               window.callGameAI([{role:'user',content:prompt}],{temperature:0.85}).then(function(reply) {
-                // 删除typing指示
-                if(typingMsgId && window.db) { try { window.db.messages.delete(typingMsgId) } catch(e){} }
                 // 恢复顶栏名字
-                if(headerName && origName) headerName.textContent = origName
+                var hn = document.querySelector('.chat-header-name')
+                if(hn && hn.textContent === '对方正在输入…') {
+                  // 找到原始名字从DB
+                  if(window.db) window.db.characters.get(selected.id).then(function(ch) {
+                    if(ch) hn.textContent = ch.name || ch.nickname || origName || '聊天'
+                  })
+                }
                 try {
                   var data = JSON.parse(reply)
                   var messages = data.messages || []
@@ -638,7 +633,12 @@
                 }
               }).catch(function() {
                 // 恢复顶栏名字
-                if(headerName && origName) headerName.textContent = origName
+                var hn = document.querySelector('.chat-header-name')
+                if(hn && hn.textContent === '对方正在输入…') {
+                  if(window.db) window.db.characters.get(selected.id).then(function(ch) {
+                    if(ch) hn.textContent = ch.name || ch.nickname || '聊天'
+                  })
+                }
                 window.SpicyInvite.updateStatus(msgId, 'playing').then(function(updatedData) {
                   if(updatedData) {
                     var cardWrap = document.querySelector('[data-spicy-invite="'+msgId+'"]')
