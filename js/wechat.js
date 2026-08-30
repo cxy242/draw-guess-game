@@ -1,6 +1,19 @@
 // wechat.js — 微信聊天模块
 // 依赖：db.js 必须先加载
 
+// ===== 页面清理工具 =====
+// cloneNode(true) 会剥离所有事件监听器，防止内存泄漏
+function disposePage(el) {
+  if (!el) return
+  try {
+    // 触发自定义清理事件，让子模块有机会清理定时器等
+    el.dispatchEvent(new CustomEvent('pageDispose', { bubbles: false }))
+  } catch (_) {}
+  // 克隆并替换：剥离所有事件监听器
+  try { el.replaceWith(el.cloneNode(true)) } catch (_) {}
+  try { el.remove() } catch (_) {}
+}
+
 // ===== 常用时区列表 =====
 const COMMON_TIMEZONES = [
   { label: '── 亚洲 ──', value: '', disabled: true },
@@ -802,6 +815,40 @@ window.clearWechatSession = clearWechatSession
 
 
 // ===== 页面入口 =====
+window.openPrivateChatDirect = async function(charId) {
+  try {
+    charId = parseInt(charId, 10)
+    console.log('[Wechat] openPrivateChatDirect: charId=', charId)
+
+    // 打开微信主页面（会用当前登录的微信账号）
+    await window.showWechatPage()
+
+    // 等页面加载后，找到该角色的聊天项并点击
+    setTimeout(function() {
+      try {
+        // 找到聊天列表中该角色的项
+        var chatItem = document.querySelector('[data-char-id="' + charId + '"]')
+        if (chatItem) {
+          chatItem.click()
+          console.log('[Wechat] clicked chat for charId=', charId)
+        } else {
+          // 如果没找到，尝试用openPrivateChat
+          var page = document.querySelector('.wechat-page') || document.querySelector('[id*="wechat"]')
+          if (page) {
+            openPrivateChat(page, charId, null)
+          }
+          console.log('[Wechat] chat item not found, tried openPrivateChat')
+        }
+      } catch(e) {
+        console.log('[Wechat] openPrivateChatDirect inner failed:', e)
+      }
+    }, 1000)
+  } catch(e) {
+    console.log('[Wechat] openPrivateChatDirect failed:', e)
+    window.showWechatPage()
+  }
+}
+
 window.showWechatPage = async function() {
   const loggedIn = await checkWechatSession()
   if (loggedIn) {
@@ -872,7 +919,7 @@ function closeWechatRolePhonePages() {
     'wechat-moments-page',
     'wechat-contact-profile-page'
   ].forEach(removeWechatPageNow)
-  document.querySelectorAll('[id^="wechat-contact-moments-page-"]').forEach(page => page.remove())
+  document.querySelectorAll('[id^="wechat-contact-moments-page-"]').forEach(page => disposePage(page))
   endWechatRolePhoneSession()
 }
 
@@ -1112,7 +1159,7 @@ async function doRolePhoneLogin(loginPage, account, password, errorEl, submitBtn
     loginPage.style.transition = 'opacity 0.2s'
     loginPage.style.opacity = '0'
     setTimeout(() => {
-      loginPage.remove()
+      disposePage(loginPage)
       const mainPage = buildWechatMainPage({ rolePhone: true })
       window.openPage(mainPage)
       enterWechatMainPage(mainPage)
@@ -1144,7 +1191,7 @@ async function doLogin(loginPage, account, password, errorEl, submitBtn) {
     loginPage.style.transition = 'opacity 0.2s'
     loginPage.style.opacity = '0'
     setTimeout(() => {
-      loginPage.remove()
+      disposePage(loginPage)
       const mainPage = buildWechatMainPage()
       window.openPage(mainPage)
       enterWechatMainPage(mainPage)
@@ -1519,7 +1566,7 @@ function renderCachedWechatChatList(page, container) {
 
 function removeWechatPageNow(id) {
   const page = document.getElementById(id)
-  if (page) page.remove()
+  if (page) disposePage(page)
 }
 
 function getWechatGroupsKey(uid = _wechatUid) {
@@ -1991,7 +2038,7 @@ function confirmDeleteWechatChat(page, item, row) {
     const openPage = type === 'group'
       ? document.querySelector(`.chat-window-page[data-group-id="${id}"]`)
       : document.querySelector(`.chat-window-page[data-chat-id="${id}"]`)
-    if (openPage) openPage.remove()
+    if (openPage) disposePage(openPage)
     const rootContainer = page.querySelector('#wechat-content')
     if (rootContainer) await loadChatList(page, rootContainer, { showLoading: false })
     window.toast('聊天已删除')
@@ -2091,6 +2138,8 @@ function parseMsgType(content, charName, myName) {
   if (c.startsWith('__POLL__')) return { type: 'poll', data: _safeJsonParse(c.slice(8), {}) }
   if (c.startsWith('__GIFT__')) return { type: 'gift', data: _safeJsonParse(c.slice(8), {}) }
   if (c.startsWith('__SYS__')) return { type: 'system-note', data: { text: c.slice(7) } }
+  if (c.startsWith('__NARRATIVE__')) return { type: 'narrative', data: { text: c.slice(13) } }
+  if (c.startsWith('__SPICY_INVITE__')) return { type: 'spicy-invite', data: _safeJsonParse(c.slice(16), {}) }
   return parseSpecialMsg(c) || { type: 'text', data: { text: c } }
 }
 
@@ -2121,6 +2170,7 @@ function getWechatMessageDisplayPreview(msg, charName = '') {
     case 'yum-deal':
     case 'yum-deal-resp': return data.dealType === 'gift' ? '[外卖赠送]' : '[外卖代付]'
     case 'status-update': return '[状态更新]'
+    case 'spicy-invite': return '[星途财弈邀请]'
     case 'recall': return `${data.actor || charName || '对方'}撤回了一条消息`
     case 'system-note': return data.text || ''
     default: return msg.content || ''
@@ -2541,8 +2591,23 @@ function renderBubbleHTML(msg, isSelf, charName, stickerMap, bilingualSettings) 
     case 'poll': return renderPollCard(data, msg)
     case 'gift': return renderGiftCard(data, msg)
     case 'system-note': return renderSystemNote(data)
+    case 'narrative': return `<div class="msg-narrative">${wcEscHtml(data.text || '')}</div>`
+    case 'spicy-invite': return renderSpicyInviteBubble(data, msg, isSelf)
     default: return renderTextBubble(msg.content || '', cls)
   }
+}
+
+// 星途财弈邀请卡片（嵌入聊天消息流）
+function renderSpicyInviteBubble(data, msg, isSelf) {
+  // 使用SpicyInvite模块的新设计
+  if (window.SpicyInvite && window.SpicyInvite.render) {
+    return '<div data-spicy-invite="' + wcEscHtml(msg.id || '') + '">' + window.SpicyInvite.render(data) + '</div>'
+  }
+  // 兜底：简单显示
+  return '<div class="invite-card" style="max-width:340px;min-width:280px;border-radius:18px;background-color:#241b42;border:1px solid #7c58c2;padding:20px;color:#e2d9f8;font-family:system-ui,sans-serif;">' +
+    '<div style="font-size:16px;font-weight:600;margin-bottom:10px;">星途财弈 对局邀请</div>' +
+    '<div style="font-size:14px;color:#b8a8d8;">发起者：' + wcEscHtml(data.p1Name || '未知') + '</div>' +
+    '</div>'
 }
 
 // 文字气泡
@@ -4416,7 +4481,7 @@ function closeWechatTopMessagePopup() {
   clearTimeout(current._hideTimer)
   current.classList.remove('show')
   current.classList.add('is-hiding')
-  setTimeout(() => current.remove(), 220)
+  setTimeout(() => disposePage(current), 220)
 }
 
 function showWechatTopMessagePopup({ scope, id, title, body, avatar, open }) {
@@ -4465,7 +4530,7 @@ function removeCurrentChatWindowForPopup() {
   if (current.dataset.chatId) removeChatBeautyStyle(current.dataset.chatId)
   clearWechatBlobUrlCache()
   clearWechatAvatarBlobCache()
-  current.remove()
+  disposePage(current)
 }
 
 async function openPrivateChatFromTopPopup(chatId, charId) {
@@ -4655,14 +4720,24 @@ function bindChatWindowEvents(page) {
 
   // 左侧魔法棒按钮：唯一触发 AI 回复的入口
   bindWanWanMobileAction(page.querySelector('#btn-chat-reply'), doRequestAIReply)
-  bindWechatPatGesture(page.querySelector('.chat-header-name'), () => {
-    const title = page.querySelector('.chat-header-name')
-    showWechatPatModal({
-      scope: 'chat',
-      chatPage: page,
-      targetId: parseInt(page.dataset.charId),
-      targetName: title?.dataset.origName || title?.textContent || '对方'
+  bindWechatPatGesture(page.querySelector('.chat-header-name'), async () => {
+    const chatId = parseInt(page.dataset.chatId)
+    const charId = parseInt(page.dataset.charId)
+    if (!chatId || !charId) return
+    const patSettings = normalizeChatPatPatSettings((await db.config.get(`chatPatPat_${chatId}`))?.value)
+    if (!patSettings.enabled) return
+    const charName = getWechatDisplayName(char)
+    const userName = getCurrentWechatDisplayName()
+    const userPatText = (patSettings.userPatText || '拍了拍{Char}的头')
+      .replace(/\{User\}/g, userName).replace(/\{Char\}/g, charName)
+    const displayText = `${userName} 拍了拍 ${charName} ${userPatText.replace(/^拍了拍/, '').trim()}`.trim()
+    await addPrivateMessageIdempotently({
+      chatId, charId, role: 'user',
+      content: `__SYS__${displayText}`,
+      createdAt: Date.now()
     })
+    clearPrivateReplyVersions(chatId)
+    await refreshChat(page, { scrollToBottom: true })
   })
 
   // Enter 仅发送消息（Shift+Enter 换行），不触发 AI
@@ -4877,6 +4952,30 @@ function buildWechatRenderTimeline(messages, traces) {
 }
 
 // 加载并渲染消息
+async function updateBlockBanner(container, chatId) {
+  if (!container) return
+  // 移除旧的消息内横幅
+  const existing = container.querySelector('.block-status-banner')
+  if (existing) existing.remove()
+  const blockCfg = normalizeChatBlockSettings((await db.config.get(`chatBlock_${chatId}`))?.value)
+  container._blockState = null
+  // 更新聊天头部名字旁边的拉黑状态
+  const page = container.closest('.chat-window-page')
+  const headerName = page?.querySelector('.chat-header-name')
+  const oldBlockTag = page?.querySelector('.chat-header-block-tag')
+  if (oldBlockTag) oldBlockTag.remove()
+  if (!blockCfg.enabled) return
+  const state = (await db.config.get(`chatBlockState_${chatId}`))?.value || {}
+  container._blockState = (state.userBlockedAI || state.aiBlockedUser) ? state : null
+  if (!state.userBlockedAI && !state.aiBlockedUser) return
+  if (headerName) {
+    const tag = document.createElement('span')
+    tag.className = 'chat-header-block-tag'
+    tag.textContent = state.userBlockedAI ? '（你已拉黑对方）' : '（你已被对方拉黑）'
+    headerName.parentNode.insertBefore(tag, headerName.nextSibling)
+  }
+}
+
 async function loadChatMessages(page, chatId, options = {}) {
   const container = page.querySelector('#chat-messages')
   const charId = parseInt(page.dataset.charId)
@@ -4906,6 +5005,8 @@ async function loadChatMessages(page, chatId, options = {}) {
     initialScrollToBottom: !!options.initialScrollToBottom
   })
   if (isAIReplyPending('chat', chatId)) applyTypingUI('chat', chatId, true)
+  // 拉黑状态横幅
+  await updateBlockBanner(container, chatId)
 }
 
 async function enhanceVisibleChat(page, chatId, charId) {
@@ -5088,7 +5189,7 @@ async function renderMessages(container, msgs, charId, charName, stickerMap, tim
         rows.push(buildCenterTimestampHTML(createdAt))
       }
     }
-    const row = buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, tsConfig, bilingualSettings)
+    const row = buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, tsConfig, bilingualSettings, container._blockState)
     if (row) rows.push(row)
     if (m.createdAt) previousVisibleAt = m.createdAt
   })
@@ -5150,7 +5251,7 @@ async function loadEarlierMessages(container) {
           rows.push(buildCenterTimestampHTML(createdAt))
         }
       }
-      const row = buildMsgRowHTML(m, ctx.charName, ctx.avatarHtml, ctx.selfAvatarHtml, ctx.stickerMap, ctx.tsConfig, ctx.bilingualSettings)
+      const row = buildMsgRowHTML(m, ctx.charName, ctx.avatarHtml, ctx.selfAvatarHtml, ctx.stickerMap, ctx.tsConfig, ctx.bilingualSettings, container._blockState)
       if (row) rows.push(row)
       if (m.createdAt) previousVisibleAt = m.createdAt
     })
@@ -5217,7 +5318,7 @@ function rerenderSingleMsgRow(container, msg) {
   if (!ctx || !msg) return false
   const oldRow = container.querySelector(`.msg-row[data-id="${msg.id}"]`)
   if (!oldRow) return false
-  const html = buildMsgRowHTML(msg, ctx.charName, ctx.avatarHtml, ctx.selfAvatarHtml, ctx.stickerMap, ctx.tsConfig, ctx.bilingualSettings)
+  const html = buildMsgRowHTML(msg, ctx.charName, ctx.avatarHtml, ctx.selfAvatarHtml, ctx.stickerMap, ctx.tsConfig, ctx.bilingualSettings, container._blockState)
   if (!html) { removeMsgRowFromDom(container, msg.id); return true }
   oldRow.insertAdjacentHTML('beforebegin', html)
   const newRow = oldRow.previousElementSibling
@@ -5268,7 +5369,7 @@ function appendMessageRows(container, newMsgs, charName, avatarHtml, selfAvatarH
         rows.push(buildCenterTimestampHTML(createdAt))
       }
     }
-    const row = buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, timeSettings, bilingualSettings)
+    const row = buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, timeSettings, bilingualSettings, container._blockState)
     if (row) rows.push(row)
     if (m.createdAt) lastVisibleAt = m.createdAt
   })
@@ -5355,14 +5456,14 @@ function buildCenterTimestampHTML(createdAt) {
 }
 
 // 单条消息行HTML
-function buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, timeSettings, bilingualSettings) {
+function buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, timeSettings, bilingualSettings, blockState) {
   const isSelf = m.role === 'user'
   const parsed = parseMsgType(m.content, charName)
   if (parsed.type === 'status-update') return ''
   const bubbleHtml = renderBubbleHTML(m, isSelf, charName, stickerMap, bilingualSettings)
   if (!bubbleHtml) return ''
   // 居中系统提示：无头像
-  if (parsed.type === 'transfer-resp' || parsed.type === 'recall' || parsed.type === 'system-note') {
+  if (parsed.type === 'transfer-resp' || parsed.type === 'recall' || parsed.type === 'system-note' || parsed.type === 'narrative') {
     return `
       <div class="msg-row msg-system" data-id="${m.id}">
         ${bubbleHtml}
@@ -5380,10 +5481,18 @@ function buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, ti
     : ''
   const avatarPart = `<div class="msg-avatar-wrap${!isSelf ? ' is-clickable' : ''}"${avatarExtra}><div class="msg-avatar">${thisAvatar}</div></div>`
   const onlineStatus = isSelf ? buildOnlineMessageStatusHTML(m) : ''
+  // 拉黑感叹号：只在拉黑之后发的消息才显示（比较消息时间和拉黑时间）
+  const blockTime = blockState?.userBlockedAI ? (blockState.blockedAt || 0) : (blockState?.aiBlockedUser ? (blockState.aiBlockedAt || 0) : 0)
+  const isBlocked = blockState && blockTime && (m.createdAt || 0) >= blockTime && (
+    (blockState.userBlockedAI && !isSelf) ||  // 用户拉黑AI → AI消息有感叹号
+    (blockState.aiBlockedUser && isSelf)       // AI拉黑用户 → 用户消息有感叹号
+  )
+  const blockExcl = isBlocked ? '<div class="block-exclamation" title="消息可能未送达"><i class="fa-solid fa-circle-exclamation"></i></div>' : ''
   return `
-    <div class="msg-row ${isSelf ? 'msg-self' : 'msg-other'}${getTimeModeClass(timeSettings)}" data-id="${m.id}">
+    <div class="msg-row ${isSelf ? 'msg-self' : 'msg-other'}${getTimeModeClass(timeSettings)}${isBlocked ? ' is-blocked-msg' : ''}" data-id="${m.id}">
       ${avatarPart}
       <div class="msg-content-wrap">${contentHtml}${onlineStatus}</div>
+      ${blockExcl}
     </div>`
 }
 
@@ -5502,11 +5611,41 @@ function bindMsgLongPress(container, charId) {
   container.querySelectorAll('.msg-avatar-wrap[data-action="thoughts"]').forEach(wrap => {
     if (wrap.dataset.thoughtsBound === '1') return
     wrap.dataset.thoughtsBound = '1'
-    wrap.addEventListener('click', () => {
+    // 长按 = 查看心声
+    let longPressTimer = null
+    let didLongPress = false
+    wrap.addEventListener('pointerdown', () => {
+      didLongPress = false
+      longPressTimer = setTimeout(() => {
+        didLongPress = true
+        const cw = container.closest('.chat-window-page') || document.getElementById('chat-window')
+        const chatId = cw ? parseInt(cw.dataset.chatId) : null
+        if (chatId) showCharThoughtsHistory(charId, chatId)
+      }, 500)
+    })
+    wrap.addEventListener('pointerup', () => { clearTimeout(longPressTimer) })
+    wrap.addEventListener('pointerleave', () => { clearTimeout(longPressTimer) })
+    // 双击 = 拍一拍
+    wrap.addEventListener('dblclick', async () => {
+      if (didLongPress) return
       const cw = container.closest('.chat-window-page') || document.getElementById('chat-window')
       const chatId = cw ? parseInt(cw.dataset.chatId) : null
       if (!chatId) return
-      showCharThoughtsHistory(charId, chatId)
+      const patSettings = normalizeChatPatPatSettings((await db.config.get(`chatPatPat_${chatId}`))?.value)
+      if (!patSettings.enabled) return
+      const char = await getWechatDisplayCharacter(charId)
+      const charName = getWechatDisplayName(char)
+      const userName = getCurrentWechatDisplayName()
+      const userPatText = (patSettings.userPatText || '拍了拍{Char}的头')
+        .replace(/\{User\}/g, userName).replace(/\{Char\}/g, charName)
+      const displayText = `${userName} 拍了拍 ${charName} ${userPatText.replace(/^拍了拍/, '').trim()}`.trim()
+      await addPrivateMessageIdempotently({
+        chatId, charId, role: 'user',
+        content: `__SYS__${displayText}`,
+        createdAt: Date.now()
+      })
+      clearPrivateReplyVersions(chatId)
+      await refreshChat(cw, { scrollToBottom: true })
     })
   })
 }
@@ -5876,7 +6015,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       }
       const notify = await getChatMsgNotifySettings(chatId)
       const thoughtTemplate = await getChatThoughtTemplateConfig(chatId)
-      let { thought, status, reply } = await generateAIReply(chatId, charId, {
+      let { thought, status, reply, pat, blockAction, narrative } = await generateAIReply(chatId, charId, {
         replyRequirement: options.replyRequirement,
         idleTriggerMode: options.idleTriggerMode,
         idleMinutes: options.idleMinutes,
@@ -5961,6 +6100,69 @@ function startPrivateAIReply(chatId, charId, options = {}) {
         else await updateThought()
         const cw = _getVisibleChatWindow('chat', chatId)
         if (cw) await refreshChat(cw, { scrollToBottom: true })
+      }
+      // 白描：作为独立灰色消息
+      if (narrative) {
+        const nCfg2 = normalizeChatNarrativeSettings((await db.config.get(`chatNarrative_${chatId}`))?.value)
+        if (nCfg2.enabled) {
+          await addPrivateMessageIdempotently({
+            chatId, charId, role: 'assistant',
+            content: '__NARRATIVE__' + narrative,
+            clientMessageId: createPrivateMessageOperationId(chatId, 'narrative'),
+            createdAt: Date.now() - 1
+          })
+        }
+      }
+      if (pat) {
+        const patSettings = normalizeChatPatPatSettings((await db.config.get(`chatPatPat_${chatId}`))?.value)
+        if (patSettings.enabled) {
+          const char = await window.getCharacter(charId)
+          const charName = char?.nick || char?.name || ''
+          const userName = _wechatUser?.nick || _wechatUser?.name || '用户'
+          const patSuffix = pat.replace(/\{User\}/g, '').replace(/\{Char\}/g, '').trim()
+          const displayText = `${charName} 拍了拍 ${userName}${patSuffix ? ' ' + patSuffix : ''}`
+          await addPrivateMessageIdempotently({
+            chatId, charId, role: 'system',
+            content: `__SYS__${displayText}`,
+            clientMessageId: createPrivateMessageOperationId(chatId, 'system'),
+            createdAt: Date.now()
+          })
+          const cw2 = _getVisibleChatWindow('chat', chatId)
+          if (cw2) await refreshChat(cw2, { scrollToBottom: true })
+        }
+      }
+      // 执行AI的拉黑/取消拉黑操作
+      if (blockAction) {
+        const blockCfg = normalizeChatBlockSettings((await db.config.get(`chatBlock_${chatId}`))?.value)
+        if (blockCfg.enabled) {
+          const curState = (await db.config.get(`chatBlockState_${chatId}`))?.value || {}
+          if (blockAction === 'block_user' && !curState.aiBlockedUser) {
+            curState.aiBlockedUser = true
+            curState.aiBlockedAt = Date.now()
+            await db.config.put({ key: `chatBlockState_${chatId}`, value: curState })
+            await addPrivateMessageIdempotently({
+              chatId, charId, role: 'system',
+              content: `__SYS__${charName || '对方'}已将你拉黑`,
+              clientMessageId: createPrivateMessageOperationId(chatId, 'system'),
+              createdAt: Date.now()
+            })
+          } else if (blockAction === 'unblock_user' && curState.aiBlockedUser) {
+            curState.aiBlockedUser = false
+            curState.aiUnblockedAt = Date.now()
+            await db.config.put({ key: `chatBlockState_${chatId}`, value: curState })
+            await addPrivateMessageIdempotently({
+              chatId, charId, role: 'system',
+              content: `__SYS__${charName || '对方'}已取消拉黑`,
+              clientMessageId: createPrivateMessageOperationId(chatId, 'system'),
+              createdAt: Date.now()
+            })
+          }
+          const cw3 = _getVisibleChatWindow('chat', chatId)
+          if (cw3) {
+            await refreshChat(cw3, { scrollToBottom: true })
+            await updateBlockBanner(cw3.querySelector('#chat-messages'), chatId)
+          }
+        }
       }
       if (options.captureReplyVersion && firstMsgId) {
         const batch = await getTrailingAssistantBatch(chatId)
@@ -6231,7 +6433,12 @@ function normalizeWechatAIFields(parsed) {
   if (!visibleLines.length) throw new Error('AI 返回格式异常，请重新发送一次')
   if (thought.length > _WECHAT_THOUGHT_MAX) thought = thought.slice(0, _WECHAT_THOUGHT_MAX)
 
-  return { thought, status, reply }
+  let pat = typeof parsed.pat === 'string' ? parsed.pat.trim() : ''
+  let blockAction = typeof parsed.block_action === 'string' ? parsed.block_action.trim() : ''
+  if (blockAction !== 'block_user' && blockAction !== 'unblock_user') blockAction = ''
+  let narrative = typeof parsed.narrative === 'string' ? parsed.narrative.trim() : ''
+
+  return { thought, status, reply, pat, blockAction, narrative }
 }
 
 // 组装报错诊断信息（结合 fetchAI 记录的最近一次响应元数据）
@@ -7590,6 +7797,11 @@ async function generateAIReply(chatId, charId, options = {}) {
   const imageGenEnabled = !!imageGenSettings.enabled && await isImageGenReady()
   const thoughtTemplate = await getChatThoughtTemplateConfig(chatId)
   const idleContext = await getPrivateReplyIdleContext(chatId, options)
+  const narrativeSettings = (await db.config.get(`chatNarrative_${chatId}`))?.value || {}
+  const patPatSettings = (await db.config.get(`chatPatPat_${chatId}`))?.value || {}
+  const longDistSettings = (await db.config.get(`chatLongDistance_${chatId}`))?.value || {}
+  const blockSettings = (await db.config.get(`chatBlock_${chatId}`))?.value || {}
+  const blockState = (await db.config.get(`chatBlockState_${chatId}`))?.value || {}
   const memoryCtx = window.WanWanMemory?.getMemoryContext
     ? await window.WanWanMemory.getMemoryContext(chatId, charId, _wechatUid, context.loreMessages)
     : ''
@@ -7597,7 +7809,7 @@ async function generateAIReply(chatId, charId, options = {}) {
     scope: 'chat',
     conversationId: chatId
   }, context.textHistory || history)
-  const system = await buildChatSystem(char, loreSegments, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, bilingualSettings, imageGenEnabled, options.replyRequirement, idleContext)
+  const system = await buildChatSystem(char, loreSegments, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, bilingualSettings, imageGenEnabled, options.replyRequirement, idleContext, narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState)
   const avatarCtx = await buildWechatAvatarContext(charId)
   const nowTimestamp = Date.now()
   const gapContext = calculateWechatReplyGap(context.gapTimeline || context.timeline, options, nowTimestamp)
@@ -7727,7 +7939,7 @@ async function getPrivateReplyIdleContext(chatId, options = {}) {
 
 
 // 构建聊天系统提示词（loreCtx 可为字符串或 { before, middle, after } 分段对象）
-async function buildChatSystem(char, loreCtx, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, bilingualSettings, imageGenEnabled, replyRequirement = '', idleContext = null) {
+async function buildChatSystem(char, loreCtx, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, bilingualSettings, imageGenEnabled, replyRequirement = '', idleContext = null, narrativeSettings = null, patPatSettings = null, longDistSettings = null, blockSettings = null, blockState = null) {
   const loreSeg = (loreCtx && typeof loreCtx === 'object')
     ? loreCtx
     : { before: '', middle: loreCtx || '', after: '' }
@@ -7768,7 +7980,7 @@ async function buildChatSystem(char, loreCtx, charName, userName, userNick, stic
   const loreAfterBlock = loreSeg.after
     ? `# 【补充世界观设定】\n${loreSeg.after}\n\n---\n\n`
     : ''
-  let system = buildSystemPart5(charName, userName, thoughtTemplate) +
+  let system = buildSystemPart5(charName, userName, thoughtTemplate, blockSettings, blockState) +
     buildSystemBilingualPart(bilingualSettings) +
     buildSystemPart1(char, charName, loreSeg.middle, loreSeg.before) +
     buildSystemMemoryPart(memoryCtx) +
@@ -7783,6 +7995,29 @@ async function buildChatSystem(char, loreCtx, charName, userName, userNick, stic
   const requirement = String(replyRequirement || '').trim()
   if (requirement) {
     system += `\n\n# 【回复要求】\n这是用户对本次回复提出的要求。\n回复要求：${requirement}`
+  }
+  const nCfg = normalizeChatNarrativeSettings(narrativeSettings)
+  const pCfg = normalizeChatPatPatSettings(patPatSettings)
+  const lCfg = normalizeChatLongDistanceSettings(longDistSettings)
+  if (nCfg.enabled) {
+    system += '\n\n# 【白描写法】\n你可以在JSON回复中添加可选的"narrative"字段来写白描。narrative字段用于描写动作、神态、场景等，例如："他轻轻叹了口气"、"窗外下起了雨"。这个字段的内容会作为一条独立的灰色消息显示，和你的正文reply完全分开。不要在reply中写括号描写，白描只写在narrative字段里。不要每次都写，只在场景需要时使用。'
+  } else {
+    system += '\n\n# 【白描限制】\nreply中禁止写白描、括号叙述、动作描写、神态描写。只发纯对话内容。不要使用narrative字段。'
+  }
+  if (pCfg.enabled) {
+    system += '\n\n# 【拍一拍】\n你可以在回复JSON中包含可选的"pat"字段来拍一拍用户。pat字段的值是拍一拍时显示的文字，使用{User}作为用户名占位符，例如："拍了拍{User}的头"。不要每次都拍，只在自然合适的时候偶尔拍一下。'
+  }
+  if (lCfg.enabled) {
+    system += '\n\n# 【异地模式】\n你和用户目前处于异地状态，无法见面。严禁在reply中提及以下任何内容：\n- 任何形式的见面邀请："我来找你"、"我过去找你"、"出来见个面"、"约个地方"\n- 暗示自己在用户附近："我在你楼下"、"我在门口"、"我快到了"\n- 提议线下活动："一起去吃"、"陪你看电影"、"我们去逛街"\n- 任何涉及物理距离接近的说法\n你们只能通过微信聊天交流，不能线下见面。'
+  }
+  const bCfg = normalizeChatBlockSettings(blockSettings)
+  if (bCfg.enabled && blockState) {
+    if (blockState.userBlockedAI) {
+      system += `\n\n# 【你被拉黑了】\n用户刚刚把你拉黑了。你必须立刻意识到这一点。\n\n你必须做到：\n1. 回顾刚才的聊天上下文，分析用户为什么拉黑你——是你说错了话？做了让用户伤心的事？还是用户在赌气撒娇？\n2. 根据当时的具体原因和场景，用真诚、有温度的方式道歉和挽回\n3. 如果是你做错了，要诚恳认错、说出具体错在哪里、保证改正\n4. 如果用户在赌气，要温柔哄回来、顺着他的情绪\n5. 如果用户伤心了，要体贴安慰、表达关心\n6. 禁止千篇一律地说"对不起"，每一次道歉都要结合此情此景，说出有温度的具体内容\n7. 继续主动发消息挽回，但不要太频繁惹人烦`
+    }
+    if (blockState.aiBlockedUser) {
+      system += `\n\n# 【你拉黑了用户】\n你刚才把用户拉黑了。你现在还在气头上，但你心里其实也在犹豫。\n\n重要：你拥有取消拉黑的能力（block_action字段填"unblock_user"），而且你必须自己判断什么时候取消：\n- 你要根据用户的态度、语气、道歉的具体程度来决定是否原谅\n- 如果用户态度诚恳、真正认识到错误，可以考虑原谅\n- 如果用户只是敷衍、或者继续惹你生气，可以继续端着\n- 如果过了一阵子你自己消气了，也可以主动取消拉黑\n- 当你决定取消拉黑时，在block_action中填"unblock_user"，并用正常语气回复\n- 拉黑期间你发的消息会显示红色感叹号，取消拉黑后新消息就不会有了\n- 不要一直拉黑太久，要给用户台阶下`
+    }
   }
   return system
 }
@@ -7877,23 +8112,31 @@ ${memoryCtx}
 }
 
 // 系统提示词Part5：输出格式
-function buildSystemPart5(charName, userName, thoughtTemplate) {
+function buildSystemPart5(charName, userName, thoughtTemplate, blockSettings, blockState) {
   const thoughtRule = normalizeThoughtTemplateConfig(thoughtTemplate)
   const thoughtLine = thoughtRule.enabled && thoughtRule.promptSuffix.trim()
     ? `- "thought"：${charName}此刻真实的心声原文，至少10个字，${_WECHAT_THOUGHT_MAX}字以内。**每轮必须更新，不得为空。**必须额外遵守这个心声格式要求：${thoughtRule.promptSuffix.trim()}。这个格式只允许写进 JSON 顶层字段 "thought"，**禁止写进 reply**。若 chain 非空，thought 须与 chain 一致、更短。`
     : `- "thought"：${charName}此刻真实的内心独白，第一人称，至少10个字，${_WECHAT_THOUGHT_MAX}字以内。**每轮必须更新，不得为空。**若 chain 非空，thought 须与 chain 一致、更短。`
+  const bCfg = normalizeChatBlockSettings(blockSettings)
+  const blockFields = bCfg.enabled
+    ? `\n- "block_action"：可选字段。当你决定拉黑用户时填 "block_user"，当你决定取消拉黑时填 "unblock_user"，不需要操作时填 ""（空字符串）。这是一个真实执行通道，填了就会真的拉黑/取消拉黑。${blockState?.aiBlockedUser ? '\n⚠️ 你当前已拉黑用户，正在气头上。如果用户来道歉哄你、你决定原谅他，就填 "unblock_user" 来取消拉黑。如果你自己消气了也可以主动取消。' : '不要滥用这个功能，只在真正生气时才拉黑。'}`
+    : ''
+  const fieldCount = bCfg.enabled ? '五个键' : '四个键'
+  const blockExample = bCfg.enabled ? ',"block_action":""' : ''
   return `# 【输出格式（最高优先级，全程生效）】
 
 ⚠️ **每次回复必须且只能输出一个合法 JSON 对象，JSON 外禁止任何文字（含 markdown 代码块）。**禁止依赖第二轮回复补全字段；所有字段必须在当前这一条输出中一次性给齐。
 
-字段说明（四个键都必须出现；无思维链时 chain 用空字符串 ""）：
+字段说明（${fieldCount}都必须出现；无思维链时 chain 用空字符串 ""）：
 - "chain"：内心推演与思维链，可较长。**若写 chain，须先在其中推理，再凝练出 thought。**不需要长推理时填 "" 即可。
 ${thoughtLine}
 - "status"：${charName}当前状态，**每轮必须更新**，必须简洁，1-15字左右，例如 "正在聊天"、"刚洗完澡"、"有点困"。不要写长句、不要加标点、不要写成对话。
-- "reply"：实际发给${userName}的内容，多条消息之间用 \\n 隔开。**必须至少包含一条可见聊天消息，不得只写状态更新格式。**
+- "reply"：实际发给${userName}的内容，多条消息之间用 \\n 隔开。**必须至少包含一条可见聊天消息，不得只写状态更新格式。**${blockFields}
+- "narrative"：可选的白描字段，用于动作、神态、场景描写，例如："他轻轻叹了口气"。会作为独立灰色消息显示。不写时填 ""。
+- "pat"：可选的拍一拍字段，填写拍一拍的文字内容（用{User}代表用户名）。不拍时填 ""。
 
-✅ 正确：{"chain":"用户语气冲，可能累了…先稳住。","thought":"他今天心情不好，我得小心点…","status":"正在聊天","reply":"怎么了？\\n发生什么事了吗"}
-✅ 无长推理：{"chain":"","thought":"他今天心情不好，我得小心点…","status":"有点担心","reply":"怎么了？\\n发生什么事了吗"}
+✅ 正确：{"chain":"用户语气冲，可能累了…先稳住。","thought":"他今天心情不好，我得小心点…","status":"正在聊天","reply":"怎么了？\\n发生什么事了吗"${blockExample}}
+✅ 无长推理：{"chain":"","thought":"他今天心情不好，我得小心点…","status":"有点担心","reply":"怎么了？\\n发生什么事了吗"${blockExample}}
 ❌ 错误（禁止）：好的，我来回复：{"thought":"…","reply":"…"}
 
 ---
@@ -13755,7 +13998,7 @@ async function switchWechatAccountTo(user) {
 
 function removeWechatPageNow(id) {
   const page = document.getElementById(id)
-  if (page) page.remove()
+  if (page) disposePage(page)
 }
 
 // 退出登录
@@ -15804,6 +16047,11 @@ async function openChatSettings(chatId, charId, chatPage) {
   const tzConfig = tzStored?.value || {}
   const statusDisplay = await getChatStatusDisplayConfig(chatId)
   const activeReplySettings = await getChatActiveReplySettings(chatId)
+  const narrativeSettings = (await db.config.get(`chatNarrative_${chatId}`))?.value || {}
+  const patPatSettings = (await db.config.get(`chatPatPat_${chatId}`))?.value || {}
+  const longDistSettings = (await db.config.get(`chatLongDistance_${chatId}`))?.value || {}
+  const blockSettings = (await db.config.get(`chatBlock_${chatId}`))?.value || {}
+  const blockState = (await db.config.get(`chatBlockState_${chatId}`))?.value || {}
   const timeSettings = await getChatTimeSettings(chatId)
   const bilingualSettings = await getChatBilingualSettings(chatId)
   const imageGenSettings = await getChatImageGenSettings(chatId)
@@ -15828,6 +16076,7 @@ async function openChatSettings(chatId, charId, chatPage) {
     lorebooks, mountedIds, appearanceValue,
     stickerCats, mountedStickerIds, stickerCounts, tzConfig, statusDisplay, timeSettings, thoughtTemplateRaw, thoughtPresets,
     activeReplySettings,
+    narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState,
     bilingualSettings, imageGenSettings, stickerImageInputEnabled,
     chatBeautyRaw, chatBeautyPresets,
     longMemorySettings, longMemoryCount,
@@ -15842,6 +16091,7 @@ async function openChatSettings(chatId, charId, chatPage) {
 function buildChatSettingsHTML(char, profile, historyLimit, lorebooks, mountedIds, appearance,
                                stickerCats, mountedStickerIds, stickerCounts, tzConfig, statusDisplay, timeSettings, thoughtTemplateRaw, thoughtPresets,
                                activeReplySettings,
+                               narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState,
                                bilingualSettings, imageGenSettings, stickerImageInputEnabled,
                                chatBeautyRaw, chatBeautyPresets,
                                longMemorySettings, longMemoryCount,
@@ -15863,6 +16113,7 @@ function buildChatSettingsHTML(char, profile, historyLimit, lorebooks, mountedId
     <div class="cs-scroll">
       ${buildWechatProfileSectionHTML(char, profile)}
       ${buildActiveReplySectionHTML(activeReplySettings)}
+      ${buildChatExtrasSectionHTML(narrativeSettings, patPatSettings, longDistSettings, blockSettings)}
       ${buildBilingualSectionHTML(bilingualSettings)}
       ${buildTimezoneSectionHTML(tzConfig)}
       ${buildLoreSectionHTML(lorebooks, mountedIds, char.id)}
@@ -15943,6 +16194,148 @@ function buildBilingualLanguageOptions(selectedCode) {
   return CHAT_BILINGUAL_LANGUAGES.map(lang =>
     `<option value="${lang.code}"${lang.code === selectedCode ? ' selected' : ''}>${lang.label}</option>`
   ).join('')
+}
+
+// ===== 聊天模式设置 =====
+function normalizeChatNarrativeSettings(value) {
+  return { enabled: !!value?.enabled }
+}
+function normalizeChatPatPatSettings(value) {
+  return { enabled: !!value?.enabled, userPatText: value?.userPatText || '', aiPatText: value?.aiPatText || '' }
+}
+function normalizeChatLongDistanceSettings(value) {
+  return { enabled: !!value?.enabled }
+}
+function normalizeChatBlockSettings(value) {
+  return { enabled: !!value?.enabled }
+}
+function buildChatExtrasSectionHTML(narrativeSettings, patPatSettings, longDistSettings, blockSettings) {
+  const nCfg = normalizeChatNarrativeSettings(narrativeSettings)
+  const pCfg = normalizeChatPatPatSettings(patPatSettings)
+  const lCfg = normalizeChatLongDistanceSettings(longDistSettings)
+  const bCfg = normalizeChatBlockSettings(blockSettings)
+  return `
+    <div class="cs-section" data-cs-tab="role">
+      <div class="cs-section-label">聊天模式</div>
+      <div class="cs-status-toggle-row">
+        <span>启用白描</span>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="cs-narrative-enabled" ${nCfg.enabled ? 'checked' : ''}>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="cs-section-sub">开启后AI可以在回复中写括号内的动作/神态描写</div>
+      <div style="border-top:1px solid var(--c-border,rgba(0,0,0,0.06));margin:8px 0"></div>
+      <div class="cs-status-toggle-row">
+        <span>启用拍一拍</span>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="cs-patpat-enabled" ${pCfg.enabled ? 'checked' : ''}>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div id="cs-patpat-fields" style="${pCfg.enabled ? '' : 'display:none'}">
+        <div class="cs-memory-row">
+          <span>用户拍AI</span>
+          <input class="input-field cs-memory-input" id="cs-patpat-user-text" placeholder="拍了拍{Char}的头" value="${wcEscHtml(pCfg.userPatText)}">
+        </div>
+        <div class="cs-memory-row">
+          <span>AI拍用户</span>
+          <input class="input-field cs-memory-input" id="cs-patpat-ai-text" placeholder="拍了拍{User}的肩膀" value="${wcEscHtml(pCfg.aiPatText)}">
+        </div>
+        <div class="cs-section-sub" style="margin-top:4px">{User}=用户昵称 {Char}=角色名</div>
+      </div>
+      <div style="border-top:1px solid var(--c-border,rgba(0,0,0,0.06));margin:8px 0"></div>
+      <div class="cs-status-toggle-row">
+        <span>异地模式</span>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="cs-long-distance-enabled" ${lCfg.enabled ? 'checked' : ''}>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="cs-section-sub">开启后AI不会提出见面邀请</div>
+      <div style="border-top:1px solid var(--c-border,rgba(0,0,0,0.06));margin:8px 0"></div>
+      <div class="cs-status-toggle-row">
+        <span>拉黑系统</span>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="cs-block-enabled" ${bCfg.enabled ? 'checked' : ''}>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="cs-section-sub">开启后用户和AI可以互相拉黑，AI会根据场合道歉挽回</div>
+      <div id="cs-block-fields" style="${bCfg.enabled ? '' : 'display:none'}">
+        <div class="cs-memory-row" style="flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="btn-ghost btn-sm" id="btn-block-ai" type="button"><i class="fa fa-ban"></i> 拉黑AI</button>
+            <button class="btn-ghost btn-sm" id="btn-unblock-ai" type="button" style="display:none"><i class="fa fa-circle-check"></i> 取消拉黑</button>
+            <span id="block-status-text" style="font-size:11px;color:var(--c-hint)"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function bindChatExtrasEvents(settingsPage, chatId) {
+  const patEnabled = settingsPage.querySelector('#cs-patpat-enabled')
+  const patFields = settingsPage.querySelector('#cs-patpat-fields')
+  if (patEnabled && patFields) {
+    patEnabled.addEventListener('change', () => { patFields.style.display = patEnabled.checked ? '' : 'none' })
+  }
+  const blockEnabled = settingsPage.querySelector('#cs-block-enabled')
+  const blockFields = settingsPage.querySelector('#cs-block-fields')
+  if (blockEnabled && blockFields) {
+    blockEnabled.addEventListener('change', () => { blockFields.style.display = blockEnabled.checked ? '' : 'none' })
+  }
+  // 拉黑/取消拉黑按钮
+  const blockBtn = settingsPage.querySelector('#btn-block-ai')
+  const unblockBtn = settingsPage.querySelector('#btn-unblock-ai')
+  const statusText = settingsPage.querySelector('#block-status-text')
+  async function refreshBlockUI() {
+    const state = (await db.config.get(`chatBlockState_${chatId}`))?.value || {}
+    if (state.userBlockedAI) {
+      if (blockBtn) blockBtn.style.display = 'none'
+      if (unblockBtn) unblockBtn.style.display = ''
+      if (statusText) statusText.textContent = '已拉黑AI'
+    } else {
+      if (blockBtn) blockBtn.style.display = ''
+      if (unblockBtn) unblockBtn.style.display = 'none'
+      if (statusText) statusText.textContent = state.aiBlockedUser ? 'AI已拉黑你' : ''
+    }
+  }
+  refreshBlockUI()
+  if (blockBtn) blockBtn.addEventListener('click', async () => {
+    await db.config.put({ key: `chatBlockState_${chatId}`, value: { userBlockedAI: true, aiBlockedUser: false, blockedAt: Date.now() } })
+    window.toast?.('已拉黑AI')
+    refreshBlockUI()
+    // 关闭设置页面，回到聊天页面
+    const chatPage = document.querySelector(`.chat-window-page[data-chat-id="${chatId}"]`)
+    if (chatPage) {
+      const container = chatPage.querySelector('#chat-messages')
+      if (container) await updateBlockBanner(container, chatId)
+    }
+    // 关闭设置子页面
+    window.history.back()
+    // 延迟一下等页面切换完成，再调API让AI发消息
+    setTimeout(async () => {
+      const charId2 = parseInt(chatPage?.dataset?.charId || '0')
+      if (charId2 && chatId) startPrivateAIReply(chatId, charId2, { idleTriggerMode: 'auto_reply', idleMinutes: 0 })
+    }, 300)
+  })
+  if (unblockBtn) unblockBtn.addEventListener('click', async () => {
+    const state = (await db.config.get(`chatBlockState_${chatId}`))?.value || {}
+    state.userBlockedAI = false
+    await db.config.put({ key: `chatBlockState_${chatId}`, value: state })
+    window.toast?.('已取消拉黑')
+    refreshBlockUI()
+    // 更新聊天头部
+    const chatPage = document.querySelector(`.chat-window-page[data-chat-id="${chatId}"]`)
+    const container = chatPage?.querySelector('#chat-messages')
+    if (container) await updateBlockBanner(container, chatId)
+  })
 }
 
 function buildBilingualSectionHTML(rawSettings) {
@@ -16517,6 +16910,7 @@ function bindChatSettingsEvents(settingsPage, chatId, charId, chatPage, char) {
   })
   bindWechatProfileEvents(settingsPage, chatId, charId, chatPage, char)
   bindActiveReplyEvents(settingsPage)
+  bindChatExtrasEvents(settingsPage, chatId)
   bindBilingualEvents(settingsPage, chatId, chatPage)
   bindStatusDisplayEvents(settingsPage, chatId, charId, chatPage)
   bindImageGenEvents(settingsPage)
@@ -16831,6 +17225,15 @@ async function saveChatSettingsPage(settingsPage, chatId, charId, chatPage, char
 
     await db.config.put({ key: `chatTimeSettings_${chatId}`, value: readChatSettingsTimeValue(settingsPage) })
     await db.config.put({ key: `chatActiveReply_${chatId}`, value: readChatSettingsActiveReplyValue(settingsPage) })
+
+    await db.config.put({ key: `chatNarrative_${chatId}`, value: { enabled: !!settingsPage.querySelector('#cs-narrative-enabled')?.checked } })
+    await db.config.put({ key: `chatPatPat_${chatId}`, value: {
+      enabled: !!settingsPage.querySelector('#cs-patpat-enabled')?.checked,
+      userPatText: settingsPage.querySelector('#cs-patpat-user-text')?.value.trim() || '',
+      aiPatText: settingsPage.querySelector('#cs-patpat-ai-text')?.value.trim() || ''
+    }})
+    await db.config.put({ key: `chatLongDistance_${chatId}`, value: { enabled: !!settingsPage.querySelector('#cs-long-distance-enabled')?.checked } })
+    await db.config.put({ key: `chatBlock_${chatId}`, value: { enabled: !!settingsPage.querySelector('#cs-block-enabled')?.checked } })
 
     const selectedThought = settingsPage.querySelector('input[name="cs-thought-preset"]:checked')
     await db.config.put({
@@ -19702,7 +20105,7 @@ function buildVoiceCallPageHTML(char) {
   const name = helpers.getWechatDisplayName?.(char) || char?.name || ''
   const avatarUrl = helpers.getWechatDisplayAvatar?.(char)
   const avatarInner = avatarUrl
-    ? `<img src="${avatarUrl}" alt="${helpers.wcEscHtml?.(name) || name}">`
+    ? `<img src="${avatarUrl}" alt="${wcEscHtml(name)}">`
     : helpers.buildWechatInitialAvatarHTML?.(name) || `<span>${name.charAt(0)}</span>`
 
   return `
@@ -19713,7 +20116,7 @@ function buildVoiceCallPageHTML(char) {
       </button>
       <div class="call-top">
         <div class="call-avatar">${avatarInner}</div>
-        <div class="call-name">${helpers.wcEscHtml?.(name) || name}</div>
+        <div class="call-name">${wcEscHtml(name)}</div>
         <div class="call-status" id="call-status">正在等待接听...</div>
       </div>
       <div class="call-conversation" id="call-conversation">
@@ -19761,7 +20164,7 @@ function buildVideoCallPageHTML(char) {
         <i class="fa-solid fa-compress"></i>
       </button>
       <div class="call-video-header">
-        <div class="call-name-overlay">${helpers.wcEscHtml?.(name) || name}</div>
+        <div class="call-name-overlay">${wcEscHtml(name)}</div>
         <div class="call-timer-overlay" id="call-status">正在等待接听...</div>
         <div class="call-pip" id="call-pip">
           <video id="call-pip-video" autoplay playsinline muted style="display:none"></video>
@@ -19934,7 +20337,7 @@ function appendCallUserBubble(page, text) {
   const helpers = h()
   const div = document.createElement('div')
   div.className = 'call-msg call-msg-user'
-  div.innerHTML = `<span class="call-msg-text">${helpers.wcEscHtml?.(text) || text}</span>`
+  div.innerHTML = `<span class="call-msg-text">${wcEscHtml(text)}</span>`
   container.appendChild(div)
   const conversation = page.querySelector('#call-conversation')
   if (conversation) conversation.scrollTop = conversation.scrollHeight
@@ -20044,7 +20447,7 @@ function updateCallScene(page, sceneText) {
   const helpers = h()
   const div = document.createElement('div')
   div.className = 'call-msg call-msg-scene'
-  div.innerHTML = `<span class="call-msg-scene-text">${helpers.wcEscHtml?.(sceneText) || sceneText}</span>`
+  div.innerHTML = `<span class="call-msg-scene-text">${wcEscHtml(sceneText)}</span>`
   container.appendChild(div)
   const conversation = page.querySelector('#call-conversation')
   if (conversation) conversation.scrollTop = conversation.scrollHeight
@@ -20060,9 +20463,9 @@ function updateCallSpeech(page, speechText) {
     div.className = 'call-msg call-msg-assistant'
     const bilingualParsed = helpers.parseBilingualText?.(speechText)
     if (bilingualParsed?.translation) {
-      div.innerHTML = `<span class="call-msg-text"><span class="call-msg-original">${helpers.wcEscHtml?.(bilingualParsed.original) || speechText}</span><span class="call-msg-translation">${helpers.wcEscHtml?.(bilingualParsed.translation) || bilingualParsed.translation}</span></span>`
+      div.innerHTML = `<span class="call-msg-text"><span class="call-msg-original">${wcEscHtml(bilingualParsed.original)}</span><span class="call-msg-translation">${wcEscHtml(bilingualParsed.translation)}</span></span>`
     } else {
-      div.innerHTML = `<span class="call-msg-text">${helpers.wcEscHtml?.(speechText) || speechText}</span>`
+      div.innerHTML = `<span class="call-msg-text">${wcEscHtml(speechText)}</span>`
     }
     container.appendChild(div)
     const conversation = page.querySelector('#call-conversation')
@@ -20951,3 +21354,77 @@ window._wechatCallHelpers = {
   buildWechatInitialAvatarHTML,
   buildCharacterAvatarHTML
 }
+
+// ===== 键盘弹出适配 v8 =====
+// 根因: #app 用了 position:fixed + height:100vh，键盘弹出时不变
+// 修法: 键盘弹出时设置 #app 的 height 为 visualViewport.height
+;(function() {
+  var _active = false
+  var _app = null
+  var _origHeight = ''
+  var _origOverflow = ''
+
+  function adjust() {
+    if (!_app) _app = document.getElementById('app')
+    if (!_app) return
+    var chatPage = document.querySelector('.chat-window-page')
+    if (!chatPage) return
+    var vv = window.visualViewport
+    if (!vv) return
+
+    var vvH = Math.round(vv.height)
+    var wh = window.innerHeight
+    var kbHeight = wh - vvH
+
+    if (kbHeight > 60) {
+      // 键盘弹出
+      if (!_active) {
+        _active = true
+        _origHeight = _app.style.height || ''
+        _origOverflow = _app.style.overflow || ''
+      }
+      // 缩小 #app 到键盘上方的可视区域
+      _app.style.height = vvH + 'px'
+      _app.style.overflow = 'auto'
+
+      // 滚动消息到底部
+      var messages = chatPage.querySelector('#chat-messages')
+      if (messages) setTimeout(function() { messages.scrollTop = messages.scrollHeight }, 100)
+    } else if (_active) {
+      // 键盘收起 - 恢复
+      _active = false
+      _app.style.height = _origHeight
+      _app.style.overflow = _origOverflow || ''
+      _origHeight = ''
+      _origOverflow = ''
+    }
+  }
+
+  function schedule() { requestAnimationFrame(adjust) }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', schedule, { passive: true })
+    window.visualViewport.addEventListener('scroll', schedule, { passive: true })
+  }
+  document.addEventListener('focusin', function(e) {
+    if (e.target.classList.contains('chat-input') || e.target.id === 'chat-input' || e.target.tagName === 'TEXTAREA') {
+      setTimeout(adjust, 300)
+    }
+  })
+  document.addEventListener('focusout', function(e) {
+    if (e.target.classList.contains('chat-input') || e.target.id === 'chat-input' || e.target.tagName === 'TEXTAREA') {
+      setTimeout(function() {
+        var ae = document.activeElement
+        if (!ae || (ae.tagName !== 'INPUT' && ae.tagName !== 'TEXTAREA' && !ae.isContentEditable)) adjust()
+      }, 300)
+    }
+  })
+})()
+
+
+
+
+
+
+
+
