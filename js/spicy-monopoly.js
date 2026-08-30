@@ -595,21 +595,35 @@
                   // 最后决定
                   setTimeout(function() {
                     var accepted = decision.indexOf('同意') >= 0
-                    if(accepted) {
-                      window.SpicyInvite.updateStatus(msgId, 'playing')
-                      window.toast && window.toast(aiName+' 同意了邀请！')
-                    } else {
-                      window.SpicyInvite.updateStatus(msgId, 'rejected')
-                      window.toast && window.toast(aiName+' 拒绝了邀请')
-                    }
+                    var newStatus = accepted ? 'playing' : 'rejected'
+                    window.SpicyInvite.updateStatus(msgId, newStatus).then(function(updatedData) {
+                      // 更新聊天中的邀请卡片DOM
+                      if(updatedData) {
+                        var cardWrap = document.querySelector('[data-spicy-invite="'+msgId+'"]')
+                        if(cardWrap && window.SpicyInvite) {
+                          cardWrap.innerHTML = window.SpicyInvite.render(updatedData)
+                        }
+                      }
+                    })
+                    window.toast && window.toast(aiName + (accepted ? ' 同意了邀请！' : ' 拒绝了邀请'))
                   }, delay + 1000)
                 } catch(e) {
                   // JSON解析失败，看内容判断
                   var accepted = !reply || reply.indexOf('同意') >= 0
-                  window.SpicyInvite.updateStatus(msgId, accepted ? 'playing' : 'rejected')
+                  window.SpicyInvite.updateStatus(msgId, accepted ? 'playing' : 'rejected').then(function(updatedData) {
+                    if(updatedData) {
+                      var cardWrap = document.querySelector('[data-spicy-invite="'+msgId+'"]')
+                      if(cardWrap && window.SpicyInvite) cardWrap.innerHTML = window.SpicyInvite.render(updatedData)
+                    }
+                  })
                 }
               }).catch(function() {
-                window.SpicyInvite.updateStatus(msgId, 'playing')
+                window.SpicyInvite.updateStatus(msgId, 'playing').then(function(updatedData) {
+                  if(updatedData) {
+                    var cardWrap = document.querySelector('[data-spicy-invite="'+msgId+'"]')
+                    if(cardWrap && window.SpicyInvite) cardWrap.innerHTML = window.SpicyInvite.render(updatedData)
+                  }
+                })
               })
             }).catch(function(e) {
               console.log('[SpicyMonopoly] 发送邀请失败:', e)

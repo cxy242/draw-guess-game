@@ -480,17 +480,18 @@
 
   // ── 更新邀请状态 ──
   async function updateInviteStatus(msgId, newStatus, extra) {
-    if (!window.db || !msgId) return
+    if (!window.db || !msgId) return null
     try {
       var msg = await window.db.messages.get(msgId)
-      if (!msg || !msg.content.startsWith('__SPICY_INVITE__')) return
+      if (!msg || !msg.content.startsWith('__SPICY_INVITE__')) return null
       var data = JSON.parse(msg.content.slice(16))
       data.status = newStatus
       if (extra) Object.assign(data, extra)
       msg.content = '__SPICY_INVITE__' + JSON.stringify(data)
       await window.db.messages.put(msg)
       saveInviteState(data)
-    } catch(e) {}
+      return data
+    } catch(e) { return null }
   }
 
   // ── 暴露接口 ──
