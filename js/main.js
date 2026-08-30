@@ -414,16 +414,17 @@ async function phase2_loadData() {
   if (window.SpicyData && window.SpicyData.loadAll) {
     try { await window.SpicyData.loadAll() } catch(e) {}
   }
-  // 注入内置聊天美化预设（如果还没有的话）
-  try { await injectBuiltinBeautyPresets() } catch(e) {}
 }
 
 async function injectBuiltinBeautyPresets() {
   if (!window.db) return
   var stored = await window.db.config.get('chatBeautyPresets')
   var presets = (stored && Array.isArray(stored.value)) ? stored.value : []
-  // 检查是否已有内置预设
-  if (presets.some(function(p) { return p.id && p.id.startsWith('builtin_') })) return
+  // 检查是否已有全部内置预设
+  var builtinCount = presets.filter(function(p) { return p.id && p.id.startsWith('builtin_') }).length
+  if (builtinCount >= 4) return
+  // 移除旧的不完整内置预设
+  presets = presets.filter(function(p) { return !(p.id && p.id.startsWith('builtin_')) })
   var themes = [
     { id: 'builtin_green', name: '经典白绿', file: 'css/wechat-theme-green.css' },
     { id: 'builtin_blue', name: '清新白蓝', file: 'css/wechat-theme-blue.css' },
@@ -449,6 +450,8 @@ async function injectBuiltinBeautyPresets() {
 async function phase3_services() {
   if (window.loadAndApplySettings) await window.loadAndApplySettings()
   if (window.WanWanOnline) await window.WanWanOnline.init()
+  // 注入内置美化预设（在db完全初始化之后）
+  try { await injectBuiltinBeautyPresets() } catch(e) { console.log('[beauty] inject error:', e) }
 }
 
 window.startWanWanApp = async function() {
