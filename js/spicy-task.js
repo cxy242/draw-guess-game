@@ -52,7 +52,7 @@
     var page = document.createElement('div')
     page.id = 'spicy-task-page'
     page.className = 'full-page'
-    page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;'
+    page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;background:#0a0a1a;'
 
     var taskContent = (task.内容 || '').replace(/行动方/g, esc(p1Name)).replace(/对方/g, esc(aiName))
     var systemPrompt = buildSystemPrompt(aiChar, task, gs)

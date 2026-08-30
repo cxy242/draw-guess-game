@@ -117,7 +117,7 @@
     var page = document.createElement('div')
     page.id = 'spicy-offline-page'
     page.className = 'full-page'
-    page.style.cssText = 'position:fixed;inset:0;z-index:9999;'
+    page.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0a0a1a;'
     _currentPage = page
 
     // 完全复用miss-you.js的页面结构

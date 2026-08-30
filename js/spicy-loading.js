@@ -14,7 +14,7 @@
       var page = document.createElement('div')
       page.id = 'spicy-loading-page'
       page.className = 'full-page'
-      page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:hidden;'
+      page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:hidden;background:#0a0a1a;'
 
       var phase = 0
       var phases = [
@@ -35,13 +35,13 @@
             // 双人对峙
             '<div style="display:flex;justify-content:center;align-items:center;gap:40px;margin-bottom:32px;">' +
               '<div style="text-align:center;">' +
-                '<div class="spicy-player-avatar-sm spicy-p1-avatar" style="width:48px;height:48px;font-size:18px;margin:0 auto 6px;">你</div>' +
-                '<div style="font-size:11px;color:#888;">玩家</div>' +
+                '<div class="spicy-player-avatar-sm spicy-p1-avatar" style="width:48px;height:48px;font-size:18px;margin:0 auto 6px;">'+esc(p1.charAt(0))+'</div>' +
+                '<div style="font-size:11px;color:#888;">'+esc(p1)+'</div>' +
               '</div>' +
               '<div style="font-size:24px;font-weight:900;background:linear-gradient(90deg,#ff6b6b,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">VS</div>' +
               '<div style="text-align:center;">' +
-                '<div class="spicy-player-avatar-sm spicy-p2-avatar" style="width:48px;height:48px;font-size:18px;margin:0 auto 6px;">AI</div>' +
-                '<div style="font-size:11px;color:#888;">对手</div>' +
+                '<div class="spicy-player-avatar-sm spicy-p2-avatar" style="width:48px;height:48px;font-size:18px;margin:0 auto 6px;">'+esc(p2.charAt(0))+'</div>' +
+                '<div style="font-size:11px;color:#888;">'+esc(p2)+'</div>' +
               '</div>' +
             '</div>' +
 

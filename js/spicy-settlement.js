@@ -9,7 +9,7 @@
       var page = document.createElement('div')
       page.id = 'spicy-settlement-page'
       page.className = 'full-page'
-      page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;'
+      page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;background:#0a0a1a;'
 
       var isWin = gs.winner === 1
       var winName = gs.winner === 0 ? '平局' : (gs.winner === 1 ? gs.p1Name : gs.p2Name) + ' 获胜！'

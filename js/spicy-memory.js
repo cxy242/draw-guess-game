@@ -11,7 +11,7 @@
   function showLoadingPage(text) {
     var page = document.createElement('div')
     page.id = 'spicy-memory-page'
-    page.style.cssText = 'position:fixed;inset:0;z-index:9999;'
+    page.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0a0a1a;'
     page.innerHTML =
       '<div class="spicy-root" style="justify-content:center;min-height:100vh;">' +
         '<div style="width:100%;max-width:340px;padding:20px;text-align:center;">' +
@@ -134,7 +134,7 @@
   // ── 显示成功页面 ──
   function showSuccess(summaryText, onDone) {
     var page = document.createElement('div')
-    page.style.cssText = 'position:fixed;inset:0;z-index:9999;'
+    page.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0a0a1a;'
     page.innerHTML =
       '<div class="spicy-root" style="justify-content:center;min-height:100vh;">' +
         '<div style="width:100%;max-width:340px;padding:20px;text-align:center;">' +
@@ -160,7 +160,7 @@
   // ── 显示失败页面 ──
   function showFailure(gs, retries, onRetry, onSkip) {
     var page = document.createElement('div')
-    page.style.cssText = 'position:fixed;inset:0;z-index:9999;'
+    page.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0a0a1a;'
     page.innerHTML =
       '<div class="spicy-root" style="justify-content:center;min-height:100vh;">' +
         '<div style="width:100%;max-width:340px;padding:20px;text-align:center;">' +

@@ -386,7 +386,7 @@
           page = document.createElement('div')
           page.id = 'spicy-monopoly-page'
           page.className = 'full-page'
-          page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;'
+          page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;background:#0a0a1a;'
           if (window.openPage) window.openPage(page); else document.body.appendChild(page)
         }
         // 从邀请卡片进入：直接开始游戏
@@ -589,7 +589,9 @@
                   })
                 }
                 try {
-                  var data = JSON.parse(reply)
+                  // 清理AI返回的markdown代码块
+                  var cleanReply = reply ? reply.replace(/```json\s*/g,'').replace(/```/g,'').trim() : reply
+                  var data = JSON.parse(cleanReply)
                   var messages = data.messages || []
                   var decision = data.decision || '同意'
                   // 在聊天中逐条发送AI消息
