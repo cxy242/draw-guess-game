@@ -569,6 +569,13 @@
                 window.showWechatPage()
               }
               // 调API让AI发消息+决定（1次API）
+              // 显示顶栏"对方正在输入…"
+              var headerName = document.querySelector('.chat-header-name')
+              var origName = null
+              if(headerName) {
+                origName = headerName.textContent
+                headerName.textContent = '对方正在输入…'
+              }
               // 先在聊天中插入typing指示
               var typingMsgId = null
               if(window.db) {
@@ -584,6 +591,8 @@
               window.callGameAI([{role:'user',content:prompt}],{temperature:0.85}).then(function(reply) {
                 // 删除typing指示
                 if(typingMsgId && window.db) { try { window.db.messages.delete(typingMsgId) } catch(e){} }
+                // 恢复顶栏名字
+                if(headerName && origName) headerName.textContent = origName
                 try {
                   var data = JSON.parse(reply)
                   var messages = data.messages || []
@@ -628,6 +637,8 @@
                   })
                 }
               }).catch(function() {
+                // 恢复顶栏名字
+                if(headerName && origName) headerName.textContent = origName
                 window.SpicyInvite.updateStatus(msgId, 'playing').then(function(updatedData) {
                   if(updatedData) {
                     var cardWrap = document.querySelector('[data-spicy-invite="'+msgId+'"]')
