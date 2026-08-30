@@ -1,0 +1,1216 @@
+// spicy-monopoly.js — 星途财弈 v2 · 完整游戏引擎（全部游戏机制）
+(function () {
+  'use strict'
+
+  var BOARD_SIZE = 24
+  var SAVE_KEY = 'spicyGameState'
+  var HISTORY_KEY = 'spicyHistory'
+
+  // 24格分布（8种格子）
+  var TILE_TYPES = [
+    'start','chance','task','truth','fate','task','tax','shop',
+    'chance','task','truth','jail','task','fate','shop','chance',
+    'tax','task','truth','fate','task','chance','shop','end'
+  ]
+  var TILE_LABELS = { start:'起点', end:'终点', chance:'机会', task:'任务', truth:'真心话', fate:'命运', tax:'缴税', jail:'监狱', shop:'商店' }
+
+  // ── 页面切换（防闪屏）──
+  function transitionPage(root, buildFn) {
+    if (!root) { buildFn(); return }
+    root.style.opacity = '0'
+    root.style.transition = 'opacity 0.15s ease'
+    setTimeout(function() {
+      buildFn()
+      setTimeout(function() {
+        root.style.opacity = '1'
+      }, 20)
+    }, 150)
+  }
+
+  function esc(s) { return window.escapeMainHtml ? window.escapeMainHtml(s) : String(s||'').replace(/[&<>"']/g, function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]}) }
+  function pick(a) { return a.length ? a[Math.floor(Math.random()*a.length)] : null }
+  function rollDice() { return Math.floor(Math.random()*6)+1 }
+
+  // ── 数据引用 ──
+  function getData() { return window.SpicyData || {} }
+  function getChanceCards() { return getData().CHANCE_CARDS || [] }
+  function getFateCards() { return getData().FATE_CARDS || [] }
+  function getTruthPool() { return getData().getTruthPool ? getData().getTruthPool() : [] }
+  function getIdentityPool() { return getData().getIdentityPool ? getData().getIdentityPool() : [] }
+  function getRedlineSwitches() { return getData().REDLINE_SWITCHES || {} }
+
+  // ── 数据加载（调用SpicyData.loadAll）──
+  async function loadGameData() {
+    if (getData().loadAll) await getData().loadAll()
+  }
+
+  function pickTask(flavor, round, total, redlines, reverseChance) {
+    var LIB = getData().getTaskLib ? getData().getTaskLib() : []
+    if (!LIB.length) return { 内容:'(任务库未加载)', 强度:1 }
+    var curves = { light:[1,3], medium:[2,5], heavy:[3,6] }
+    var r = curves[flavor] || curves.medium
+    var prog = round / Math.max(total, 1)
+    var maxI = Math.round(r[0] + (r[1]-r[0]) * Math.min(prog*1.5, 1))
+    if (round <= 2) maxI = Math.min(maxI, r[0]+1)
+    var cands = LIB.filter(function(t) {
+      if (t.强度 < r[0] || t.强度 > maxI) return false
+      // 红线过滤
+      if (redlines && redlines.length && t.kink) {
+        for (var i = 0; i < redlines.length; i++) {
+          if (t.kink.indexOf(redlines[i]) >= 0) return false
+        }
+      }
+      return true
+    })
+    if (!cands.length) cands = LIB.filter(function(t){ return t.强度 >= r[0] && t.强度 <= maxI })
+    var task = cands.length ? pick(cands) : pick(LIB)
+    // 反转机制
+    if (task && reverseChance > 0 && Math.random() < reverseChance) {
+      task = Object.assign({}, task, { _reverse: true })
+    }
+    return task
+  }
+
+  function pickTruth() {
+    var pool = getTruthPool()
+    return pool.length ? pick(pool) : { 内容:'说出你最想对对方做的一件事', 强度:2 }
+  }
+
+  // ── 身份系统 ──
+  function assignIdentities() {
+    var pool = getIdentityPool()
+    if (!pool.length) return { p1: null, p2: null }
+    var shuffled = pool.slice().sort(function(){ return Math.random()-0.5 })
+    return { p1: shuffled[0], p2: shuffled[1] || shuffled[0] }
+  }
+
+  // ── 持久化 ──
+  function saveGame(gs) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(gs)) } catch(e){} }
+  function loadGame() { try { var d = JSON.parse(localStorage.getItem(SAVE_KEY)); return d && d.id ? d : null } catch(e){ return null } }
+  function clearGame() { try { localStorage.removeItem(SAVE_KEY) } catch(e){} }
+  function loadHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') } catch(e) { return [] } }
+  function saveHistory(item) {
+    var list = loadHistory(); list.unshift(item)
+    if (list.length > 20) list = list.slice(0, 20)
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)) } catch(e) {}
+  }
+
+  // ── 新建对局 ──
+  function newGame(p1Name, p2Name, aiCharId, settings) {
+    var identities = assignIdentities()
+    return {
+      id: 'gs_' + Date.now().toString(36),
+      p1Name: p1Name, p2Name: p2Name, aiCharId: aiCharId,
+      p1Gold: 0, p2Gold: 0, p1Pos: 0, p2Pos: 0,
+      p1Jail: 0, p2Jail: 0,
+      p1JailFree: false, p2JailFree: false,
+      p1Double: false, p2Double: false,
+      p1Props: [], p2Props: [],
+      p1Hand: [], p2Hand: [],
+      p1Identity: identities.p1, p2Identity: identities.p2,
+      round: 0, totalRounds: settings.gameLength || 24,
+      flavor: settings.flavor || 'medium',
+      redlines: settings.redlines || [],
+      reverseChance: settings.reverseChance != null ? settings.reverseChance : 0.3,
+      currentPlayer: 1, gameOver: false, winner: 0,
+      aiCharId: aiCharId, startedAt: Date.now()
+    }
+  }
+
+  // ── 环形布局 ──
+  function getTilePosition(index, size) {
+    var s = size, m = s * 0.06, u = s - 2 * m, step = u / 5
+    if (index <= 5) return { x: m + index * step, y: s - m }
+    if (index <= 11) return { x: s - m, y: s - m - (index - 5) * step }
+    if (index <= 17) return { x: s - m - (index - 11) * step, y: m }
+    return { x: m, y: m + (index - 17) * step }
+  }
+
+  // ── 渲染棋盘 ──
+  function renderBoard(gs, boardEl, token1El, token2El) {
+    if (!boardEl) return
+    var size = boardEl.offsetWidth || 380
+    var tilesHtml = ''
+    for (var i = 0; i < BOARD_SIZE; i++) {
+      var pos = getTilePosition(i, size)
+      var tile = TILE_TYPES[i]
+      var isCurrent = gs.p1Pos === i || gs.p2Pos === i
+      tilesHtml += '<div class="spicy-tile spicy-tile-' + tile + (isCurrent ? ' active' : '') + '" ' +
+        'style="left:' + (pos.x - 22) + 'px;top:' + (pos.y - 26) + 'px;" data-tile-index="' + i + '">' +
+        '<div class="spicy-tile-icon"><div class="icon-' + tile + '"></div></div>' +
+        '<div class="spicy-tile-label">' + (TILE_LABELS[tile] || tile) + '</div></div>'
+    }
+    // 保留中心区域和棋子
+    var center = boardEl.querySelector('.spicy-center')
+    var t1html = token1El ? token1El.outerHTML : ''
+    var t2html = token2El ? token2El.outerHTML : ''
+    boardEl.innerHTML = tilesHtml
+    if (center) boardEl.appendChild(center)
+    // 重新获取token元素
+    if (t1html) { boardEl.insertAdjacentHTML('beforeend', t1html) }
+    if (t2html) { boardEl.insertAdjacentHTML('beforeend', t2html) }
+
+    // 更新棋子位置
+    var t1 = boardEl.querySelector('#sp-token1')
+    var t2 = boardEl.querySelector('#sp-token2')
+    if (t1) {
+      var p1 = getTilePosition(gs.p1Pos, size)
+      t1.style.left = (p1.x - 14) + 'px'
+      t1.style.top = (p1.y - 42) + 'px'
+    }
+    if (t2) {
+      var p2 = getTilePosition(gs.p2Pos, size)
+      t2.style.left = (p2.x - 14 + 12) + 'px'
+      t2.style.top = (p2.y - 42 + 8) + 'px'
+    }
+  }
+
+  // ── 3D骰子渲染 ──
+  function renderDiceFace(el, num) {
+    var positions = {
+      1:[[1,1]], 2:[[0,2],[2,0]], 3:[[0,2],[1,1],[2,0]],
+      4:[[0,0],[0,2],[2,0],[2,2]], 5:[[0,0],[0,2],[1,1],[2,0],[2,2]],
+      6:[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2]]
+    }
+    var faceNums = { front:num, back:7-num, right:num<=3?3:4, left:num<=3?4:3, top:num===6?5:6, bottom:num===6?1:2 }
+    function dotsHtml(n) {
+      var pos = positions[n] || positions[1]
+      var h = ''
+      for (var r=0;r<3;r++) for (var c=0;c<3;c++) {
+        var has = pos.some(function(p){return p[0]===r&&p[1]===c})
+        h += '<div class="spicy-dice-dot'+(has?'':' empty')+'"></div>'
+      }
+      return h
+    }
+    var html = ''
+    ;['front','back','right','left','top','bottom'].forEach(function(f) {
+      html += '<div class="spicy-dice-face face-'+f+'">'+dotsHtml(faceNums[f])+'</div>'
+    })
+    el.innerHTML = html
+  }
+
+  function animateDice(callback) {
+    var dice = document.getElementById('sp-dice')
+    if (!dice) { callback(rollDice()); return }
+    dice.classList.add('rolling')
+    var count = 0
+    var interval = setInterval(function() {
+      renderDiceFace(dice, Math.floor(Math.random()*6)+1)
+      count++
+      if (count > 10) {
+        clearInterval(interval)
+        var result = rollDice()
+        renderDiceFace(dice, result)
+        dice.classList.remove('rolling')
+        setTimeout(function() { callback(result) }, 300)
+      }
+    }, 80)
+  }
+
+  // ── 棋子逐格移动 ──
+  function animateTokenMove(tokenEl, fromPos, toPos, boardSize, callback) {
+    var steps = [], cur = fromPos
+    while (cur !== toPos) { cur = (cur+1) % BOARD_SIZE; steps.push(cur) }
+    var i = 0
+    function next() {
+      if (i >= steps.length) { if (callback) callback(); return }
+      var pos = getTilePosition(steps[i], boardSize)
+      var isP2 = tokenEl.id === 'sp-token2'
+      tokenEl.style.left = (pos.x - 14 + (isP2?12:0)) + 'px'
+      tokenEl.style.top = (pos.y - 42 + (isP2?8:0)) + 'px'
+      var body = tokenEl.querySelector('.piece-body')
+      if (body) body.style.animation = 'spicy-piece-bounce 0.35s ease'
+      setTimeout(function() {
+        if (body) body.style.animation = ''
+        var tile = document.querySelector('.spicy-tile[data-tile-index="'+steps[i]+'"]')
+        if (tile) { tile.classList.add('active'); setTimeout(function(){tile.classList.remove('active')},600) }
+        i++; setTimeout(next, 100)
+      }, 250)
+    }
+    next()
+  }
+
+  // ── 抽卡盒交互 ──
+  var waitingForDraw = false, pendingDrawType = null, pendingDrawCallback = null
+
+  function activateCardBoxForPlayer(drawType, callback) {
+    var box = document.getElementById('sp-card-box')
+    if (!box) { callback(); return }
+    pendingDrawType = drawType; pendingDrawCallback = callback; waitingForDraw = true
+    box.classList.add('glowing', 'clickable')
+    var hint = document.createElement('div')
+    hint.className = 'spicy-card-hint'; hint.textContent = '点击抽卡'; hint.id = 'sp-card-hint'
+    box.appendChild(hint)
+    updateCenterStatus('点击抽卡盒抽卡')
+  }
+
+  function activateCardBoxForAI(drawType, cardData, isPenalty, callback) {
+    var box = document.getElementById('sp-card-box')
+    if (!box) { callback(); return }
+    box.classList.add('glowing')
+    setTimeout(function() { box.classList.remove('glowing'); showFlyingCard(drawType, cardData, isPenalty, true, callback) }, 800)
+  }
+
+  function showFlyingCard(cardType, cardData, isPenalty, autoConfirm, callback) {
+    var card = document.createElement('div')
+    card.className = 'spicy-flying-card animating-in'
+    var headerClass = cardType==='chance'?'spicy-card-header-chance':'spicy-card-header-fate'
+    var btnClass = cardType==='chance'?'spicy-card-confirm-chance':'spicy-card-confirm-fate'
+    card.innerHTML = '<div class="spicy-card-front">'+
+      '<div class="spicy-card-header '+headerClass+'"><div class="spicy-card-type">'+(cardType==='chance'?'机会卡':'命运卡')+'</div>'+
+      '<div class="spicy-card-name">'+esc(cardData.name||'')+'</div></div>'+
+      '<div class="spicy-card-body"><div class="spicy-card-desc">'+esc(cardData.desc||'')+'</div>'+
+      (autoConfirm?'':'<button class="spicy-card-confirm '+btnClass+'" id="sp-card-confirm-btn">'+(isPenalty?'确认并执行惩罚':'确认')+'</button>')+
+      '</div></div>'
+    card.style.cssText = 'left:50%;top:50%;transform:translate(-50%,-50%)'
+    var gameRoot = document.getElementById('spicy-monopoly-page') || document.querySelector('.spicy-root') || document.body; gameRoot.appendChild(card)
+    setTimeout(function() {
+      card.classList.remove('animating-in'); card.classList.add('ready')
+      if (autoConfirm) { setTimeout(function(){flyCardBack(card,callback)},1500) }
+      else { var btn=document.getElementById('sp-card-confirm-btn'); if(btn) btn.onclick=function(){flyCardBack(card,callback)} }
+    }, 500)
+  }
+
+  function flyCardBack(card, callback) {
+    card.classList.remove('ready'); card.classList.add('fly-back')
+    setTimeout(function() { card.remove(); if(callback) callback() }, 400)
+  }
+
+  function updateCenterStatus(text) { var el=document.getElementById('sp-center-status'); if(el) el.textContent=text }
+  function updateRoundIndicator(gs) {
+    var el=document.getElementById('sp-round-indicator')
+    if(el) { el.textContent='第 '+gs.round+'/'+gs.totalRounds+' 回合 | '+(gs.currentPlayer===1?gs.p1Name:gs.p2Name)+'回合'; el.classList.add('flash'); setTimeout(function(){el.classList.remove('flash')},500) }
+  }
+
+  function bindCardBoxClick() {
+    var box = document.getElementById('sp-card-box')
+    if (!box) return
+    box.onclick = function() {
+      if (!waitingForDraw) return
+      waitingForDraw = false
+      box.classList.remove('glowing','clickable')
+      var hint = document.getElementById('sp-card-hint'); if(hint) hint.remove()
+      var cardData, isPenalty
+      if (pendingDrawType==='chance') { cardData=pick(getChanceCards()); isPenalty=false }
+      else { cardData=pick(getFateCards()); isPenalty=cardData.effect==='fine_3'||cardData.effect==='go_back_5'||cardData.effect==='go_jail'||cardData.effect==='super_task'||cardData.effect==='shame_task' }
+      showFlyingCard(pendingDrawType, cardData, isPenalty, false, function() {
+        if (pendingDrawType==='chance') applyChanceEffect(gs, cardData, 1)
+        else applyFateEffect(gs, cardData, 1)
+        updateGoldDisplay(); saveGame(gs)
+        showToast((pendingDrawType==='chance'?'机会：':'命运：')+cardData.desc, 2000)
+        pendingDrawType=null; pendingDrawCallback=null
+        var rollBtn=document.getElementById('sp-roll-btn'); if(rollBtn) rollBtn.disabled=false
+      })
+    }
+  }
+
+  // ── 效果执行（完整版）──
+  function applyChanceEffect(gs, card, player) {
+    var opp = player===1?2:1
+    switch(card.effect) {
+      case 'push_opponent':
+        if(opp===1) gs.p1Pos=(gs.p1Pos-(card.value||3)+BOARD_SIZE)%BOARD_SIZE
+        else gs.p2Pos=(gs.p2Pos-(card.value||3)+BOARD_SIZE)%BOARD_SIZE; break
+      case 'send_jail':
+        if(opp===1){gs.p1Jail=getData().JAIL_TURNS||2;gs.p1Pos=11}else{gs.p2Jail=getData().JAIL_TURNS||2;gs.p2Pos=11}; break
+      case 'jail_free':
+        if(player===1) gs.p1JailFree=true; else gs.p2JailFree=true; break
+      case 'double_roll':
+        if(player===1) gs.p1Double=true; else gs.p2Double=true; break
+      case 'steal_coins':
+        var m=Math.min(card.value||3, opp===1?gs.p1Gold:gs.p2Gold)
+        if(player===1){gs.p1Gold+=m;gs.p2Gold-=m}else{gs.p2Gold+=m;gs.p1Gold-=m}; break
+      case 'gamble':
+        if(Math.random()<0.5){if(player===1)gs.p1Gold+=card.value;else gs.p2Gold+=card.value}
+        else{var m=Math.min(card.value||3,player===1?gs.p1Gold:gs.p2Gold);if(player===1)gs.p1Gold-=m;else gs.p2Gold-=m}; break
+      case 'collect_rent':
+        var oppProps=opp===1?gs.p1Props:gs.p2Props
+        var rent=oppProps.length*(card.value||1)
+        if(rent>0){var m=Math.min(rent,opp===1?gs.p1Gold:gs.p2Gold);if(player===1){gs.p1Gold+=m;gs.p2Gold-=m}else{gs.p2Gold+=m;gs.p1Gold-=m}}; break
+      case 'extort':
+        var m=Math.min(card.value||2,opp===1?gs.p1Gold:gs.p2Gold)
+        if(player===1){gs.p1Gold+=m;gs.p2Gold-=m}else{gs.p2Gold+=m;gs.p1Gold-=m}; break
+    }
+  }
+
+  function applyFateEffect(gs, fate, player) {
+    switch(fate.effect) {
+      case 'fine_3':
+        var m=Math.min(fate.value||3,player===1?gs.p1Gold:gs.p2Gold)
+        if(player===1){gs.p1Gold-=m;gs.p2Gold+=m}else{gs.p2Gold-=m;gs.p1Gold+=m}; break
+      case 'bonus_2':
+        if(player===1)gs.p1Gold+=fate.value;else gs.p2Gold+=fate.value; break
+      case 'go_back_5':
+        if(player===1)gs.p1Pos=(gs.p1Pos-(fate.value||5)+BOARD_SIZE)%BOARD_SIZE
+        else gs.p2Pos=(gs.p2Pos-(fate.value||5)+BOARD_SIZE)%BOARD_SIZE; break
+      case 'go_jail':
+        var jt=getData().JAIL_TURNS||2
+        if(player===1){gs.p1Jail=jt;gs.p1Pos=11}else{gs.p2Jail=jt;gs.p2Pos=11}; break
+      case 'super_task':
+        // 超级任务：强度+2，不做交8币
+        if(player===1)gs.p1Gold-=getData().SUPER_BUYOUT||8;else gs.p2Gold-=getData().SUPER_BUYOUT||8; break
+      case 'shame_task':
+        // 羞耻展示：无金币变化，纯任务
+        break
+    }
+  }
+
+  // ── 对决系统 ──
+  function triggerDuel(gs, callback) {
+    var d1 = rollDice(), d2 = rollDice()
+    var stake = getData().DUEL_STAKE || 3
+    var winner, loser
+    if (d1 > d2) { winner = 1; loser = 2 }
+    else if (d2 > d1) { winner = 2; loser = 1 }
+    else { showToast('对决平局！('+d1+' vs '+d2+')', 2000); callback(); return }
+
+    var loserGold = loser===1 ? gs.p1Gold : gs.p2Gold
+    var actualStake = Math.min(stake, loserGold)
+    if (winner===1) { gs.p1Gold += actualStake; gs.p2Gold -= actualStake }
+    else { gs.p2Gold += actualStake; gs.p1Gold -= actualStake }
+
+    var winName = winner===1 ? gs.p1Name : gs.p2Name
+    showToast('⚔️ 对决！'+d1+' vs '+d2+' → '+winName+' 赢'+actualStake+'币', 3000)
+    setTimeout(callback, 1500)
+  }
+
+  // ── 全局游戏状态 ──
+  var gs = null
+
+  // ── 主入口 ──
+  window.SpicyMonopoly = {
+    open: function(savedGs) {
+      loadGameData().then(function() {
+        var page = document.getElementById('spicy-monopoly-page')
+        if (!page) {
+          page = document.createElement('div')
+          page.id = 'spicy-monopoly-page'
+          page.className = 'full-page'
+          page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;'
+          if (window.openPage) window.openPage(page); else document.body.appendChild(page)
+        }
+        if (savedGs) { gs = savedGs; showGamePage() }
+        else {
+          var saved = loadGame()
+          if (saved && !saved.gameOver) {
+            if (window.SpicyModals) {
+              window.SpicyModals.showResumeModal().then(function(result) {
+                if (result.resume) { gs = saved; showGamePage() }
+                else { clearGame(); showStartPage(page) }
+              })
+            } else { gs = saved; showGamePage() }
+          } else { showStartPage(page) }
+        }
+      })
+    }
+  }
+  window.showSpicyMonopoly = function() { window.SpicyMonopoly.open() }
+
+  // ── 开始页面（微信登录+设置+历史）──
+  var selectedUser = null
+  var settings = { flavor:'medium', gameLength:24, redlines:[], reverseChance:0.3 }
+
+  function showStartPage(root) {
+    if (root) { root.style.background = '#0a0a1a'; root.style.minHeight = '100vh' }
+    if (!root) root = document.getElementById('spicy-monopoly-page') || document.body
+    var account = selectedUser
+      ? '<div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;margin-bottom:16px;">'+
+          '<div class="spicy-char-avatar" style="width:36px;height:36px;font-size:14px;">'+esc((selectedUser.nick||selectedUser.name||'微').charAt(0))+'</div>'+
+          '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#e0e0f0;">'+esc(selectedUser.nick||selectedUser.name||'微信用户')+'</div>'+
+          '<div style="font-size:11px;color:#888;">当前微信账号</div></div>'+
+          '<button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-switch">切换</button></div>'
+      : '<div style="text-align:center;padding:20px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;margin-bottom:16px;">'+
+          '<div style="font-size:14px;font-weight:600;color:#e0e0f0;margin-bottom:6px;">使用微信身份开始游戏</div>'+
+          '<div style="font-size:12px;color:#888;margin-bottom:12px;">请先选择微信账号</div>'+
+          '<button class="spicy-btn spicy-btn-primary" id="sp-login"><i class="fa-brands fa-weixin" style="margin-right:6px;"></i>微信登录</button></div>'
+
+    var flavorBtns = ''
+    ;['light','medium','heavy'].forEach(function(f) {
+      flavorBtns += '<button class="spicy-btn spicy-btn-sm '+(settings.flavor===f?'spicy-btn-primary':'spicy-btn-ghost')+'" data-flavor="'+f+'" style="padding:4px 12px;font-size:11px;">'+({light:'轻度',medium:'中度',heavy:'重度'}[f])+'</button>'
+    })
+    var lengthBtns = ''
+    ;[12,18,24].forEach(function(l) {
+      lengthBtns += '<button class="spicy-btn spicy-btn-sm '+(settings.gameLength===l?'spicy-btn-primary':'spicy-btn-ghost')+'" data-length="'+l+'" style="padding:4px 12px;font-size:11px;">'+l+'回合</button>'
+    })
+
+    root.innerHTML =
+      '<div class="spicy-root spicy-fade-in"><div style="width:100%;max-width:400px;padding:16px;overflow-y:auto;flex:1;">'+
+        '<div style="display:flex;align-items:center;margin-bottom:20px;">'+
+          '<button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-start-back">返回</button>'+
+          '<div style="font-size:18px;font-weight:700;background:linear-gradient(90deg,#667eea,#00f5d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-left:auto;margin-right:auto;">星途财弈</div>'+
+          '<button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-history-btn">历史</button></div>'+
+        account+
+        '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:16px;">'+
+          '<div style="font-size:13px;font-weight:600;color:#ccc;margin-bottom:10px;">游戏设置</div>'+
+          '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;"><span style="font-size:11px;color:#888;line-height:28px;">强度档：</span>'+flavorBtns+'</div>'+
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;"><span style="font-size:11px;color:#888;line-height:28px;">回合数：</span>'+lengthBtns+'</div></div>'+
+        '<button class="spicy-btn spicy-btn-primary spicy-btn-full" id="sp-start-game" '+(selectedUser?'':'disabled')+'>选择对战角色</button></div></div>'
+
+    root.querySelector('#sp-start-back').onclick = function() { var p=document.getElementById('spicy-monopoly-page'); if(p) p.remove() }
+    root.querySelector('#sp-history-btn').onclick = function() { renderHistoryPage(root) }
+    var loginBtn=root.querySelector('#sp-login'); if(loginBtn) loginBtn.onclick=doWechatLogin
+    var switchBtn=root.querySelector('#sp-switch'); if(switchBtn) switchBtn.onclick=doWechatLogin
+    root.querySelectorAll('[data-flavor]').forEach(function(el) { el.onclick=function(){settings.flavor=el.getAttribute('data-flavor');showStartPage(root)} })
+    root.querySelectorAll('[data-length]').forEach(function(el) { el.onclick=function(){settings.gameLength=parseInt(el.getAttribute('data-length'));showStartPage(root)} })
+    root.querySelector('#sp-start-game').onclick = function() { if(selectedUser) showCharacterSelect(root) }
+  }
+
+  function doWechatLogin() {
+    if (!window.showWechatLoginModal) { if(window.toast) window.toast('微信登录组件未加载'); return }
+    window.showWechatLoginModal({ mingwen:'星途财弈', onSuccess: function(user) {
+      if (!user) { if(window.toast) window.toast('账号读取失败'); return }
+      selectedUser = user
+      var root = document.getElementById('spicy-monopoly-page'); if(root) showStartPage(root)
+    }})
+  }
+
+  // ── 历史记录页面 ──
+  function renderHistoryPage(root) {
+    var list = loadHistory()
+    var h = '<div class="spicy-root spicy-fade-in"><div style="width:100%;max-width:400px;padding:16px;">'+
+      '<div style="display:flex;align-items:center;margin-bottom:16px;"><button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-hist-back">返回</button>'+
+      '<div style="font-size:16px;font-weight:700;color:#fff;margin-left:auto;margin-right:auto;">历史记录</div><div style="width:60px;"></div></div>'
+    if (!list.length) h += '<div style="text-align:center;padding:40px 0;"><div style="font-size:14px;color:#888;">暂无历史记录</div></div>'
+    else {
+      h += '<div style="display:flex;flex-direction:column;gap:8px;">'
+      list.forEach(function(item) {
+        var d=new Date(item.time), ds=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')
+        var wt=item.winner===0?'平局':(item.winner===1?item.p1Name:item.p2Name)+' 获胜'
+        h += '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px;">'+
+          '<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;font-weight:600;color:#e0e0f0;">'+esc(item.p1Name)+' vs '+esc(item.p2Name)+'</span>'+
+          '<span style="font-size:11px;color:#888;">'+ds+'</span></div>'+
+          '<div style="display:flex;justify-content:space-between;margin-top:4px;"><span style="font-size:14px;font-weight:700;color:'+(item.winner===1?'#ffd700':'#ccc')+';">'+esc(wt)+'</span>'+
+          '<span style="font-size:12px;color:#888;">'+item.round+'回合</span></div></div>'
+      })
+      h += '</div>'
+    }
+    h += '</div></div>'
+    root.innerHTML = h
+    root.querySelector('#sp-hist-back').onclick = function() { showStartPage(root) }
+  }
+
+  // ── 角色选择 ──
+  async function showCharacterSelect(root) {
+    var chars = []
+    try { if(window.db&&window.db.characters) chars = await window.db.characters.where('type').equals('char').toArray() } catch(e){}
+    if (!chars.length) try { if(window.db&&window.db.characters) chars = await window.db.characters.toArray() } catch(e){}
+    if (!chars.length) { if(window.toast) window.toast('没有找到聊天角色'); return }
+    var selfName = selectedUser?(selectedUser.nick||selectedUser.name||'我'):'我'
+    try { var row=await window.db.config.get('selfName'); if(row&&row.value) selfName=row.value } catch(e){}
+    var selected = null
+
+    function render() {
+      var h = '<div class="spicy-root spicy-fade-in"><div class="spicy-select">'+
+        '<div style="display:flex;align-items:center;margin-bottom:16px;">'+
+          '<button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-char-back">返回</button>'+
+          '<div style="font-size:16px;font-weight:700;color:#fff;margin-left:auto;margin-right:auto;">选择对战角色</div><div style="width:60px;"></div></div>'+
+        '<div class="spicy-char-list">'
+      chars.forEach(function(c) {
+        var n=c.name||c.nickname||'未命名', sel=selected&&selected.id===c.id
+        h += '<div class="spicy-char-item'+(sel?' selected':'')+'" data-cid="'+c.id+'">'+
+          '<div class="spicy-char-avatar">'+esc(n.charAt(0))+'</div>'+
+          '<div style="flex:1;min-width:0;"><div class="spicy-char-name">'+esc(n)+'</div><div class="spicy-char-preview">'+esc(c.bio||c.description||'聊天角色')+'</div></div>'+
+          '<div class="spicy-char-check"></div></div>'
+      })
+      h += '</div><button class="spicy-btn spicy-btn-primary spicy-btn-full" id="sp-confirm" '+(selected?'':'disabled')+'>发送邀请</button></div></div>'
+      root.innerHTML = h
+      root.querySelector('#sp-char-back').onclick = function() { showStartPage(root) }
+      root.querySelectorAll('.spicy-char-item').forEach(function(el) {
+        el.onclick = function() { selected=chars.find(function(c){return c.id===parseInt(el.getAttribute('data-cid'))}); render() }
+      })
+      var cb=root.querySelector('#sp-confirm')
+      if(cb) cb.onclick = function() {
+        if(!selected) return
+        var aiName=selected.name||selected.nickname||'对手'
+        // 查找该角色的chatId
+        async function findChatId() {
+          try {
+            if(window.db && window.db.chats) {
+              var charIdNum = parseInt(selected.id, 10)
+              console.log('[SpicyMonopoly] findChatId: looking for charId=', charIdNum, 'type=', typeof charIdNum)
+              var chat = await window.db.chats.where('charId').equals(charIdNum).first()
+              console.log('[SpicyMonopoly] findChatId result:', chat ? chat.id : 'null')
+              if (!chat) {
+                // 如果没找到，尝试确保聊天记录存在
+                if (window.ensurePrivateChatRecord) {
+                  chat = await window.ensurePrivateChatRecord(charIdNum)
+                  console.log('[SpicyMonopoly] ensurePrivateChatRecord result:', chat ? chat.id : 'null')
+                }
+              }
+              return chat ? chat.id : null
+            }
+          } catch(e){ console.log('[SpicyMonopoly] findChatId error:', e) }
+          return null
+        }
+        // 发送邀请卡片到聊天页面
+        var _inviteSending = false
+        findChatId().then(function(chatId) {
+          if(_inviteSending) return
+          if(chatId && window.SpicyInvite) {
+            _inviteSending = true
+            // 发送邀请消息
+            window.SpicyInvite.sendToChat(chatId, selected.id, selfName, aiName).then(function(msgId) {
+              // 跳转到该角色的微信聊天页面
+              var p = document.getElementById('spicy-monopoly-page')
+              if(p) p.remove()
+              if(window.openPrivateChatDirect) {
+                window.openPrivateChatDirect(selected.id)
+              } else {
+                window.showWechatPage()
+              }
+              // 调API让AI发消息+决定（1次API）
+              // 先在聊天中插入typing指示
+              var typingMsgId = null
+              if(window.db) {
+                try {
+                  typingMsgId = window.db.messages.add({
+                    chatId: chatId, charId: selected.id,
+                    role: 'assistant', content: '...',
+                    createdAt: Date.now(), _typing: true
+                  }).then(function(id){ typingMsgId = id })
+                } catch(e){}
+              }
+              var prompt = selfName+'向你发起了「星途财弈」对局邀请。这是一款双人棋盘游戏，掷骰子走格子，踩到任务格完成趣味任务，有真心话大冒险、抽卡等玩法。\n\n请用你的角色语气做以下事情：\n1. 先发2-3条消息表达你对邀请的态度（惊讶/感兴趣/犹豫等）\n2. 最后决定是否同意参加\n\n返回JSON格式：\n{"messages": ["消息1", "消息2", "消息3"], "decision": "同意或拒绝"}\n只返回JSON，不要其他内容。'
+              window.callGameAI([{role:'user',content:prompt}],{temperature:0.85}).then(function(reply) {
+                // 删除typing指示
+                if(typingMsgId && window.db) { try { window.db.messages.delete(typingMsgId) } catch(e){} }
+                try {
+                  var data = JSON.parse(reply)
+                  var messages = data.messages || []
+                  var decision = data.decision || '同意'
+                  // 在聊天中逐条发送AI消息
+                  var delay = 0
+                  messages.forEach(function(msg, idx) {
+                    delay += 1500 + idx * 500
+                    setTimeout(function() {
+                      if(window.db) {
+                        window.db.messages.add({
+                          chatId: chatId, charId: selected.id,
+                          role: 'assistant', content: msg,
+                          createdAt: Date.now()
+                        })
+                      }
+                    }, delay)
+                  })
+                  // 最后决定
+                  setTimeout(function() {
+                    var accepted = decision.indexOf('同意') >= 0
+                    if(accepted) {
+                      window.SpicyInvite.updateStatus(msgId, 'playing')
+                      window.toast && window.toast(aiName+' 同意了邀请！')
+                    } else {
+                      window.SpicyInvite.updateStatus(msgId, 'rejected')
+                      window.toast && window.toast(aiName+' 拒绝了邀请')
+                    }
+                  }, delay + 1000)
+                } catch(e) {
+                  // JSON解析失败，看内容判断
+                  var accepted = !reply || reply.indexOf('同意') >= 0
+                  window.SpicyInvite.updateStatus(msgId, accepted ? 'playing' : 'rejected')
+                }
+              }).catch(function() {
+                window.SpicyInvite.updateStatus(msgId, 'playing')
+              })
+            }).catch(function(e) {
+              console.log('[SpicyMonopoly] 发送邀请失败:', e)
+              if(window.openPrivateChatDirect) window.openPrivateChatDirect(selected.id)
+              else window.showWechatPage()
+            })
+          } else {
+            // 没有chatId或SpicyInvite，走原来的流程
+            window.callGameAI([{role:'user',content:aiName+'收到了'+selfName+'的星途财弈对局邀请。星途财弈是一款双人棋盘游戏，掷骰子走格子，踩到任务格要完成趣味任务，有真心话大冒险、抽卡、商店买道具等玩法。请用'+aiName+'的语气回复，只回复"同意"或"拒绝"加一句理由(10字内)。'},{role:'user',content:''}],{temperature:0.7}).then(function(reply) {
+              var accepted=!reply||reply.indexOf('同意')>=0
+              if(accepted) {
+                if(window.SpicyLoading) {
+                  window.SpicyLoading.show(function() {
+                    gs=newGame(selfName,aiName,selected.id,settings)
+                    showIdentitySelect(root)
+                  })
+                } else { gs=newGame(selfName,aiName,selected.id,settings); showIdentitySelect(root) }
+              } else { if(window.toast) window.toast(aiName+' 拒绝了邀请'); showCharacterSelect(root) }
+            }).catch(function() { gs=newGame(selfName,aiName,selected.id,settings); showIdentitySelect(root) })
+          }
+        })
+      }
+    }
+    render()
+  }
+
+  // ── 身份选择页面 ──
+  function showIdentitySelect(root) {
+    if (!root) root = document.getElementById('spicy-monopoly-page') || document.body
+    var pool = getIdentityPool()
+    if (!pool.length) { showGamePage(); return }
+
+    // 随机抽4张供选择（含已分配的2张）
+    var shuffled = pool.slice().sort(function(){ return Math.random()-0.5 })
+    var choices = shuffled.slice(0, 4)
+    var p1Choice = null
+
+    function render() {
+      var h = '<div class="spicy-root spicy-fade-in"><div style="width:100%;max-width:400px;padding:16px;overflow-y:auto;flex:1;">'+
+        '<div style="text-align:center;margin-bottom:16px;">'+
+          '<div style="font-size:18px;font-weight:700;background:linear-gradient(90deg,#667eea,#00f5d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">选择你的身份</div>'+
+          '<div style="font-size:12px;color:#888;margin-top:4px;">身份影响本局游戏效果</div></div>'+
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">'
+
+      choices.forEach(function(id, idx) {
+        var sel = p1Choice === idx
+        var effectsText = ''
+        if (id.effects && id.effects.length) {
+          effectsText = id.effects.map(function(e) {
+            if (e.type === 'immunity') return '免疫'+e.target
+            if (e.type === 'modify_reward') return (e.value>0?'+':'')+e.value+'奖励'
+            if (e.type === 'modify_intensity') return (e.value>0?'+':'')+e.value+'强度'
+            if (e.type === 'modify_cost') return '费用×'+e.value
+            return e.type
+          }).join('、')
+        }
+        h += '<div class="spicy-char-item'+(sel?' selected':'')+'" data-idx="'+idx+'" style="cursor:pointer;">'+
+          '<div class="spicy-char-avatar" style="width:36px;height:36px;font-size:14px;">'+esc((id.name||'?').charAt(0))+'</div>'+
+          '<div style="flex:1;min-width:0;">'+
+            '<div class="spicy-char-name">'+esc(id.name||'未知身份')+'</div>'+
+            '<div class="spicy-char-preview">'+esc(id.behavior||'')+'</div>'+
+            (effectsText ? '<div style="font-size:10px;color:#00f5d4;margin-top:2px;">'+esc(effectsText)+'</div>' : '')+
+          '</div>'+
+          '<div class="spicy-char-check"></div></div>'
+      })
+
+      h += '</div>'+
+        '<div style="display:flex;gap:8px;">'+
+          '<button class="spicy-btn spicy-btn-ghost" style="flex:1;" id="sp-identity-random">随机选择</button>'+
+          '<button class="spicy-btn spicy-btn-primary" style="flex:1;" id="sp-identity-confirm" '+(p1Choice!==null?'':'disabled')+'>确认身份</button>'+
+        '</div></div></div>'
+
+      root.innerHTML = h
+
+      root.querySelectorAll('[data-idx]').forEach(function(el) {
+        el.onclick = function() { p1Choice = parseInt(el.getAttribute('data-idx')); render() }
+      })
+
+      root.querySelector('#sp-identity-random').onclick = function() {
+        p1Choice = Math.floor(Math.random() * choices.length)
+        // 随机给AI也选一个
+        var aiIdx = (p1Choice + 1 + Math.floor(Math.random()*(choices.length-1))) % choices.length
+        gs.p1Identity = choices[p1Choice]
+        gs.p2Identity = choices[aiIdx]
+        showGamePage()
+      }
+
+      root.querySelector('#sp-identity-confirm').onclick = function() {
+        if (p1Choice === null) return
+        gs.p1Identity = choices[p1Choice]
+        // AI随机一个不同的身份
+        var aiIdx = (p1Choice + 1 + Math.floor(Math.random()*(choices.length-1))) % choices.length
+        gs.p2Identity = choices[aiIdx]
+        showGamePage()
+      }
+    }
+    render()
+  }
+
+  // ── 主棋盘页面 ──
+  function showGamePage() {
+    var root = document.getElementById('spicy-monopoly-page') || document.body
+    root.style.background = '#0a0a1a'
+    root.style.minHeight = '100vh'
+    var root = document.getElementById('spicy-monopoly-page') || document.body
+    var cpName = gs.currentPlayer===1?gs.p1Name:gs.p2Name
+    var isPlayerTurn = gs.currentPlayer===1
+
+    root.innerHTML =
+      '<div class="spicy-root">'+
+        '<div class="spicy-topbar">'+
+          '<div class="spicy-player-info">'+
+            '<div class="spicy-player-avatar-sm spicy-p1-avatar">'+esc(gs.p1Name.charAt(0))+'</div>'+
+            '<div><div class="spicy-player-name">'+esc(gs.p1Name)+'</div>'+
+            '<div class="spicy-gold"><span class="spicy-gold-icon"></span> <span id="sp-p1-gold">'+gs.p1Gold+'</span></div>'+
+            (gs.p1Identity ? '<div class="spicy-identity-tag">'+esc(gs.p1Identity.name)+'</div>' : '')+'</div></div>'+
+          '<div class="spicy-vs-sm">VS</div>'+
+          '<div class="spicy-player-info">'+
+            '<div style="text-align:right"><div class="spicy-player-name">'+esc(gs.p2Name)+'</div>'+
+            '<div class="spicy-gold"><span class="spicy-gold-icon"></span> <span id="sp-p2-gold">'+gs.p2Gold+'</span></div>'+
+            (gs.p2Identity ? '<div class="spicy-identity-tag">'+esc(gs.p2Identity.name)+'</div>' : '')+'</div>'+
+            '<div class="spicy-player-avatar-sm spicy-p2-avatar">'+esc(gs.p2Name.charAt(0))+'</div></div></div>'+
+        '<div class="spicy-board-area">'+
+          '<div class="spicy-board-container" id="sp-board">'+
+            '<div class="spicy-center">'+
+              '<div class="spicy-round-indicator" id="sp-round-indicator">第 '+gs.round+'/'+gs.totalRounds+' 回合 | '+esc(cpName)+'回合</div>'+
+              '<div class="spicy-card-box" id="sp-card-box"><div class="spicy-card-stack">'+
+                '<div class="spicy-card-back"></div><div class="spicy-card-back"></div><div class="spicy-card-back"></div><div class="spicy-card-back"></div><div class="spicy-card-back"></div>'+
+              '</div></div>'+
+              '<div class="spicy-center-status"><div class="spicy-center-status-line" id="sp-center-status">等待掷骰子</div></div>'+
+            '</div>'+
+            '<div class="spicy-token spicy-token-p1" id="sp-token1" style="position:absolute;z-index:10;"><div class="piece-base"></div><div class="piece-body"></div></div>'+
+            '<div class="spicy-token spicy-token-p2" id="sp-token2" style="position:absolute;z-index:10;"><div class="piece-base"></div><div class="piece-body"></div></div>'+
+          '</div></div>'+
+        '<div class="spicy-bottom-bar">'+
+          '<button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-temp-exit">临时退出</button>'+
+          '<button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-hand-btn">手牌('+gs.p1Hand.length+')</button>'+
+          '<div class="spicy-dice-wrap" id="dice-wrap"><div class="spicy-dice" id="sp-dice"></div></div>'+
+          '<button class="spicy-btn spicy-btn-primary" id="sp-roll-btn" '+(isPlayerTurn?'':'disabled')+'>投掷骰子</button>'+
+          '<button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="sp-formal-exit">正式退出</button>'+
+        '</div></div>'
+
+    var boardEl=document.getElementById('sp-board')
+    var token1El=document.getElementById('sp-token1')
+    var token2El=document.getElementById('sp-token2')
+    renderBoard(gs, boardEl, token1El, token2El)
+    bindCardBoxClick()
+    renderDiceFace(document.getElementById('sp-dice'), 1)
+    updateRoundIndicator(gs)
+
+    // 临时退出
+    document.getElementById('sp-temp-exit').onclick = function() {
+      if(window.SpicyModals) window.SpicyModals.showSaveExitModal().then(function(r) {
+        if(r.saveAndExit) { saveGame(gs); exitGame(); if(window.toast) window.toast('对局已保存') }
+      })
+    }
+    // 正式退出
+    document.getElementById('sp-formal-exit').onclick = function() {
+      if(window.SpicyModals) window.SpicyModals.showExitConfirmModal().then(function(r) {
+        if(r.exit) { clearGame()
+          if(r.saveMemory&&window.SpicyMemory) window.SpicyMemory.process(gs, function(){ exitGame() })
+          else exitGame()
+        }
+      })
+    }
+    // 掷骰子
+    document.getElementById('sp-roll-btn').onclick = function() {
+      if(gs.currentPlayer!==1||waitingForDraw||gs.gameOver) return
+      this.disabled=true
+      // 安全超时：15秒后自动重新启用
+      var safetyTimer = setTimeout(function() {
+        var btn=document.getElementById('sp-roll-btn')
+        if(btn) btn.disabled=false
+      }, 15000)
+      animateDice(function(result) {
+        clearTimeout(safetyTimer)
+        handlePlayerMove(result)
+      })
+    }
+    // 手牌按钮
+    document.getElementById('sp-hand-btn').onclick = function() { showHandPopup() }
+    // AI回合自动执行
+    if(!isPlayerTurn&&!gs.gameOver) setTimeout(function(){ handleAITurn() }, 800)
+  }
+
+  // ── 手牌弹窗 ──
+  function showHandPopup() {
+    if (!gs.p1Hand.length) { showToast('没有手牌', 1500); return }
+    var overlay = document.createElement('div')
+    overlay.className = 'spicy-modal-overlay'
+    overlay.innerHTML =
+      '<div class="spicy-modal" style="max-width:300px;">'+
+        '<h3>我的手牌</h3>'+
+        '<div id="sp-hand-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;">'+
+        '</div>'+
+        '<div style="margin-top:12px;"><button class="spicy-btn spicy-btn-ghost spicy-btn-sm spicy-btn-full" id="sp-hand-close">关闭</button></div>'+
+      '</div>'
+    document.body.appendChild(overlay)
+
+    var listEl = overlay.querySelector('#sp-hand-list')
+    gs.p1Hand.forEach(function(card, idx) {
+      var div = document.createElement('div')
+      div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;cursor:pointer;'
+      div.innerHTML =
+        '<div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;">'+
+          esc((card.name||'?').charAt(0))+'</div>'+
+        '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#e0e0f0;">'+esc(card.name||'')+'</div>'+
+        '<div style="font-size:11px;color:#888;">'+esc(card.desc||'')+'</div></div>'+
+        '<button class="spicy-btn spicy-btn-primary spicy-btn-sm" data-use="'+idx+'">使用</button>'
+      listEl.appendChild(div)
+    })
+
+    listEl.querySelectorAll('[data-use]').forEach(function(btn) {
+      btn.onclick = function() {
+        var idx = parseInt(btn.getAttribute('data-use'))
+        var card = gs.p1Hand[idx]
+        if (!card) return
+        gs.p1Hand.splice(idx, 1)
+        applyChanceEffect(gs, card, 1)
+        updateGoldDisplay(); saveGame(gs)
+        showToast('使用了「'+card.name+'」！', 2000)
+        overlay.remove()
+        // 更新手牌按钮计数
+        var handBtn = document.getElementById('sp-hand-btn')
+        if (handBtn) handBtn.textContent = '手牌('+gs.p1Hand.length+')'
+      }
+    })
+
+    overlay.querySelector('#sp-hand-close').onclick = function() { overlay.remove() }
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove() }
+  }
+
+  // ── 玩家移动 ──
+  function handlePlayerMove(dice) {
+    var root=document.getElementById('spicy-monopoly-page')
+    var tokenEl=document.getElementById('sp-token1')
+    var boardEl=document.getElementById('sp-board')
+    var fromPos=gs.p1Pos, toPos=(fromPos+dice)%BOARD_SIZE
+    updateCenterStatus('掷出 '+dice+' 点！')
+
+    animateTokenMove(tokenEl, fromPos, toPos, boardEl.offsetWidth||380, function() {
+      gs.p1Pos=toPos
+      renderBoard(gs, boardEl, tokenEl, document.getElementById('sp-token2'))
+      bindCardBoxClick()
+      var tile=TILE_TYPES[toPos]
+      updateCenterStatus('第'+toPos+'格 · '+TILE_LABELS[tile])
+
+      // 检查同格对决
+      if(gs.p1Pos===gs.p2Pos&&tile!=='start'&&tile!=='jail') {
+        showToast('⚔️ 同格对决！', 1500)
+        triggerDuel(gs, function() { handlePlayerTileEvent(tile, toPos, root) })
+      } else {
+        handlePlayerTileEvent(tile, toPos, root)
+      }
+    })
+  }
+
+  function handlePlayerTileEvent(tile, pos, root) {
+    if(tile==='task') {
+      var task=pickTask(gs.flavor,gs.round,gs.totalRounds,gs.redlines,gs.reverseChance)
+      var aiChar={name:gs.p2Name,id:gs.aiCharId}
+      if(window.SpicyTask) {
+        window.SpicyTask.show(task,aiChar,gs,
+          function(){ var reward=Math.min(task.强度||1,3); gs.p1Gold+=reward; updateGoldDisplay(); saveGame(gs); showToast('完成任务 (+'+reward+'星币)',2000); finishPlayerTurn(root) },
+          function(){ gs.p1Gold-=2; updateGoldDisplay(); saveGame(gs); showToast('拒绝任务 (-2星币)',2000); finishPlayerTurn(root) },
+          function(){ saveGame(gs) }
+        )
+      } else finishPlayerTurn(root)
+    } else if(tile==='chance') {
+      activateCardBoxForPlayer('chance', function() { updateGoldDisplay(); saveGame(gs); finishPlayerTurn(root) })
+    } else if(tile==='fate') {
+      activateCardBoxForPlayer('fate', function() { updateGoldDisplay(); saveGame(gs); finishPlayerTurn(root) })
+    } else if(tile==='truth') {
+      var truth=pickTruth()
+      var truthText = (truth.内容||'').replace(/行动方/g,gs.p1Name).replace(/对方/g,gs.p2Name)
+      // 跳转游戏线下页面，AI回答真心话
+      var ctx = buildOfflineContext(gs, '真心话', truth.强度)
+      if(window.SpicyOffline) {
+        window.SpicyOffline.open(ctx, function() { finishPlayerTurn(root) })
+        window.SpicyOffline.addSystemMessage('💬 真心话：' + truthText)
+        // 调API让AI回答
+        window.SpicyOffline.getAIResponse(gs.aiCharId, '真心话问题：'+truthText+'。请用你的角色语气回答这个问题。', ctx).then(function(reply) {
+          if(reply) window.SpicyOffline.addAIMessage(gs.p2Name, reply)
+        })
+      } else {
+        showToast('💬 真心话：'+truthText, 4000)
+        finishPlayerTurn(root)
+      }
+    } else if(tile==='tax') {
+      var tax=getData().TAX_AMOUNT||3
+      // 过路费差遣：可以做任务代替缴税
+      if(window.SpicyModals) {
+        window.SpicyModals.showTaxModal(tax, gs.p1Name).then(function(result) {
+          if(result.paid) {
+            gs.p1Gold-=tax; updateGoldDisplay(); saveGame(gs)
+            showToast('缴税 '+tax+' 星币',2000)
+            finishPlayerTurn(root)
+          } else if(result.serve) {
+            // 差遣：跳转任务线下页面做任务代替缴税
+            var task=pickTask(gs.flavor,gs.round,gs.totalRounds,gs.redlines,0)
+            var aiChar={name:gs.p2Name,id:gs.aiCharId}
+            if(window.SpicyTask) {
+              window.SpicyTask.show(task,aiChar,gs,
+                function(){ showToast('差遣完成，免除缴税！',2000); finishPlayerTurn(root) },
+                function(){ gs.p1Gold-=tax; updateGoldDisplay(); saveGame(gs); showToast('差遣失败，仍需缴税 '+tax+' 币',2000); finishPlayerTurn(root) },
+                function(){ saveGame(gs) }
+              )
+            } else {
+              showToast('差遣任务：'+(task.内容||'').replace(/行动方/g,gs.p1Name).replace(/对方/g,gs.p2Name), 3000)
+              finishPlayerTurn(root)
+            }
+          } else {
+            finishPlayerTurn(root)
+          }
+        })
+      } else {
+        gs.p1Gold-=tax; updateGoldDisplay(); saveGame(gs)
+        showToast('缴税 '+tax+' 星币',2000)
+        finishPlayerTurn(root)
+      }
+    } else if(tile==='jail') {
+      var jt=getData().JAIL_TURNS||2
+      // 检查出狱卡
+      if(gs.p1JailFree) {
+        gs.p1JailFree=false
+        showToast('使用出狱卡！免于入狱',2000)
+      } else if(gs.p1Identity&&gs.p1Identity.name==='越狱大师') {
+        showToast('越狱大师免疫监狱！',2000)
+      } else {
+        gs.p1Jail=jt; showToast('进了监狱！跳过'+jt+'回合',2000)
+      }
+      finishPlayerTurn(root)
+    } else if(tile==='start') {
+      gs.p1Gold+=2; updateGoldDisplay(); saveGame(gs)
+      showToast('经过起点 +2星币',2000)
+      finishPlayerTurn(root)
+    } else if(tile==='shop') {
+      // 商店：花3币买一张随机功能卡
+      var cost = getData().SHOP_CARD_COST || 3
+      if (gs.p1Gold >= cost) {
+        gs.p1Gold -= cost
+        var card = pick(getChanceCards())
+        gs.p1Hand.push(card)
+        updateGoldDisplay(); saveGame(gs)
+        showToast('商店：花'+cost+'币买了「'+card.name+'」！', 2500)
+      } else {
+        showToast('星币不足（需要'+cost+'币）', 2000)
+      }
+      finishPlayerTurn(root)
+    } else {
+      finishPlayerTurn(root)
+    }
+  }
+
+  function finishPlayerTurn(root) {
+    gs.round++
+    gs.currentPlayer=2
+    if(gs.round>=gs.totalRounds) { endGame(root); return }
+    if(gs.p1Gold<0) { gs.gameOver=true; gs.winner=2; endGame(root); return }
+    updateRoundIndicator(gs)
+    saveGame(gs)
+    setTimeout(function(){ handleAITurn() }, 600)
+  }
+
+  // ── AI回合 ──
+  function handleAITurn() {
+    var root=document.getElementById('spicy-monopoly-page')
+    var diceEl=document.getElementById('sp-dice')
+    var rollBtn=document.getElementById('sp-roll-btn')
+    if(rollBtn) rollBtn.disabled=true
+    updateRoundIndicator(gs)
+
+    // AI掷骰子动画
+    animateDice(function(result) {
+      var tokenEl=document.getElementById('sp-token2')
+      var boardEl=document.getElementById('sp-board')
+      var fromPos=gs.p2Pos, toPos=(fromPos+result)%BOARD_SIZE
+
+      animateTokenMove(tokenEl, fromPos, toPos, boardEl.offsetWidth||380, function() {
+        gs.p2Pos=toPos
+        renderBoard(gs, boardEl, document.getElementById('sp-token1'), tokenEl)
+        bindCardBoxClick()
+
+        // 显示AI思考遮罩
+        if(window.SpicyAIThinking) window.SpicyAIThinking.show(gs.p2Name)
+
+        var tile=TILE_TYPES[toPos]
+        var prompt=buildAIPrompt(gs, toPos, tile, result)
+
+        window.callGameAI([{role:'user',content:prompt}],{
+          system:buildAISystemPrompt(gs), temperature:0.85
+        }).then(function(reply) {
+          if(window.SpicyAIThinking) window.SpicyAIThinking.hide()
+          var decision=parseAIReply(reply, tile)
+          executeAIAction(gs, toPos, tile, decision, root, function() {
+            gs.round++
+            gs.currentPlayer=1
+            if(gs.round>=gs.totalRounds) { endGame(root); return }
+            if(gs.p2Gold<0) { gs.gameOver=true; gs.winner=1; endGame(root); return }
+            updateRoundIndicator(gs); saveGame(gs)
+            var rb=document.getElementById('sp-roll-btn'); if(rb) rb.disabled=false
+          })
+        }).catch(function() {
+          // API失败也要执行格子事件（用默认decision）
+          if(window.SpicyAIThinking) window.SpicyAIThinking.hide()
+          var fallbackDecision = {response: gs.p2Name+' 看了看四周...', agree: true}
+          executeAIAction(gs, toPos, tile, fallbackDecision, root, function() {
+            gs.round++; gs.currentPlayer=1
+            if(gs.round>=gs.totalRounds) { endGame(root); return }
+            if(gs.p2Gold<0) { gs.gameOver=true; gs.winner=1; endGame(root); return }
+            updateRoundIndicator(gs); saveGame(gs)
+            var rb=document.getElementById('sp-roll-btn'); if(rb) rb.disabled=false
+          })
+        })
+      })
+    })
+  }
+
+  function buildAISystemPrompt(gs) {
+    var p='你是「'+gs.p2Name+'」，正在和「'+gs.p1Name+'」玩星途财弈。\n'+
+      '当前回合：'+gs.round+'/'+gs.totalRounds+'\n你的星币：'+gs.p2Gold+'，对手星币：'+gs.p1Gold+'\n\n'+
+      '你需要对当前格子做出反应。用你的角色语气简短回复（2-3句话）。\n'+
+      '同时在JSON中返回你的决策。格式：\n'+
+      '{"response": "你的对话文本", "agree": true/false}\n'+
+      'agree只在任务格时有效：true=同意做任务，false=拒绝。\n其他格子agree固定为true。只输出JSON。'
+    if(gs.p2Identity) {
+    p += '\n\n## 你的本局身份\n你现在的身份是「'+gs.p2Identity.name+'」。\n身份设定：'+gs.p2Identity.behavior+'\n你必须严格按这个身份的风格和行为来回复，这是你人设的一部分。'
+    if(gs.p2Identity.effects && gs.p2Identity.effects.length) {
+      p += '\n身份效果：'+gs.p2Identity.effects.map(function(e){
+        if(e.type==='immunity') return '免疫'+e.target
+        if(e.type==='modify_reward') return (e.value>0?'+':'')+e.value+'奖励'
+        if(e.type==='modify_intensity') return (e.value>0?'+':'')+e.value+'强度'
+        return e.type
+      }).join('、')
+    }
+  }
+    return p
+  }
+
+  function buildAIPrompt(gs, pos, tile, dice) {
+    var p='你掷出了 '+dice+' 点，移动到了第 '+pos+' 格。格子类型：'+(TILE_LABELS[tile]||tile)+'。\n'
+    if(tile==='task') {
+      var task=pickTask(gs.flavor,gs.round,gs.totalRounds,gs.redlines,gs.reverseChance)
+      p+='任务内容：'+(task.内容||'').replace(/行动方/g,gs.p2Name).replace(/对方/g,gs.p1Name)+'\n任务强度：'+(task.强度||1)+'\n'
+      p+='同意完成可获得 '+Math.min(task.强度||1,3)+' 星币，拒绝失去 2 星币。\n'
+    } else if(tile==='truth') { p+='你需要回答一道真心话。\n' }
+    else if(tile==='chance') { p+='你抽到了一张机会卡。\n' }
+    else if(tile==='fate') { p+='你抽到了一张命运卡。\n' }
+    else if(tile==='tax') { p+='你需要缴纳 '+(getData().TAX_AMOUNT||3)+' 星币的税。\n' }
+    else if(tile==='jail') { p+='你进了监狱！\n' }
+    p+='\n请返回JSON：{"response": "你的对话", "agree": true/false}'
+    return p
+  }
+
+  function parseAIReply(reply, tile) {
+    try { var j=JSON.parse(reply); return {response:j.response||'',agree:j.agree!==false} }
+    catch(e) { return {response:reply||'',agree:true} }
+  }
+
+  function executeAIAction(gs, pos, tile, decision, root, callback) {
+    if(decision.response) showToast(decision.response, 3000)
+
+    if(tile==='task') {
+      var task=pickTask(gs.flavor,gs.round,gs.totalRounds,gs.redlines,gs.reverseChance)
+      var taskText=(task.内容||'').replace(/行动方/g,gs.p2Name).replace(/对方/g,gs.p1Name)
+      var ctx=buildOfflineContext(gs,'任务',task.强度||1)
+      // AI走线下页面完成任务
+      if(window.SpicyOffline) {
+        window.SpicyOffline.open(ctx, function() {
+          // 线下页面关闭后继续游戏
+          updateGoldDisplay(); saveGame(gs); setTimeout(callback,500)
+        })
+        window.SpicyOffline.addSystemMessage('任务卡：'+taskText+'（强度'+(task.强度||1)+'）')
+        window.SpicyOffline.getAIResponse(gs.aiCharId,'任务内容：'+taskText+'\n你是否同意完成这个任务？请用你的角色语气简短回应，并在最后说明你是同意还是拒绝。',ctx).then(function(reply) {
+          if(reply) window.SpicyOffline.addAIMessage(gs.p2Name, reply)
+          var agreed = !reply || reply.indexOf('拒绝')<0
+          if(agreed) { var reward=Math.min(task.强度||1,3); gs.p2Gold+=reward; gs.p2Hand.push({name:'任务奖励',desc:'+'+reward+'币',effect:'bonus_'+reward,value:reward}) }
+          else { gs.p2Gold-=2 }
+        }).catch(function() { gs.p2Gold-=2 })
+      } else {
+        if(decision.agree) { gs.p2Gold+=Math.min(task.强度||1,3) } else { gs.p2Gold-=2 }
+        updateGoldDisplay(); setTimeout(callback,2000)
+      }
+    } else if(tile==='chance') {
+      var card=pick(getChanceCards())
+      activateCardBoxForAI('chance',card,false,function(){ applyChanceEffect(gs,card,2); updateGoldDisplay(); showToast('机会：'+card.desc,2000); setTimeout(callback,1500) })
+    } else if(tile==='fate') {
+      var fate=pick(getFateCards())
+      var isPenalty=fate.effect==='fine_3'||fate.effect==='go_back_5'||fate.effect==='go_jail'||fate.effect==='super_task'
+      activateCardBoxForAI('fate',fate,isPenalty,function(){ applyFateEffect(gs,fate,2); updateGoldDisplay(); showToast('命运：'+fate.desc,2000); setTimeout(callback,1500) })
+    } else if(tile==='truth') {
+      var truth=pickTruth()
+      var truthText=(truth.内容||'').replace(/行动方/g,gs.p2Name).replace(/对方/g,gs.p1Name)
+      var ctx=buildOfflineContext(gs,'真心话',truth.强度)
+      // AI走线下页面回答真心话
+      if(window.SpicyOffline) {
+        window.SpicyOffline.open(ctx, function() {
+          setTimeout(callback,500)
+        })
+        window.SpicyOffline.addSystemMessage('💬 真心话：'+truthText)
+        window.SpicyOffline.getAIResponse(gs.aiCharId,'真心话问题：'+truthText+'。请用你的角色语气回答这个问题。',ctx).then(function(reply) {
+          if(reply) window.SpicyOffline.addAIMessage(gs.p2Name, reply)
+        }).catch(function() {
+          window.SpicyOffline.addSystemMessage(gs.p2Name+' 沉默了...')
+        })
+      } else {
+        showToast('💬 '+gs.p2Name+'：'+truthText,4000)
+        setTimeout(callback,2500)
+      }
+    } else if(tile==='tax') {
+      var tax=getData().TAX_AMOUNT||3
+      // AI随机选择：50%概率选择差遣（做任务代替缴税）
+      if(Math.random() < 0.5 && gs.p2Gold >= tax) {
+        // 选择缴税
+        gs.p2Gold-=tax
+        showToast(gs.p2Name+' 缴税 '+tax+' 星币',2000)
+        updateGoldDisplay(); setTimeout(callback,2000)
+      } else {
+        // 选择差遣 - 走线下做任务
+        var task=pickTask(gs.flavor,gs.round,gs.totalRounds,gs.redlines,0)
+        var taskText=(task.内容||'').replace(/行动方/g,gs.p2Name).replace(/对方/g,gs.p1Name)
+        var ctx=buildOfflineContext(gs,'差遣任务',task.强度||1)
+        if(window.SpicyOffline) {
+          window.SpicyOffline.open(ctx, function() { updateGoldDisplay(); saveGame(gs); setTimeout(callback,500) })
+          window.SpicyOffline.addSystemMessage(gs.p2Name+' 选择差遣代替缴税')
+          window.SpicyOffline.addSystemMessage('任务卡：'+taskText)
+          window.SpicyOffline.getAIResponse(gs.aiCharId,'你选择了差遣代替缴税。任务内容：'+taskText+'\n请完成这个任务。',ctx).then(function(reply) {
+            if(reply) window.SpicyOffline.addAIMessage(gs.p2Name, reply)
+          })
+        } else {
+          showToast(gs.p2Name+' 差遣：'+taskText,2500)
+          setTimeout(callback,2000)
+        }
+      }
+    } else if(tile==='jail') {
+      if(gs.p2Identity&&gs.p2Identity.name==='越狱大师') { showToast(gs.p2Name+' 越狱大师免疫监狱！',2000) }
+      else { gs.p2Jail=getData().JAIL_TURNS||2; showToast(gs.p2Name+' 进监狱！',2000) }
+      setTimeout(callback,2000)
+    } else if(tile==='start') {
+      gs.p2Gold+=2; showToast(gs.p2Name+' 经过起点 +2星币',2000)
+      updateGoldDisplay(); setTimeout(callback,1500)
+    } else if(tile==='shop') {
+      var cost=getData().SHOP_CARD_COST||3
+      if(gs.p2Gold>=cost) {
+        gs.p2Gold-=cost; var card=pick(getChanceCards()); gs.p2Hand.push(card)
+        showToast(gs.p2Name+' 商店买了「'+card.name+'」',2000)
+        updateGoldDisplay()
+      } else { showToast(gs.p2Name+' 星币不足逛商店',1500) }
+      setTimeout(callback,1500)
+    } else { setTimeout(callback,1000) }
+  }
+
+  // ── UI更新 ──
+  // ── 构建游戏线下上下文 ──
+  function buildOfflineContext(gs, eventType, eventStrength) {
+    return {
+      charId: gs.aiCharId,
+      aiName: gs.p2Name,
+      playerName: gs.p1Name,
+      round: gs.round,
+      totalRounds: gs.totalRounds,
+      playerGold: gs.p1Gold,
+      aiGold: gs.p2Gold,
+      playerIdentity: gs.p1Identity,
+      aiIdentity: gs.p2Identity,
+      eventType: eventType || '',
+      eventStrength: eventStrength || 0,
+      flavor: gs.flavor
+    }
+  }
+
+  function updateGoldDisplay() {
+    var root=document.getElementById('spicy-monopoly-page')
+    if(!root) return
+    var p1=root.querySelector('#sp-p1-gold'), p2=root.querySelector('#sp-p2-gold')
+    if(p1) p1.textContent=gs.p1Gold
+    if(p2) p2.textContent=gs.p2Gold
+  }
+
+  function showToast(msg, duration) {
+    if(window.toast) { window.toast(msg); return }
+    var el=document.createElement('div'); el.className='spicy-toast'; el.textContent=msg
+    document.body.appendChild(el); setTimeout(function(){el.remove()}, duration||2500)
+  }
+
+  function exitGame() { var p=document.getElementById('spicy-monopoly-page'); if(p) p.remove() }
+
+  function endGame(root) {
+    gs.gameOver=true
+    if(gs.p1Gold>gs.p2Gold) gs.winner=1
+    else if(gs.p2Gold>gs.p1Gold) gs.winner=2
+    else gs.winner=0
+    saveHistory({id:gs.id,time:Date.now(),p1Name:gs.p1Name,p2Name:gs.p2Name,p1Gold:gs.p1Gold,p2Gold:gs.p2Gold,winner:gs.winner,round:gs.round})
+    clearGame(); saveGame(gs)
+    if(window.SpicySettlement) {
+      window.SpicySettlement.show(gs,
+        function(){ if(window.SpicyMemory) window.SpicyMemory.process(gs,function(){exitGame()}); else exitGame() },
+        function(){ clearGame(); var r=document.getElementById('spicy-monopoly-page'); if(r) showStartPage(r) },
+        function(){ exitGame() }
+      )
+    }
+  }
+
+})()
