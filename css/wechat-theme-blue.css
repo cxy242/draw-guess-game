@@ -1,0 +1,57 @@
+/* 月月机仿微信美化 - 清新白蓝 */
+/* 来源: 淅沥沥 · 适配版 */
+
+.chat-window-page {
+  background-color: #ededed;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  color: #191919;
+}
+
+.chat-header {
+  background-color: #f7f7f7;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding: 0 16px;
+  height: 48px;
+}
+
+.chat-header-name {
+  color: #191919;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.header-back svg, .btn-icon svg {
+  fill: #191919;
+}
+
+.chat-messages {
+  background-color: #ededed;
+}
+
+.bubble-self {
+  background-color: #e8f4ff;
+  color: #191919;
+}
+
+.bubble-other {
+  background-color: #ffffff;
+  color: #191919;
+}
+
+.msg-self .msg-content-wrap { align-items: flex-end; padding-right: 12px; }
+.msg-other .msg-content-wrap { align-items: flex-start; padding-left: 12px; }
+
+.chat-compose-area {
+  background-color: #f7f7f7;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.chat-input {
+  background-color: #ffffff;
+  color: #191919;
+}
+
+.compose-send {
+  background-color: #07c160;
+  color: #ffffff;
+}

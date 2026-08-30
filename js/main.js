@@ -108,15 +108,15 @@ function injectManifest(settings) {
   var appRoot = new URL('./', document.baseURI).href
   var manifest = {
     id: appRoot,
-    name: '弯弯',
-    short_name: '弯弯',
+    name: '月月',
+    short_name: '月月',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#ffffff',
     theme_color: '#ffffff',
     start_url: appRoot,
     scope: appRoot,
-    description: '弯弯 - 你的专属应用',
+    description: '月月 - 你的专属应用',
     icons: [
       { src: icons.icon192, sizes: '192x192', type: 'image/png' },
       { src: icons.icon512, sizes: '512x512', type: 'image/png' }
@@ -157,7 +157,7 @@ window.saveWanWanAppIconSettings = async function(settings) {
   try {
     localStorage.setItem(APP_ICON_BRIDGE_KEY, JSON.stringify(settings))
   } catch (err) {
-    console.warn('[弯弯] 保存登录页图标设置失败:', err)
+    console.warn('[月月] 保存登录页图标设置失败:', err)
   }
   return window.applyWanWanAppIcon(settings)
 }
@@ -244,7 +244,7 @@ async function loadWanWanAppIcon() {
     }
   } catch (err) {
     localStorage.removeItem(APP_ICON_BRIDGE_KEY)
-    console.warn('[弯弯] 读取登录页图标设置失败:', err)
+    console.warn('[月月] 读取登录页图标设置失败:', err)
   }
   try {
     if (bridgedSettings) {
@@ -260,7 +260,7 @@ async function loadWanWanAppIcon() {
       localStorage.setItem(APP_ICON_BRIDGE_KEY, JSON.stringify(normalizeWanWanAppIconSettings(settings)))
     }
   } catch (err) {
-    console.warn('[弯弯] 读取桌面图标设置失败:', err)
+    console.warn('[月月] 读取桌面图标设置失败:', err)
   }
   window.applyWanWanAppIcon(settings)
 }
@@ -275,7 +275,7 @@ function registerWanWanServiceWorker() {
   _wanwanServiceWorkerReady = navigator.serviceWorker.register('service.js')
     .then(function() { return navigator.serviceWorker.ready })
     .catch(function(err) {
-      console.warn('[弯弯] Service Worker 注册失败:', err)
+      console.warn('[月月] Service Worker 注册失败:', err)
       return null
     })
   return _wanwanServiceWorkerReady
@@ -296,7 +296,7 @@ window.isWanWanNotificationEnabled = async function() {
     var cfg = await db.config.get('notificationEnabled')
     if (cfg) return cfg.value === true
   } catch (err) {
-    console.warn('[弯弯] 读取通知设置失败:', err)
+    console.warn('[月月] 读取通知设置失败:', err)
   }
   return Notification.permission === 'granted'
 }
@@ -309,7 +309,7 @@ window.sendWanWanNotification = async function(body, options) {
   if (!granted) return false
 
   var opts = options || {}
-  var title = opts.title || '弯弯'
+  var title = opts.title || '月月'
   var dataUrl = window.location.href
   var notifOptions = Object.assign({
     body: body,
@@ -414,6 +414,36 @@ async function phase2_loadData() {
   if (window.SpicyData && window.SpicyData.loadAll) {
     try { await window.SpicyData.loadAll() } catch(e) {}
   }
+  // 注入内置聊天美化预设（如果还没有的话）
+  try { await injectBuiltinBeautyPresets() } catch(e) {}
+}
+
+async function injectBuiltinBeautyPresets() {
+  if (!window.db) return
+  var stored = await window.db.config.get('chatBeautyPresets')
+  var presets = (stored && Array.isArray(stored.value)) ? stored.value : []
+  // 检查是否已有内置预设
+  if (presets.some(function(p) { return p.id && p.id.startsWith('builtin_') })) return
+  var themes = [
+    { id: 'builtin_green', name: '经典白绿', file: 'css/wechat-theme-green.css' },
+    { id: 'builtin_blue', name: '清新白蓝', file: 'css/wechat-theme-blue.css' },
+    { id: 'builtin_pink', name: '少女白粉', file: 'css/wechat-theme-pink.css' },
+    { id: 'builtin_black', name: '暗黑模式', file: 'css/wechat-theme-black.css' }
+  ]
+  var now = Date.now()
+  for (var i = 0; i < themes.length; i++) {
+    var t = themes[i]
+    try {
+      var r = await fetch(t.file)
+      if (r.ok) {
+        var css = await r.text()
+        presets.push({ id: t.id, name: t.name, css: css, createdAt: now, updatedAt: now })
+      }
+    } catch(e) {}
+  }
+  if (presets.length) {
+    await window.db.config.put({ key: 'chatBeautyPresets', value: presets })
+  }
 }
 
 async function phase3_services() {
@@ -454,7 +484,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       await window.WanWanMCP.handleOAuthCallback()
     }
   } catch(e) {
-    console.error('[弯弯] 初始化失败:', e)
+    console.error('[月月] 初始化失败:', e)
   } finally {
     _onSplashReady()
   }
@@ -487,27 +517,27 @@ var DISCLAIMER_CONTENT = {
   sections: [
     {
       title: '1. 内容生成方式',
-      content: '弯弯机内所有对话、动态、图片描述等内容均由第三方 AI 大语言模型「用户自行配制」生成，作者无法审核或者干预，同时不对生成内容承担任何责任。'
+      content: '月月机内所有对话、动态、图片描述等内容均由第三方 AI 大语言模型「用户自行配制」生成，作者无法审核或者干预，同时不对生成内容承担任何责任。'
     },
     {
       title: '2. 虚构性声明',
-      content: '弯弯机中的角色、情节均为 AI 生成的虚构内容，不代表作者立场。用户需要自行判断内容的适用性。'
+      content: '月月机中的角色、情节均为 AI 生成的虚构内容，不代表作者立场。用户需要自行判断内容的适用性。'
     },
     {
       title: '3. 数据存储',
-      content: '弯弯机的业务数据保存在本地设备或用户自行搭建的同步后端中，请自行做好备份。'
+      content: '月月机的业务数据保存在本地设备或用户自行搭建的同步后端中，请自行做好备份。'
     },
     {
       title: '4. 年龄限制',
-      content: '弯弯机仅限成年人使用。使用即代表您已年满18周岁，未成年人请勿使用。'
+      content: '月月机仅限成年人使用。使用即代表您已年满18周岁，未成年人请勿使用。'
     },
     {
       title: '5. 责任限制',
-      content: '弯弯机旨在为用户提供陪伴与愉悦体验。因不当使用本应用产生的任何后果，均由用户自行承担，作者不承担任何法律责任。'
+      content: '月月机旨在为用户提供陪伴与愉悦体验。因不当使用本应用产生的任何后果，均由用户自行承担，作者不承担任何法律责任。'
     },
     {
       title: '6. 个人声明',
-      content: '弯弯机为个人开发项目，作者保留随时修改、暂停或终止服务的权利，使用即代表接受以上条款。'
+      content: '月月机为个人开发项目，作者保留随时修改、暂停或终止服务的权利，使用即代表接受以上条款。'
     }
   ],
   closing: '继续使用本网页即视为您已阅读、理解并同意本免责声明的全部内容。',
@@ -555,7 +585,7 @@ function buildDisclaimerHTML(mode) {
       '<div class="disclaimer-modal" role="dialog" aria-modal="true" aria-labelledby="disclaimer-title">' +
         '<div class="disclaimer-header">' +
           '<h2 id="disclaimer-title">' + escapeMainHtml(DISCLAIMER_CONTENT.title) + '</h2>' +
-          '<p>' + (required ? '请完整阅读以下内容后确认' : '弯弯机使用说明与责任声明') + '</p>' +
+          '<p>' + (required ? '请完整阅读以下内容后确认' : '月月机使用说明与责任声明') + '</p>' +
         '</div>' +
         '<div class="disclaimer-body">' +
           sections +
