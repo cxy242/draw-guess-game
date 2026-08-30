@@ -112,16 +112,16 @@
     s.id = 'spicy-invite-css'
     s.textContent = `
       .invite-card {
-        max-width: 340px;
-        min-width: 280px;
-        border-radius: 20px;
+        max-width: 260px;
+        min-width: 200px;
+        border-radius: 10px;
         background: linear-gradient(145deg, #2d2640 0%, #1f1a2e 50%, #2d2640 100%);
         border: 1px solid rgba(180, 160, 220, 0.2);
         box-shadow: 
           0 8px 32px rgba(0, 0, 0, 0.3),
           0 2px 8px rgba(0, 0, 0, 0.2),
           inset 0 1px 0 rgba(255, 255, 255, 0.05);
-        padding: 20px;
+        padding: 14px;
         font-family: system-ui, -apple-system, sans-serif;
         box-sizing: border-box;
         position: relative;
@@ -152,22 +152,22 @@
       .invite-header {
         display: flex;
         align-items: center;
-        gap: 14px;
-        margin-bottom: 16px;
+        gap: 10px;
+        margin-bottom: 10px;
         position: relative;
         z-index: 1;
       }
 
       .invite-icon-wrap {
         position: relative;
-        width: 44px;
-        height: 44px;
+        width: 34px;
+        height: 34px;
       }
 
       .invite-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 14px;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
         background: linear-gradient(135deg, #4a3f6b 0%, #3d345c 100%);
         border: 1.5px solid rgba(180, 160, 220, 0.3);
         position: relative;
@@ -180,8 +180,8 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 18px;
-        height: 18px;
+        width: 14px;
+        height: 14px;
         background: linear-gradient(135deg, #ffd888 0%, #ffb347 100%);
         border-radius: 50%;
         box-shadow: 0 0 12px rgba(255, 216, 136, 0.4);
@@ -220,7 +220,7 @@
       }
 
       .invite-title {
-        font-size: 18px;
+        font-size: 15px;
         font-weight: 700;
         color: #e8e2f4;
         letter-spacing: 0.5px;
@@ -228,7 +228,7 @@
       }
 
       .invite-subtitle {
-        font-size: 12px;
+        font-size: 10px;
         color: #a89bc4;
         font-weight: 500;
         margin-top: 2px;
@@ -236,8 +236,8 @@
       }
 
       .invite-status-icon {
-        width: 24px;
-        height: 24px;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
         position: relative;
         flex-shrink: 0;
@@ -303,7 +303,7 @@
       }
 
       .invite-meta {
-        margin-bottom: 20px;
+        margin-bottom: 12px;
         position: relative;
         z-index: 1;
       }
@@ -328,13 +328,13 @@
       }
 
       .invite-sender-name {
-        font-size: 14px;
+        font-size: 10px;
         color: #d4cce4;
         font-weight: 600;
       }
 
       .invite-tip-text {
-        font-size: 14px;
+        font-size: 10px;
         color: #e8e2f4;
         font-weight: 500;
       }
@@ -348,15 +348,15 @@
       }
 
       .invite-btn {
-        height: 44px;
-        min-width: 110px;
+        height: 34px;
+        min-width: 80px;
         border-radius: 12px;
-        font-size: 14px;
+        font-size: 10px;
         font-weight: 600;
         border: none;
         cursor: pointer;
         transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
-        padding: 0 18px;
+        padding: 0 12px;
         position: relative;
         overflow: hidden;
         letter-spacing: 0.3px;

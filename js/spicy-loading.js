@@ -8,7 +8,9 @@
   // onComplete: 加载完成后的回调
   // onError: 加载失败的回调
   window.SpicyLoading = {
-    show: function(onComplete, onError) {
+    show: function(onComplete, onError, playerNames) {
+      var p1 = (playerNames && playerNames.p1) || '玩家'
+      var p2 = (playerNames && playerNames.p2) || '对手'
       var page = document.createElement('div')
       page.id = 'spicy-loading-page'
       page.className = 'full-page'

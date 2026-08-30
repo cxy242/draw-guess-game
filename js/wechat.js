@@ -2601,7 +2601,7 @@ function renderBubbleHTML(msg, isSelf, charName, stickerMap, bilingualSettings) 
 function renderSpicyInviteBubble(data, msg, isSelf) {
   // 使用SpicyInvite模块的新设计
   if (window.SpicyInvite && window.SpicyInvite.render) {
-    return '<div data-spicy-invite="' + wcEscHtml(msg.id || '') + '" class="msg-bubble bubble-other">' + window.SpicyInvite.render(data) + '</div>'
+    return '<div data-spicy-invite="' + wcEscHtml(msg.id || '') + '" style="padding:8px 0;">' + window.SpicyInvite.render(data) + '</div>'
   }
   // 兜底：简单显示
   return '<div class="invite-card" style="max-width:340px;min-width:280px;border-radius:18px;background-color:#241b42;border:1px solid #7c58c2;padding:20px;color:#e2d9f8;font-family:system-ui,sans-serif;">' +
