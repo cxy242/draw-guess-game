@@ -29,6 +29,13 @@
       meta: '选择 · 心跳',
       icon: 'fa-solid fa-heart',
       tone: 'vote'
+    },
+    {
+      id: 'spicy-monopoly',
+      title: '星途财弈',
+      meta: '双人 · 博弈',
+      icon: 'fa-solid fa-dice',
+      tone: 'spicy'
     }
   ]
 
@@ -48,7 +55,7 @@
             '<span class="game-card-title">' + esc(game.title) + '</span>' +
             '<span class="game-card-meta">' + esc(game.meta) + '</span>' +
           '</span>' +
-      '<span class="game-card-status">' + (game.id === 'werewolf' ? '立即进入' : '暂未开放') + '</span>' +
+      '<span class="game-card-status">' + (game.id === 'werewolf' || game.id === 'spicy-monopoly' ? '立即进入' : '暂未开放') + '</span>' +
         '</button>'
     }).join('')
   }
@@ -267,6 +274,10 @@
       card.addEventListener('click', function() {
         if (card.getAttribute('data-game') === 'werewolf' && window.showWerewolfGame) {
           window.showWerewolfGame()
+          return
+        }
+        if (card.getAttribute('data-game') === 'spicy-monopoly' && window.showSpicyMonopoly) {
+          window.showSpicyMonopoly()
           return
         }
         if (window.toast) window.toast('暂未开放')
