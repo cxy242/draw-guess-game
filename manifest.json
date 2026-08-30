@@ -1,13 +1,13 @@
 {
-  "name": "弯弯",
-  "short_name": "弯弯",
+  "name": "月月",
+  "short_name": "月月",
   "start_url": "./",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "description": "弯弯 - 你的专属应用",
+  "description": "月月 - 你的专属应用",
   "icons": [
     {
       "src": "img/wanwan.png",
@@ -15,7 +15,7 @@
       "type": "image/png"
     },
     {
-      "src": "img/wanwan.png",
+      "src": "img/wanwan-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
