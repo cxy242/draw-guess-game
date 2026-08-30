@@ -410,6 +410,10 @@ async function phase1_restoreUI() {
 async function phase2_loadData() {
   await loadCharacterCache()
   await renderTopWidget()
+  // 预加载星途财弈数据（身份卡+任务库+真心话）
+  if (window.SpicyData && window.SpicyData.loadAll) {
+    try { await window.SpicyData.loadAll() } catch(e) {}
+  }
 }
 
 async function phase3_services() {
@@ -681,6 +685,9 @@ window.openPage = function(pageEl) {
     var cleanup = function() {
       pageEl.classList.remove('is-opening')
       pageEl.removeEventListener('transitionend', cleanup)
+      // 关键: 清除内联 transform，否则 position:fixed 在页面内不生效
+      pageEl.style.transform = ''
+      pageEl.style.transition = ''
     }
     pageEl.addEventListener('transitionend', cleanup)
     setTimeout(cleanup, 350)
