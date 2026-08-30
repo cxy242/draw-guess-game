@@ -379,7 +379,7 @@
 
   // ── 主入口 ──
   window.SpicyMonopoly = {
-    open: function(savedGs) {
+    open: function(savedGs, inviteCtx) {
       loadGameData().then(function() {
         var page = document.getElementById('spicy-monopoly-page')
         if (!page) {
@@ -388,6 +388,16 @@
           page.className = 'full-page'
           page.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;'
           if (window.openPage) window.openPage(page); else document.body.appendChild(page)
+        }
+        // 从邀请卡片进入：直接开始游戏
+        if (inviteCtx && inviteCtx.charId) {
+          var aiName = inviteCtx.p2Name || '对手'
+          var selfName = inviteCtx.p1Name || '我'
+          var settings = { flavor: 'medium', gameLength: 24, reverseChance: 0.3, redlines: [] }
+          clearGame()
+          gs = newGame(selfName, aiName, inviteCtx.charId, settings)
+          showIdentitySelect(page)
+          return
         }
         if (savedGs) { gs = savedGs; showGamePage() }
         else {

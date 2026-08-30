@@ -520,10 +520,10 @@
     if (action === 'enter' || action === 'view') {
       if (window.SpicyLoading) {
         window.SpicyLoading.show(function() {
-          if (window.SpicyMonopoly) window.SpicyMonopoly.open()
+          if (window.SpicyMonopoly) window.SpicyMonopoly.open(null, state)
         })
       } else {
-        if (window.SpicyMonopoly) window.SpicyMonopoly.open()
+        if (window.SpicyMonopoly) window.SpicyMonopoly.open(null, state)
       }
     } else if (action === 'reject') {
       updateInviteStatus(state.msgId, 'rejected')

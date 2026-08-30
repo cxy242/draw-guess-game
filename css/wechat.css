@@ -553,7 +553,7 @@ html.has-android-bottom-inset .chat-window-page {
 /* 消息区域 */
 .chat-messages {
   flex: 1; min-height: 0; overflow-y: auto;
-  padding: calc(var(--chat-header-height) + 12px) 20px calc(var(--chat-input-overlay-height) + 12px);
+  padding: calc(var(--chat-header-height) + 12px) 24px calc(var(--chat-input-overlay-height) + 12px);
   display: flex; flex-direction: column; gap: 12px;
   background-color: var(--c-surface);
   background-image: var(--chat-bg-image, none);

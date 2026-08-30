@@ -1,7 +1,7 @@
 // about.js — 关于本机页面
 // 依赖：main.js（免责声明）、settings.js（子页面构建器）
 
-var APP_VERSION = '1.9.9'
+var APP_VERSION = '2.0.0'
 
 window.openAboutDevicePage = function() {
   var existing = document.getElementById('sub-about-device')
