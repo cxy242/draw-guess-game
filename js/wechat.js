@@ -3809,7 +3809,7 @@ async function applyChatBeauty(chatPage, chatId) {
       return
     }
 
-    const scope = `#chat-window[data-chat-id="${cssAttrEscape(chatId)}"][data-beauty-preset="${cssAttrEscape(preset.id)}"]`
+    const scope = `#chat-window[data-chat-id="${cssAttrEscape(chatId)}"]`
     const scopedCss = preset.css ? scopeChatBeautyCss(preset.css, scope) : ''
     if (!isCurrent()) return
 
@@ -5007,6 +5007,8 @@ async function loadChatMessages(page, chatId, options = {}) {
   if (isAIReplyPending('chat', chatId)) applyTypingUI('chat', chatId, true)
   // 拉黑状态横幅
   await updateBlockBanner(container, chatId)
+  // 重新应用美化主题（确保每次刷新都生效）
+  try { await applyChatBeauty(page, chatId) } catch(e) {}
 }
 
 async function enhanceVisibleChat(page, chatId, charId) {
@@ -6015,7 +6017,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       }
       const notify = await getChatMsgNotifySettings(chatId)
       const thoughtTemplate = await getChatThoughtTemplateConfig(chatId)
-      let { thought, status, reply, pat, blockAction, narrative } = await generateAIReply(chatId, charId, {
+      let { thought, status, reply, pat, blockAction, narrative, chill } = await generateAIReply(chatId, charId, {
         replyRequirement: options.replyRequirement,
         idleTriggerMode: options.idleTriggerMode,
         idleMinutes: options.idleMinutes,
@@ -6090,10 +6092,11 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           }
         }
       }
-      if (firstMsgId && thought) {
-        const thoughtUpdate = { thought, thoughtAt: Date.now() }
+      if (firstMsgId && (thought || chill)) {
+        const thoughtUpdate = { thought: thought || '', thoughtAt: Date.now() }
+        if (chill) thoughtUpdate.chill = chill
         const displayChar = await getWechatDisplayCharacter(charId)
-        const renderedThought = renderThoughtForStorage(thought, thoughtTemplate, getWechatDisplayName(displayChar), displayChar)
+        const renderedThought = thought ? renderThoughtForStorage(thought, thoughtTemplate, getWechatDisplayName(displayChar), displayChar) : null
         if (renderedThought) Object.assign(thoughtUpdate, renderedThought)
         const updateThought = () => db.messages.update(firstMsgId, thoughtUpdate)
         if (window.runWanWanDBIdempotentWrite) await window.runWanWanDBIdempotentWrite(updateThought)
@@ -6188,6 +6191,8 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       if (cw) {
         try {
           await refreshChat(cw, { scrollToBottom: true })
+          // 确保美化主题在AI回复后仍然生效
+          await applyChatBeauty(cw, chatId)
         } catch (refreshError) {
           console.warn('[wechat] AI 回复结束刷新失败:', refreshError)
           if (!errorShown) showApiErrorModal(refreshError.message || String(refreshError), refreshError.diagnostic)
@@ -6252,7 +6257,29 @@ const _WECHAT_AI_JSON_SCHEMA = {
       chain: { type: 'string', description: '思维链；若无则空字符串' },
       thought: { type: 'string', description: '短内心独白' },
       status: { type: 'string', description: '更新当前状态，必须简洁，约1-15字' },
-      reply: { type: 'string', description: '发给用户的内容，多行用换行' }
+      reply: { type: 'string', description: '发给用户的内容，多行用换行' },
+      run_result_summary: { type: 'string', description: '想起对方的原因和场景记录' },
+      actual_behavior_log: { type: 'string', description: '此刻脑内的画面或场景' },
+      result_quote: { type: 'string', description: '此刻脑子里最先浮上来的一句话' },
+      night_log_entries1: { type: 'string', description: '02:17活动记录' },
+      night_log_entries2: { type: 'string', description: '02:32活动记录' },
+      night_log_entries3: { type: 'string', description: '03:06活动记录' },
+      night_log_entries4: { type: 'string', description: '03:08活动记录' },
+      night_report_entries1: { type: 'string', description: '02:17深层心理活动' },
+      night_report_entries2: { type: 'string', description: '02:32深层心理活动' },
+      night_report_entries3: { type: 'string', description: '03:06深层心理活动' },
+      night_report_entries4: { type: 'string', description: '03:08深层心理活动' },
+      night_report_summary: { type: 'string', description: '深夜碎碎念' },
+      night_report_quote: { type: 'string', description: '事后最直接的一句话' },
+      unsent_draft: { type: 'string', description: '未发送的消息草稿' },
+      draft_last_line: { type: 'string', description: '草稿光标最后停留位置' },
+      draft_recovery_note: { type: 'string', description: '草稿恢复分析' },
+      account_1_messages: { type: 'string', description: '原账号最后几条消息' },
+      account_2_messages: { type: 'string', description: '小号消息' },
+      account_3_messages: { type: 'string', description: '另一个小号消息' },
+      photo_description: { type: 'string', description: '照片描述' },
+      hidden_fragment_1: { type: 'string', description: '隐藏内容片段1' },
+      hidden_fragment_2: { type: 'string', description: '隐藏内容片段2' }
     },
     required: ['reply'],
     additionalProperties: false
@@ -6438,7 +6465,24 @@ function normalizeWechatAIFields(parsed) {
   if (blockAction !== 'block_user' && blockAction !== 'unblock_user') blockAction = ''
   let narrative = typeof parsed.narrative === 'string' ? parsed.narrative.trim() : ''
 
-  return { thought, status, reply, pat, blockAction, narrative }
+  // Chill心声字段
+  var chillFields = [
+    'run_result_summary', 'actual_behavior_log', 'result_quote',
+    'night_log_entries1', 'night_log_entries2', 'night_log_entries3', 'night_log_entries4',
+    'night_report_entries1', 'night_report_entries2', 'night_report_entries3', 'night_report_entries4',
+    'night_report_summary', 'night_report_quote',
+    'unsent_draft', 'draft_last_line', 'draft_recovery_note',
+    'account_1_messages', 'account_2_messages', 'account_3_messages', 'photo_description',
+    'hidden_fragment_1', 'hidden_fragment_2'
+  ]
+  var chill = {}
+  var hasChill = false
+  chillFields.forEach(function(key) {
+    var val = typeof parsed[key] === 'string' ? parsed[key].trim() : ''
+    if (val) { chill[key] = val; hasChill = true }
+  })
+
+  return { thought, status, reply, pat, blockAction, narrative, chill: hasChill ? chill : null }
 }
 
 // 组装报错诊断信息（结合 fetchAI 记录的最近一次响应元数据）
@@ -8114,9 +8158,25 @@ ${memoryCtx}
 // 系统提示词Part5：输出格式
 function buildSystemPart5(charName, userName, thoughtTemplate, blockSettings, blockState) {
   const thoughtRule = normalizeThoughtTemplateConfig(thoughtTemplate)
+  const chillFieldDoc = `此外，每轮还必须生成以下「Chill心声」字段（全部为字符串，可为空字符串""，但至少填3个非空字段）：
+- "run_result_summary"：${charName}此刻想起对方的具体原因、开始时间、持续多久、所在地点（50字以内）
+- "actual_behavior_log"：${charName}此刻脑子里的画面或场景记录（100字以内）
+- "result_quote"：${charName}此刻脑子里最先浮上来的一句话（35字以内）
+- "night_log_entries1"到"night_log_entries4"：四个时间点的活动记录（02:17/02:32/03:06/03:08），每条35字以内
+- "night_report_entries1"到"night_report_entries4"：对应时间的深层心理活动，每条35字以内
+- "night_report_summary"：深夜碎碎念，120字以内
+- "night_report_quote"：事后最直接的一句话，15字以内
+- "unsent_draft"：一段写给对方但最终没有发出的消息草稿，140字以内
+- "draft_last_line"：草稿光标最后停留的位置，10字以内不加标点
+- "draft_recovery_note"：用冷静语气分析这段草稿，100字以内
+- "account_1_messages"：被拉黑前发出的最后几条消息，用/n分隔
+- "account_2_messages"：换小号发送的消息，用/n分隔
+- "account_3_messages"：另一个小号的消息，用/n分隔
+- "photo_description"：描述发送的照片内容，50字以内
+- "hidden_fragment_1"和"hidden_fragment_2"：两段隐藏的私密内容片段，每段180字以内`
   const thoughtLine = thoughtRule.enabled && thoughtRule.promptSuffix.trim()
-    ? `- "thought"：${charName}此刻真实的心声原文，至少10个字，${_WECHAT_THOUGHT_MAX}字以内。**每轮必须更新，不得为空。**必须额外遵守这个心声格式要求：${thoughtRule.promptSuffix.trim()}。这个格式只允许写进 JSON 顶层字段 "thought"，**禁止写进 reply**。若 chain 非空，thought 须与 chain 一致、更短。`
-    : `- "thought"：${charName}此刻真实的内心独白，第一人称，至少10个字，${_WECHAT_THOUGHT_MAX}字以内。**每轮必须更新，不得为空。**若 chain 非空，thought 须与 chain 一致、更短。`
+    ? `- "thought"：${charName}此刻真实的心声原文，至少10个字，${_WECHAT_THOUGHT_MAX}字以内。**每轮必须更新，不得为空。**必须额外遵守这个心声格式要求：${thoughtRule.promptSuffix.trim()}。这个格式只允许写进 JSON 顶层字段 "thought"，**禁止写进 reply**。若 chain 非空，thought 须与 chain 一致、更短。\n${chillFieldDoc}`
+    : `- "thought"：${charName}此刻真实的内心独白，第一人称，至少10个字，${_WECHAT_THOUGHT_MAX}字以内。**每轮必须更新，不得为空。**若 chain 非空，thought 须与 chain 一致、更短。\n${chillFieldDoc}`
   const bCfg = normalizeChatBlockSettings(blockSettings)
   const blockFields = bCfg.enabled
     ? `\n- "block_action"：可选字段。当你决定拉黑用户时填 "block_user"，当你决定取消拉黑时填 "unblock_user"，不需要操作时填 ""（空字符串）。这是一个真实执行通道，填了就会真的拉黑/取消拉黑。${blockState?.aiBlockedUser ? '\n⚠️ 你当前已拉黑用户，正在气头上。如果用户来道歉哄你、你决定原谅他，就填 "unblock_user" 来取消拉黑。如果你自己消气了也可以主动取消。' : '不要滥用这个功能，只在真正生气时才拉黑。'}`
@@ -9711,6 +9771,11 @@ async function deleteMsg(msgId, msg, context) {
 }
 
 function buildThoughtDisplayHTML(msg, templateConfig, charName, char) {
+  // 如果有Chill心声字段，优先用Chill模板渲染
+  if (msg?.chill && window.ChillThought) {
+    var chillHtml = window.ChillThought.render(msg.chill, charName, char)
+    if (chillHtml) return chillHtml
+  }
   if (!msg?.thought) return ''
   const snapshot = msg.thoughtSnapshot?.regexPattern && msg.thoughtSnapshot?.replacePattern
     ? {
@@ -17502,6 +17567,9 @@ function bindChatBeautyPickerEvents(settingsPage, chatId, chatPage) {
           style.textContent = scopeChatBeautyCss(preset.css, scope)
           document.head.appendChild(style)
           chatPage.dataset.beautyPreset = preset.id
+          // 确保chat-window元素也有data-beauty-preset
+          var chatWindow = chatPage.querySelector('#chat-window[data-chat-id="' + chatId + '"]') || chatPage
+          if(chatWindow) chatWindow.dataset.beautyPreset = preset.id
         } else {
           delete chatPage.dataset.beautyPreset
         }

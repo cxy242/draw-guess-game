@@ -1,0 +1,132 @@
+/* chill-thought.css — Chill心声展示样式 */
+.chill-thought {
+  --ct-bg: #f2f2f0;
+  --ct-surface: #fff;
+  --ct-text: #191919;
+  --ct-sub: #70706c;
+  --ct-tertiary: #a2a29d;
+  --ct-line: rgba(25,25,25,.1);
+  --ct-accent: #b5121b;
+  --ct-radius: 12px;
+  font-family: -apple-system, "PingFang SC", sans-serif;
+  color: var(--ct-text);
+  padding: 0;
+}
+.chill-thought * { box-sizing: border-box; }
+.chill-thought-section {
+  background: var(--ct-surface);
+  border-radius: var(--ct-radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+  border: 1px solid var(--ct-line);
+}
+.chill-thought-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--ct-line);
+}
+.chill-thought-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ct-sub);
+}
+.chill-thought-header .ct-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--ct-accent);
+}
+.chill-thought-body {
+  padding: 12px 14px;
+}
+.chill-thought-body p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ct-text);
+}
+.chill-thought-body p:last-child { margin-bottom: 0; }
+.chill-thought-body .ct-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--ct-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: block;
+}
+.chill-thought-body .ct-quote {
+  border-left: 2px solid var(--ct-accent);
+  padding-left: 10px;
+  margin: 8px 0;
+  color: var(--ct-sub);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.chill-thought-body .ct-timeline-item {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ct-line);
+}
+.chill-thought-body .ct-timeline-item:last-child { border-bottom: none; }
+.chill-thought-body .ct-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ct-tertiary);
+  min-width: 40px;
+  flex-shrink: 0;
+}
+.chill-thought-body .ct-timeline-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ct-text);
+}
+.chill-thought-body .ct-msg-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ct-line);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ct-text);
+}
+.chill-thought-body .ct-msg-item:last-child { border-bottom: none; }
+.chill-thought-body .ct-hidden-block {
+  background: rgba(181,18,27,.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 6px 0;
+}
+.chill-thought-body .ct-hidden-block p {
+  color: var(--ct-text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.chill-thought-body .ct-draft-block {
+  background: rgba(0,0,0,.03);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 6px 0;
+  position: relative;
+}
+.chill-thought-body .ct-draft-cursor {
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--ct-text);
+  animation: ct-blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+@keyframes ct-blink { 50% { opacity: 0; } }
+.chill-thought-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--ct-tertiary);
+  font-size: 13px;
+}
