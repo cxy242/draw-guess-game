@@ -1013,7 +1013,7 @@ function buildLoginHTML(options = {}) {
           <i class="fa-brands fa-weixin"></i>
         </div>
         <div class="wl-title">登录微信</div>
-        <div class="wl-subtitle">弯弯</div>
+        <div class="wl-subtitle">月月</div>
       </div>
       ${buildLoginFormHTML({ includeRecover })}
     </div>
@@ -1058,7 +1058,7 @@ function buildLoginFormHTML(options = {}) {
       </div>
     </div>
     <div id="wl-error" class="wl-error" style="display:none"></div>
-    <div class="wl-agree">我已阅读并同意<span class="wl-agree-link">《弯弯服务协议》</span></div>
+    <div class="wl-agree">我已阅读并同意<span class="wl-agree-link">《月月服务协议》</span></div>
     <button class="wl-submit-btn" id="wl-submit-btn" onclick="submitWechatLogin()">登录</button>
     <button class="wl-back-btn" onclick="window.closePage('wechat-login-page')">返回</button>
     ${bottomLinks}
@@ -17480,6 +17480,34 @@ function bindChatBeautyPickerEvents(settingsPage, chatId, chatPage) {
   if (manageBtn) {
     manageBtn.addEventListener('click', () => openChatBeautyPresetsPage())
   }
+  // 选择美化预设后实时预览
+  const radios = settingsPage.querySelectorAll('input[name="cs-chat-beauty-preset"]')
+  radios.forEach(function(radio) {
+    radio.addEventListener('change', async function() {
+      // 标记为已修改
+      setChatSettingsDirty(settingsPage, true)
+      // 立即应用预览
+      if (chatPage && document.body.contains(chatPage)) {
+        const presetId = radio.value
+        // 临时保存并应用
+        const presets = await getChatBeautyPresets()
+        const preset = presetId ? presets.find(function(p) { return p.id === presetId }) : null
+        // 移除旧样式
+        const oldStyle = document.getElementById('chat-beauty-style-' + chatId)
+        if (oldStyle) oldStyle.remove()
+        if (preset && preset.css) {
+          const scope = '#chat-window[data-chat-id="' + chatId + '"]'
+          const style = document.createElement('style')
+          style.id = 'chat-beauty-style-' + chatId
+          style.textContent = scopeChatBeautyCss(preset.css, scope)
+          document.head.appendChild(style)
+          chatPage.dataset.beautyPreset = preset.id
+        } else {
+          delete chatPage.dataset.beautyPreset
+        }
+      }
+    })
+  })
 }
 
 function bindMemoryEvents(settingsPage, chatId) {
@@ -17752,7 +17780,7 @@ function exportThoughtPreset(preset) {
     regexPattern: String(preset?.regexPattern || ''),
     replacePattern: String(preset?.replacePattern || '')
   }
-  const filename = `弯弯心声_${sanitizeTemplateFilenamePart(preset?.name)}.js`
+  const filename = `月月心声_${sanitizeTemplateFilenamePart(preset?.name)}.js`
   downloadTemplateFile(`export default ${JSON.stringify(payload, null, 2)};\n`, filename, 'application/javascript;charset=utf-8')
   window.toast('心声模板已导出')
 }
@@ -17761,7 +17789,7 @@ function parseThoughtPresetModule(text) {
   const source = String(text || '').trim()
   if (!source) throw new Error('文件内容为空')
   const match = source.match(/^export\s+default\s+([\s\S]*?)\s*;?$/)
-  if (!match) throw new Error('不是有效的弯弯心声文件')
+  if (!match) throw new Error('不是有效的月月心声文件')
   let payload
   try {
     payload = JSON.parse(match[1])
@@ -17787,7 +17815,7 @@ async function importThoughtPresetFile(file, page) {
       throw new Error('心声文件中的正则无效')
     }
   }
-  const name = getImportedTemplateName(file.name, '.js', '弯弯心声_')
+  const name = getImportedTemplateName(file.name, '.js', '月月心声_')
   await addThoughtPreset({
     name,
     promptSuffix: payload.promptSuffix,
@@ -18005,7 +18033,7 @@ function updatePresetEditorPreview(page) {
 // ===== 聊天美化模板管理（我页） =====
 
 function exportChatBeautyPreset(preset) {
-  const filename = `弯弯美化_${sanitizeTemplateFilenamePart(preset?.name)}.css`
+  const filename = `月月美化_${sanitizeTemplateFilenamePart(preset?.name)}.css`
   downloadTemplateFile(String(preset?.css || ''), filename, 'text/css;charset=utf-8')
   window.toast('美化模板已导出')
 }
@@ -18014,7 +18042,7 @@ async function importChatBeautyPresetFile(file, page) {
   if (!/\.css$/i.test(file?.name || '')) throw new Error('请选择 CSS 文件')
   const css = await file.text()
   if (!css.trim()) throw new Error('文件内容为空')
-  const name = getImportedTemplateName(file.name, '.css', '弯弯美化_')
+  const name = getImportedTemplateName(file.name, '.css', '月月美化_')
   await addChatBeautyPreset({ name, css })
   await renderChatBeautyPresetsList(page)
   window.toast(`已导入美化模板：${name}`)
@@ -18132,7 +18160,7 @@ function confirmDeleteChatBeautyPreset(page, presetId) {
 
 function buildChatBeautyPreviewHTML() {
   const now = Date.now()
-  const charName = '弯弯'
+  const charName = '月月'
   const avatarHtml = '<span>弯</span>'
   const selfAvatarHtml = '<span>我</span>'
   const timeSettings = { enabled: true, mode: 'center' }
@@ -18154,7 +18182,7 @@ function buildChatBeautyPreviewHTML() {
     <div class="chat-input-area">
       <div class="quote-compose" style="display:none">
         <div class="quote-compose-line">
-          <span class="quote-compose-name">弯弯</span>
+          <span class="quote-compose-name">月月</span>
           <span class="quote-compose-text">这是一条待引用的预览消息</span>
         </div>
         <button class="quote-compose-close" aria-label="取消引用">
@@ -19286,7 +19314,7 @@ function buildWalletPageHTML(walletData, hasBankCard, user) {
         <button class="wallet-card-row" id="btn-saving-card" type="button">
           <div class="wallet-card-icon saving"><i class="fa-solid fa-coins"></i></div>
           <div class="wallet-card-info">
-            <div class="wallet-card-name">弯弯银行 <span class="wallet-card-type-tag saving">Saving</span></div>
+            <div class="wallet-card-name">月月银行 <span class="wallet-card-type-tag saving">Saving</span></div>
             <div class="wallet-card-number">${showCardNumbers ? '**** **** ' + savingLast4 : ''}</div>
           </div>
           <i class="fa fa-angle-right wallet-card-arrow"></i>
@@ -19294,7 +19322,7 @@ function buildWalletPageHTML(walletData, hasBankCard, user) {
         <button class="wallet-card-row" id="btn-checking-card" type="button">
           <div class="wallet-card-icon checking"><i class="fa-solid fa-money-bill"></i></div>
           <div class="wallet-card-info">
-            <div class="wallet-card-name">弯弯银行 <span class="wallet-card-type-tag checking">Checking</span></div>
+            <div class="wallet-card-name">月月银行 <span class="wallet-card-type-tag checking">Checking</span></div>
             <div class="wallet-card-number">${showCardNumbers ? '**** **** ' + checkingLast4 : ''}</div>
           </div>
           <i class="fa fa-angle-right wallet-card-arrow"></i>
@@ -19769,7 +19797,7 @@ async function openBankDetailPage(type) {
       <div class="bank-detail-info">
         <div class="bank-info-row">
           <span class="bank-info-label">银行名称</span>
-          <span class="bank-info-value">弯弯银行</span>
+          <span class="bank-info-value">月月银行</span>
         </div>
         <div class="bank-info-row">
           <span class="bank-info-label">账户类型</span>
@@ -21221,7 +21249,7 @@ async function compressOnlineAvatar(source) {
     }
     return onlineAvatarDataBytes(result) <= 100 * 1024 ? result : ''
   } catch (err) {
-    console.warn('[弯弯联机] 头像压缩失败:', err)
+    console.warn('[月月联机] 头像压缩失败:', err)
     return ''
   }
 }
