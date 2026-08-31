@@ -9773,7 +9773,7 @@ async function deleteMsg(msgId, msg, context) {
 function buildThoughtDisplayHTML(msg, templateConfig, charName, char) {
   // 如果有Chill心声字段，优先用Chill模板渲染
   if (msg?.chill && window.ChillThought) {
-    var chillHtml = window.ChillThought.render(msg.chill, charName, char)
+    var chillHtml = window.ChillThought.render(msg, charName, char)
     if (chillHtml) return chillHtml
   }
   if (!msg?.thought) return ''
