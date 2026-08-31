@@ -12,7 +12,7 @@ var SETTINGS_HTML =
       '<div class="account-row clickable" id="row-account">' +
         '<div class="account-avatar" id="account-avatar">弯</div>' +
         '<div class="account-info">' +
-          '<div class="account-name" id="account-name">弯弯</div>' +
+          '<div class="account-name" id="account-name">月月</div>' +
           '<div class="account-sub" id="account-sub">Apple Account, iCloud, and more</div>' +
         '</div>' +
         '<i class="fa fa-angle-right row-chevron"></i>' +
@@ -436,12 +436,12 @@ async function initNotifSection(page) {
 
     var firstSent = false
     if (window.sendWanWanNotification) {
-      firstSent = await window.sendWanWanNotification('淡淡的就会顺顺的…', { title: '弯弯' })
+      firstSent = await window.sendWanWanNotification('淡淡的就会顺顺的…', { title: '月月' })
     } else if ('Notification' in window) {
       var permission = Notification.permission
       if (permission === 'default') permission = await Notification.requestPermission()
       if (permission === 'granted') {
-        new Notification('弯弯', { body: '淡淡的就会顺顺的…', icon: 'img/wanwan.png' })
+        new Notification('月月', { body: '淡淡的就会顺顺的…', icon: 'img/wanwan.png' })
         firstSent = true
       }
     }
@@ -452,9 +452,9 @@ async function initNotifSection(page) {
     }
     setTimeout(function() {
       if (window.sendWanWanNotification) {
-        window.sendWanWanNotification('弯弯测试中…', { title: '弯弯' })
+        window.sendWanWanNotification('月月测试中…', { title: '月月' })
       } else if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('弯弯', { body: '弯弯测试中…', icon: 'img/wanwan.png' })
+        new Notification('月月', { body: '月月测试中…', icon: 'img/wanwan.png' })
       }
     }, 5000)
   })
@@ -504,7 +504,7 @@ function startKeepAlive() {
     })
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: '弯弯',
+        title: '月月',
         artist: '',
         album: '',
         artwork: [
@@ -859,7 +859,7 @@ async function initAccountCard(page) {
     db.config.get('profileSub'),
     db.config.get('profileAvatar')
   ])
-  var name = results[0] ? results[0].value : '弯弯'
+  var name = results[0] ? results[0].value : '月月'
   var sub = results[1] ? results[1].value : 'Apple Account, iCloud, and more'
   var avatar = results[2] ? results[2].value : null
   var nameEl = page.querySelector('#account-name')
@@ -900,7 +900,7 @@ async function openProfilePage(settingsPage) {
     db.config.get('profileSub'),
     db.config.get('profileAvatar')
   ])
-  var curName = results[0] ? results[0].value : '弯弯'
+  var curName = results[0] ? results[0].value : '月月'
   var curSub = results[1] ? results[1].value : 'Apple Account, iCloud, and more'
   var curAvatar = results[2] ? results[2].value : null
   var html = buildProfileHTML(curName, curSub, curAvatar)
@@ -958,7 +958,7 @@ function initProfilePage(page, settingsPage, curAvatar, curName) {
 function bindProfileResetAvatar(page, settingsPage, avatarLarge) {
   page.querySelector('#btn-reset-avatar').addEventListener('click', async function() {
     await db.config.delete('profileAvatar')
-    var nameVal = page.querySelector('#profile-name-input').value || '弯弯'
+    var nameVal = page.querySelector('#profile-name-input').value || '月月'
     avatarLarge.style.backgroundImage = ''
     avatarLarge.textContent = nameVal[0]
     refreshAccountCard(settingsPage)
@@ -969,7 +969,7 @@ function bindProfileResetAvatar(page, settingsPage, avatarLarge) {
 // ===== 保存名字和副标题 =====
 function bindProfileSave(page, settingsPage, avatarLarge) {
   page.querySelector('#btn-save-profile').addEventListener('click', async function() {
-    var newName = page.querySelector('#profile-name-input').value.trim() || '弯弯'
+    var newName = page.querySelector('#profile-name-input').value.trim() || '月月'
     var newSub = page.querySelector('#profile-sub-input').value.trim() || 'Apple Account, iCloud, and more'
     await Promise.all([
       db.config.put({ key: 'profileName', value: newName }),
@@ -991,7 +991,7 @@ async function refreshAccountCard(settingsPage) {
     db.config.get('profileSub'),
     db.config.get('profileAvatar')
   ])
-  var name = results[0] ? results[0].value : '弯弯'
+  var name = results[0] ? results[0].value : '月月'
   var sub = results[1] ? results[1].value : 'Apple Account, iCloud, and more'
   var avatar = results[2] ? results[2].value : null
   var nameEl = settingsPage.querySelector('#account-name')
@@ -1008,7 +1008,7 @@ function openFontPage() {
     '<div class="setting-section">' +
       '<div class="section-title">当前字体</div>' +
       '<div class="font-preview-box" id="font-preview-box">' +
-        '<div class="font-preview-text" id="font-preview-text">弯弯 — 预览文字 AaBbCc 123</div>' +
+        '<div class="font-preview-text" id="font-preview-text">月月 — 预览文字 AaBbCc 123</div>' +
       '</div>' +
     '</div>' +
     buildFontAddSection() +
@@ -1927,6 +1927,14 @@ async function renderFloatingBall() {
   }
   if (!config.enabled) {
     removeFloatingBall()
+    if (window.PetBall) PetBall.hide()
+    return
+  }
+  // 优先使用宠物模式
+  if (window.PetBall) {
+    removeFloatingBall()
+    closeFloatingBallPresetPopup()
+    await PetBall.create()
     return
   }
   var app = document.getElementById('app')
@@ -3141,6 +3149,8 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
         error: buildApiConsoleErrorText('', null, cfg.key, networkError && networkError.message)
       })
     }
+    if (window.PetBall) PetBall.setApiStatus('err')
+    if (window.PetBall) PetBall.addApiLog({ model: cfg.model || '?', ok: false, time: new Date().toLocaleTimeString() })
     throw networkError
   }
 
@@ -3159,6 +3169,8 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
     if (response.ok) parseError = new Error('API 返回了空响应')
   }
   if (parseError && response.ok) {
+    if (window.PetBall) PetBall.setApiStatus('err')
+    if (window.PetBall) PetBall.addApiLog({ model: cfg.model || '?', ok: false, time: new Date().toLocaleTimeString() })
     if (captureEnabled && await isApiConsoleCaptureEnabled()) {
       addApiConsoleRecord({
         id: 'api-' + startedAt + '-' + Math.random().toString(36).slice(2),
@@ -3200,8 +3212,15 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
     var httpError = new Error('HTTP ' + response.status + (errorDetail ? '：' + errorDetail.slice(0, 300) : ''))
     httpError.status = response.status
     httpError.detail = errorDetail
+    if (window.PetBall) PetBall.setApiStatus('err')
+    if (window.PetBall) PetBall.addApiLog({ model: cfg.model || '?', ok: false, time: new Date().toLocaleTimeString() })
     throw httpError
   }
+
+  // API成功
+  if (window.PetBall) PetBall.setApiStatus('ok')
+  if (window.PetBall) PetBall.addApiLog({ model: cfg.model || '?', ok: true, time: new Date().toLocaleTimeString() })
+  if (window.PetBall) PetBall.happy()
 
   if (captureEnabled && await isApiConsoleCaptureEnabled()) {
     var message = parsed && parsed.choices && parsed.choices[0] && parsed.choices[0].message

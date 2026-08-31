@@ -1,0 +1,462 @@
+/* pet-ball.css — CSS宠物悬浮球 */
+.pet-ball-wrap {
+  position: fixed;
+  z-index: 9998;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transition: transform .15s;
+}
+.pet-ball-wrap:active { cursor: grabbing; }
+.pet-ball-wrap.is-dragging { cursor: grabbing; transform: scale(1.08); }
+
+/* === API状态指示灯 === */
+.pet-api-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #888;
+  border: 1.5px solid rgba(0,0,0,.3);
+  z-index: 5;
+  transition: background .3s;
+}
+.pet-api-dot.ok { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+.pet-api-dot.err { background: #f44336; box-shadow: 0 0 6px #f44336; animation: pet-dot-pulse .6s ease 2; }
+@keyframes pet-dot-pulse { 50% { transform: scale(1.4); } }
+
+/* === 小猫 === */
+.pet-cat {
+  --pet-c: #f5d0a9;
+  --pet-c2: #f0b87a;
+  --pet-c3: #3a2a1a;
+  --pet-pink: #f8a4b8;
+  width: 52px;
+  height: 52px;
+  position: relative;
+}
+/* 耳朵 */
+.pet-cat .ear {
+  position: absolute;
+  top: 0;
+  width: 14px;
+  height: 16px;
+  background: var(--pet-c);
+  border-radius: 50% 50% 0 0;
+  z-index: 1;
+}
+.pet-cat .ear::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 10px;
+  background: var(--pet-pink);
+  border-radius: 50% 50% 0 0;
+}
+.pet-cat .ear.l { left: 4px; transform: rotate(-12deg); }
+.pet-cat .ear.r { right: 4px; transform: rotate(12deg); }
+/* 头 */
+.pet-cat .head {
+  position: absolute;
+  top: 8px;
+  left: 4px;
+  width: 44px;
+  height: 38px;
+  background: var(--pet-c);
+  border-radius: 50%;
+  z-index: 2;
+}
+/* 眼睛 */
+.pet-cat .eye {
+  position: absolute;
+  top: 18px;
+  width: 7px;
+  height: 8px;
+  background: var(--pet-c3);
+  border-radius: 50%;
+  z-index: 3;
+  transition: height .15s;
+}
+.pet-cat .eye.l { left: 13px; }
+.pet-cat .eye.r { right: 13px; }
+/* 眨眼 */
+.pet-ball-wrap.blink .pet-cat .eye { height: 2px; }
+/* 鼻子 */
+.pet-cat .nose {
+  position: absolute;
+  top: 27px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 3.5px;
+  background: var(--pet-pink);
+  border-radius: 50% 50% 40% 40%;
+  z-index: 3;
+}
+/* 嘴 */
+.pet-cat .mouth {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 6px;
+  z-index: 3;
+  border: none;
+  overflow: hidden;
+}
+.pet-cat .mouth::before, .pet-cat .mouth::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 6px;
+  border-bottom: 1.5px solid var(--pet-c3);
+  border-radius: 0 0 50% 50%;
+}
+.pet-cat .mouth::before { left: 0; }
+.pet-cat .mouth::after { right: 0; }
+/* 胡须 */
+.pet-cat .whisker {
+  position: absolute;
+  top: 28px;
+  width: 12px;
+  height: 1px;
+  background: var(--pet-c3);
+  opacity: .5;
+  z-index: 3;
+}
+.pet-cat .whisker.wl1 { left: -2px; transform: rotate(-8deg); }
+.pet-cat .whisker.wl2 { left: -3px; top: 31px; transform: rotate(5deg); }
+.pet-cat .whisker.wr1 { right: -2px; transform: rotate(8deg); }
+.pet-cat .whisker.wr2 { right: -3px; top: 31px; transform: rotate(-5deg); }
+/* 腮红 */
+.pet-cat .blush {
+  position: absolute;
+  top: 26px;
+  width: 8px;
+  height: 5px;
+  background: var(--pet-pink);
+  border-radius: 50%;
+  opacity: .35;
+  z-index: 3;
+}
+.pet-cat .blush.bl { left: 6px; }
+.pet-cat .blush.br { right: 6px; }
+/* 尾巴 */
+.pet-cat .tail {
+  position: absolute;
+  bottom: 2px;
+  right: -4px;
+  width: 16px;
+  height: 10px;
+  border: 3px solid var(--pet-c2);
+  border-radius: 0 50% 50% 0;
+  border-left: none;
+  transform-origin: left center;
+  animation: pet-cat-tail 2s ease-in-out infinite;
+}
+@keyframes pet-cat-tail {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(15deg); }
+}
+
+/* === 狐狸 === */
+.pet-fox {
+  --pet-c: #e8723a;
+  --pet-c2: #f5a560;
+  --pet-c3: #fff;
+  --pet-dark: #3a2a1a;
+  width: 52px;
+  height: 52px;
+  position: relative;
+}
+/* 耳朵 */
+.pet-fox .ear {
+  position: absolute;
+  top: -2px;
+  width: 16px;
+  height: 20px;
+  background: var(--pet-c);
+  border-radius: 50% 50% 0 0;
+  z-index: 1;
+}
+.pet-fox .ear::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  width: 8px;
+  height: 12px;
+  background: var(--pet-c3);
+  border-radius: 50% 50% 0 0;
+}
+.pet-fox .ear.l { left: 2px; transform: rotate(-15deg); }
+.pet-fox .ear.r { right: 2px; transform: rotate(15deg); }
+/* 头 */
+.pet-fox .head {
+  position: absolute;
+  top: 10px;
+  left: 4px;
+  width: 44px;
+  height: 36px;
+  background: var(--pet-c);
+  border-radius: 50%;
+  z-index: 2;
+  overflow: hidden;
+}
+/* 白色下巴 */
+.pet-fox .head::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 18px;
+  background: var(--pet-c3);
+  border-radius: 50% 50% 45% 45%;
+}
+/* 眼睛 */
+.pet-fox .eye {
+  position: absolute;
+  top: 18px;
+  width: 6px;
+  height: 7px;
+  background: var(--pet-dark);
+  border-radius: 50%;
+  z-index: 3;
+  transition: height .15s;
+}
+.pet-fox .eye.l { left: 13px; }
+.pet-fox .eye.r { right: 13px; }
+/* 眼睛高光 */
+.pet-fox .eye::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+}
+.pet-ball-wrap.blink .pet-fox .eye { height: 2px; }
+/* 鼻子 */
+.pet-fox .nose {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 4px;
+  background: #2a1a0a;
+  border-radius: 50%;
+  z-index: 3;
+}
+/* 嘴 */
+.pet-fox .mouth {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 5px;
+  z-index: 3;
+  overflow: hidden;
+}
+.pet-fox .mouth::before, .pet-fox .mouth::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 5px;
+  border-bottom: 1.5px solid var(--pet-dark);
+  border-radius: 0 0 50% 50%;
+}
+.pet-fox .mouth::before { left: 0; }
+.pet-fox .mouth::after { right: 0; }
+/* 尾巴 */
+.pet-fox .tail {
+  position: absolute;
+  bottom: 0;
+  right: -6px;
+  width: 18px;
+  height: 14px;
+  background: var(--pet-c);
+  border-radius: 50% 80% 50% 30%;
+  transform-origin: left center;
+  animation: pet-fox-tail 2.5s ease-in-out infinite;
+}
+.pet-fox .tail::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 0;
+  width: 8px;
+  height: 10px;
+  background: var(--pet-c3);
+  border-radius: 50% 80% 50% 30%;
+}
+@keyframes pet-fox-tail {
+  0%, 100% { transform: rotate(-8deg) scaleX(1); }
+  50% { transform: rotate(12deg) scaleX(1.05); }
+}
+
+/* === 互动表情气泡 === */
+.pet-mood {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.75);
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+  z-index: 10;
+}
+.pet-mood.show { opacity: 1; }
+.pet-mood::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid rgba(0,0,0,.75);
+}
+
+/* === 弹出面板 === */
+.pet-popup {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(20,20,30,.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 14px;
+  padding: 14px;
+  min-width: 200px;
+  max-width: 280px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  border: 1px solid rgba(255,255,255,.08);
+  color: #e0e0e0;
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+}
+.pet-popup.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.pet-popup-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pet-popup-section {
+  margin-bottom: 10px;
+}
+.pet-popup-section:last-child { margin-bottom: 0; }
+.pet-popup-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #888;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.pet-model-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background .15s, border-color .15s;
+}
+.pet-model-btn:hover { background: rgba(255,255,255,.08); }
+.pet-model-btn.active {
+  background: rgba(100,180,255,.12);
+  border-color: rgba(100,180,255,.3);
+  color: #fff;
+}
+.pet-model-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pet-model-dot.ok { background: #4caf50; }
+.pet-model-dot.err { background: #f44336; }
+.pet-model-dot.idle { background: #888; }
+.pet-api-log {
+  max-height: 100px;
+  overflow-y: auto;
+  font-size: 10px;
+  color: #999;
+  line-height: 1.5;
+}
+.pet-api-log .ok { color: #4caf50; }
+.pet-api-log .err { color: #f44336; }
+.pet-api-log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+
+/* === 宠物待机动画 === */
+@keyframes pet-idle-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.pet-ball-wrap:not(.is-dragging):not(.pet-popup-open) .pet-idle-target {
+  animation: pet-idle-bounce 3s ease-in-out infinite;
+}
+
+/* === 被戳反应 === */
+.pet-ball-wrap.poke .pet-idle-target {
+  animation: pet-poke .4s ease;
+}
+@keyframes pet-poke {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.15); }
+  60% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* === 开心反应 === */
+.pet-ball-wrap.happy .pet-idle-target {
+  animation: pet-happy .5s ease 2;
+}
+@keyframes pet-happy {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+
+/* === 惊讶反应 === */
+.pet-ball-wrap.surprised .pet-cat .eye,
+.pet-ball-wrap.surprised .pet-fox .eye {
+  height: 10px !important;
+  width: 8px !important;
+}
