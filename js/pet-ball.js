@@ -262,9 +262,8 @@ function bindPetEvents(wrap, popup, config) {
   var moved = false;
 
   function onStart(e) {
-    var touch = e.touches ? e.touches[0] : e;
-    startX = touch.clientX;
-    startY = touch.clientY;
+    startX = e.clientX;
+    startY = e.clientY;
     startLeft = parseFloat(wrap.style.left) || 0;
     startTop = parseFloat(wrap.style.top) || 0;
     isDragging = true;
@@ -274,9 +273,8 @@ function bindPetEvents(wrap, popup, config) {
 
   function onMove(e) {
     if (!isDragging) return;
-    var touch = e.touches ? e.touches[0] : e;
-    var dx = touch.clientX - startX;
-    var dy = touch.clientY - startY;
+    var dx = e.clientX - startX;
+    var dy = e.clientY - startY;
     if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) moved = true;
     if (!moved) return;
     var newLeft = Math.max(0, Math.min(window.innerWidth - 60, startLeft + dx));
@@ -298,12 +296,10 @@ function bindPetEvents(wrap, popup, config) {
     savePetPosition(wrap, config);
   }
 
-  wrap.addEventListener('mousedown', onStart);
-  wrap.addEventListener('touchstart', onStart, { passive: true });
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('touchmove', onMove, { passive: false });
-  document.addEventListener('mouseup', onEnd);
-  document.addEventListener('touchend', onEnd);
+  wrap.addEventListener('pointerdown', onStart, { passive: false });
+  document.addEventListener('pointermove', onMove, { passive: false });
+  document.addEventListener('pointerup', onEnd);
+  document.addEventListener('pointercancel', onEnd);
 
   // 弹出面板按钮
   var switchBtn = popup.querySelector('#pet-switch-type');

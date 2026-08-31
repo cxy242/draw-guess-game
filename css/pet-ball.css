@@ -9,7 +9,8 @@
   -webkit-user-select: none;
   touch-action: none;
   transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
-  /* 触摸目标 >= 44x44px */
+  width: 52px;
+  height: 52px;
   min-width: 52px;
   min-height: 52px;
 }
