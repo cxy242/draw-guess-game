@@ -60,111 +60,127 @@ function hasChillData(msg) {
   return CHILL_FIELDS.some(function(f){ return msg.chill[f]; });
 }
 
-// 渲染单个section
+// 渲染单个section - 使用原版Chill模板的HTML结构
 function renderSection(sectionKey, data) {
   var sec = CHILL_SECTIONS[sectionKey];
   if (!sec) return '';
   var hasAny = sec.fields.some(function(f){ return data[f]; });
   if (!hasAny) return '';
   
-  var html = '<div class="chill-thought-section">';
-  html += '<div class="chill-thought-header">';
-  html += '<h3>' + esc(sec.title) + '</h3>';
-  html += '<span class="ct-badge">' + esc(sec.badge) + '</span>';
-  html += '</div>';
-  html += '<div class="chill-thought-body">';
+  var html = '';
   
   if (sectionKey === 'quick') {
-    if (data.run_result_summary) {
-      html += '<span class="ct-label">' + esc(sec.labels.run_result_summary) + '</span>';
-      html += '<p>' + esc(data.run_result_summary) + '</p>';
-    }
-    if (data.actual_behavior_log) {
-      html += '<span class="ct-label">' + esc(sec.labels.actual_behavior_log) + '</span>';
-      html += '<p>' + esc(data.actual_behavior_log) + '</p>';
-    }
+    // 原版Hero指标区 - 使用.chill-thought .hero-metric样式
+    html += '<div class="hero-metric">';
+    html += '<div class="orbit"><i></i><i></i><span><small>ACTIVE</small><strong>01</strong><em>shortcut</em></span></div>';
+    html += '<div class="hero-copy">';
+    html += '<span>QUICK COMMAND</span>';
+    html += '<strong>快捷指令</strong>';
     if (data.result_quote) {
-      html += '<div class="ct-quote">' + esc(data.result_quote) + '</div>';
+      html += '<p>' + esc(data.result_quote) + '</p>';
+    }
+    html += '</div>';
+    html += '<button class="section-intro-btn"><span>RUN</span></button>';
+    html += '</div>';
+    
+    // 行为记录卡片
+    if (data.run_result_summary || data.actual_behavior_log) {
+      html += '<div class="section-intro"><div><span>BEHAVIOR LOG</span><h2>行为记录</h2></div><span class="count">01</span></div>';
+      html += '<div class="rule-stack">';
+      if (data.run_result_summary) {
+        html += '<div class="rule-card tone-appear"><span class="rule-number">01</span><div class="rule-main"><small>RECORD</small><strong>' + esc(data.run_result_summary) + '</strong></div></div>';
+      }
+      if (data.actual_behavior_log) {
+        html += '<div class="rule-card tone-midnight"><span class="rule-number">02</span><div class="rule-main"><small>BEHAVIOR</small><strong>' + esc(data.actual_behavior_log) + '</strong></div></div>';
+      }
+      html += '</div>';
     }
   }
   
   if (sectionKey === 'nightTimeline') {
+    html += '<div class="section-intro"><div><span>NIGHT TIMELINE</span><h2>夜间时间轴</h2></div><span class="count">02:00—04:00</span></div>';
+    html += '<div class="rule-stack">';
     sec.fields.forEach(function(f, i) {
       if (data[f]) {
-        html += '<div class="ct-timeline-item">';
-        html += '<span class="ct-time">' + esc(sec.times[i]) + '</span>';
-        html += '<span class="ct-timeline-text">' + esc(data[f]) + '</span>';
-        html += '</div>';
+        var tone = i === 0 ? 'tone-appear' : (i === 1 ? 'tone-midnight' : 'tone-three-days');
+        html += '<div class="rule-card ' + tone + '"><span class="rule-number">' + esc(sec.times[i]) + '</span><div class="rule-main"><strong>' + esc(data[f]) + '</strong></div></div>';
       }
     });
+    html += '</div>';
   }
   
   if (sectionKey === 'nightReport') {
+    html += '<div class="section-intro"><div><span>NIGHT REPORT</span><h2>深层夜间报告</h2></div><span class="count">HIDDEN</span></div>';
+    html += '<div class="rule-stack">';
     sec.fields.forEach(function(f, i) {
       if (data[f]) {
-        html += '<div class="ct-timeline-item">';
-        html += '<span class="ct-time">' + esc(sec.times[i]) + '</span>';
-        html += '<span class="ct-timeline-text">' + esc(data[f]) + '</span>';
-        html += '</div>';
+        var tone = i === 0 ? 'tone-appear' : (i === 1 ? 'tone-midnight' : 'tone-three-days');
+        html += '<div class="rule-card ' + tone + '"><span class="rule-number">' + esc(sec.times[i]) + '</span><div class="rule-main"><strong>' + esc(data[f]) + '</strong></div></div>';
       }
     });
+    html += '</div>';
     if (data[sec.summary]) {
-      html += '<p style="margin-top:8px">' + esc(data[sec.summary]) + '</p>';
+      html += '<div class="if-block"><p>' + esc(data[sec.summary]) + '</p></div>';
     }
     if (data[sec.quote]) {
-      html += '<div class="ct-quote">' + esc(data[sec.quote]) + '</div>';
+      html += '<div class="tiny-confession">' + esc(data[sec.quote]) + '</div>';
     }
   }
   
   if (sectionKey === 'draft') {
+    html += '<div class="section-intro"><div><span>UNSENT DRAFT</span><h2>未发送草稿</h2></div><span class="count">LOCAL ONLY</span></div>';
     if (data.unsent_draft) {
-      html += '<div class="ct-draft-block">';
-      html += '<p>' + esc(data.unsent_draft) + '</p>';
+      html += '<div class="if-block"><p>' + esc(data.unsent_draft) + '</p>';
       if (data.draft_last_line) {
-        html += '<p>' + esc(data.draft_last_line) + '<span class="ct-draft-cursor"></span></p>';
+        html += '<p>' + esc(data.draft_last_line) + '<span class="text-cursor"></span></p>';
       }
       html += '</div>';
     }
     if (data.draft_recovery_note) {
-      html += '<p style="margin-top:8px;color:var(--ct-sub);font-size:11px">' + esc(data.draft_recovery_note) + '</p>';
+      html += '<p class="receipt-note">' + esc(data.draft_recovery_note) + '</p>';
     }
   }
   
   if (sectionKey === 'accounts') {
+    html += '<div class="section-intro"><div><span>TRACES</span><h2>消息痕迹</h2></div><span class="count">03</span></div>';
+    html += '<div class="logic-flow">';
     if (data.account_1_messages) {
-      html += '<span class="ct-label">ACCOUNT 1 MESSAGES</span>';
+      html += '<div class="logic-block"><span>ACCOUNT 1</span>';
       data.account_1_messages.split('/n').forEach(function(m) {
-        if (m.trim()) html += '<div class="ct-msg-item">' + esc(m.trim()) + '</div>';
+        if (m.trim()) html += '<p>' + esc(m.trim()) + '</p>';
       });
+      html += '</div>';
     }
     if (data.account_2_messages) {
-      html += '<span class="ct-label">ACCOUNT 2 MESSAGES</span>';
+      html += '<div class="logic-block"><span>ACCOUNT 2</span>';
       data.account_2_messages.split('/n').forEach(function(m) {
-        if (m.trim()) html += '<div class="ct-msg-item">' + esc(m.trim()) + '</div>';
+        if (m.trim()) html += '<p>' + esc(m.trim()) + '</p>';
       });
+      html += '</div>';
     }
     if (data.account_3_messages) {
-      html += '<span class="ct-label">ACCOUNT 3 MESSAGES</span>';
+      html += '<div class="logic-block"><span>ACCOUNT 3</span>';
       data.account_3_messages.split('/n').forEach(function(m) {
-        if (m.trim()) html += '<div class="ct-msg-item">' + esc(m.trim()) + '</div>';
+        if (m.trim()) html += '<p>' + esc(m.trim()) + '</p>';
       });
+      html += '</div>';
     }
     if (data.photo_description) {
-      html += '<span class="ct-label">PHOTO DESCRIPTION</span>';
-      html += '<p>' + esc(data.photo_description) + '</p>';
+      html += '<div class="logic-block"><span>PHOTO</span><p>' + esc(data.photo_description) + '</p></div>';
     }
+    html += '</div>';
   }
   
   if (sectionKey === 'hidden') {
+    html += '<div class="section-intro"><div><span>HIDDEN FRAGMENTS</span><h2>隐藏档案</h2></div><span class="count">SEALED</span></div>';
     if (data.hidden_fragment_1) {
-      html += '<div class="ct-hidden-block"><p>' + esc(data.hidden_fragment_1) + '</p></div>';
+      html += '<div class="if-block"><p>' + esc(data.hidden_fragment_1) + '</p></div>';
     }
     if (data.hidden_fragment_2) {
-      html += '<div class="ct-hidden-block"><p>' + esc(data.hidden_fragment_2) + '</p></div>';
+      html += '<div class="if-block"><p>' + esc(data.hidden_fragment_2) + '</p></div>';
     }
   }
   
-  html += '</div></div>';
   return html;
 }
 
@@ -173,6 +189,8 @@ function renderChillThought(msg, charName, char) {
   if (!hasChillData(msg)) return '';
   var data = msg.chill;
   var html = '<div class="chill-thought">';
+  // 品牌头
+  html += '<div class="brand-head"><div><span class="kicker">' + esc(charName || '角色') + '</span><h1>AFTER<span>心声</span></h1></div></div>';
   ['quick','nightTimeline','nightReport','draft','accounts','hidden'].forEach(function(key) {
     html += renderSection(key, data);
   });
