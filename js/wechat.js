@@ -6092,9 +6092,9 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           }
         }
       }
-      if (firstMsgId && (thought || chill)) {
+      if (firstMsgId && (thought || (chill && thoughtTemplate.enabled))) {
         const thoughtUpdate = { thought: thought || '', thoughtAt: Date.now() }
-        if (chill) thoughtUpdate.chill = chill
+        if (chill && thoughtTemplate.enabled) thoughtUpdate.chill = chill
         const displayChar = await getWechatDisplayCharacter(charId)
         const renderedThought = thought ? renderThoughtForStorage(thought, thoughtTemplate, getWechatDisplayName(displayChar), displayChar) : null
         if (renderedThought) Object.assign(thoughtUpdate, renderedThought)
