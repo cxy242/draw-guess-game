@@ -1,1 +1,1 @@
-{"version":"2.2.3","date":"2026-08-31","note":"修复心声渲染：传msg对象而非msg.chill"}
+{"version":"2.2.4","date":"2026-08-31","note":"悬浮球PetBall错误保护+心声渲染修复"}

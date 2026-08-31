@@ -191,6 +191,7 @@ function buildPopupHTML() {
 
 // 创建宠物悬浮球
 async function createPetBall() {
+  try {
   var existing = document.getElementById('global-floating-ball');
   if (existing) existing.remove();
   var existing2 = document.querySelector('.pet-ball-wrap');
@@ -252,6 +253,7 @@ async function createPetBall() {
 
   // 渲染模型列表
   setTimeout(renderPopupModels, 500);
+  } catch(e) { console.warn('[pet-ball] error:', e); }
 }
 
 // 绑定事件

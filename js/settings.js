@@ -1932,9 +1932,28 @@ async function renderFloatingBall() {
   }
   // 优先使用宠物模式
   if (window.PetBall) {
-    removeFloatingBall()
-    closeFloatingBallPresetPopup()
-    await PetBall.create()
+    try {
+      removeFloatingBall()
+      closeFloatingBallPresetPopup()
+      await PetBall.create()
+    } catch(e) {
+      console.warn('[pet-ball] create failed, fallback to old ball', e)
+      // 如果宠物创建失败，走旧的悬浮球逻辑
+      var app = document.getElementById('app')
+      if (app) {
+        var ball = document.getElementById('global-floating-ball')
+        if (!ball) {
+          ball = document.createElement('button')
+          ball.id = 'global-floating-ball'
+          ball.className = 'global-floating-ball'
+          ball.type = 'button'
+          ball.innerHTML = '<img alt="">'
+          app.appendChild(ball)
+          bindFloatingBallDrag(ball)
+        }
+        applyFloatingBallAppearance(ball, config)
+      }
+    }
     return
   }
   var app = document.getElementById('app')
