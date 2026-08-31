@@ -5391,7 +5391,7 @@ function syncExistingMessageDecorations(container, msgs) {
     const row = container.querySelector(`.msg-row[data-id="${m.id}"]`)
     const avatarWrap = row?.querySelector('.msg-avatar-wrap[data-action="thoughts"], .msg-avatar-wrap.is-clickable')
     if (avatarWrap) {
-      if (m.thought) avatarWrap.dataset.hasThought = '1'
+      if (m.thought || (m.chill && window.ChillThought && window.ChillThought.hasData(m))) avatarWrap.dataset.hasThought = '1'
       else delete avatarWrap.dataset.hasThought
     }
   })
@@ -5479,7 +5479,7 @@ function buildMsgRowHTML(m, charName, avatarHtml, selfAvatarHtml, stickerMap, ti
     : buildTimedBubbleHTML(bubbleHtml, timeHtml, isSelf, timeSettings)
   // 非自己消息：头像可点击查看角色心声历史；本轮第一条消息（带 thought 字段）显示提示点
   const avatarExtra = !isSelf
-    ? ` data-action="thoughts"${m.thought ? ' data-has-thought="1"' : ''}`
+    ? ` data-action="thoughts"${(m.thought || (m.chill && window.ChillThought && window.ChillThought.hasData(m))) ? ' data-has-thought="1"' : ''}`
     : ''
   const avatarPart = `<div class="msg-avatar-wrap${!isSelf ? ' is-clickable' : ''}"${avatarExtra}><div class="msg-avatar">${thisAvatar}</div></div>`
   const onlineStatus = isSelf ? buildOnlineMessageStatusHTML(m) : ''
@@ -9894,7 +9894,7 @@ async function showCharThoughtsHistory(charId, chatId) {
   const charName = getWechatDisplayName(char)
   const templateConfig = await getChatThoughtTemplateConfig(chatId)
   const thoughts = (await db.messages.where('chatId').equals(chatId).sortBy('createdAt'))
-    .filter(m => m.role === 'assistant' && m.thought)
+    .filter(m => m.role === 'assistant' && (m.thought || (m.chill && window.ChillThought && window.ChillThought.hasData(m))))
     .sort((a, b) => (b.thoughtAt || b.createdAt) - (a.thoughtAt || a.createdAt))
   const currentThought = thoughts[0] || null
   let historyThoughts = thoughts.slice(1)
