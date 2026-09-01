@@ -1,12 +1,24 @@
-/* pet-ball.js — CSS宠物悬浮球模块 */
+/* pet-ball.js — CSS宠物悬浮球 v3 精美版 */
+/* 功能：橘猫/狐狸切换、多样互动、不同性格、聊天模型切换、线下模型切换、同步按钮 */
 (function(){
 'use strict';
 
-var MOODS = ['想你了~','在干嘛？','摸摸我','嘿嘿','(◕ᴗ◕)','zzZ...','饿了...','陪你','喵~','呜呜'];
-var FOX_MOODS = ['想你了~','在干嘛？','摸摸头','嘿嘿','(≖ ◡ ≖)','zzZ...','饿了...','陪你','嗷~','呜呜'];
-var _petState = { type: 'cat', visible: false, moodTimer: null, blinkTimer: null, apiStatus: 'idle', apiLog: [] };
+var MOODS_CAT = ['喵~','想你了','摸摸我','嘿嘿','困了...','饿了...','陪你','在干嘛？','(◕ᴗ◕)','zzZ...'];
+var MOODS_FOX = ['嗷~','想你了','摸摸头','嘿嘿','困了...','饿了...','陪你','在干嘛？','(≖ ◡ ≖)','zzZ...'];
+var PERSONALITY_CAT = { name: '小橘', shy: false, playful: true };
+var PERSONALITY_FOX = { name: '小狐', shy: true, playful: false };
 
-// 构建小猫HTML
+var _petState = {
+  type: 'cat',
+  visible: false,
+  moodTimer: null,
+  blinkTimer: null,
+  apiStatus: 'idle',
+  apiLog: [],
+  popupOpen: false
+};
+
+// === HTML构建 ===
 function catHTML() {
   return '<div class="pet-cat">' +
     '<div class="ear l"></div><div class="ear r"></div>' +
@@ -17,71 +29,91 @@ function catHTML() {
       '<div class="whisker wr1"></div><div class="whisker wr2"></div>' +
       '<div class="blush bl"></div><div class="blush br"></div>' +
     '</div>' +
+    '<div class="body"></div>' +
+    '<div class="paw l"></div><div class="paw r"></div>' +
     '<div class="tail"></div>' +
   '</div>';
 }
 
-// 构建狐狸HTML
 function foxHTML() {
   return '<div class="pet-fox">' +
     '<div class="ear l"></div><div class="ear r"></div>' +
     '<div class="head">' +
       '<div class="eye l"></div><div class="eye r"></div>' +
       '<div class="nose"></div><div class="mouth"></div>' +
+      '<div class="blush bl"></div><div class="blush br"></div>' +
     '</div>' +
     '<div class="tail"></div>' +
   '</div>';
 }
 
-// 显示表情气泡
+// === 表情气泡 ===
 function showMood(wrap, text) {
   var mood = wrap.querySelector('.pet-mood');
   if (!mood) return;
   mood.textContent = text;
   mood.classList.add('show');
-  setTimeout(function(){ mood.classList.remove('show'); }, 2500);
+  setTimeout(function(){ mood.classList.remove('show'); }, 2800);
 }
 
-// 眨眼
+function randomMood() {
+  var moods = _petState.type === 'fox' ? MOODS_FOX : MOODS_CAT;
+  return moods[Math.floor(Math.random() * moods.length)];
+}
+
+// === 眨眼 ===
 function startBlinking(wrap) {
   if (_petState.blinkTimer) clearInterval(_petState.blinkTimer);
   _petState.blinkTimer = setInterval(function() {
     if (!wrap.isConnected) { clearInterval(_petState.blinkTimer); return; }
     wrap.classList.add('blink');
-    setTimeout(function(){ wrap.classList.remove('blink'); }, 200);
-  }, 3000 + Math.random() * 3000);
+    setTimeout(function(){ wrap.classList.remove('blink'); }, 180);
+  }, 2500 + Math.random() * 4000);
 }
 
-// 随机表情
+// === 随机表情 ===
 function startMoodLoop(wrap) {
   if (_petState.moodTimer) clearInterval(_petState.moodTimer);
   _petState.moodTimer = setInterval(function() {
     if (!wrap.isConnected) { clearInterval(_petState.moodTimer); return; }
-    var moods = _petState.type === 'fox' ? FOX_MOODS : MOODS;
-    showMood(wrap, moods[Math.floor(Math.random() * moods.length)]);
-  }, 15000 + Math.random() * 20000);
+    showMood(wrap, randomMood());
+  }, 12000 + Math.random() * 18000);
 }
 
-// 互动：戳
+// === 互动：戳 ===
 function poke(wrap) {
   wrap.classList.remove('poke');
   void wrap.offsetWidth;
   wrap.classList.add('poke');
-  var moods = _petState.type === 'fox' ? FOX_MOODS : MOODS;
-  showMood(wrap, moods[Math.floor(Math.random() * moods.length)]);
-  setTimeout(function(){ wrap.classList.remove('poke'); }, 500);
+  var personality = _petState.type === 'fox' ? PERSONALITY_FOX : PERSONALITY_CAT;
+  if (personality.shy) {
+    showMood(wrap, '...');
+  } else {
+    showMood(wrap, randomMood());
+  }
+  setTimeout(function(){ wrap.classList.remove('poke'); }, 400);
 }
 
-// 互动：开心
+// === 互动：开心 ===
 function happy(wrap) {
   wrap.classList.remove('happy');
   void wrap.offsetWidth;
   wrap.classList.add('happy');
-  showMood(wrap, _petState.type === 'fox' ? '嗷嗷！' : '喵喵！');
-  setTimeout(function(){ wrap.classList.remove('happy'); }, 1200);
+  var personality = _petState.type === 'fox' ? PERSONALITY_FOX : PERSONALITY_CAT;
+  showMood(wrap, personality.playful ? '嘿嘿嘿！' : '嗯...');
+  setTimeout(function(){ wrap.classList.remove('happy'); }, 1000);
 }
 
-// 设置API状态
+// === 互动：惊讶 ===
+function surprised(wrap) {
+  wrap.classList.remove('surprised');
+  void wrap.offsetWidth;
+  wrap.classList.add('surprised');
+  showMood(wrap, '!');
+  setTimeout(function(){ wrap.classList.remove('surprised'); }, 800);
+}
+
+// === API状态 ===
 function setApiStatus(status) {
   _petState.apiStatus = status;
   var dot = document.querySelector('.pet-api-dot');
@@ -91,7 +123,6 @@ function setApiStatus(status) {
   else if (status === 'err') dot.classList.add('err');
 }
 
-// 添加API日志
 function addApiLog(entry) {
   _petState.apiLog.unshift(entry);
   if (_petState.apiLog.length > 20) _petState.apiLog.length = 20;
@@ -103,85 +134,125 @@ function addApiLog(entry) {
 function renderApiLog(container) {
   container.innerHTML = _petState.apiLog.map(function(e) {
     var cls = e.ok ? 'ok' : 'err';
-    var icon = e.ok ? '●' : '●';
-    return '<div class="pet-api-log-entry"><span class="' + cls + '">' + icon + '</span> ' +
-      esc(e.model || '?') + ' <span style="opacity:.5">' + esc(e.time || '') + '</span></div>';
+    return '<div class="pet-api-log-entry"><span class="' + cls + '">●</span> ' +
+      esc(e.model || '?') + ' <span style="opacity:.4">' + esc(e.time || '') + '</span></div>';
   }).join('');
 }
 
-// 获取当前API模型
+// === 模型切换 ===
 function getCurrentModel() {
-  try {
-    var settings = window._aiSettings || {};
-    return settings.model || 'unknown';
-  } catch(e) { return 'unknown'; }
+  try { return (window._aiSettings || {}).model || 'unknown'; } catch(e) { return 'unknown'; }
 }
 
-// 获取可用模型列表
+function getOfflineModel() {
+  try {
+    var cfg = window._offlineApiConfig || {};
+    return cfg.model || getCurrentModel();
+  } catch(e) { return getCurrentModel(); }
+}
+
 function getAvailableModels() {
-  try {
-    var settings = window._aiSettings || {};
-    return settings.availableModels || [];
-  } catch(e) { return []; }
+  try { return (window._aiSettings || {}).availableModels || []; } catch(e) { return []; }
 }
 
-// 切换模型
-async function switchModel(model) {
+async function switchChatModel(model) {
   try {
-    if (window._aiSettings) {
-      window._aiSettings.model = model;
-    }
-    if (window.db) {
-      await window.db.config.put({ key: 'aiModel', value: model });
-    }
-    showMood(document.querySelector('.pet-ball-wrap'), '切到 ' + model);
+    if (window._aiSettings) window._aiSettings.model = model;
+    if (window.db) await window.db.config.put({ key: 'aiModel', value: model });
+    showMood(document.querySelector('.pet-ball-wrap'), '聊天→ ' + model);
     renderPopupModels();
-  } catch(e) {
-    console.warn('[pet-ball] 切换模型失败', e);
-  }
+  } catch(e) { console.warn('[pet-ball] switch chat model fail', e); }
 }
 
-// 渲染弹出面板中的模型列表
+async function switchOfflineModel(model) {
+  try {
+    if (window._offlineApiConfig) window._offlineApiConfig.model = model;
+    if (window.db) await window.db.config.put({ key: 'offlineApiModel', value: model });
+    showMood(document.querySelector('.pet-ball-wrap'), '线下→ ' + model);
+    renderPopupModels();
+  } catch(e) { console.warn('[pet-ball] switch offline model fail', e); }
+}
+
+async function syncModels() {
+  try {
+    var chatModel = getCurrentModel();
+    var offlineModel = getOfflineModel();
+    // 同步到API配置
+    if (window.db) {
+      var apiRow = await window.db.config.get('apiSettings');
+      var apiCfg = apiRow && apiRow.value ? apiRow.value : {};
+      apiCfg.model = chatModel;
+      await window.db.config.put({ key: 'apiSettings', value: apiCfg });
+      // 同步线下
+      var offRow = await window.db.config.get('offlineApiSettings');
+      var offCfg = offRow && offRow.value ? offRow.value : {};
+      offCfg.model = offlineModel;
+      await window.db.config.put({ key: 'offlineApiSettings', value: offCfg });
+    }
+    showMood(document.querySelector('.pet-ball-wrap'), '已同步！');
+    surprised(document.querySelector('.pet-ball-wrap'));
+  } catch(e) { console.warn('[pet-ball] sync fail', e); }
+}
+
+// === 渲染弹出面板中的模型列表 ===
 function renderPopupModels() {
-  var container = document.querySelector('.pet-model-list');
-  if (!container) return;
+  var chatList = document.querySelector('.pet-chat-model-list');
+  var offlineList = document.querySelector('.pet-offline-model-list');
+  if (!chatList && !offlineList) return;
   var models = getAvailableModels();
-  var current = getCurrentModel();
-  if (!models.length) {
-    container.innerHTML = '<div style="color:#888;font-size:11px">没有可用模型</div>';
-    return;
-  }
-  container.innerHTML = models.map(function(m) {
-    var name = typeof m === 'string' ? m : m.name || m.model || '?';
-    var isActive = name === current;
-    var statusCls = 'idle';
-    var lastLog = _petState.apiLog.find(function(l){ return l.model === name; });
-    if (lastLog) statusCls = lastLog.ok ? 'ok' : 'err';
-    return '<button class="pet-model-btn' + (isActive ? ' active' : '') + '" data-model="' + esc(name) + '">' +
-      '<span class="pet-model-dot ' + statusCls + '"></span>' +
-      '<span>' + esc(name) + '</span>' +
-      (isActive ? '<span style="margin-left:auto;font-size:10px;opacity:.5">当前</span>' : '') +
-      '</button>';
-  }).join('');
-  container.querySelectorAll('.pet-model-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      switchModel(btn.dataset.model);
+  var chatModel = getCurrentModel();
+  var offlineModel = getOfflineModel();
+
+  function renderList(container, current, switchFn) {
+    if (!container) return;
+    if (!models.length) {
+      container.innerHTML = '<div style="color:#7a8b8b;font-size:11px;padding:8px 0">没有可用模型</div>';
+      return;
+    }
+    container.innerHTML = models.map(function(m) {
+      var name = typeof m === 'string' ? m : m.name || m.model || '?';
+      var isActive = name === current;
+      var statusCls = 'idle';
+      var lastLog = _petState.apiLog.find(function(l){ return l.model === name; });
+      if (lastLog) statusCls = lastLog.ok ? 'ok' : 'err';
+      return '<button class="pet-model-btn' + (isActive ? ' active' : '') + '" data-model="' + esc(name) + '" data-target="' + esc(switchFn) + '">' +
+        '<span class="pet-model-dot ' + statusCls + '"></span>' +
+        '<span style="flex:1;text-align:left">' + esc(name) + '</span>' +
+        (isActive ? '<span style="font-size:10px;opacity:.4">当前</span>' : '') +
+        '</button>';
+    }).join('');
+    container.querySelectorAll('.pet-model-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var target = btn.dataset.target;
+        if (target === 'chat') switchChatModel(btn.dataset.model);
+        else if (target === 'offline') switchOfflineModel(btn.dataset.model);
+      });
     });
-  });
+  }
+
+  renderList(chatList, chatModel, 'chat');
+  renderList(offlineList, offlineModel, 'offline');
 }
 
-// 构建弹出面板HTML
+// === 弹出面板HTML ===
 function buildPopupHTML() {
-  return '<div class="pet-popup-title">🐾 宠物控制台</div>' +
+  return '<div class="pet-popup-title">' + (_petState.type === 'fox' ? '🦊' : '🐱') + ' 宠物控制台</div>' +
     '<div class="pet-popup-section">' +
-      '<div class="pet-popup-label">API 模型</div>' +
-      '<div class="pet-model-list"></div>' +
+      '<div class="pet-popup-label">聊天模型（线上）</div>' +
+      '<div class="pet-chat-model-list"></div>' +
+    '</div>' +
+    '<div class="pet-popup-section">' +
+      '<div class="pet-popup-label">聊天模型（线下）</div>' +
+      '<div class="pet-offline-model-list"></div>' +
+    '</div>' +
+    '<div class="pet-popup-section">' +
+      '<button class="pet-sync-btn" id="pet-sync-btn">⟲ 同步到API配置</button>' +
     '</div>' +
     '<div class="pet-popup-section">' +
       '<div class="pet-popup-label">最近调用</div>' +
       '<div class="pet-api-log"></div>' +
     '</div>' +
-    '<div class="pet-popup-section" style="display:flex;gap:6px">' +
+    '<div class="pet-popup-section" style="display:flex;gap:8px">' +
       '<button class="pet-model-btn" id="pet-switch-type" style="flex:1;justify-content:center">' +
         '<span>切换宠物</span></button>' +
       '<button class="pet-model-btn" id="pet-close-btn" style="flex:1;justify-content:center">' +
@@ -189,9 +260,8 @@ function buildPopupHTML() {
     '</div>';
 }
 
-// 创建宠物悬浮球
+// === 创建宠物 ===
 async function createPetBall() {
-  try {
   var existing = document.getElementById('global-floating-ball');
   if (existing) existing.remove();
   var existing2 = document.querySelector('.pet-ball-wrap');
@@ -202,7 +272,6 @@ async function createPetBall() {
   var app = document.getElementById('app');
   if (!app) return;
 
-  // 加载配置
   var config = null;
   try {
     if (window.db) {
@@ -213,10 +282,10 @@ async function createPetBall() {
   if (!config) config = {};
   _petState.type = config.petType || 'cat';
 
-  // 创建宠物容器
+  // 创建容器
   var wrap = document.createElement('div');
   wrap.className = 'pet-ball-wrap';
-  wrap.style.left = (config.xRatio != null ? config.xRatio * (window.innerWidth - 60) : window.innerWidth - 70) + 'px';
+  wrap.style.left = (config.xRatio != null ? config.xRatio * (window.innerWidth - 64) : window.innerWidth - 74) + 'px';
   wrap.style.top = (config.yRatio != null ? config.yRatio * (window.innerHeight - 80) : window.innerHeight * 0.4) + 'px';
 
   // API状态灯
@@ -251,12 +320,10 @@ async function createPetBall() {
   startMoodLoop(wrap);
   _petState.visible = true;
 
-  // 渲染模型列表
   setTimeout(renderPopupModels, 500);
-  } catch(e) { console.warn('[pet-ball] error:', e); }
 }
 
-// 绑定事件
+// === 绑定事件 ===
 function bindPetEvents(wrap, popup, config) {
   var isDragging = false;
   var startX, startY, startLeft, startTop;
@@ -271,6 +338,7 @@ function bindPetEvents(wrap, popup, config) {
     isDragging = true;
     moved = false;
     wrap.classList.add('is-dragging');
+    e.preventDefault();
   }
 
   function onMove(e) {
@@ -279,8 +347,8 @@ function bindPetEvents(wrap, popup, config) {
     var dy = e.clientY - startY;
     if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) moved = true;
     if (!moved) return;
-    var newLeft = Math.max(0, Math.min(window.innerWidth - 60, startLeft + dx));
-    var newTop = Math.max(0, Math.min(window.innerHeight - 60, startTop + dy));
+    var newLeft = Math.max(0, Math.min(window.innerWidth - 64, startLeft + dx));
+    var newTop = Math.max(0, Math.min(window.innerHeight - 64, startTop + dy));
     wrap.style.left = newLeft + 'px';
     wrap.style.top = newTop + 'px';
     e.preventDefault();
@@ -290,11 +358,9 @@ function bindPetEvents(wrap, popup, config) {
     isDragging = false;
     wrap.classList.remove('is-dragging');
     if (!moved) {
-      // 点击
       poke(wrap);
       togglePopup(wrap, popup);
     }
-    // 保存位置
     savePetPosition(wrap, config);
   }
 
@@ -312,20 +378,30 @@ function bindPetEvents(wrap, popup, config) {
       if (target) target.innerHTML = _petState.type === 'fox' ? foxHTML() : catHTML();
       showMood(wrap, _petState.type === 'fox' ? '嗷！' : '喵！');
       savePetType(_petState.type);
+      // 更新面板标题
+      var title = popup.querySelector('.pet-popup-title');
+      if (title) title.innerHTML = (_petState.type === 'fox' ? '🦊' : '🐱') + ' 宠物控制台';
     });
   }
+
   var closeBtn = popup.querySelector('#pet-close-btn');
   if (closeBtn) {
     closeBtn.addEventListener('click', function() {
       hidePopup(popup, wrap);
     });
   }
+
+  var syncBtn = popup.querySelector('#pet-sync-btn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', function() {
+      syncModels();
+    });
+  }
 }
 
-// 弹出面板开关
+// === 弹出面板开关 ===
 function togglePopup(wrap, popup) {
-  var isOpen = popup.classList.contains('show');
-  if (isOpen) {
+  if (popup.classList.contains('show')) {
     hidePopup(popup, wrap);
   } else {
     showPopup(wrap, popup);
@@ -333,12 +409,13 @@ function togglePopup(wrap, popup) {
 }
 
 function showPopup(wrap, popup) {
+  _petState.popupOpen = true;
   wrap.classList.add('pet-popup-open');
   var rect = wrap.getBoundingClientRect();
-  var left = Math.min(rect.left, window.innerWidth - 290);
-  var top = rect.bottom + 8;
-  if (top + 300 > window.innerHeight) top = rect.top - 310;
-  popup.style.left = left + 'px';
+  var left = Math.min(rect.left, window.innerWidth - 310);
+  var top = rect.bottom + 10;
+  if (top + 350 > window.innerHeight) top = rect.top - 360;
+  popup.style.left = Math.max(0, left) + 'px';
   popup.style.top = Math.max(0, top) + 'px';
   popup.classList.add('show');
   renderPopupModels();
@@ -347,23 +424,23 @@ function showPopup(wrap, popup) {
 }
 
 function hidePopup(popup, wrap) {
+  _petState.popupOpen = false;
   popup.classList.remove('show');
   if (wrap) wrap.classList.remove('pet-popup-open');
 }
 
-// 保存位置
+// === 保存 ===
 async function savePetPosition(wrap, config) {
   if (!window.db) return;
   try {
     var left = parseFloat(wrap.style.left) || 0;
     var top = parseFloat(wrap.style.top) || 0;
-    config.xRatio = left / (window.innerWidth - 60);
-    config.yRatio = top / (window.innerHeight - 60);
+    config.xRatio = left / (window.innerWidth - 64);
+    config.yRatio = top / (window.innerHeight - 64);
     await window.db.config.put({ key: 'floatingBallSettings', value: config });
   } catch(e) {}
 }
 
-// 保存宠物类型
 async function savePetType(type) {
   if (!window.db) return;
   try {
@@ -374,19 +451,20 @@ async function savePetType(type) {
   } catch(e) {}
 }
 
-// HTML转义
+// === 工具 ===
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// 导出
+// === 导出 ===
 window.PetBall = {
   create: createPetBall,
   setApiStatus: setApiStatus,
   addApiLog: addApiLog,
   happy: function(){ var w = document.querySelector('.pet-ball-wrap'); if (w) happy(w); },
   poke: function(){ var w = document.querySelector('.pet-ball-wrap'); if (w) poke(w); },
+  surprised: function(){ var w = document.querySelector('.pet-ball-wrap'); if (w) surprised(w); },
   hide: function() {
     var w = document.querySelector('.pet-ball-wrap');
     if (w) w.remove();
