@@ -18,7 +18,7 @@
 .chill-thought button { color:inherit; font:inherit; }
 .chill-thought .demo-shell { min-height:100dvh; display:grid; place-items:center; padding:2.1rem 1rem 3.4rem; background:radial-gradient(circle at 24% 13%,var(--ui-highlight),transparent 32rem),linear-gradient(145deg,var(--ui-canvas),var(--ui-canvas-deep)); }
 .chill-thought .phone { position:relative; width:min(100%,430px); height:min(860px,calc(100dvh - 5rem)); min-height:650px; overflow:hidden; background:var(--ui-canvas); border:7px solid var(--ui-surface-inverse); border-radius:3.15rem; box-shadow:var(--ui-shadow-float),var(--ui-shadow-inset); }
-.chill-thought .phone::before { /* removed content:""; position:absolute; z-index:30; left:50%; top:.7rem; translate:-50% 0; width:7rem; height:1.75rem; border-radius:var(--radius-control); background:var(--ui-surface-inverse); }
+.chill-thought .phone::before { content:""; position:absolute; z-index:30; left:50%; top:.7rem; translate:-50% 0; width:7rem; height:1.75rem; border-radius:var(--radius-control); background:var(--ui-surface-inverse); }
 .chill-thought .statusbar { position:absolute; z-index:35; inset:0 0 auto; height:3.2rem; padding:.85rem 1.4rem 0; display:flex; justify-content:space-between; align-items:flex-start; font-size:.73rem; font-weight:700; }
 .chill-thought .statusbar>div { display:flex; align-items:center; gap:.3rem; }
 .chill-thought .screen { position:absolute; inset:0; overflow-y:auto; padding:3.35rem 1.05rem 2rem; scrollbar-width:none; animation:af-replica-enter .3s cubic-bezier(.18,.75,.2,1); }
@@ -441,7 +441,7 @@
 .chill-thought [data-af-mount] { width:100%; height:100%; }
 .chill-thought .demo-shell { width:100%; height:100%; min-height:0; display:block; padding:0; background:none; }
 .chill-thought .phone { width:100%; height:100%; min-height:0; max-height:none; border:0; border-radius:20px; }
-.chill-thought .phone::before { /* removed display:none; }
+.chill-thought .phone::before { display:none; }
 .chill-thought .desktop-hint { display:none; }
 .chill-thought .profile-bio,.chill-thought .fragment-list article p,.chill-thought .report-summary p,.chill-thought .night-report blockquote,.chill-thought .shortcut-result>p,.chill-thought .shortcut-result blockquote,.chill-thought .receipt-note { white-space:pre-line; }
 .chill-thought .alt-avatar { overflow:hidden; }

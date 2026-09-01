@@ -188,13 +188,124 @@ function renderSection(sectionKey, data) {
 function renderChillThought(msg, charName, char) {
   if (!hasChillData(msg)) return '';
   var data = msg.chill;
+  var avatarHtml = '';
+  if (char && char.avatar) {
+    avatarHtml = '<img src="' + esc(char.avatar) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  }
   var html = '<div class="chill-thought">';
+  // demo-shell + phone外壳（原版完整结构）
+  html += '<div class="demo-shell">';
+  html += '<div class="phone">';
+  // 状态栏
+  html += '<div class="statusbar"><div>' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</div><div>●●●</div></div>';
+  // 可滚动屏幕
+  html += '<div class="screen home-view">';
   // 品牌头
-  html += '<div class="brand-head"><div><span class="kicker">' + esc(charName || '角色') + '</span><h1>AFTER<span>心声</span></h1></div></div>';
-  ['quick','nightTimeline','nightReport','draft','accounts','hidden'].forEach(function(key) {
-    html += renderSection(key, data);
-  });
-  html += '</div>';
+  html += '<header class="brand-head">';
+  html += '<div><span class="kicker">PRIVATE BEHAVIOR LOG</span>';
+  html += '<h1>after<span>.</span></h1></div>';
+  html += '<div class="avatar">' + avatarHtml + '</div>';
+  html += '</header>';
+  // hero-metric指标区
+  if (data.result_quote || data.run_result_summary) {
+    html += '<section class="hero-metric">';
+    html += '<div class="orbit"><i></i><i></i><span><small>active</small><strong>01</strong><em>shortcut</em></span></div>';
+    html += '<div class="hero-copy"><span>QUICK COMMAND</span>';
+    html += '<strong>快捷指令</strong>';
+    if (data.result_quote) html += '<p>' + esc(data.result_quote) + '</p>';
+    html += '</div>';
+    html += '<button><span>RUN</span></button>';
+    html += '</section>';
+  }
+  // quick命令区 - rule-stack
+  if (data.run_result_summary || data.actual_behavior_log) {
+    html += '<div class="section-intro"><div><span>BEHAVIOR LOG</span><h2>行为记录</h2></div><span class="count">01</span></div>';
+    html += '<div class="rule-stack">';
+    if (data.run_result_summary) {
+      html += '<div class="rule-card tone-appear"><span class="rule-number">01</span><div class="rule-main"><small>RECORD</small><strong>' + esc(data.run_result_summary) + '</strong><em>想起她的原因</em></div></div>';
+    }
+    if (data.actual_behavior_log) {
+      html += '<div class="rule-card tone-midnight"><span class="rule-number">02</span><div class="rule-main"><small>BEHAVIOR</small><strong>' + esc(data.actual_behavior_log) + '</strong><em>脑内画面</em></div></div>';
+    }
+    html += '</div>';
+  }
+  // nightTimeline
+  var nightFields = ['night_log_entries1','night_log_entries2','night_log_entries3','night_log_entries4'];
+  var nightTimes = ['02:17','02:32','03:06','03:08'];
+  var hasNight = nightFields.some(function(f){ return data[f]; });
+  if (hasNight) {
+    html += '<div class="section-intro"><div><span>NIGHT TIMELINE</span><h2>夜间时间轴</h2></div><span class="count">02:00\u201404:00</span></div>';
+    html += '<div class="rule-stack">';
+    nightFields.forEach(function(f, i) {
+      if (data[f]) {
+        var tone = i===0?'tone-appear':(i===1?'tone-midnight':'tone-three-days');
+        html += '<div class="rule-card ' + tone + '"><span class="rule-number">' + nightTimes[i] + '</span><div class="rule-main"><strong>' + esc(data[f]) + '</strong></div></div>';
+      }
+    });
+    html += '</div>';
+  }
+  // nightReport
+  var reportFields = ['night_report_entries1','night_report_entries2','night_report_entries3','night_report_entries4'];
+  var hasReport = reportFields.some(function(f){ return data[f]; });
+  if (hasReport || data.night_report_summary || data.night_report_quote) {
+    html += '<div class="section-intro"><div><span>NIGHT REPORT</span><h2>深层夜间报告</h2></div><span class="count">HIDDEN</span></div>';
+    html += '<div class="rule-stack">';
+    reportFields.forEach(function(f, i) {
+      if (data[f]) {
+        var tone = i===0?'tone-appear':(i===1?'tone-midnight':'tone-three-days');
+        html += '<div class="rule-card ' + tone + '"><span class="rule-number">' + nightTimes[i] + '</span><div class="rule-main"><strong>' + esc(data[f]) + '</strong></div></div>';
+      }
+    });
+    html += '</div>';
+    if (data.night_report_summary) {
+      html += '<div class="if-block"><p>' + esc(data.night_report_summary) + '</p></div>';
+    }
+    if (data.night_report_quote) {
+      html += '<div class="tiny-confession">' + esc(data.night_report_quote) + '</div>';
+    }
+  }
+  // draft
+  if (data.unsent_draft || data.draft_last_line || data.draft_recovery_note) {
+    html += '<div class="section-intro"><div><span>UNSENT DRAFT</span><h2>未发送草稿</h2></div><span class="count">LOCAL ONLY</span></div>';
+    if (data.unsent_draft) {
+      html += '<div class="if-block"><p>' + esc(data.unsent_draft) + '</p>';
+      if (data.draft_last_line) html += '<p>' + esc(data.draft_last_line) + '</p>';
+      html += '</div>';
+    }
+    if (data.draft_recovery_note) {
+      html += '<p class="receipt-note">' + esc(data.draft_recovery_note) + '</p>';
+    }
+  }
+  // accounts
+  var accFields = ['account_1_messages','account_2_messages','account_3_messages'];
+  var hasAcc = accFields.some(function(f){ return data[f]; });
+  if (hasAcc || data.photo_description) {
+    html += '<div class="section-intro"><div><span>TRACES</span><h2>消息痕迹</h2></div><span class="count">03</span></div>';
+    html += '<div class="logic-flow">';
+    accFields.forEach(function(f, i) {
+      if (data[f]) {
+        html += '<div class="logic-block"><span>ACCOUNT ' + (i+1) + '</span>';
+        data[f].split('/n').forEach(function(m) {
+          if (m.trim()) html += '<p>' + esc(m.trim()) + '</p>';
+        });
+        html += '</div>';
+      }
+    });
+    if (data.photo_description) {
+      html += '<div class="logic-block"><span>PHOTO</span><p>' + esc(data.photo_description) + '</p></div>';
+    }
+    html += '</div>';
+  }
+  // hidden
+  if (data.hidden_fragment_1 || data.hidden_fragment_2) {
+    html += '<div class="section-intro"><div><span>HIDDEN FRAGMENTS</span><h2>隐藏档案</h2></div><span class="count">SEALED</span></div>';
+    if (data.hidden_fragment_1) html += '<div class="if-block"><p>' + esc(data.hidden_fragment_1) + '</p></div>';
+    if (data.hidden_fragment_2) html += '<div class="if-block"><p>' + esc(data.hidden_fragment_2) + '</p></div>';
+  }
+  html += '</div>'; // screen
+  html += '</div>'; // phone
+  html += '</div>'; // demo-shell
+  html += '</div>'; // chill-thought
   return html;
 }
 
