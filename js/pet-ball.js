@@ -170,15 +170,10 @@ function getAvailableModels() {
 async function fetchAvailableModels(target) {
   try {
     var url, key;
-    if (target === 'offline') {
-      var offRow = await window.db.config.bulkGet(['offlineApiBaseUrl', 'offlineApiKey']);
-      url = offRow[0] ? offRow[0].value : null;
-      key = offRow[1] ? offRow[1].value : null;
-    } else {
-      var rows = await window.db.config.bulkGet(['apiBaseUrl', 'apiKey']);
-      url = rows[0] ? rows[0].value : null;
-      key = rows[1] ? rows[1].value : null;
-    }
+    // 线上和线下都用同一套API配置，只是模型不同
+    var rows = await window.db.config.bulkGet(['apiBaseUrl', 'apiKey']);
+    url = rows[0] ? rows[0].value : null;
+    key = rows[1] ? rows[1].value : null;
     if (!url || !key) {
       showMood(document.querySelector('.pet-ball-wrap'), '请先配置API');
       return [];
@@ -382,9 +377,13 @@ function bindPetEvents(wrap, popup, config) {
   var moved = false;
 
   var pointerDownOnPet = false;
+  var longPressTimer = null;
+  var longPressTriggered = false;
+  var LONG_PRESS_MS = 500;
 
   function onStart(e) {
     pointerDownOnPet = true;
+    longPressTriggered = false;
     startX = e.clientX;
     startY = e.clientY;
     startLeft = parseFloat(wrap.style.left) || 0;
@@ -392,6 +391,13 @@ function bindPetEvents(wrap, popup, config) {
     isDragging = true;
     moved = false;
     wrap.classList.add('is-dragging');
+    // 长按检测
+    longPressTimer = setTimeout(function() {
+      if (!moved) {
+        longPressTriggered = true;
+        togglePopup(wrap, popup);
+      }
+    }, LONG_PRESS_MS);
     e.preventDefault();
   }
 
@@ -399,7 +405,10 @@ function bindPetEvents(wrap, popup, config) {
     if (!isDragging || !pointerDownOnPet) return;
     var dx = e.clientX - startX;
     var dy = e.clientY - startY;
-    if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) moved = true;
+    if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) {
+      moved = true;
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    }
     if (!moved) return;
     var newLeft = Math.max(0, Math.min(window.innerWidth - 64, startLeft + dx));
     var newTop = Math.max(0, Math.min(window.innerHeight - 64, startTop + dy));
@@ -412,10 +421,11 @@ function bindPetEvents(wrap, popup, config) {
     if (!pointerDownOnPet) return;
     pointerDownOnPet = false;
     isDragging = false;
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     wrap.classList.remove('is-dragging');
-    if (!moved) {
+    if (!moved && !longPressTriggered) {
+      // 短按=互动
       poke(wrap);
-      togglePopup(wrap, popup);
     }
     savePetPosition(wrap, config);
   }

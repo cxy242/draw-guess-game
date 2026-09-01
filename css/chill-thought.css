@@ -446,3 +446,39 @@
 .chill-thought .profile-bio,.chill-thought .fragment-list article p,.chill-thought .report-summary p,.chill-thought .night-report blockquote,.chill-thought .shortcut-result>p,.chill-thought .shortcut-result blockquote,.chill-thought .receipt-note { white-space:pre-line; }
 .chill-thought .alt-avatar { overflow:hidden; }
 .chill-thought .alt-avatar img { width:100%; height:100%; display:block; object-fit:cover; }
+
+/* === 月月机心声面板适配 === */
+/* 心声面板中的.chill-thought不需要手机外壳 */
+.thought-card-scroll .chill-thought {
+  background: var(--ui-canvas-deep);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+}
+.thought-card-scroll .chill-thought .demo-shell {
+  padding: 0;
+  min-height: auto;
+  background: none;
+}
+.thought-card-scroll .chill-thought .phone {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: auto;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.thought-card-scroll .chill-thought .phone::before {
+  display: none;
+}
+.thought-card-scroll .chill-thought .statusbar {
+  position: relative;
+  height: auto;
+  padding: 8px 14px;
+}
+.thought-card-scroll .chill-thought .screen {
+  position: relative;
+  inset: auto;
+  padding: 12px 14px 16px;
+  overflow: visible;
+}
