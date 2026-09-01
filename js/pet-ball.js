@@ -6,7 +6,7 @@
 var MOODS_CAT = ['喵~','想你了','摸摸我','嘿嘿','困了...','饿了...','陪你','在干嘛？','(◕ᴗ◕)','zzZ...'];
 var MOODS_FOX = ['嗷~','想你了','摸摸头','嘿嘿','困了...','饿了...','陪你','在干嘛？','(≖ ◡ ≖)','zzZ...'];
 var PERSONALITY_CAT = { name: '小橘', shy: false, playful: true };
-var PERSONALITY_FOX = { name: '小狐', shy: true, playful: false };
+var PERSONALITY_FOX = { name: '小狐', shy: false, playful: true };
 
 var _petState = {
   type: 'cat',
@@ -179,12 +179,22 @@ async function fetchAvailableModels(target) {
       return [];
     }
     var cleanUrl = url.replace(/\/+$/, '');
-    var resp = await fetch(cleanUrl + '/v1/models', {
-      headers: { 'Authorization': 'Bearer ' + key }
+    // 兼容不同API端点格式
+    var modelsUrl = cleanUrl;
+    if (!modelsUrl.endsWith('/v1/models')) {
+      modelsUrl = cleanUrl + '/v1/models';
+    }
+    var resp = await fetch(modelsUrl, {
+      headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }
     });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    if (!resp.ok) {
+      var errText = await resp.text().catch(function(){ return '' });
+      throw new Error('HTTP ' + resp.status + ': ' + errText.slice(0, 100));
+    }
     var data = await resp.json();
-    var models = (data.data || []).map(function(m) { return m.id; }).sort();
+    var models = (data.data || data.models || []).map(function(m) {
+      return typeof m === 'string' ? m : m.id;
+    }).filter(Boolean).sort();
     _petState.availableModels = models;
     showMood(document.querySelector('.pet-ball-wrap'), '拉取到 ' + models.length + ' 个模型');
     return models;

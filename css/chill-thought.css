@@ -482,3 +482,8 @@
   padding: 12px 14px 16px;
   overflow: visible;
 }
+/* 心声面板不限制高度，让内容完全展开 */
+.thought-card-scroll:has(.chill-thought) {
+  max-height: none;
+  overflow-y: visible;
+}
