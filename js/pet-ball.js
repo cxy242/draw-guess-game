@@ -141,34 +141,82 @@ function renderApiLog(container) {
 
 // === 模型切换 ===
 function getCurrentModel() {
-  try { return (window._aiSettings || {}).model || 'unknown'; } catch(e) { return 'unknown'; }
+  return _petState.currentModel || 'unknown';
 }
 
 function getOfflineModel() {
-  try {
-    var cfg = window._offlineApiConfig || {};
-    return cfg.model || getCurrentModel();
-  } catch(e) { return getCurrentModel(); }
+  return _petState.offlineModel || 'unknown';
 }
 
+// 从DB加载当前模型
+async function loadCurrentModels() {
+  try {
+    var rows = await window.db.config.bulkGet(['apiModel', 'offlineApiModel']);
+    _petState.currentModel = rows[0] ? rows[0].value : 'unknown';
+    _petState.offlineModel = rows[1] ? rows[1].value : _petState.currentModel;
+  } catch(e) {
+    _petState.currentModel = 'unknown';
+    _petState.offlineModel = 'unknown';
+  }
+}
+
+
+
 function getAvailableModels() {
-  try { return (window._aiSettings || {}).availableModels || []; } catch(e) { return []; }
+  return _petState.availableModels || [];
+}
+
+// 拉取API模型列表
+async function fetchAvailableModels(target) {
+  try {
+    var url, key;
+    if (target === 'offline') {
+      var offRow = await window.db.config.bulkGet(['offlineApiBaseUrl', 'offlineApiKey']);
+      url = offRow[0] ? offRow[0].value : null;
+      key = offRow[1] ? offRow[1].value : null;
+    } else {
+      var rows = await window.db.config.bulkGet(['apiBaseUrl', 'apiKey']);
+      url = rows[0] ? rows[0].value : null;
+      key = rows[1] ? rows[1].value : null;
+    }
+    if (!url || !key) {
+      showMood(document.querySelector('.pet-ball-wrap'), '请先配置API');
+      return [];
+    }
+    var cleanUrl = url.replace(/\/+$/, '');
+    var resp = await fetch(cleanUrl + '/v1/models', {
+      headers: { 'Authorization': 'Bearer ' + key }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var data = await resp.json();
+    var models = (data.data || []).map(function(m) { return m.id; }).sort();
+    _petState.availableModels = models;
+    showMood(document.querySelector('.pet-ball-wrap'), '拉取到 ' + models.length + ' 个模型');
+    return models;
+  } catch(e) {
+    console.warn('[pet-ball] fetch models fail:', e);
+    showMood(document.querySelector('.pet-ball-wrap'), '拉取失败');
+    return [];
+  }
 }
 
 async function switchChatModel(model) {
   try {
-    if (window._aiSettings) window._aiSettings.model = model;
-    if (window.db) await window.db.config.put({ key: 'aiModel', value: model });
+    if (window.db) await window.db.config.put({ key: 'apiModel', value: model });
+    _petState.currentModel = model;
+    if (window._apiConfigCache) window._apiConfigCache = null;
     showMood(document.querySelector('.pet-ball-wrap'), '聊天→ ' + model);
+    happy(document.querySelector('.pet-ball-wrap'));
     renderPopupModels();
   } catch(e) { console.warn('[pet-ball] switch chat model fail', e); }
 }
 
 async function switchOfflineModel(model) {
   try {
-    if (window._offlineApiConfig) window._offlineApiConfig.model = model;
     if (window.db) await window.db.config.put({ key: 'offlineApiModel', value: model });
+    _petState.offlineModel = model;
     showMood(document.querySelector('.pet-ball-wrap'), '线下→ ' + model);
+    happy(document.querySelector('.pet-ball-wrap'));
     renderPopupModels();
   } catch(e) { console.warn('[pet-ball] switch offline model fail', e); }
 }
@@ -239,14 +287,16 @@ function buildPopupHTML() {
   return '<div class="pet-popup-title">' + (_petState.type === 'fox' ? '🦊' : '🐱') + ' 宠物控制台</div>' +
     '<div class="pet-popup-section">' +
       '<div class="pet-popup-label">聊天模型（线上）</div>' +
+      '<button class="pet-sync-btn" id="pet-fetch-chat" style="margin-bottom:6px;font-size:11px;padding:6px 10px">拉取可用模型</button>' +
       '<div class="pet-chat-model-list"></div>' +
     '</div>' +
     '<div class="pet-popup-section">' +
       '<div class="pet-popup-label">聊天模型（线下）</div>' +
+      '<button class="pet-sync-btn" id="pet-fetch-offline" style="margin-bottom:6px;font-size:11px;padding:6px 10px">拉取可用模型</button>' +
       '<div class="pet-offline-model-list"></div>' +
     '</div>' +
     '<div class="pet-popup-section">' +
-      '<button class="pet-sync-btn" id="pet-sync-btn">⟲ 同步到API配置</button>' +
+      '<button class="pet-sync-btn" id="pet-sync-btn">同步到API配置</button>' +
     '</div>' +
     '<div class="pet-popup-section">' +
       '<div class="pet-popup-label">最近调用</div>' +
@@ -281,6 +331,7 @@ async function createPetBall() {
   } catch(e) {}
   if (!config) config = {};
   _petState.type = config.petType || 'cat';
+  await loadCurrentModels();
 
   // 创建容器
   var wrap = document.createElement('div');
@@ -330,7 +381,10 @@ function bindPetEvents(wrap, popup, config) {
   var dragThreshold = 5;
   var moved = false;
 
+  var pointerDownOnPet = false;
+
   function onStart(e) {
+    pointerDownOnPet = true;
     startX = e.clientX;
     startY = e.clientY;
     startLeft = parseFloat(wrap.style.left) || 0;
@@ -342,7 +396,7 @@ function bindPetEvents(wrap, popup, config) {
   }
 
   function onMove(e) {
-    if (!isDragging) return;
+    if (!isDragging || !pointerDownOnPet) return;
     var dx = e.clientX - startX;
     var dy = e.clientY - startY;
     if (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold) moved = true;
@@ -355,6 +409,8 @@ function bindPetEvents(wrap, popup, config) {
   }
 
   function onEnd() {
+    if (!pointerDownOnPet) return;
+    pointerDownOnPet = false;
     isDragging = false;
     wrap.classList.remove('is-dragging');
     if (!moved) {
@@ -395,6 +451,32 @@ function bindPetEvents(wrap, popup, config) {
   if (syncBtn) {
     syncBtn.addEventListener('click', function() {
       syncModels();
+    });
+  }
+
+  // 拉取聊天模型
+  var fetchChatBtn = popup.querySelector('#pet-fetch-chat');
+  if (fetchChatBtn) {
+    fetchChatBtn.addEventListener('click', async function() {
+      fetchChatBtn.textContent = '拉取中...';
+      fetchChatBtn.disabled = true;
+      await fetchAvailableModels('chat');
+      renderPopupModels();
+      fetchChatBtn.textContent = '拉取可用模型';
+      fetchChatBtn.disabled = false;
+    });
+  }
+
+  // 拉取线下模型
+  var fetchOfflineBtn = popup.querySelector('#pet-fetch-offline');
+  if (fetchOfflineBtn) {
+    fetchOfflineBtn.addEventListener('click', async function() {
+      fetchOfflineBtn.textContent = '拉取中...';
+      fetchOfflineBtn.disabled = true;
+      await fetchAvailableModels('offline');
+      renderPopupModels();
+      fetchOfflineBtn.textContent = '拉取可用模型';
+      fetchOfflineBtn.disabled = false;
     });
   }
 }
