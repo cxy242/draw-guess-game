@@ -193,13 +193,8 @@ function renderChillThought(msg, charName, char) {
     avatarHtml = '<img src="' + esc(char.avatar) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
   }
   var html = '<div class="chill-thought">';
-  // demo-shell + phone外壳（原版完整结构）
-  html += '<div class="demo-shell">';
-  html += '<div class="phone">';
-  // 状态栏
-  html += '<div class="statusbar"><div>' + new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) + '</div><div>●●●</div></div>';
-  // 可滚动屏幕
-  html += '<div class="screen home-view">';
+  // 直接渲染内容区（不用手机外壳，在心声面板中显示）
+  html += '<div class="screen home-view" style="position:relative;padding:12px 14px 16px;overflow:visible">';
   // 品牌头
   html += '<header class="brand-head">';
   html += '<div><span class="kicker">PRIVATE BEHAVIOR LOG</span>';
@@ -303,8 +298,6 @@ function renderChillThought(msg, charName, char) {
     if (data.hidden_fragment_2) html += '<div class="if-block"><p>' + esc(data.hidden_fragment_2) + '</p></div>';
   }
   html += '</div>'; // screen
-  html += '</div>'; // phone
-  html += '</div>'; // demo-shell
   html += '</div>'; // chill-thought
   return html;
 }

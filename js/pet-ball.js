@@ -179,11 +179,9 @@ async function fetchAvailableModels(target) {
       return [];
     }
     var cleanUrl = url.replace(/\/+$/, '');
-    // 兼容不同API端点格式
-    var modelsUrl = cleanUrl;
-    if (!modelsUrl.endsWith('/v1/models')) {
-      modelsUrl = cleanUrl + '/v1/models';
-    }
+    // 处理URL末尾的/v1或/v1/，避免重复
+    var baseUrl = cleanUrl.replace(/\/v1\/?$/, '');
+    var modelsUrl = baseUrl + '/v1/models';
     var resp = await fetch(modelsUrl, {
       headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }
     });
