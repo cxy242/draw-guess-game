@@ -510,7 +510,7 @@ function togglePopup(wrap, popup) {
   }
 }
 
-function showPopup(wrap, popup) {
+async function showPopup(wrap, popup) {
   _petState.popupOpen = true;
   wrap.classList.add('pet-popup-open');
   var rect = wrap.getBoundingClientRect();
@@ -520,6 +520,11 @@ function showPopup(wrap, popup) {
   popup.style.left = Math.max(0, left) + 'px';
   popup.style.top = Math.max(0, top) + 'px';
   popup.classList.add('show');
+  // 打开时自动拉取模型（如果还没有的话）
+  if (!_petState.availableModels || !_petState.availableModels.length) {
+    await fetchAvailableModels('chat');
+  }
+  await loadCurrentModels();
   renderPopupModels();
   var logEl = popup.querySelector('.pet-api-log');
   if (logEl) renderApiLog(logEl);

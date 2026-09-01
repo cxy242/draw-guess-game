@@ -449,41 +449,61 @@
 
 /* === 月月机心声面板适配 === */
 /* 心声面板中的.chill-thought不需要手机外壳 */
+.thought-card-scroll .chill-thought,
+.thought-card-scroll .chill-thought * {
+  box-sizing: border-box;
+}
 .thought-card-scroll .chill-thought {
-  background: var(--ui-canvas-deep);
-  border-radius: var(--radius-panel);
+  background: var(--ui-canvas-deep, #dededb);
+  border-radius: 12px;
   overflow: hidden;
 }
 .thought-card-scroll .chill-thought .demo-shell {
-  padding: 0;
-  min-height: auto;
-  background: none;
+  padding: 0 !important;
+  min-height: 0 !important;
+  background: none !important;
+  display: block !important;
 }
 .thought-card-scroll .chill-thought .phone {
-  position: relative;
-  width: 100%;
-  height: auto;
-  min-height: auto;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
 }
 .thought-card-scroll .chill-thought .phone::before {
-  display: none;
+  display: none !important;
 }
 .thought-card-scroll .chill-thought .statusbar {
-  position: relative;
-  height: auto;
-  padding: 8px 14px;
+  position: relative !important;
+  height: auto !important;
+  padding: 8px 14px !important;
+  display: flex !important;
 }
 .thought-card-scroll .chill-thought .screen {
-  position: relative;
-  inset: auto;
-  padding: 12px 14px 16px;
-  overflow: visible;
+  position: relative !important;
+  inset: auto !important;
+  padding: 12px 14px 16px !important;
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  animation: none !important;
 }
 /* 心声面板不限制高度，让内容完全展开 */
 .thought-card-scroll:has(.chill-thought) {
-  max-height: none;
-  overflow-y: visible;
+  max-height: none !important;
+  overflow: visible !important;
+}
+/* 弹窗本身也要能滚动 */
+.thoughts-card-modal {
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+.center-modal.thoughts-card-modal {
+  max-height: 90vh !important;
+  overflow-y: auto !important;
 }
