@@ -4848,6 +4848,13 @@ html.has-android-bottom-inset .chat-input-bar {
   max-height: min(60vh, 460px);
   overflow-y: auto;
   overflow-x: hidden;
+}
+/* 当包含chill-thought时，不限制高度 */
+.thought-card-scroll:has(.chill-thought) {
+  max-height: none;
+  overflow: visible;
+}
+.thought-card-scroll-old {
   color: var(--c-text);
   line-height: 1.7;
   overflow-wrap: anywhere;

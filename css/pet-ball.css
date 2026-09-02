@@ -497,6 +497,23 @@
   text-transform: uppercase;
   margin-bottom: 8px;
 }
+.pet-chat-model-list,
+.pet-offline-model-list {
+  max-height: 150px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.15) transparent;
+}
+.pet-chat-model-list::-webkit-scrollbar,
+.pet-offline-model-list::-webkit-scrollbar {
+  width: 4px;
+}
+.pet-chat-model-list::-webkit-scrollbar-thumb,
+.pet-offline-model-list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.15);
+  border-radius: 2px;
+}
 .pet-model-btn {
   display: flex;
   align-items: center;
