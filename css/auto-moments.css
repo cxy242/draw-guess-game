@@ -294,3 +294,11 @@
 .am-detail > .am-btn {
   margin: 16px 20px;
 }
+
+/* === 无障碍 === */
+@media (prefers-reduced-motion: reduce) {
+  .am-settings-overlay { animation: none; }
+  .am-settings-content { animation: none; }
+  .am-detail { animation: none; }
+  .am-sw-slider, .am-sw-slider::before { transition-duration: 100ms; }
+}

@@ -11172,26 +11172,23 @@ function bindWechatMainMomentsPage(momentsPage, wechatPage) {
   momentsPage.dataset.momentsPageBound = '1'
 
   // 自动朋友圈设置按钮
-  var amBtn = document.getElementById('btn-auto-moments-settings');
-  if (amBtn) {
-    amBtn.addEventListener('click', function() {
-      var exist = document.getElementById('am-settings-panel');
-      if (exist) { exist.remove(); return; }
-      var panel = document.createElement('div');
-      panel.id = 'am-settings-panel';
-      panel.className = 'am-settings-overlay';
-      var content = document.createElement('div');
-      content.className = 'am-settings-content';
-      panel.appendChild(content);
-      document.body.appendChild(panel);
-      if (window.renderAutoMomentsPanel) {
-        window.renderAutoMomentsPanel(content);
-      }
-      panel.addEventListener('click', function(e) {
-        if (e.target === panel) panel.remove();
-      });
+  momentsPage.querySelector('#btn-auto-moments-settings')?.addEventListener('click', function() {
+    var exist = document.getElementById('am-settings-panel');
+    if (exist) { exist.remove(); return; }
+    var panel = document.createElement('div');
+    panel.id = 'am-settings-panel';
+    panel.className = 'am-settings-overlay';
+    var content = document.createElement('div');
+    content.className = 'am-settings-content';
+    panel.appendChild(content);
+    document.body.appendChild(panel);
+    if (window.renderAutoMomentsPanel) {
+      window.renderAutoMomentsPanel(content);
+    }
+    panel.addEventListener('click', function(e) {
+      if (e.target === panel) panel.remove();
     });
-  }
+  });
 
   momentsPage.querySelector('#btn-post-moment-top')?.addEventListener('click', () => openPostMomentPage(momentsPage, momentsPage._wechatPage || wechatPage))
   momentsPage.querySelector('#btn-generate-character-moment')?.addEventListener('click', () => showCharacterMomentPicker(momentsPage, momentsPage._wechatPage || wechatPage))
