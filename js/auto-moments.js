@@ -407,12 +407,8 @@ window.AutoMoments = {
   get renderPanel() { return window.renderAutoMomentsPanel; }
 };
 
-// === 事件委托：朋友圈设置按钮 ===
-document.addEventListener('click', function(e) {
-  var btn = e.target.closest('#btn-auto-moments-settings');
-  if (!btn) return;
-  e.preventDefault();
-  e.stopPropagation();
+// === 设置面板打开函数 ===
+window.AutoMomentsSettings = function() {
   var exist = document.getElementById('am-settings-panel');
   if (exist) { exist.remove(); return; }
   var panel = document.createElement('div');
@@ -428,6 +424,15 @@ document.addEventListener('click', function(e) {
   panel.addEventListener('click', function(ev) {
     if (ev.target === panel) panel.remove();
   });
+};
+
+// === 事件委托备用 ===
+document.addEventListener('click', function(e) {
+  if (e.target.closest('#btn-auto-moments-settings')) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.AutoMomentsSettings();
+  }
 });
 
 })();
