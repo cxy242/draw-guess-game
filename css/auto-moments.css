@@ -1,0 +1,296 @@
+/* auto-moments.css — 自动朋友圈设置面板 v2 */
+/* 设计规范：暖灰系低饱和、层次分明、cubic-bezier缓动、触摸≥44px */
+
+/* === 设置弹窗遮罩 === */
+.am-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 38, 40, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: am-fade-in 200ms ease-out;
+}
+@keyframes am-fade-in { from { opacity: 0; } }
+
+/* === 设置面板 === */
+.am-settings-content {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #f7f5f4;
+  border-radius: 20px 20px 0 0;
+  padding: 0 0 env(safe-area-inset-bottom, 16px);
+  animation: am-slide-up 280ms cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 -2px 20px rgba(45, 40, 42, 0.12),
+              0 -8px 40px rgba(45, 40, 42, 0.06);
+}
+@keyframes am-slide-up {
+  from { transform: translateY(100%); }
+}
+
+/* 自定义滚动条 */
+.am-settings-content::-webkit-scrollbar {
+  width: 4px;
+}
+.am-settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.am-settings-content::-webkit-scrollbar-thumb {
+  background: rgba(140, 130, 135, 0.25);
+  border-radius: 4px;
+}
+
+/* === 面板标题 === */
+.am-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d2b2e;
+  padding: 20px 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  background: #f7f5f4;
+  z-index: 1;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.am-panel-title i {
+  color: #9e9498;
+  font-size: 14px;
+}
+
+/* === 行 === */
+.am-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  min-height: 52px;
+}
+.am-row-label {
+  font-size: 14px;
+  color: #2d2b2e;
+  font-weight: 500;
+}
+
+/* === 分区标签 === */
+.am-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9e9498;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 18px 20px 8px;
+  background: #f7f5f4;
+}
+
+/* === 提示文字 === */
+.am-hint {
+  font-size: 12px;
+  color: #b0a8ab;
+  padding: 6px 20px 14px;
+  line-height: 1.6;
+  background: #fff;
+}
+
+/* === 开关 === */
+.am-sw {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 26px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.am-sw input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.am-sw-slider {
+  position: absolute;
+  inset: 0;
+  background: #d4cfd1;
+  border-radius: 26px;
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.am-sw-slider::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 2px;
+  bottom: 2px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.am-sw input:checked + .am-sw-slider {
+  background: #c4956a;
+  box-shadow: 0 0 0 2px rgba(196, 149, 106, 0.15);
+}
+.am-sw input:checked + .am-sw-slider::before {
+  transform: translateX(18px);
+}
+.am-sw input:focus-visible + .am-sw-slider {
+  box-shadow: 0 0 0 3px rgba(196, 149, 106, 0.3);
+}
+
+/* === 角色标签（chip） === */
+.am-chars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 20px 16px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.am-chip {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.am-chip input {
+  display: none;
+}
+.am-chip span {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b6368;
+  background: #f0edee;
+  border: 1.5px solid transparent;
+  border-radius: 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+.am-chip input:checked + span {
+  color: #fff;
+  background: #c4956a;
+  border-color: #c4956a;
+  box-shadow: 0 2px 8px rgba(196, 149, 106, 0.3);
+}
+.am-chip:active span {
+  transform: scale(0.96);
+}
+
+/* === 频率/模式选择（pill） === */
+.am-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 20px 16px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.am-pill {
+  display: inline-flex;
+  cursor: pointer;
+}
+.am-pill input {
+  display: none;
+}
+.am-pill span {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b6368;
+  background: #f0edee;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  line-height: 1.4;
+}
+.am-pill span small {
+  font-size: 11px;
+  font-weight: 400;
+  color: #a09a9d;
+  margin-top: 2px;
+}
+.am-pill-wide span {
+  padding: 10px 16px;
+}
+.am-pill input:checked + span {
+  color: #5c4a3a;
+  background: #faf3ed;
+  border-color: #c4956a;
+  box-shadow: 0 1px 4px rgba(196, 149, 106, 0.15);
+}
+.am-pill input:checked + span small {
+  color: #8b7a6c;
+}
+.am-pill:active span {
+  transform: scale(0.97);
+}
+
+/* === 详情容器过渡 === */
+.am-detail {
+  animation: am-detail-in 200ms ease-out;
+}
+@keyframes am-detail-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+/* === 加载/空状态 === */
+.am-empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: #b0a8ab;
+  font-size: 13px;
+}
+
+/* === 按钮 === */
+.am-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  background: #c4956a;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 44px;
+}
+.am-btn:hover {
+  background: #b58558;
+  box-shadow: 0 4px 12px rgba(196, 149, 106, 0.3);
+}
+.am-btn:active {
+  transform: scale(0.97);
+}
+.am-btn-ghost {
+  color: #6b6368;
+  background: transparent;
+}
+.am-btn-ghost:hover {
+  background: #f0edee;
+  box-shadow: none;
+}
+
+/* === 底部间距 === */
+.am-panel > .am-btn,
+.am-detail > .am-btn {
+  margin: 16px 20px;
+}
