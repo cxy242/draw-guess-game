@@ -407,4 +407,27 @@ window.AutoMoments = {
   get renderPanel() { return window.renderAutoMomentsPanel; }
 };
 
+// === 事件委托：朋友圈设置按钮 ===
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('#btn-auto-moments-settings');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var exist = document.getElementById('am-settings-panel');
+  if (exist) { exist.remove(); return; }
+  var panel = document.createElement('div');
+  panel.id = 'am-settings-panel';
+  panel.className = 'am-settings-overlay';
+  var content = document.createElement('div');
+  content.className = 'am-settings-content';
+  panel.appendChild(content);
+  document.body.appendChild(panel);
+  if (window.renderAutoMomentsPanel) {
+    window.renderAutoMomentsPanel(content);
+  }
+  panel.addEventListener('click', function(ev) {
+    if (ev.target === panel) panel.remove();
+  });
+});
+
 })();

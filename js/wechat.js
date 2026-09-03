@@ -11163,27 +11163,6 @@ function ensureWechatMainMomentsPage(wechatPage) {
     mode: 'self'
   })
   bindWechatMainMomentsPage(momentsPage, wechatPage)
-  // 确保自动朋友圈按钮事件绑定
-  var amBtn = momentsPage.querySelector('#btn-auto-moments-settings');
-  if (amBtn) {
-    amBtn.onclick = function() {
-      var exist = document.getElementById('am-settings-panel');
-      if (exist) { exist.remove(); return; }
-      var panel = document.createElement('div');
-      panel.id = 'am-settings-panel';
-      panel.className = 'am-settings-overlay';
-      var content = document.createElement('div');
-      content.className = 'am-settings-content';
-      panel.appendChild(content);
-      document.body.appendChild(panel);
-      if (window.renderAutoMomentsPanel) {
-        window.renderAutoMomentsPanel(content);
-      }
-      panel.addEventListener('click', function(e) {
-        if (e.target === panel) panel.remove();
-      });
-    };
-  }
   renderCachedWechatMoments(momentsPage)
   return momentsPage
 }
@@ -11192,27 +11171,7 @@ function bindWechatMainMomentsPage(momentsPage, wechatPage) {
   if (momentsPage.dataset.momentsPageBound === '1') return
   momentsPage.dataset.momentsPageBound = '1'
 
-  // 自动朋友圈设置按钮（用onclick确保覆盖）
-  var amBtn = momentsPage.querySelector('#btn-auto-moments-settings');
-  if (amBtn) {
-    amBtn.onclick = function() {
-      var exist = document.getElementById('am-settings-panel');
-      if (exist) { exist.remove(); return; }
-      var panel = document.createElement('div');
-      panel.id = 'am-settings-panel';
-      panel.className = 'am-settings-overlay';
-      var content = document.createElement('div');
-      content.className = 'am-settings-content';
-      panel.appendChild(content);
-      document.body.appendChild(panel);
-      if (window.renderAutoMomentsPanel) {
-        window.renderAutoMomentsPanel(content);
-      }
-      panel.addEventListener('click', function(e) {
-        if (e.target === panel) panel.remove();
-      });
-    };
-  }
+
 
   momentsPage.querySelector('#btn-post-moment-top')?.addEventListener('click', () => openPostMomentPage(momentsPage, momentsPage._wechatPage || wechatPage))
   momentsPage.querySelector('#btn-generate-character-moment')?.addEventListener('click', () => showCharacterMomentPicker(momentsPage, momentsPage._wechatPage || wechatPage))
