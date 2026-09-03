@@ -2,6 +2,7 @@
 /* 功能：自动发帖、MCP评论、配图、有感而发、用户手动触发 */
 (function () {
 'use strict';
+try {
 
 /* ── 配置Key ────────────────────────────────────── */
 var AM = {
@@ -435,4 +436,6 @@ document.addEventListener('click', function(e) {
   }
 });
 
+
+} catch(amErr) { console.error('[AutoMoments] 加载错误:', amErr); }
 })();
