@@ -107,7 +107,7 @@ self.addEventListener('fetch', function(event) {
 
 self.addEventListener('push', function(event) {
   var payload = {
-    title: '弯弯',
+    title: '月月',
     body: '你收到一条新消息',
     url: './'
   }

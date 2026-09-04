@@ -12,7 +12,7 @@
   var HUABEI_PHONE = 'HUABEI_ASSISTANT'
   var HUABEI_NAME = '花呗助手'
   var FINANCE_PHONE = 'WANWAN_FINANCE'
-  var FINANCE_NAME = '弯弯理财经理'
+  var FINANCE_NAME = '月月理财经理'
 
   var LEVEL_MULTIPLIER = { 1: 1.0, 2: 1.5, 3: 2.0, 4: 3.0, 5: 5.0 }
   var FUND_UPDATE_MS = 2 * 3600 * 1000
@@ -354,7 +354,7 @@
               var dir = pctChange > 0 ? '上涨' : '下跌'
               var value = funds.shares * curr
               await sendFinanceSMS(phone, FINANCE_PHONE, FINANCE_NAME,
-                '【弯弯理财】市场波动提醒：您持有的基金净值' + dir + Math.abs(pctChange).toFixed(2) + '%，当前净值' + curr.toFixed(4) + '，持仓市值¥' + formatAmount(value) + '。请合理评估风险。')
+                '【月月理财】市场波动提醒：您持有的基金净值' + dir + Math.abs(pctChange).toFixed(2) + '%，当前净值' + curr.toFixed(4) + '，持仓市值¥' + formatAmount(value) + '。请合理评估风险。')
               investState.notified[notifyKey] = true
             }
           }
@@ -383,7 +383,7 @@
               var pnl = (currPrice - gold.avgCostPerGram) * gold.holdingGrams
               var pnlStr = pnl >= 0 ? '盈利¥' + formatAmount(pnl) : '亏损¥' + formatAmount(Math.abs(pnl))
               await sendFinanceSMS(phone, FINANCE_PHONE, FINANCE_NAME,
-                '【弯弯理财】金价异动提醒：黄金价格' + dir + '至¥' + formatAmount(currPrice) + '/克，您的持仓' + pnlStr + '。请注意风险管理。')
+                '【月月理财】金价异动提醒：黄金价格' + dir + '至¥' + formatAmount(currPrice) + '/克，您的持仓' + pnlStr + '。请注意风险管理。')
               investState.notified[notifyKey] = true
             }
           }
@@ -1459,7 +1459,7 @@
         var phone = await getUserPhone(user.id)
         if (phone) {
           await sendFinanceSMS(phone, FINANCE_PHONE, FINANCE_NAME,
-            '【弯弯理财】恭喜您成功申购基金！当前净值' + investState.funds.currentNav.toFixed(4) + '，持有' + investState.funds.shares.toFixed(2) + '份。基金净值每2小时更新，请关注收益变化。')
+            '【月月理财】恭喜您成功申购基金！当前净值' + investState.funds.currentNav.toFixed(4) + '，持有' + investState.funds.shares.toFixed(2) + '份。基金净值每2小时更新，请关注收益变化。')
           investState.notified['fund_first_buy'] = true
         }
       }
@@ -1548,7 +1548,7 @@
         if (!investState.notified[notifyKey] && phone) {
           var total = dep.principal + dep.interest
           await sendFinanceSMS(phone, FINANCE_PHONE, FINANCE_NAME,
-            '【弯弯理财】您的' + dep.term + '天定期存款已到期！本金¥' + formatAmount(dep.principal) + '，利息¥' + formatAmount(dep.interest) + '，合计¥' + formatAmount(total) + '已可领取，请及时操作。')
+            '【月月理财】您的' + dep.term + '天定期存款已到期！本金¥' + formatAmount(dep.principal) + '，利息¥' + formatAmount(dep.interest) + '，合计¥' + formatAmount(total) + '已可领取，请及时操作。')
           investState.notified[notifyKey] = true
         }
       }
@@ -1964,7 +1964,7 @@
         var phone = await getUserPhone(user.id)
         if (phone) {
           await sendFinanceSMS(phone, FINANCE_PHONE, FINANCE_NAME,
-            '【弯弯理财】恭喜您成功购入' + grams.toFixed(2) + '克黄金，成交价¥' + formatAmount(gold.currentPrice) + '/克。金价每30分钟更新，祝您投资顺利！')
+            '【月月理财】恭喜您成功购入' + grams.toFixed(2) + '克黄金，成交价¥' + formatAmount(gold.currentPrice) + '/克。金价每30分钟更新，祝您投资顺利！')
           investState.notified['gold_first_buy'] = true
         }
       }

@@ -38,7 +38,7 @@ var DESKTOP_ICONS = [
 var DESKTOP_PAGE2_ICONS = [
   { id: 'tutorial', img: 'img/wanwan.png', label: '教程', action: function() { window.showTutorialPage && showTutorialPage() } },
   { id: 'loveDiary', fa: 'fa-solid fa-heart-pulse', label: '恋爱记', action: function() {} },
-  { id: 'wanwanFarm', fa: 'fa-solid fa-seedling', label: '弯弯农场', action: function() {} },
+  { id: 'wanwanFarm', fa: 'fa-solid fa-seedling', label: '月月农场', action: function() {} },
   { id: 'visualnovel', svg: SVG_ICONS.visualnovel, label: '橙光', action: function() { window.showAvgPage && showAvgPage() } },
   { id: 'terminal', fa: 'fa-solid fa-terminal', label: '终端', action: function() { window.showTerminalPage && showTerminalPage() } }
 ]
@@ -136,7 +136,7 @@ var DESKTOP_WIDGET_TEMPLATES = [
     cols: 2,
     rows: 2,
     className: 'profile-widget',
-    data: { name: '弯弯O.o', location: 'Seoul', avatar: 'img/ava-00.jpg', coverImage: '' }
+    data: { name: '月月O.o', location: 'Seoul', avatar: 'img/ava-00.jpg', coverImage: '' }
   },
   {
     id: 'music',
@@ -154,7 +154,7 @@ var DESKTOP_WIDGET_TEMPLATES = [
     cols: 2,
     rows: 2,
     className: 'couple-widget',
-    data: { name1: '弯弯O.o', name2: '小狗神', count: '520', avatar1: 'img/ava-01.jpg', avatar2: 'img/ava-02.jpg', bubbleLeft: '你在左边', bubbleRight: '我靠近右' }
+    data: { name1: '月月O.o', name2: '小狗神', count: '520', avatar1: 'img/ava-01.jpg', avatar2: 'img/ava-02.jpg', bubbleLeft: '你在左边', bubbleRight: '我靠近右' }
   },
   {
     id: 'bio-card',
@@ -163,7 +163,7 @@ var DESKTOP_WIDGET_TEMPLATES = [
     cols: 4,
     rows: 3,
     className: 'bio-card-widget',
-    data: { name: '弯弯O.o', quote: '매일매일 조금이라도 행복하자. 💡', avatar: 'img/ava-00.jpg', coverImage: '' }
+    data: { name: '月月O.o', quote: '매일매일 조금이라도 행복하자. 💡', avatar: 'img/ava-00.jpg', coverImage: '' }
   },
   {
     id: 'calendar',
@@ -172,7 +172,7 @@ var DESKTOP_WIDGET_TEMPLATES = [
     cols: 4,
     rows: 2,
     className: 'calendar-widget',
-    data: { username: '弯弯O.o', avatar: 'img/ava-00.jpg' }
+    data: { username: '月月O.o', avatar: 'img/ava-00.jpg' }
   },
   {
     id: 'send-board',
@@ -240,7 +240,7 @@ var DESKTOP_WIDGET_TEMPLATES = [
     cols: 2,
     rows: 2,
     className: 'homepage-widget',
-    data: { name: '弯弯O.o', handle: '@wanwan_046', avatar: 'img/ava-00.jpg', tags: '我 和 你', online: true }
+    data: { name: '月月O.o', handle: '@wanwan_046', avatar: 'img/ava-00.jpg', tags: '我 和 你', online: true }
   },
   {
     id: 'dynamic-caption',
@@ -311,7 +311,7 @@ function normalizeDesktopWidgetDefinition(widget) {
     widget.data = Object.assign({}, widget.data || {})
     if (!widget.data.avatar) widget.data.avatar = 'img/ava-00.jpg'
     if (!widget.data.coverImage) widget.data.coverImage = ''
-    if (widget.data.name === '月亮O.o') widget.data.name = '弯弯O.o'
+    if (widget.data.name === '月亮O.o') widget.data.name = '月月O.o'
   }
   if (widget.templateId === 'angel-status') {
     widget.cols = 4
@@ -337,7 +337,7 @@ function normalizeDesktopWidgetDefinition(widget) {
     widget.rows = 2
     widget.data = Object.assign({}, widget.data || {})
     if (!widget.data.avatar) widget.data.avatar = 'img/ava-00.jpg'
-    if (!widget.data.username) widget.data.username = '弯弯O.o'
+    if (!widget.data.username) widget.data.username = '月月O.o'
   }
   if (widget.templateId === 'homepage') {
     widget.cols = 2
@@ -793,9 +793,12 @@ function moveIconToDesktop(id, pageIndex, slotIndex) {
     markItemSlots(page.slots, id, slotIndex)
   }
   if (targetId && targetId !== id) {
-    if (source && source.area === 'desktop') placeIconAtDesktopSlot(targetId, source.page, source.index)
-    else if (source && source.area === 'dock') layout.dock.splice(Math.min(source.index, layout.dock.length), 0, targetId)
-    else placeIconInFirstEmptySlot(targetId, pageIndex)
+    if (source && source.area === 'dock') {
+      layout.dock.splice(Math.min(source.index, layout.dock.length), 0, targetId)
+    } else {
+      // 放到第一个空slot，避免 placeIconAtDesktopSlot 的 ignoreId 导致两个图标重叠
+      placeIconInFirstEmptySlot(targetId, source && source.area === 'desktop' ? source.page : pageIndex)
+    }
   }
 }
 
@@ -1260,7 +1263,7 @@ function openProfileWidgetEditor(widgetId) {
   var widget = _desktopWidgets.find(function(item) { return item.id === widgetId })
   if (!widget || widget.templateId !== 'profile') return
   var data = Object.assign({
-    name: '弯弯O.o',
+    name: '月月O.o',
     location: 'Seoul',
     avatar: 'img/ava-00.jpg',
     coverImage: ''
@@ -1321,7 +1324,7 @@ function openProfileWidgetEditor(widgetId) {
   })
   modal.querySelector('#profile-editor-save').addEventListener('click', async function() {
     widget.data = Object.assign({}, widget.data || {}, {
-      name: modal.querySelector('#profile-editor-name').value.trim() || '弯弯O.o',
+      name: modal.querySelector('#profile-editor-name').value.trim() || '月月O.o',
       location: modal.querySelector('#profile-editor-location').value.trim() || 'Seoul',
       avatar: data.avatar || 'img/ava-00.jpg',
       coverImage: data.coverImage || ''
@@ -1406,7 +1409,7 @@ function openCoupleWidgetEditor(widgetId) {
   var data = Object.assign({
     avatar1: 'img/ava-01.jpg',
     avatar2: 'img/ava-02.jpg',
-    name1: '弯弯O.o',
+    name1: '月月O.o',
     name2: '小狗神',
     bubbleLeft: '你在左边',
     bubbleRight: '我靠近右',
@@ -1472,7 +1475,7 @@ function openCoupleWidgetEditor(widgetId) {
     widget.data = Object.assign({}, widget.data || {}, {
       avatar1: data.avatar1 || 'img/ava-01.jpg',
       avatar2: data.avatar2 || 'img/ava-02.jpg',
-      name1: modal.querySelector('#couple-editor-name1').value.trim() || '弯弯O.o',
+      name1: modal.querySelector('#couple-editor-name1').value.trim() || '月月O.o',
       name2: modal.querySelector('#couple-editor-name2').value.trim() || '小狗神',
       bubbleLeft: modal.querySelector('#couple-editor-bubble-left').value.trim() || '你在左边',
       bubbleRight: modal.querySelector('#couple-editor-bubble-right').value.trim() || '我靠近右',
@@ -1489,12 +1492,12 @@ function openBioCardEditor(widgetId) {
   var widget = _desktopWidgets.find(function(item) { return item.id === widgetId })
   if (!widget || widget.templateId !== 'bio-card') return
   var data = Object.assign({
-    name: '弯弯O.o',
+    name: '月月O.o',
     quote: '매일매일 조금이라도 행복하자. 💡',
     avatar: 'img/ava-00.jpg',
     coverImage: ''
   }, widget.data || {})
-  if (data.name === '月亮O.o') data.name = '弯弯O.o'
+  if (data.name === '月亮O.o') data.name = '月月O.o'
   var overlay = document.createElement('div')
   overlay.className = 'sheet-overlay'
   overlay.style.zIndex = '240'
@@ -1551,7 +1554,7 @@ function openBioCardEditor(widgetId) {
   })
   modal.querySelector('#bio-editor-save').addEventListener('click', async function() {
     widget.data = Object.assign({}, widget.data || {}, {
-      name: modal.querySelector('#bio-editor-name').value.trim() || '弯弯O.o',
+      name: modal.querySelector('#bio-editor-name').value.trim() || '月月O.o',
       quote: modal.querySelector('#bio-editor-quote').value.trim() || '매일매일 조금이라도 행복하자. 💡',
       avatar: data.avatar || 'img/ava-00.jpg',
       coverImage: data.coverImage || ''
@@ -1567,7 +1570,7 @@ function openCalendarWidgetEditor(widgetId) {
   var widget = _desktopWidgets.find(function(item) { return item.id === widgetId })
   if (!widget || widget.templateId !== 'calendar') return
   var data = Object.assign({
-    username: '弯弯O.o',
+    username: '月月O.o',
     avatar: 'img/ava-00.jpg'
   }, widget.data || {})
   var overlay = document.createElement('div')
@@ -1612,7 +1615,7 @@ function openCalendarWidgetEditor(widgetId) {
   })
   modal.querySelector('#cal-editor-save').addEventListener('click', async function() {
     widget.data = Object.assign({}, widget.data || {}, {
-      username: modal.querySelector('#cal-editor-username').value.trim() || '弯弯O.o',
+      username: modal.querySelector('#cal-editor-username').value.trim() || '月月O.o',
       avatar: data.avatar || 'img/ava-00.jpg'
     })
     await saveDesktopWidgets()
@@ -1626,7 +1629,7 @@ function openHomepageWidgetEditor(widgetId) {
   var widget = _desktopWidgets.find(function(item) { return item.id === widgetId })
   if (!widget || widget.templateId !== 'homepage') return
   var data = Object.assign({
-    name: '弯弯O.o',
+    name: '月月O.o',
     handle: '@wanwan_046',
     avatar: 'img/ava-00.jpg',
     tags: '我 和 你',
@@ -1677,7 +1680,7 @@ function openHomepageWidgetEditor(widgetId) {
   })
   modal.querySelector('#hp-editor-save').addEventListener('click', async function() {
     widget.data = Object.assign({}, widget.data || {}, {
-      name: modal.querySelector('#hp-editor-name').value.trim() || '弯弯O.o',
+      name: modal.querySelector('#hp-editor-name').value.trim() || '月月O.o',
       handle: modal.querySelector('#hp-editor-handle').value.trim() || '@wanwan_046',
       avatar: data.avatar || 'img/ava-00.jpg',
       tags: modal.querySelector('#hp-editor-tags').value.trim() || '我 和 你',
@@ -2269,7 +2272,7 @@ function buildDesktopWidgetInner(widget) {
   if (widget.templateId === 'profile') {
     var profileAvatar = data.avatar || 'img/ava-00.jpg'
     var coverImage = data.coverImage || ''
-    return '<div class="profile-widget-cover"' + (coverImage ? ' style="--profile-cover-image:url(' + escapeMainHtml(coverImage) + ')"' : '') + '></div><div class="profile-widget-body"><div class="profile-name">' + escapeMainHtml(data.name || '弯弯O.o') + '</div><div class="profile-location-pill"><i class="fa fa-location-dot"></i><span>' + escapeMainHtml(data.location || 'Seoul') + '</span></div></div><div class="profile-avatar-ring"><img class="profile-avatar-img" src="' + escapeMainHtml(profileAvatar) + '" alt=""></div>'
+    return '<div class="profile-widget-cover"' + (coverImage ? ' style="--profile-cover-image:url(' + escapeMainHtml(coverImage) + ')"' : '') + '></div><div class="profile-widget-body"><div class="profile-name">' + escapeMainHtml(data.name || '月月O.o') + '</div><div class="profile-location-pill"><i class="fa fa-location-dot"></i><span>' + escapeMainHtml(data.location || 'Seoul') + '</span></div></div><div class="profile-avatar-ring"><img class="profile-avatar-img" src="' + escapeMainHtml(profileAvatar) + '" alt=""></div>'
   }
   if (widget.templateId === 'music') {
     var musicCover = data.cover || 'img/wanwan.png'
@@ -2282,7 +2285,7 @@ function buildDesktopWidgetInner(widget) {
   if (widget.templateId === 'couple') {
     var coupleAvatar1 = data.avatar1 || 'img/ava-01.jpg'
     var coupleAvatar2 = data.avatar2 || 'img/ava-02.jpg'
-    var coupleName1 = data.name1 === '月亮O.o' ? '弯弯O.o' : (data.name1 || '弯弯O.o')
+    var coupleName1 = data.name1 === '月亮O.o' ? '月月O.o' : (data.name1 || '月月O.o')
     var coupleBubbleLeft = data.bubbleLeft || '你在左边'
     var coupleBubbleRight = data.bubbleRight || '我靠近右'
     var coupleCount = data.count || '520'
@@ -2290,7 +2293,7 @@ function buildDesktopWidgetInner(widget) {
   }
   if (widget.templateId === 'calendar') {
     var calAvatar = data.avatar || 'img/ava-00.jpg'
-    var calUsername = data.username || '弯弯O.o'
+    var calUsername = data.username || '月月O.o'
     var calNow = new Date()
     var calDay = calNow.getDay()
     var calWeekStart = new Date(calNow)
@@ -2319,13 +2322,13 @@ function buildDesktopWidgetInner(widget) {
   }
   if (widget.templateId === 'bio-card') {
     var bioAvatar = data.avatar || 'img/ava-00.jpg'
-    var bioName = data.name === '月亮O.o' ? '弯弯O.o' : (data.name || '弯弯O.o')
+    var bioName = data.name === '月亮O.o' ? '月月O.o' : (data.name || '月月O.o')
     var bioCoverImage = data.coverImage || ''
     return '<div class="bio-cover"' + (bioCoverImage ? ' style="--bio-cover-image:url(' + escapeMainHtml(bioCoverImage) + ')"' : '') + '></div><div class="bio-avatar-wrap"><div class="bio-avatar"><img src="' + escapeMainHtml(bioAvatar) + '" alt=""></div></div><div class="bio-name">' + escapeMainHtml(bioName) + '</div><div class="bio-quote"><i class="fa-solid fa-quote-left bio-quote-mark"></i><span>' + escapeMainHtml(data.quote || '매일매일 조금이라도 행복하자. 💡') + '</span><i class="fa-solid fa-quote-right bio-quote-mark"></i></div>'
   }
   if (widget.templateId === 'homepage') {
     var hpAvatar = data.avatar || 'img/ava-00.jpg'
-    var hpName = data.name || '弯弯O.o'
+    var hpName = data.name || '月月O.o'
     var hpHandle = data.handle || '@wanwan_046'
     var hpTags = data.tags || '我 和 你'
     var hpOnline = data.online !== false
@@ -3068,7 +3071,7 @@ function finishDesktopDrop(x, y) {
   if (_desktopEditing) ensureEditableTrailingPage()
   refreshDesktopAfterDrop(drag, target)
   saveDesktopLayout().catch(function(err) {
-    console.error('[弯弯] 保存桌面布局失败:', err)
+    console.error('[月月] 保存桌面布局失败:', err)
   })
 }
 
@@ -3334,7 +3337,7 @@ async function buildiScreenBackupData() {
     : ''
   return {
     version: 1,
-    appName: '弯弯',
+    appName: '月月',
     type: ISCREEN_BACKUP_TYPE,
     exportedAt: Date.now(),
     desktop: {
@@ -3375,7 +3378,7 @@ async function exportiScreenSettings() {
 }
 
 function validateiScreenBackupData(data) {
-  if (!data || data.version !== 1 || data.appName !== '弯弯' || data.type !== ISCREEN_BACKUP_TYPE || !data.desktop) {
+  if (!data || data.version !== 1 || data.appName !== '月月' || data.type !== ISCREEN_BACKUP_TYPE || !data.desktop) {
     throw new Error('不支持的 iScreen 文件')
   }
   if (Object.prototype.hasOwnProperty.call(data.desktop, 'appTheme')) {

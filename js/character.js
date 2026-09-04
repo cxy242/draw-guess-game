@@ -1133,7 +1133,7 @@ async function importCharacters(file, listPage) {
   try {
     const text = await file.text()
     const raw = JSON.parse(text)
-    if (!Array.isArray(raw)) throw new Error('仅支持弯弯导出的角色 JSON 文件')
+    if (!Array.isArray(raw)) throw new Error('仅支持月月导出的角色 JSON 文件')
     await importWanwanCharacters(raw, listPage)
   } catch (e) {
     window.toast('导入失败：' + (e.message || '请检查文件格式'))

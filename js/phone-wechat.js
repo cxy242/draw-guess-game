@@ -693,7 +693,7 @@ async function openRolePhoneWalletPage(session) {
         <button class="wallet-card-row" id="btn-phone-saving-card" type="button">
           <div class="wallet-card-icon saving"><i class="fa-solid fa-coins"></i></div>
           <div class="wallet-card-info">
-            <div class="wallet-card-name">弯弯银行 <span class="wallet-card-type-tag saving">Saving</span></div>
+            <div class="wallet-card-name">月月银行 <span class="wallet-card-type-tag saving">Saving</span></div>
             <div class="wallet-card-number">**** **** ${savingLast4}</div>
           </div>
           <i class="fa fa-angle-right wallet-card-arrow"></i>
@@ -701,7 +701,7 @@ async function openRolePhoneWalletPage(session) {
         <button class="wallet-card-row" id="btn-phone-checking-card" type="button">
           <div class="wallet-card-icon checking"><i class="fa-solid fa-money-bill"></i></div>
           <div class="wallet-card-info">
-            <div class="wallet-card-name">弯弯银行 <span class="wallet-card-type-tag checking">Checking</span></div>
+            <div class="wallet-card-name">月月银行 <span class="wallet-card-type-tag checking">Checking</span></div>
             <div class="wallet-card-number">**** **** ${checkingLast4}</div>
           </div>
           <i class="fa fa-angle-right wallet-card-arrow"></i>
@@ -768,7 +768,7 @@ function openRolePhoneBankDetailPage(type, wallet, char) {
       <div class="bank-detail-info">
         <div class="bank-info-row">
           <span class="bank-info-label">银行名称</span>
-          <span class="bank-info-value">弯弯银行</span>
+          <span class="bank-info-value">月月银行</span>
         </div>
         <div class="bank-info-row">
           <span class="bank-info-label">账户类型</span>

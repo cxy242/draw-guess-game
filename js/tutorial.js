@@ -531,7 +531,7 @@ function openGithubTutorialPage() {
         '打开 GitHub，新建一个私有仓库，例如 wanwan-sync。',
         '创建 Fine-grained personal access token，只授权刚刚的仓库。',
         '在 Token 权限里把 Contents 设置为 Read and write。',
-        '回到弯弯，打开 设置 → 数据管理 → 同步设置。',
+        '回到月月，打开 设置 → 数据管理 → 同步设置。',
         '同步方式选择 GitHub，填写 Token、仓库、分支和同步文件路径。',
         '保存后先点“上传到同步后端”，以后其他设备可以点“从同步后端下载”。'
       ]) +
@@ -589,7 +589,7 @@ function openCloudflareTutorialPage() {
         '给 Worker 绑定 R2 Bucket，Binding 名称填写 WANWAN_SYNC。',
         '给 Worker 添加环境变量 SYNC_TOKEN，值设置成你自己的长密码。',
         '把下面的 Worker 示例代码粘贴进去并部署。',
-        '回到弯弯，打开 设置 → 数据管理 → 同步设置，选择 Cloudflare，填写 Worker 地址和 SYNC_TOKEN。'
+        '回到月月，打开 设置 → 数据管理 → 同步设置，选择 Cloudflare，填写 Worker 地址和 SYNC_TOKEN。'
       ]) +
     '</div>' +
     '<div class="setting-section">' +

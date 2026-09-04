@@ -1560,7 +1560,7 @@ ${memoryCtx}`
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `弯弯见面美化_${safeName}.css`
+    anchor.download = `月月见面美化_${safeName}.css`
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
@@ -1587,7 +1587,7 @@ ${memoryCtx}`
   function getImportedMissBeautyName(filename) {
     return String(filename || '')
       .replace(/\.css$/i, '')
-      .replace(/^弯弯见面美化_/, '')
+      .replace(/^月月见面美化_/, '')
       .trim() || '导入模板'
   }
 
@@ -1737,9 +1737,9 @@ ${memoryCtx}`
       <div class="miss-body">
         <div class="miss-chat">
           <div class="miss-chat-log">
-            ${entry('is-char', '弯弯', MISS_CHAR_SUBTITLE_DEFAULT, '<span class="miss-quote-highlight">“见到你真好。”</span>这是对方的见面回复。', { status: true })}
+            ${entry('is-char', '月月', MISS_CHAR_SUBTITLE_DEFAULT, '<span class="miss-quote-highlight">“见到你真好。”</span>这是对方的见面回复。', { status: true })}
             ${entry('is-user', '我', MISS_USER_SUBTITLE_DEFAULT, '这是我在见面中说的话。')}
-            ${entry('is-char is-typing', '弯弯', MISS_CHAR_SUBTITLE_DEFAULT, '', { typing: true })}
+            ${entry('is-char is-typing', '月月', MISS_CHAR_SUBTITLE_DEFAULT, '', { typing: true })}
             <div class="miss-empty miss-beauty-preview-empty">
               <i class="fa fa-fire-flame-curved"></i><div>空页面状态</div><span>对方正在等你开口</span>
             </div>

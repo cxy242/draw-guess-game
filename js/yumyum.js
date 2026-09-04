@@ -209,7 +209,7 @@ function yumyumLoginSuccess(user) {
   showYumYumHomePage(user)
 }
 
-// ===== 登录后主页面：三标签外卖 App（首页 / 订单 / 我的 · 弯弯灰白风格） =====
+// ===== 登录后主页面：三标签外卖 App（首页 / 订单 / 我的 · 月月灰白风格） =====
 
 var yumyumState = { tab: 'home', user: null, category: 'all', orderFilter: 'all', cart: {}, cartShopId: null, address: null, homeShopIds: null, catShopIds: {} }
 

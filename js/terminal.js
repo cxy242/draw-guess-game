@@ -437,7 +437,7 @@
         params: {
           protocolVersion: MCP_PROTOCOL_VERSION,
           capabilities: {},
-          clientInfo: { name: 'wanwan-terminal', title: '弯弯终端', version: '1.0.0' }
+          clientInfo: { name: 'wanwan-terminal', title: '月月终端', version: '1.0.0' }
         }
       }, session)
       var init = initMessage && initMessage.result
@@ -493,7 +493,7 @@
       params: {
         protocolVersion: MCP_PROTOCOL_VERSION,
         capabilities: {},
-        clientInfo: { name: 'wanwan-wechat', title: '弯弯微信', version: '1.0.0' }
+        clientInfo: { name: 'wanwan-wechat', title: '月月微信', version: '1.0.0' }
       }
     }, session)
     var init = initMessage && initMessage.result
@@ -792,7 +792,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
-        client_name: '弯弯终端',
+        client_name: '月月终端',
         redirect_uris: [redirectUri],
         grant_types: ['authorization_code', 'refresh_token'],
         response_types: ['code'],
@@ -1172,7 +1172,7 @@
     var html =
       '<div class="setting-section"><div class="section-title">部署步骤</div>' +
         '<div class="section-desc">' + deploySteps + '</div>' +
-        '<div class="tutorial-code">WANWAN_RELAY_TOKEN：中转访问令牌<br>WANWAN_ALLOWED_ORIGINS：弯弯部署地址，多个用逗号分隔<br>WANWAN_ALLOWED_HOSTS：允许访问的 MCP 与 OAuth 主机，多个用逗号分隔</div></div>' +
+        '<div class="tutorial-code">WANWAN_RELAY_TOKEN：中转访问令牌<br>WANWAN_ALLOWED_ORIGINS：月月部署地址，多个用逗号分隔<br>WANWAN_ALLOWED_HOSTS：允许访问的 MCP 与 OAuth 主机，多个用逗号分隔</div></div>' +
       '<div class="setting-section"><div class="tutorial-section-head"><div class="section-title">中转代码</div>' +
         '<button class="tutorial-copy-btn" id="btn-copy-mcp-relay" type="button"><i class="fa-regular fa-clone"></i>复制</button></div>' +
         '<pre class="tutorial-code tutorial-code-block"><code>' + esc(source) + '</code></pre></div>' +

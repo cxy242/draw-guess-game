@@ -42,7 +42,7 @@ function renderXPage(user) {
     '<div class="x-feed">' +
       buildXPost({
         avatar: 'img/wanwan.png',
-        name: '弯弯协会',
+        name: '月月协会',
         verified: true,
         handle: '@Wanwan_Offical',
         time: '2小时',

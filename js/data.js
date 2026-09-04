@@ -804,7 +804,7 @@ async function getDataSizes() {
 // ===== 生成完整备份对象（文件导出与同步共用） =====
 async function collectBackupData(onProgress, serializeBlobValues) {
   var report = typeof onProgress === 'function' ? onProgress : function() {}
-  var data = { version: 1, exportedAt: Date.now(), appName: '弯弯' }
+  var data = { version: 1, exportedAt: Date.now(), appName: '月月' }
 
   report(10, '读取配置...')
   data.config = await getBackupConfigRows()
@@ -960,7 +960,7 @@ async function clearAppDataForImport() {
 
 // ===== 校验备份格式 =====
 function validateBackupData(data) {
-  if (!data || data.version !== 1 || data.appName !== '弯弯') {
+  if (!data || data.version !== 1 || data.appName !== '月月') {
     throw new Error('不支持的备份格式')
   }
 }
@@ -1105,7 +1105,7 @@ async function* createBackupJsonStream(signal, onProgress, options) {
   options = options || {}
   var progress = { rows: 0 }, report = onProgress || function() {}
   var exportedAt = Number(options.exportedAt) || Date.now()
-  yield '{"version":1,"exportedAt":' + exportedAt + ',"appName":"弯弯"'
+  yield '{"version":1,"exportedAt":' + exportedAt + ',"appName":"月月"'
   for (var i = 0; i < STREAM_EXPORT_TABLES.length; i++) {
     var name = STREAM_EXPORT_TABLES[i]
     yield ',' + JSON.stringify(name) + ':'

@@ -341,7 +341,7 @@
 
     // manifest 最后写入：上传中断时旧 manifest 仍指向上一份完整快照。
     var manifest = {
-      app: '弯弯',
+      app: '月月',
       format: GH_MANIFEST_FORMAT,
       gzip: true,
       exportedAt: exportedAt,

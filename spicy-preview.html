@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>星途财弈 - 棋盘原型</title>
+<link rel="stylesheet" href="css/spicy-monopoly.css">
+<style>
+body { margin: 0; background: #0a0a1a; overflow: hidden; }
+.spicy-board-container { transform: translateX(12px); }
+/* 抽卡盒可点击提示 */
+.spicy-card-box.clickable {
+  cursor: pointer;
+  box-shadow: inset 0 4px 12px rgba(0,0,0,0.4), 0 0 30px rgba(0,200,255,0.3), 0 0 60px rgba(0,200,255,0.15);
+  border-color: rgba(0,200,255,0.5);
+}
+.spicy-card-box.clickable::after { content: '点击抽卡'; color: rgba(0,245,212,0.8); font-size: 10px; }
+.spicy-card-hint {
+  position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: #00f5d4; white-space: nowrap;
+  animation: spicy-hint-pulse 1.5s ease infinite;
+}
+@keyframes spicy-hint-pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<div class="spicy-root" style="flex-direction:column;">
+
+  <!-- 顶部状态栏（动态显示微信登录用户+邀请角色） -->
+  <div class="spicy-topbar">
+    <div class="spicy-player-info">
+      <div class="spicy-player-avatar-sm spicy-p1-avatar" id="p1-avatar">?</div>
+      <div>
+        <div class="spicy-player-name" id="p1-name">玩家</div>
+        <div class="spicy-gold"><span class="spicy-gold-icon"></span> <span id="p1-gold">0</span></div>
+      </div>
+    </div>
+    <div class="spicy-vs-sm">VS</div>
+    <div class="spicy-player-info">
+      <div style="text-align:right">
+        <div class="spicy-player-name" id="p2-name">对手</div>
+        <div class="spicy-gold"><span class="spicy-gold-icon"></span> <span id="p2-gold">0</span></div>
+      </div>
+      <div class="spicy-player-avatar-sm spicy-p2-avatar" id="p2-avatar">?</div>
+    </div>
+  </div>
+
+  <!-- 棋盘主区域 -->
+  <div class="spicy-board-area">
+    <div class="spicy-board-container" id="board">
+
+      <!-- 中心区域 -->
+      <div class="spicy-center">
+        <div class="spicy-round-indicator" id="round-indicator">第 0 回合 | 玩家回合</div>
+
+        <!-- 抽卡盒 -->
+        <div class="spicy-card-box" id="card-box">
+          <div class="spicy-card-stack">
+            <div class="spicy-card-back"></div>
+            <div class="spicy-card-back"></div>
+            <div class="spicy-card-back"></div>
+            <div class="spicy-card-back"></div>
+            <div class="spicy-card-back"></div>
+          </div>
+        </div>
+
+        <div class="spicy-center-status">
+          <div class="spicy-center-status-line">本局奖励池：200星币</div>
+          <div class="spicy-center-status-line" id="center-status">当前格子：起点</div>
+        </div>
+      </div>
+
+      <!-- 棋子（初始位置在起点格） -->
+      <div class="spicy-token spicy-token-p1" id="token1"><div class="piece-base"></div><div class="piece-body"></div></div>
+      <div class="spicy-token spicy-token-p2" id="token2"><div class="piece-base"></div><div class="piece-body"></div></div>
+
+    </div>
+  </div>
+
+  <!-- 底部操作栏 -->
+  <div class="spicy-bottom-bar">
+    <button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="btn-temp-exit">临时退出</button>
+    <div class="spicy-dice-wrap" id="dice-wrap">
+      <div class="spicy-dice" id="dice"></div>
+    </div>
+    <button class="spicy-btn spicy-btn-primary" id="btn-roll">投掷骰子</button>
+    <button class="spicy-btn spicy-btn-ghost spicy-btn-sm" id="btn-formal-exit">正式退出</button>
+  </div>
+
+</div>
+
+<script>
+var BOARD_SIZE = 24
+var TILE_TYPES = [
+  'start','chance','task','truth','fate','task','tax','shop',
+  'chance','task','truth','jail','task','fate','shop','chance','tax','task','truth','fate','task','chance','shop','start'
+]
+var TILE_LABELS = { start:'起点', chance:'机会', task:'任务', fate:'命运', tax:'缴税', jail:'监狱', truth:'真心话', shop:'商店' }
+var TILE_ICONS = { start:'icon-start', task:'icon-task', chance:'icon-chance', fate:'icon-fate', tax:'icon-tax', jail:'icon-jail' }
+
+// 模拟微信登录用户和邀请角色（实际由游戏引擎传入）
+var playerInfo = {
+  p1Name: '月汐', p1Initial: '月',
+  p2Name: '艾因', p2Initial: '艾'
+}
+
+var boardSize = 340
+var gs = { p1Pos:0, p2Pos:0, p1Gold:0, p2Gold:0, round:0, currentPlayer:1 }
+var waitingForDraw = false  // 等待玩家点击抽卡盒
+var pendingDrawType = null  // 'chance' or 'fate'
+
+// 初始化头像和名字
+function initPlayerInfo() {
+  document.getElementById('p1-name').textContent = playerInfo.p1Name
+  document.getElementById('p1-avatar').textContent = playerInfo.p1Initial
+  document.getElementById('p2-name').textContent = playerInfo.p2Name
+  document.getElementById('p2-avatar').textContent = playerInfo.p2Initial
+}
+
+// 环形布局
+function getTilePosition(index) {
+  var s = boardSize, m = s * 0.06, u = s - 2 * m, step = u / 5
+  if (index <= 5) return { x: m + index * step, y: s - m }
+  if (index <= 11) return { x: s - m, y: s - m - (index - 5) * step }
+  if (index <= 17) return { x: s - m - (index - 11) * step, y: m }
+  return { x: m, y: m + (index - 17) * step }
+}
+
+// 渲染20格
+function renderTiles() {
+  var board = document.getElementById('board')
+  board.querySelectorAll('.spicy-tile').forEach(function(el) { el.remove() })
+  for (var i = 0; i < BOARD_SIZE; i++) {
+    var pos = getTilePosition(i)
+    var tile = TILE_TYPES[i]
+    var div = document.createElement('div')
+    div.className = 'spicy-tile spicy-tile-' + tile
+    div.style.left = (pos.x - 20) + 'px'
+    div.style.top = (pos.y - 22) + 'px'
+    div.dataset.index = i
+    div.innerHTML = '<div class="spicy-tile-icon"><div class="' + TILE_ICONS[tile] + '"></div></div>' +
+      '<div class="spicy-tile-label">' + (TILE_LABELS[tile] || tile) + '</div>'
+    board.appendChild(div)
+  }
+}
+
+// 更新棋子位置（带偏移避免重叠）
+function updateTokens(animate) {
+  var t1 = document.getElementById('token1')
+  var t2 = document.getElementById('token2')
+  var p1 = getTilePosition(gs.p1Pos)
+  var p2 = getTilePosition(gs.p2Pos)
+  t1.style.left = (p1.x - 11) + 'px'
+  t1.style.top = (p1.y - 14) + 'px'
+  t2.style.left = (p2.x - 11 + 14) + 'px'
+  t2.style.top = (p2.y - 14 + 8) + 'px'
+}
+
+// 骰子点数
+function renderDiceFace(el, num) {
+  var positions = {
+    1:[[1,1]], 2:[[0,2],[2,0]], 3:[[0,2],[1,1],[2,0]],
+    4:[[0,0],[0,2],[2,0],[2,2]], 5:[[0,0],[0,2],[1,1],[2,0],[2,2]],
+    6:[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2]]
+  }
+  var faceNums = { front:num, back:7-num, right:num<=3?3:4, left:num<=3?4:3, top:num===6?5:6, bottom:num===6?1:2 }
+  function dotsHtml(n) {
+    var pos = positions[n] || positions[1]
+    var h = ''
+    for (var r=0;r<3;r++) for (var c=0;c<3;c++) {
+      var has = pos.some(function(p){return p[0]===r&&p[1]===c})
+      h += '<div class="spicy-dice-dot'+(has?'':' empty')+'"></div>'
+    }
+    return h
+  }
+  var allHtml = ''
+  ;['front','back','right','left','top','bottom'].forEach(function(f) {
+    allHtml += '<div class="spicy-dice-face face-'+f+'">'+dotsHtml(faceNums[f])+'</div>'
+  })
+  el.innerHTML = allHtml
+}
+
+// 掷骰子动画
+function animateDice(callback) {
+  var dice = document.getElementById('dice')
+  dice.classList.add('rolling')
+  var count = 0
+  var interval = setInterval(function() {
+    renderDiceFace(dice, Math.floor(Math.random()*6)+1)
+    count++
+    if (count > 10) {
+      clearInterval(interval)
+      var result = Math.floor(Math.random()*6)+1
+      renderDiceFace(dice, result)
+      dice.classList.remove('rolling')
+      setTimeout(function() { callback(result) }, 300)
+    }
+  }, 80)
+}
+
+// 棋子逐格移动
+function animateTokenMove(tokenEl, from, to, callback) {
+  var steps = []
+  var cur = from
+  while (cur !== to) { cur = (cur + 1) % BOARD_SIZE; steps.push(cur) }
+  var i = 0
+  function next() {
+    if (i >= steps.length) { if (callback) callback(); return }
+    var pos = getTilePosition(steps[i])
+    var offsetX = tokenEl.id === 'token2' ? 14 : 0
+    var offsetY = tokenEl.id === 'token2' ? 8 : 0
+    tokenEl.style.left = (pos.x - 11 + offsetX) + 'px'
+    tokenEl.style.top = (pos.y - 14 + offsetY) + 'px'
+    tokenEl.classList.add('bouncing')
+    setTimeout(function() {
+      tokenEl.classList.remove('bouncing')
+      // 落脚光效
+      var tile = document.querySelector('.spicy-tile[data-index="' + steps[i] + '"]')
+      if (tile) { tile.classList.add('active'); setTimeout(function(){ tile.classList.remove('active') }, 600) }
+      i++
+      setTimeout(next, 100)
+    }, 250)
+  }
+  next()
+}
+
+// 格子闪烁
+function flashTile(index) {
+  var tile = document.querySelector('.spicy-tile[data-index="' + index + '"]')
+  if (tile) { tile.classList.add('flashing'); setTimeout(function(){ tile.classList.remove('flashing') }, 2000) }
+}
+
+// 抽卡盒发光（玩家回合 - 等待点击）
+function activateCardBoxForPlayer() {
+  var box = document.getElementById('card-box')
+  box.classList.add('glowing', 'clickable')
+  waitingForDraw = true
+  // 添加提示文字
+  var hint = document.createElement('div')
+  hint.className = 'spicy-card-hint'
+  hint.textContent = '点击抽卡'
+  hint.id = 'card-hint'
+  box.appendChild(hint)
+}
+
+// 抽卡盒发光（AI回合 - 自动触发）
+function activateCardBoxForAI() {
+  var box = document.getElementById('card-box')
+  box.classList.add('glowing')
+}
+
+// 抽卡飞出动画
+function animateCardDraw(cardType, cardName, cardDesc, isPenalty, autoConfirm, onConfirm) {
+  var box = document.getElementById('card-box')
+  box.classList.remove('glowing', 'clickable')
+  var hint = document.getElementById('card-hint')
+  if (hint) hint.remove()
+
+  setTimeout(function() {
+    var card = document.createElement('div')
+    card.className = 'spicy-flying-card animating-in'
+    var headerClass = cardType === 'chance' ? 'spicy-card-header-chance' : 'spicy-card-header-fate'
+    var btnClass = cardType === 'chance' ? 'spicy-card-confirm-chance' : 'spicy-card-confirm-fate'
+    var btnText = isPenalty ? '确认并执行惩罚' : '确认'
+    var typeLabel = cardType === 'chance' ? '机会卡' : '命运卡'
+
+    card.innerHTML =
+      '<div class="spicy-card-front">' +
+        '<div class="spicy-card-header ' + headerClass + '">' +
+          '<div class="spicy-card-type">' + typeLabel + '</div>' +
+          '<div class="spicy-card-name">' + cardName + '</div>' +
+        '</div>' +
+        '<div class="spicy-card-body">' +
+          '<div class="spicy-card-desc">' + cardDesc + '</div>' +
+          (autoConfirm ? '' : '<button class="spicy-card-confirm ' + btnClass + '" id="card-confirm-btn">' + btnText + '</button>') +
+        '</div>' +
+      '</div>'
+
+    card.style.left = '50%'
+    card.style.top = '50%'
+    card.style.transform = 'translate(-50%, -50%)'
+    document.body.appendChild(card)
+
+    setTimeout(function() {
+      card.classList.remove('animating-in')
+      card.classList.add('ready')
+      card.style.transform = 'translate(-50%, -50%)'
+
+      if (autoConfirm) {
+        // AI自动：展示后自动飞回
+        setTimeout(function() {
+          card.classList.remove('ready')
+          card.classList.add('fly-back')
+          setTimeout(function() { card.remove(); if (onConfirm) onConfirm() }, 400)
+        }, 1500)
+      } else {
+        // 玩家手动：等待点击
+        document.getElementById('card-confirm-btn').onclick = function() {
+          card.classList.remove('ready')
+          card.classList.add('fly-back')
+          setTimeout(function() { card.remove(); if (onConfirm) onConfirm() }, 400)
+        }
+      }
+    }, 500)
+  }, 800)
+}
+
+// 事件消息
+function showEventMsg(msg, duration) {
+  var existing = document.querySelector('.spicy-event-bar')
+  if (existing) existing.remove()
+  var bar = document.createElement('div')
+  bar.className = 'spicy-event-bar'
+  bar.textContent = msg
+  document.body.appendChild(bar)
+  setTimeout(function() { bar.remove() }, duration || 3000)
+}
+
+// 回合指示器
+function updateRoundIndicator() {
+  var el = document.getElementById('round-indicator')
+  var name = gs.currentPlayer === 1 ? playerInfo.p1Name : playerInfo.p2Name
+  el.textContent = '第 ' + gs.round + ' 回合 | ' + name + '回合'
+  el.classList.add('flash')
+  setTimeout(function() { el.classList.remove('flash') }, 500)
+}
+
+// === 初始化 ===
+initPlayerInfo()
+renderTiles()
+renderDiceFace(document.getElementById('dice'), 1)
+updateTokens()
+
+// 抽卡盒点击事件（仅玩家回合有效）
+document.getElementById('card-box').onclick = function() {
+  if (!waitingForDraw) return
+  waitingForDraw = false
+  var isChance = pendingDrawType === 'chance'
+  var name = isChance ? '获得3星币' : '罚款'
+  var desc = isChance ? '获得3星币' : '交3星币给对手'
+  var penalty = !isChance
+
+  animateCardDraw(pendingDrawType, name, desc, penalty, false, function() {
+    if (penalty) {
+      gs.p1Gold -= 3; gs.p2Gold += 3
+      showEventMsg('命运惩罚执行：-3星币')
+    } else {
+      gs.p1Gold += 3
+      showEventMsg('机会卡：+3星币')
+    }
+    document.getElementById('p1-gold').textContent = gs.p1Gold
+    document.getElementById('p2-gold').textContent = gs.p2Gold
+    pendingDrawType = null
+    document.getElementById('btn-roll').disabled = false
+  })
+}
+
+// 掷骰子按钮
+document.getElementById('btn-roll').onclick = function() {
+  if (waitingForDraw) return
+  this.disabled = true
+  animateDice(function(result) {
+    var from = gs.p1Pos
+    var to = (from + result) % BOARD_SIZE
+    var token = document.getElementById('token1')
+    showEventMsg('掷出 ' + result + ' 点！', 1500)
+
+    animateTokenMove(token, from, to, function() {
+      gs.p1Pos = to
+      gs.round++
+      flashTile(to)
+      updateRoundIndicator()
+      var tile = TILE_TYPES[to]
+      document.getElementById('center-status').textContent = '当前格子：第' + to + '格 · ' + TILE_LABELS[tile]
+
+      if (tile === 'chance') {
+        // 玩家踩到机会格 → 等待点击抽卡盒
+        pendingDrawType = 'chance'
+        activateCardBoxForPlayer()
+        showEventMsg('踩到机会格！点击中心抽卡盒抽卡')
+      } else if (tile === 'fate') {
+        // 玩家踩到命运格 → 等待点击抽卡盒
+        pendingDrawType = 'fate'
+        activateCardBoxForPlayer()
+        showEventMsg('踩到命运格！点击中心抽卡盒抽卡')
+      } else if (tile === 'task') {
+        showEventMsg('踩到任务格！')
+        document.getElementById('btn-roll').disabled = false
+      } else if (tile === 'tax') {
+        gs.p1Gold -= 3
+        document.getElementById('p1-gold').textContent = gs.p1Gold
+        showEventMsg('缴税 3 星币')
+        document.getElementById('btn-roll').disabled = false
+      } else if (tile === 'jail') {
+        showEventMsg('进了监狱！')
+        document.getElementById('btn-roll').disabled = false
+      } else if (tile === 'start') {
+        gs.p1Gold += 2
+        document.getElementById('p1-gold').textContent = gs.p1Gold
+        showEventMsg('经过起点 +2星币')
+        document.getElementById('btn-roll').disabled = false
+      } else {
+        document.getElementById('btn-roll').disabled = false
+      }
+    })
+  })
+}
+</script>
+
+</body>
+</html>

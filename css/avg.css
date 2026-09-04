@@ -192,6 +192,8 @@
   flex-direction: column;
   align-items: center;
   padding: calc(20px + env(safe-area-inset-top, 0px)) 24px calc(20px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .avg-title-back {

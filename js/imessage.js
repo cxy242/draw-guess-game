@@ -5,7 +5,7 @@ var _smsActivePhone = null
 var _smsUserPhones = []
 
 var SMS_WELCOME_REMOTE = '106908968258'
-var SMS_WELCOME_TEXT = '【弯弯AI】欢迎您的加入！您的手机号已注册成功，立即体验AI助手，让工作更高效。如有问题请联系客服。退订回TD'
+var SMS_WELCOME_TEXT = '【月月AI】欢迎您的加入！您的手机号已注册成功，立即体验AI助手，让工作更高效。如有问题请联系客服。退订回TD'
 var SMS_DEFAULT_AVATAR = 'https://img2.tofaka.com/autoupload/WyM1lZ85VwHzLwMUY9JmtdiO_OyvX7mIgxFBfDMDErs/20260530/dPVE/242X242/iMessage_deflaut.png'
 
 function escSmsHtml(str) {

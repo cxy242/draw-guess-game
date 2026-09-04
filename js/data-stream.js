@@ -187,7 +187,7 @@
         await input.space(); if (await input.peek() === '}') { await input.next(); break }
         var key = (await stringToken(input)).value; await input.expect(':')
         if (TABLES.indexOf(key) >= 0) {
-          if (version !== 1 || appName !== '弯弯') throw new Error('备份头部无效或字段顺序不受支持')
+          if (version !== 1 || appName !== '月月') throw new Error('备份头部无效或字段顺序不受支持')
           await array(input, key, progress, options)
         } else {
           var encoded = await value(input), decoded = hydrate(JSON.parse(encoded.raw), encoded.blobs)
@@ -200,7 +200,7 @@
         if (separator !== ',') throw new Error('备份顶层格式错误')
       }
       await input.space(); if (await input.peek()) throw new Error('JSON结尾存在额外内容')
-      if (version !== 1 || appName !== '弯弯') throw new Error('不支持的备份格式')
+      if (version !== 1 || appName !== '月月') throw new Error('不支持的备份格式')
       if (options.clearBeforeImport) localStorage.clear()
       if (local) Object.keys(local).forEach(function(key) {
         if (!isProtectedKey(key)) localStorage.setItem(key, local[key])

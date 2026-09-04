@@ -176,7 +176,7 @@
 
   async function testEmbedding() {
     try {
-      var embedding = await createEmbedding('弯弯长期记忆向量测试')
+      var embedding = await createEmbedding('月月长期记忆向量测试')
       window.toast && window.toast('向量接口可用：' + embedding.length + ' 维')
       return true
     } catch (e) {

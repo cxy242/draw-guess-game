@@ -33,10 +33,11 @@ const server = http.createServer((req, res) => {
 
   try {
     const data = fs.readFileSync(filePath);
+    const noCache = ext === '.html' || ext === '.json' || ext === '.js' || ext === '.css';
     res.writeHead(200, {
       'Content-Type': mime,
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, max-age=3600'
+      'Cache-Control': noCache ? 'no-cache, no-store, must-revalidate' : 'public, max-age=86400'
     });
     res.end(data);
   } catch (e) {

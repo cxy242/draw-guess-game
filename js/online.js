@@ -231,7 +231,7 @@
     incomingMutationQueue = incomingMutationQueue
       .then(task)
       .catch(function(err) {
-        console.warn('[弯弯联机] 处理服务器事件失败:', err)
+        console.warn('[月月联机] 处理服务器事件失败:', err)
       })
     return incomingMutationQueue
   }

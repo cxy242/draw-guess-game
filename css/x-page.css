@@ -571,6 +571,8 @@
   flex-direction: column;
   justify-content: center;
   padding: calc(58px + env(safe-area-inset-top, 0)) 32px calc(32px + env(safe-area-inset-bottom, 0));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .x-login-logo {
@@ -794,6 +796,8 @@
   min-height: 0;
   background: #000;
   padding: 58px 20px 28px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .x-profile-avatar {

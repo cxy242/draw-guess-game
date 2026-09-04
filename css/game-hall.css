@@ -272,3 +272,7 @@
     min-height: 118px;
   }
 }
+
+.game-card-spicy .game-card-icon {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}

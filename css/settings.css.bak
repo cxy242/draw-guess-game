@@ -12,7 +12,7 @@
   flex-direction: column;
   min-height: 0;
   overflow-x: hidden;
-  contain: layout style;
+  contain: layout paint;
   z-index: 50;
 }
 .full-page.is-opening,
@@ -33,7 +33,7 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   transform: translateZ(0);
-  contain: layout style;
+  contain: layout paint;
   padding: 0 16px;
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
   display: flex;

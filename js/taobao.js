@@ -203,7 +203,7 @@ var TAOBAO_ORDER_PREFIX = 'taobao_orders_'
 var TAOBAO_LINK_PREFIX = 'taobao_links_'
 var taobaoState = { tab: 'home', user: null, category: 'all', products: [] }
 
-// 商品数据（自包含，无外链图，用渐变+图标占位，契合弯弯灰白风格）
+// 商品数据（自包含，无外链图，用渐变+图标占位，契合月月灰白风格）
 var TAOBAO_PRODUCTS = [
   { id: 'p1',  cat: 'home',    title: '原木质感香薰蜡烛 静谧白茶', price: 89,  sold: '2.3万', icon: 'fa-fire-flame-simple', tone: 'a' },
   { id: 'p2',  cat: 'wear',    title: '宽松落肩纯棉卫衣 雾灰色', price: 219, sold: '8657', icon: 'fa-shirt', tone: 'b' },
@@ -467,7 +467,7 @@ function tbRenderHome(screen) {
     '<div class="tb-scroll">' +
       '<section class="tb-banner">' +
         '<div class="tb-banner-text">' +
-          '<span class="tb-banner-kicker">弯弯严选</span>' +
+          '<span class="tb-banner-kicker">月月严选</span>' +
           '<h2>质感生活<br>从一件好物开始</h2>' +
           '<span class="tb-banner-sub">精选灰白美学 · 限时直降</span>' +
         '</div>' +
