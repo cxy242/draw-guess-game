@@ -410,22 +410,27 @@ window.AutoMoments = {
 
 // === 设置面板打开函数 ===
 window.AutoMomentsSettings = function() {
-  var exist = document.getElementById('am-settings-panel');
-  if (exist) { exist.remove(); return; }
-  var panel = document.createElement('div');
-  panel.id = 'am-settings-panel';
-  panel.className = 'am-settings-overlay';
-  var content = document.createElement('div');
-  content.className = 'am-settings-content';
-  panel.appendChild(content);
-  document.body.appendChild(panel);
-  if (window.renderAutoMomentsPanel) {
-    window.renderAutoMomentsPanel(content);
+  try {
+    var exist = document.getElementById('am-settings-panel');
+    if (exist) { exist.remove(); return; }
+    var panel = document.createElement('div');
+    panel.id = 'am-settings-panel';
+    panel.className = 'am-settings-overlay';
+    var content = document.createElement('div');
+    content.className = 'am-settings-content';
+    panel.appendChild(content);
+    document.body.appendChild(panel);
+    if (window.renderAutoMomentsPanel) {
+      window.renderAutoMomentsPanel(content);
+    }
+    panel.addEventListener('click', function(ev) {
+      if (ev.target === panel) panel.remove();
+    });
+  } catch(err) {
+    alert('自动朋友圈错误: ' + (err.message || err));
   }
-  panel.addEventListener('click', function(ev) {
-    if (ev.target === panel) panel.remove();
-  });
 };
+console.log('[AutoMoments] 模块已加载，AutoMomentsSettings已定义');
 
 // === 事件委托备用 ===
 document.addEventListener('click', function(e) {
@@ -437,5 +442,9 @@ document.addEventListener('click', function(e) {
 });
 
 
-} catch(amErr) { console.error('[AutoMoments] 加载错误:', amErr); }
+} catch(amErr) {
+  console.error('[AutoMoments] 加载错误:', amErr);
+  // 屏幕显示错误
+  window._amLastError = amErr;
+}
 })();
