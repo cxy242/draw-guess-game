@@ -236,17 +236,30 @@ async function postMoment(opts) {
       await genImages(char, data);
     }
 
-    /* 构造 moment 并持久化 */
+    /* 构造 moment 并持久化（格式匹配 buildMomentCardHTML） */
+    var ownerUid = await getCfg('currentUserId');
     var moment = {
-      charId:      charId,
-      author:      char.name,
-      text:        data.text,
-      imagesDesc:  data.imagesDesc || [],
-      images:      data._imgKeys || [],
-      likes:       Array.isArray(data.likes) ? data.likes : [],
-      comments:    normalizeComments(data.comments, char.name),
-      time:        '刚刚',
-      createdAt:   Date.now()
+      charId:    charId,
+      ownerUid:  ownerUid || String(charId),
+      text:      data.text,
+      images:    (data.imagesDesc || []).map(function(desc) {
+        return { src: '', desc: desc };
+      }),
+      likes:     Array.isArray(data.likes) ? data.likes.map(function(name, i) {
+        return { uid: 'npc_' + i, name: name, createdAt: Date.now() };
+      }) : [],
+      comments:  normalizeComments(data.comments, char.name).map(function(c, i) {
+        return {
+          id:        'cmt_' + Date.now() + '_' + i,
+          uid:       c.from === char.name ? 'char_' + charId : 'npc_' + i,
+          name:      c.from,
+          replyToId: c.to ? 'cmt_prev' : '',
+          replyToName: c.to || '',
+          text:      c.text,
+          createdAt: Date.now() + i * 1000
+        };
+      }),
+      createdAt: Date.now()
     };
     await window.db.moments.put(moment);
 
@@ -385,8 +398,7 @@ window.AutoMoments = {
 
   checkChat:  async function (charId) {
     if (!await getCfg(AM.enabled)) return;
-    var chars = await getCfg(AM.chars) || [];
-    if (chars.indexOf(charId) < 0) return;
+    // 有感而发对所有角色都生效，不限于自动发帖角色
     if (Date.now() - _lastChatPost < 7200000) return;
     if (Math.random() > 0.03) return;
     _lastChatPost = Date.now();
