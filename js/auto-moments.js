@@ -408,38 +408,59 @@ window.AutoMoments = {
   get renderPanel() { return window.renderAutoMomentsPanel; }
 };
 
-// === 设置面板打开函数 ===
-window.AutoMomentsSettings = function() {
-  try {
-    var exist = document.getElementById('am-settings-panel');
-    if (exist) { exist.remove(); return; }
-    var panel = document.createElement('div');
-    panel.id = 'am-settings-panel';
-    panel.className = 'am-settings-overlay';
-    var content = document.createElement('div');
-    content.className = 'am-settings-content';
-    panel.appendChild(content);
-    document.body.appendChild(panel);
-    if (window.renderAutoMomentsPanel) {
-      window.renderAutoMomentsPanel(content);
-    }
-    panel.addEventListener('click', function(ev) {
-      if (ev.target === panel) panel.remove();
-    });
-  } catch(err) {
-    alert('自动朋友圈错误: ' + (err.message || err));
+// === 打开设置面板 ===
+function openSettingsPanel() {
+  var exist = document.getElementById('am-settings-panel');
+  if (exist) { exist.remove(); return; }
+  var panel = document.createElement('div');
+  panel.id = 'am-settings-panel';
+  panel.className = 'am-settings-overlay';
+  var content = document.createElement('div');
+  content.className = 'am-settings-content';
+  panel.appendChild(content);
+  document.body.appendChild(panel);
+  if (window.renderAutoMomentsPanel) {
+    window.renderAutoMomentsPanel(content);
   }
-};
-console.log('[AutoMoments] 模块已加载，AutoMomentsSettings已定义');
+  panel.addEventListener('click', function(ev) {
+    if (ev.target === panel) panel.remove();
+  });
+}
 
-// === 事件委托备用 ===
-document.addEventListener('click', function(e) {
-  if (e.target.closest('#btn-auto-moments-settings')) {
+// === 自动注入按钮到朋友圈页面 ===
+function injectMomentsButton() {
+  // 找到朋友圈header中的发帖按钮
+  var postBtn = document.querySelector('#btn-post-moment-top');
+  if (!postBtn) return;
+  // 检查是否已经注入过
+  if (document.querySelector('#am-settings-btn')) return;
+  // 创建按钮
+  var btn = document.createElement('button');
+  btn.id = 'am-settings-btn';
+  btn.className = 'moments-nav-btn';
+  btn.style.marginRight = '4px';
+  btn.setAttribute('aria-label', '自动朋友圈设置');
+  btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
+  btn.addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.AutoMomentsSettings();
-  }
+    openSettingsPanel();
+  });
+  // 插入到发帖按钮前面
+  postBtn.parentNode.insertBefore(btn, postBtn);
+  console.log('[AutoMoments] 按钮已注入');
+}
+
+// === 用MutationObserver监听页面变化 ===
+var _injectTimer = null;
+var observer = new MutationObserver(function() {
+  if (_injectTimer) clearTimeout(_injectTimer);
+  _injectTimer = setTimeout(injectMomentsButton, 300);
 });
+observer.observe(document.body, { childList: true, subtree: true });
+
+// 初始尝试注入
+setTimeout(injectMomentsButton, 1000);
 
 
 } catch(amErr) {

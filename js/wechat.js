@@ -11118,7 +11118,6 @@ function buildWechatMainMomentsPageHTML(cachedListHTML = '') {
         <i class="fa fa-angle-left"></i>
       </button>
       <span class="header-title">Moments</span>
-      <button class="moments-nav-btn" id="btn-auto-moments-settings" aria-label="自动朋友圈设置" style="margin-right:4px" onclick="if(window.AutoMomentsSettings)window.AutoMomentsSettings()"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
       <button class="moments-nav-btn" id="btn-post-moment-top" aria-label="发布动态">
         ${buildMomentsCameraIcon()}
       </button>
