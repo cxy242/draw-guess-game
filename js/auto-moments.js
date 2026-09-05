@@ -471,6 +471,50 @@ var observer = new MutationObserver(function() {
 });
 observer.observe(document.body, { childList: true, subtree: true });
 
+async function initScheduler() {
+  try {
+    if (await getCfg(AM.enabled)) {
+      console.log('[AutoMoments] 启动调度器');
+      startScheduler();
+    }
+  } catch (e) {
+    console.error('[AutoMoments] 初始化失败:', e);
+  }
+}
+setTimeout(initScheduler, 2000);
+
+// === Service Worker 注册 ===
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+    console.log('[AutoMoments] SW registered');
+    // 发送启动消息
+    if (reg.active) {
+      reg.active.postMessage('start');
+    }
+    reg.addEventListener('updatefound', function() {
+      var newWorker = reg.installing;
+      newWorker.addEventListener('statechange', function() {
+        if (newWorker.state === 'activated') {
+          newWorker.postMessage('start');
+        }
+      });
+    });
+  }).catch(function(e) {
+    console.error('[AutoMoments] SW注册失败:', e);
+  });
+  
+  // 监听SW消息
+  navigator.serviceWorker.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'auto-moments-check') {
+      console.log('[AutoMoments] 收到SW唤醒信号，检查发帖');
+      if (typeof startScheduler === 'function') {
+        startScheduler();
+      }
+    }
+  });
+}
+
+
 // 初始尝试注入
 setTimeout(injectMomentsButton, 1000);
 
