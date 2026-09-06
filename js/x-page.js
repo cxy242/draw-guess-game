@@ -212,18 +212,36 @@ function xPickImage(callback, maxSize) {
 }
 
 // ===== X记忆联通 =====
+function formatMemoryTime(ts) {
+  if (!ts) return ''
+  var d = new Date(ts)
+  var now = new Date()
+  var diff = now - d
+  var hours = Math.floor(diff / 3600000)
+  var days = Math.floor(diff / 86400000)
+  var timeStr = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0')
+
+  if (days === 0 && hours === 0) return '刚刚'
+  if (days === 0) return '今天' + timeStr
+  if (days === 1) return '昨天' + timeStr
+  if (days === 2) return '前天' + timeStr
+  if (days < 7) return days + '天前(' + (d.getMonth()+1) + '/' + d.getDate() + ' ' + timeStr + ')'
+  return (d.getMonth()+1) + '月' + d.getDate() + '日' + timeStr
+}
+
 async function saveXMemory(charId, title, content, keywords) {
   if (!window.db || !db.memories) return
   try {
     var ownerUid = null
     var users = await db.characters.where('type').equals('user').toArray()
     if (users.length) ownerUid = String(users[0].id)
+    var timeLabel = formatMemoryTime(Date.now())
     await db.memories.add({
       ownerUid: ownerUid || 'default',
       charId: charId || 0,
       chatId: 'x_' + charId,
       title: String(title || '').slice(0, 30),
-      content: String(content || '').slice(0, 150),
+      content: '[' + timeLabel + '] ' + String(content || '').slice(0, 140),
       keywords: Array.isArray(keywords) ? keywords.slice(0, 8) : [],
       valence: 0,
       arousal: 0.3,
@@ -238,7 +256,7 @@ async function saveXMemory(charId, title, content, keywords) {
       lastAccessedAt: null,
       accessCount: 0
     })
-    console.log('[X] 记忆已保存：' + title)
+    console.log('[X] 记忆已保存：' + title + ' @' + timeLabel)
   } catch(e) { console.warn('[X] 记忆保存失败:', e) }
 }
 
@@ -1066,11 +1084,12 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
 
     // 记忆联通：用户评论AI帖子时，写入该AI的记忆
     if (post.authorId && String(post.authorId) !== String(user.id)) {
+      var postPreview = (post.content || '').slice(0, 30)
       saveXMemory(
         post.authorId,
         '用户评论了我的帖子',
-        '用户"' + getXUserName(user) + '"评论了我的帖子："' + text.slice(0, 50) + '"',
-        ['评论', '互动']
+        '我发了一条帖子"' + postPreview + '"，用户"' + getXUserName(user) + '"评论说："' + text.slice(0, 40) + '"',
+        ['评论', '互动', postPreview.slice(0, 10)]
       )
     }
 
@@ -1081,7 +1100,7 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
         saveXMemory(
           targetComment.authorId,
           '用户回复了我的评论',
-          '用户"' + getXUserName(user) + '"回复了我说的"' + (targetComment.content || '').slice(0, 30) + '"，说："' + text.slice(0, 50) + '"',
+          '我说了"' + (targetComment.content || '').slice(0, 30) + '"，用户"' + getXUserName(user) + '"回复我说："' + text.slice(0, 40) + '"',
           ['回复', '互动']
         )
       }
@@ -1301,10 +1320,12 @@ async function generateAIComments(post, user) {
     // 记忆联通：AI评论用户帖子时，写入各AI的记忆
     comments.forEach(function(c) {
       if (c.authorId && !c.isReply) {
+        var postAuthor = post.authorName || '用户'
+        var postPreview = (post.content || '').slice(0, 25)
         saveXMemory(
           c.authorId,
           '我在X上评论了帖子',
-          '我评论了"' + (post.authorName || '用户') + '"的帖子，我说："' + c.content.slice(0, 60) + '"',
+          postAuthor + '发了一条帖子"' + postPreview + '"，我评论说："' + c.content.slice(0, 40) + '"',
           ['X评论', '互动']
         )
       }

@@ -796,12 +796,19 @@ window.summarizeSmsToMemory = async function(conversationId) {
       if (users.length) ownerUid = String(users[0].id)
     } catch(e) {}
 
+    // 计算对话时间范围
+    var firstTime = msgs[0] ? new Date(msgs[0].createdAt) : new Date()
+    var lastTime = msgs[msgs.length-1] ? new Date(msgs[msgs.length-1].createdAt) : new Date()
+    var timeRange = (firstTime.getMonth()+1) + '/' + firstTime.getDate() + ' ' +
+      firstTime.getHours().toString().padStart(2,'0') + ':' + firstTime.getMinutes().toString().padStart(2,'0') +
+      '~' + lastTime.getHours().toString().padStart(2,'0') + ':' + lastTime.getMinutes().toString().padStart(2,'0')
+
     var memoryRow = {
       ownerUid: ownerUid || 'default',
       charId: charId || 0,
       chatId: 'sms_' + conversationId,
       title: String(data.title || '短信对话').slice(0, 30),
-      content: String(data.content).slice(0, 150),
+      content: '[' + timeRange + '] ' + String(data.content).slice(0, 130),
       keywords: Array.isArray(data.keywords) ? data.keywords.slice(0, 8) : [],
       valence: typeof data.valence === 'number' ? data.valence : 0,
       arousal: typeof data.arousal === 'number' ? data.arousal : 0.3,
