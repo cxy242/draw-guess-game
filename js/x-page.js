@@ -211,6 +211,37 @@ function xPickImage(callback, maxSize) {
   input.click()
 }
 
+// ===== X记忆联通 =====
+async function saveXMemory(charId, title, content, keywords) {
+  if (!window.db || !db.memories) return
+  try {
+    var ownerUid = null
+    var users = await db.characters.where('type').equals('user').toArray()
+    if (users.length) ownerUid = String(users[0].id)
+    await db.memories.add({
+      ownerUid: ownerUid || 'default',
+      charId: charId || 0,
+      chatId: 'x_' + charId,
+      title: String(title || '').slice(0, 30),
+      content: String(content || '').slice(0, 150),
+      keywords: Array.isArray(keywords) ? keywords.slice(0, 8) : [],
+      valence: 0,
+      arousal: 0.3,
+      importance: 5,
+      embedding: null,
+      status: 'active',
+      sourceMsgStartId: null,
+      sourceMsgEndId: null,
+      sourceAt: Date.now(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lastAccessedAt: null,
+      accessCount: 0
+    })
+    console.log('[X] 记忆已保存：' + title)
+  } catch(e) { console.warn('[X] 记忆保存失败:', e) }
+}
+
 function xLoadComments(postId) {
   try {
     var comments = JSON.parse(localStorage.getItem(X_COMMENTS_PREFIX + postId)) || []
@@ -1032,6 +1063,29 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
     })
     xSaveNotifications(notifs)
     showNotifyDot()
+
+    // 记忆联通：用户评论AI帖子时，写入该AI的记忆
+    if (post.authorId && String(post.authorId) !== String(user.id)) {
+      saveXMemory(
+        post.authorId,
+        '用户评论了我的帖子',
+        '用户"' + getXUserName(user) + '"评论了我的帖子："' + text.slice(0, 50) + '"',
+        ['评论', '互动']
+      )
+    }
+
+    // 记忆联通：用户回复AI评论时，写入该AI的记忆
+    if (replyToId) {
+      var targetComment = comments.find(function(c) { return c.id === replyToId })
+      if (targetComment && targetComment.authorId && String(targetComment.authorId) !== String(user.id)) {
+        saveXMemory(
+          targetComment.authorId,
+          '用户回复了我的评论',
+          '用户"' + getXUserName(user) + '"回复了我说的"' + (targetComment.content || '').slice(0, 30) + '"，说："' + text.slice(0, 50) + '"',
+          ['回复', '互动']
+        )
+      }
+    }
   }
 }
 
@@ -1243,6 +1297,18 @@ async function generateAIComments(post, user) {
     }
 
     xSaveComments(post.id, comments)
+
+    // 记忆联通：AI评论用户帖子时，写入各AI的记忆
+    comments.forEach(function(c) {
+      if (c.authorId && !c.isReply) {
+        saveXMemory(
+          c.authorId,
+          '我在X上评论了帖子',
+          '我评论了"' + (post.authorName || '用户') + '"的帖子，我说："' + c.content.slice(0, 60) + '"',
+          ['X评论', '互动']
+        )
+      }
+    })
 
     // 添加评论通知
     var notifs = xLoadNotifications()
