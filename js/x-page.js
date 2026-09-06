@@ -2092,8 +2092,9 @@ async function generateBatchPosts(user, preference) {
 }
 
 
-// ===== 自动发帖调度器 =====
+// ===== 自动发帖调度器（支持补回）=====
 var xAutoPostTimer = null
+var X_LAST_AUTOPOST_KEY = 'wanwan_x_lastAutoPost'
 
 function startXAutoPostScheduler(user) {
   if (xAutoPostTimer) clearInterval(xAutoPostTimer)
@@ -2101,10 +2102,95 @@ function startXAutoPostScheduler(user) {
   console.log('[X] 自动发帖调度器启动, autoPost=', settings.autoPost, 'interval=', settings.autoPostInterval)
   if (!settings.autoPost) return
 
-  var intervalMs = (settings.autoPostInterval || 240) * 60 * 1000
+  var intervalMin = settings.autoPostInterval || 240
+  var intervalMs = intervalMin * 60 * 1000
+
+  // 补回逻辑：检查距离上次发帖过了多久
+  var lastPost = parseInt(localStorage.getItem(X_LAST_AUTOPOST_KEY)) || 0
+  var now = Date.now()
+  if (lastPost > 0) {
+    var elapsed = now - lastPost
+    var missed = Math.floor(elapsed / intervalMs)
+    if (missed > 0) {
+      missed = Math.min(missed, 10) // 最多补10条，防止疯狂补帖
+      console.log('[X] 补回：距上次' + Math.round(elapsed/60000) + '分钟，需补' + missed + '条')
+      xAutoPostCatchUp(user, missed)
+    }
+  }
+
+  // 记录当前时间（如果从未记录过）
+  if (!lastPost) localStorage.setItem(X_LAST_AUTOPOST_KEY, String(now))
+
+  // 启动定时器
   xAutoPostTimer = setInterval(function() { autoPostTick(user) }, intervalMs)
 }
 
+// 补回：一次API生成N条帖子
+async function xAutoPostCatchUp(user, count) {
+  if (!window.callAI) return
+  var settings = xLoadSettings()
+  var enabledChars = settings.enabledChars || []
+  var chars = []
+  try {
+    var all = await db.characters.where('type').equals('char').toArray()
+    chars = enabledChars.length ? all.filter(function(c) { return enabledChars.indexOf(String(c.id)) !== -1 }) : all
+  } catch(e) { return }
+  if (!chars.length) return
+
+  // 随机选角色
+  var pickedChars = []
+  for (var i = 0; i < count; i++) pickedChars.push(randomPick(chars))
+
+  var charDescs = pickedChars.map(function(c, i) { return (i+1) + '. ' + c.name }).join('\n')
+  var categories = X_CATEGORIES.map(function(c) { return c.id + '.' + c.name }).join('\n')
+
+  var prompt = '你是社交媒体内容生成器。请为以下' + count + '个角色各生成1条帖子。\n\n' +
+    '发帖人：\n' + charDescs + '\n\n' +
+    '帖子分类：\n' + categories + '\n\n' +
+    '要求：\n1. 每条帖子30-80字，真实自然，体现角色性格\n2. 可包含hashtag\n\n' +
+    '返回JSON：{"posts":[{"content":"帖子内容","tags":["标签"],"category":1}]}'
+
+  try {
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
+    if (!data.posts) return
+
+    var allPosts = xLoadPosts()
+    var newPosts = []
+    data.posts.forEach(function(p, i) {
+      var char = pickedChars[i] || pickedChars[0]
+      var post = {
+        id: xGenId(),
+        authorId: String(char.id),
+        authorName: char.nick || char.name,
+        authorHandle: '@' + (char.identity?.account || char.name),
+        authorAvatar: char.avatar || null,
+        content: p.content,
+        tags: p.tags || [],
+        category: p.category || randomPick(X_CATEGORIES).id,
+        isAnonymous: false,
+        engagement: generateEngagement(),
+        createdAt: new Date(Date.now() - (count - i) * 60000).toISOString()
+      }
+      allPosts.unshift(post)
+      newPosts.push(post)
+    })
+    xSavePosts(allPosts)
+    localStorage.setItem(X_LAST_AUTOPOST_KEY, String(Date.now()))
+    console.log('[X] 补回完成：' + newPosts.length + '条帖子')
+
+    // 为每条帖子生成评论
+    newPosts.forEach(function(post) { generateAIComments(post, user) })
+
+    // 刷新首页
+    var page = document.getElementById('x-page')
+    if (page) renderXHomeTab(page, user)
+  } catch(e) {
+    console.error('[X] 补回失败:', e)
+  }
+}
+
+// 单次自动发帖
 async function autoPostTick(user) {
   console.log('[X] autoPostTick触发')
   if (!window.callAI) { console.log('[X] callAI不可用'); return }
@@ -2147,6 +2233,7 @@ async function autoPostTick(user) {
     var posts = xLoadPosts()
     posts.unshift(post)
     xSavePosts(posts)
+    localStorage.setItem(X_LAST_AUTOPOST_KEY, String(Date.now()))
 
     // 生成评论
     generateAIComments(post, user)

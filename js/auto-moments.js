@@ -179,15 +179,38 @@ function bindPanelEvents(panel) {
 /* ══════════════════════════════════════════════════
    自动发帖调度（递归 setTimeout，比 setInterval 可靠）
    ══════════════════════════════════════════════════ */
+var _LAST_MOMENT_KEY = 'autoMomentsLastPost';
+
 async function startScheduler() {
   stopScheduler();
   if (!await getCfg(AM.enabled)) return;
   var hours = await getCfg(AM.interval) || 4;
+  var intervalMs = hours * 3600000;
+
+  // 补回逻辑：按真实时间计算缺了几条
+  var lastPost = parseInt(localStorage.getItem(_LAST_MOMENT_KEY)) || 0;
+  var now = Date.now();
+  if (lastPost > 0) {
+    var elapsed = now - lastPost;
+    var missed = Math.floor(elapsed / intervalMs);
+    if (missed > 0) {
+      missed = Math.min(missed, 10);
+      console.log('[Moments] 补回：距上次' + Math.round(elapsed/60000) + '分钟，需补' + missed + '条');
+      for (var i = 0; i < missed; i++) {
+        try { await postMoment(); } catch(e) { console.error('[Moments] 补回第' + (i+1) + '条失败:', e); }
+      }
+      localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
+    }
+  }
+  if (!lastPost) localStorage.setItem(_LAST_MOMENT_KEY, String(now));
+
+  // 启动定时器
   _timer = setTimeout(async function tick() {
     try { await postMoment(); } catch (_) {}
+    localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
     var h = await getCfg(AM.interval) || 4;
     _timer = setTimeout(tick, h * 3600000);
-  }, hours * 3600000);
+  }, intervalMs);
 }
 
 function stopScheduler() {
