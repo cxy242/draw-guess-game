@@ -340,8 +340,22 @@ async function getXUserList() {
   catch(e) { return (await db.characters.toArray()).filter(function(u) { return u.type === 'user' }) }
 }
 
-function getXUserName(user) { return (user && (user.nick || user.name)) || '微信用户' }
+function getXUserName(user) {
+  if (user && user.id) {
+    try {
+      var p = JSON.parse(localStorage.getItem(X_PROFILE_PREFIX + user.id))
+      if (p && p.name) return p.name
+    } catch(e) {}
+  }
+  return (user && (user.nick || user.name)) || '微信用户'
+}
 function getXUserHandle(user) {
+  if (user && user.id) {
+    try {
+      var p = JSON.parse(localStorage.getItem(X_PROFILE_PREFIX + user.id))
+      if (p && p.handle) return '@' + p.handle
+    } catch(e) {}
+  }
   if (user && user.identity && user.identity.account) return '@' + user.identity.account
 
   var acc = user && user.identity && user.identity.account
@@ -789,6 +803,10 @@ function showXPostDetail(postId, user) {
 
 // 绑定评论交互事件
 function bindCommentEvents(page, postId, user, input, sendBtn) {
+  // 移除旧的弹窗
+  var oldMenu = page.querySelector('.x-comment-menu-popup')
+  if (oldMenu) oldMenu.remove()
+
   var commentEls = page.querySelectorAll('#x-comments-list .x-comment')
   commentEls.forEach(function(el) {
     // 点击评论回复
@@ -803,25 +821,112 @@ function bindCommentEvents(page, postId, user, input, sendBtn) {
         input.focus()
       }
     })
-    // 长按引用回复（微信风格）
-    var pressTimer = null
-    el.addEventListener('touchstart', function(e) {
-      pressTimer = setTimeout(function() {
-        var content = el.querySelector('.x-comment-content')
-        var name = el.querySelector('.x-comment-name')
-        if (content && name) {
-          input.dataset.replyTo = el.dataset.commentId
-          input.dataset.replyToName = name.textContent
-          input.dataset.quoteContent = content.textContent
-          input.dataset.quoteName = name.textContent
-          input.placeholder = '回复 @' + name.textContent + '...'
-          input.focus()
-          sendBtn.classList.add('active')
-        }
-      }, 600)
-    })
-    el.addEventListener('touchend', function() { clearTimeout(pressTimer) })
-    el.addEventListener('touchmove', function() { clearTimeout(pressTimer) })
+
+    // 三个点菜单
+    var moreBtn = el.querySelector('.x-comment-more')
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function(e) {
+        e.stopPropagation()
+        // 关闭已有弹窗
+        var existMenu = page.querySelector('.x-comment-menu-popup')
+        if (existMenu) { existMenu.remove(); return }
+
+        var commentId = el.dataset.commentId
+        var rect = moreBtn.getBoundingClientRect()
+        var menu = document.createElement('div')
+        menu.className = 'x-comment-menu-popup'
+        menu.style.top = (rect.bottom + 4) + 'px'
+        menu.style.right = (window.innerWidth - rect.right) + 'px'
+        menu.innerHTML =
+          '<div class="x-comment-menu-item" data-action="quote"><i class="fa-solid fa-quote-left"></i> 引用</div>' +
+          '<div class="x-comment-menu-item" data-action="edit"><i class="fa-solid fa-pen"></i> 编辑</div>' +
+          '<div class="x-comment-menu-item x-comment-menu-delete" data-action="delete"><i class="fa-solid fa-trash"></i> 删除</div>'
+
+        page.appendChild(menu)
+
+        // 点击菜单项
+        menu.querySelectorAll('.x-comment-menu-item').forEach(function(item) {
+          item.addEventListener('click', function(e) {
+            e.stopPropagation()
+            var action = item.dataset.action
+            menu.remove()
+
+            if (action === 'delete') {
+              // 删除评论
+              var comments = xLoadComments(postId)
+              comments = comments.filter(function(c) { return c.id !== commentId })
+              xSaveComments(postId, comments)
+              page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(comments)
+              bindCommentEvents(page, postId, user, input, sendBtn)
+            }
+            else if (action === 'quote') {
+              // 引用评论
+              var content = el.querySelector('.x-comment-content')
+              var nameEl = el.querySelector('.x-comment-name')
+              if (content && nameEl) {
+                input.dataset.replyTo = commentId
+                input.dataset.replyToName = nameEl.textContent
+                input.dataset.quoteContent = content.textContent
+                input.dataset.quoteName = nameEl.textContent
+                input.placeholder = '回复 @' + nameEl.textContent + '...'
+                input.focus()
+                sendBtn.classList.add('active')
+              }
+            }
+            else if (action === 'edit') {
+              // 编辑评论
+              var comments2 = xLoadComments(postId)
+              var comment = comments2.find(function(c) { return c.id === commentId })
+              if (!comment) return
+              showEditCommentPopup(page, postId, comment, user, input, sendBtn)
+            }
+          })
+        })
+
+        // 点击其他地方关闭
+        setTimeout(function() {
+          document.addEventListener('click', function closeMenu() {
+            menu.remove()
+            document.removeEventListener('click', closeMenu)
+          }, { once: true })
+        }, 10)
+      })
+    }
+  })
+}
+
+// 编辑评论弹窗
+function showEditCommentPopup(page, postId, comment, user, input, sendBtn) {
+  var overlay = document.createElement('div')
+  overlay.className = 'x-edit-comment-overlay'
+  overlay.innerHTML =
+    '<div class="x-edit-comment-card">' +
+      '<div class="x-edit-comment-title">编辑评论</div>' +
+      '<textarea class="x-edit-comment-input" id="x-edit-comment-textarea">' + xEscape(comment.content) + '</textarea>' +
+      '<div class="x-edit-comment-btns">' +
+        '<button class="x-edit-comment-cancel" id="x-edit-cancel">取消</button>' +
+        '<button class="x-edit-comment-save" id="x-edit-save">保存</button>' +
+      '</div>' +
+    '</div>'
+  page.appendChild(overlay)
+
+  var textarea = overlay.querySelector('#x-edit-comment-textarea')
+  textarea.focus()
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+
+  overlay.querySelector('#x-edit-cancel').addEventListener('click', function() { overlay.remove() })
+  overlay.querySelector('#x-edit-save').addEventListener('click', function() {
+    var newText = textarea.value.trim()
+    if (!newText) return
+    var comments = xLoadComments(postId)
+    var target = comments.find(function(c) { return c.id === comment.id })
+    if (target) {
+      target.content = newText
+      xSaveComments(postId, comments)
+      page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(comments)
+      bindCommentEvents(page, postId, user, input, sendBtn)
+    }
+    overlay.remove()
   })
 }
 
@@ -883,7 +988,7 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
     authorId: user.id,
     authorName: getXUserName(user),
     authorHandle: getXUserHandle(user),
-    authorAvatar: user.avatar || null,
+    authorAvatar: xLoadImage('avatar_' + user.id) || user.avatar || null,
     content: text,
     stats: generateCommentStats(),
     createdAt: new Date().toISOString(),
@@ -1303,7 +1408,7 @@ function renderXProfileContent(container, user, isOwnProfile) {
     avatarHTML: avatarHTML,
     name: getXUserName(user),
     handle: getXUserHandle(user),
-    bio: user.signature || user.bio || '',
+    bio: function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));if(p&&p.signature)return p.signature}catch(e){} return user.signature || user.bio || ''}(),
     postCount: posts.length,
     followingCount: follows.length,
     followerCount: randomInt(10, 500),
@@ -1760,7 +1865,7 @@ function showXProfileEdit(user) {
       '<div class="x-profile-edit-avatar">' + getXAvatarHTML(user) + '</div>' +
       '<label class="x-profile-edit-field">昵称<input class="input-field" id="x-edit-name" value="' + xEscape(getXUserName(user)) + '"></label>' +
       '<label class="x-profile-edit-field">用户名<input class="input-field" id="x-edit-handle" value="' + xEscape(getXUserHandle(user).replace('@', '')) + '"></label>' +
-      '<label class="x-profile-edit-field">个性签名<input class="input-field" id="x-edit-sig" placeholder="写一句话介绍自己"></label>' +
+      '<label class="x-profile-edit-field">个性签名<input class="input-field" id="x-edit-sig" value="' + xEscape(function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));return p&&p.signature||''}catch(e){return ''}}()) + '" placeholder="写一句话介绍自己"></label>' +
     '</div>'
 
   if (window.openPage) window.openPage(page)
