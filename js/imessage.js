@@ -112,6 +112,9 @@ function buildSmsListPage() {
       '<button class="imessage-new-btn" id="imessage-new-btn">' +
         '<i class="fa fa-plus"></i>' +
       '</button>' +
+      '<button class="imessage-new-btn" id="imessage-anon-settings" style="margin-left:6px">' +
+        '<i class="fa-solid fa-user-secret"></i>' +
+      '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
     '</div>' +
     '<div class="imessage-list" id="imessage-list"></div>'
@@ -186,6 +189,8 @@ function bindSmsListEvents(page) {
   page.querySelector('#imessage-new-btn').addEventListener('click', function() {
     window.toast && window.toast('暂不支持新建短信')
   })
+  var anonBtn = page.querySelector('#imessage-anon-settings')
+  if (anonBtn) anonBtn.addEventListener('click', function() { window.showAnonSmsSettings() })
 }
 
 async function loadSmsConversations(page) {
@@ -723,3 +728,207 @@ window.setAnonSmsInterval = function(minutes) {
 // 导出给外部调用
 window.startAnonSmsScheduler = startAnonSmsScheduler
 window.sendAnonymousCharSMS = sendAnonymousCharSMS
+
+// ===== SMS记忆联通 + 聊天总结 + 设置 =====
+
+// 会话计时（25分钟触发匿名短信）
+var _smsSessionStart = Date.now()
+var _smsSessionTriggered = false
+var _smsCheckTimer = setInterval(function() {
+  var elapsed = Date.now() - _smsSessionStart
+  if (elapsed > 25 * 60 * 1000 && !_smsSessionTriggered) {
+    _smsSessionTriggered = true
+    console.log('[AnonSMS] 25分钟触发条件达成')
+    // 延迟1-3分钟再发，更自然
+    var delay = (60 + Math.random() * 120) * 1000
+    setTimeout(function() {
+      var user = _smsUserPhones[0]
+      if (user && window.sendAnonymousCharSMS) {
+        window.sendAnonymousCharSMS(user)
+        localStorage.setItem('anonSmsLastTime', String(Date.now()))
+      }
+    }, delay)
+  }
+}, 60000)
+
+// 聊天总结按钮（写入记忆库）
+window.summarizeSmsToMemory = async function(conversationId) {
+  var conv = await db.smsConversations.get(conversationId)
+  if (!conv) return
+  var msgs = await db.smsMessages.where('conversationId').equals(conversationId).sortBy('createdAt')
+  if (!msgs.length) { window.toast && window.toast('没有消息可总结'); return }
+
+  window.toast && window.toast('正在总结聊天...')
+
+  // 构建对话文本
+  var chatText = msgs.map(function(m) {
+    var role = m.direction === 'out' ? '用户' : '对方'
+    return role + '：' + m.body
+  }).join('\n')
+
+  // 找到对应的角色
+  var charId = null
+  var charName = '匿名用户'
+  // 找最近的匿名消息获取角色ID
+  for (var i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i]._anonCharId) {
+      charId = msgs[i]._anonCharId
+      charName = msgs[i]._anonCharName || '未知'
+      break
+    }
+  }
+
+  var prompt = '请总结以下短信对话，提取关键信息。\n\n' +
+    '对话内容：\n' + chatText + '\n\n' +
+    '返回JSON格式：\n' +
+    '{"title":"记忆标题(10字以内)","content":"记忆内容(50字以内)","keywords":["关键词1","关键词2"],"importance":5,"valence":0,"arousal":0.3}'
+
+  try {
+    if (!window.callAI) { window.toast && window.toast('AI不可用'); return }
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
+    if (!data || !data.content) { window.toast && window.toast('总结失败'); return }
+
+    // 写入记忆库
+    var ownerUid = null
+    try {
+      var users = await db.characters.where('type').equals('user').toArray()
+      if (users.length) ownerUid = String(users[0].id)
+    } catch(e) {}
+
+    var memoryRow = {
+      ownerUid: ownerUid || 'default',
+      charId: charId || 0,
+      chatId: 'sms_' + conversationId,
+      title: String(data.title || '短信对话').slice(0, 30),
+      content: String(data.content).slice(0, 150),
+      keywords: Array.isArray(data.keywords) ? data.keywords.slice(0, 8) : [],
+      valence: typeof data.valence === 'number' ? data.valence : 0,
+      arousal: typeof data.arousal === 'number' ? data.arousal : 0.3,
+      importance: typeof data.importance === 'number' ? data.importance : 5,
+      embedding: null,
+      status: 'active',
+      sourceMsgStartId: msgs[0] ? msgs[0].id : null,
+      sourceMsgEndId: msgs[msgs.length - 1] ? msgs[msgs.length - 1].id : null,
+      sourceAt: Date.now(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lastAccessedAt: null,
+      accessCount: 0
+    }
+
+    await db.memories.add(memoryRow)
+    window.toast && window.toast('已写入记忆库：' + data.title)
+    console.log('[AnonSMS] 记忆已保存：', data.title)
+  } catch(e) {
+    console.error('[AnonSMS] 总结失败:', e)
+    window.toast && window.toast('总结失败：' + (e.message || '未知错误'))
+  }
+}
+
+// 匿名短信设置页面
+window.showAnonSmsSettings = function() {
+  var existing = document.getElementById('anon-sms-settings')
+  if (existing) { existing.remove(); return }
+
+  var page = document.createElement('div')
+  page.id = 'anon-sms-settings'
+  page.className = 'full-page imessage-main'
+
+  var interval = parseInt(localStorage.getItem('anonSmsInterval')) || 180
+  var enabledChars = JSON.parse(localStorage.getItem('anonSmsChars') || '[]')
+
+  page.innerHTML =
+    '<div class="imessage-header">' +
+      '<button class="imessage-back" id="anon-sms-back"><i class="fa fa-angle-left"></i></button>' +
+      '<span class="imessage-phone-title">匿名短信设置</span>' +
+      '<span style="width:32px"></span>' +
+    '</div>' +
+    '<div style="padding:16px;overflow-y:auto;flex:1">' +
+      '<div style="margin-bottom:20px">' +
+        '<div style="font-size:14px;font-weight:600;color:#e5e5ea;margin-bottom:8px">发送间隔</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap" id="anon-interval-btns">' +
+          [60,120,180,360,720].map(function(v) {
+            return '<button class="anon-interval-btn' + (interval === v ? ' active' : '') + '" data-val="' + v + '" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:' + (interval === v ? 'var(--x-accent,#1d9bf0)' : 'transparent') + ';color:' + (interval === v ? '#fff' : '#8e8e93') + ';font-size:13px;cursor:pointer">' + (v >= 60 ? (v/60) + '小时' : v + '分钟') + '</button>'
+          }).join('') +
+        '</div>' +
+      '</div>' +
+      '<div style="margin-bottom:20px">' +
+        '<div style="font-size:14px;font-weight:600;color:#e5e5ea;margin-bottom:8px">可发送匿名短信的角色</div>' +
+        '<div id="anon-chars-list" style="display:flex;flex-direction:column;gap:8px"></div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:#636366;line-height:1.5;padding:12px 0;border-top:1px solid rgba(255,255,255,0.08)">' +
+        '触发条件：打开小手机超过25分钟自动触发，每次打开最多触发一次。' +
+        '角色会伪装成陌生人发短信试探你。' +
+      '</div>' +
+    '</div>'
+
+  window.openPage(page)
+
+  // 返回按钮
+  page.querySelector('#anon-sms-back').addEventListener('click', function() {
+    window.closePage('anon-sms-settings')
+  })
+
+  // 间隔按钮
+  page.querySelectorAll('.anon-interval-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var val = parseInt(btn.dataset.val)
+      localStorage.setItem('anonSmsInterval', String(val))
+      page.querySelectorAll('.anon-interval-btn').forEach(function(b) {
+        b.style.background = b === btn ? 'var(--x-accent,#1d9bf0)' : 'transparent'
+        b.style.color = b === btn ? '#fff' : '#8e8e93'
+      })
+      window.toast && window.toast('间隔已设为' + (val >= 60 ? (val/60) + '小时' : val + '分钟'))
+    })
+  })
+
+  // 角色列表
+  db.characters.where('type').equals('char').toArray().then(function(chars) {
+    var list = page.querySelector('#anon-chars-list')
+    if (!chars.length) { list.innerHTML = '<div style="color:#636366;font-size:13px">暂无角色</div>'; return }
+    var html = ''
+    chars.forEach(function(c) {
+      var checked = enabledChars.length === 0 || enabledChars.indexOf(String(c.id)) !== -1
+      html += '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:10px;cursor:pointer">' +
+        '<input type="checkbox" class="anon-char-cb" data-id="' + c.id + '"' + (checked ? ' checked' : '') + ' style="width:18px;height:18px">' +
+        '<span style="font-size:14px;color:#e5e5ea">' + escSmsHtml(c.name) + '</span>' +
+      '</label>'
+    })
+    list.innerHTML = html
+
+    list.querySelectorAll('.anon-char-cb').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var selected = []
+        list.querySelectorAll('.anon-char-cb:checked').forEach(function(c) { selected.push(c.dataset.id) })
+        localStorage.setItem('anonSmsChars', JSON.stringify(selected))
+      })
+    })
+  })
+}
+
+// 在短信列表页添加设置按钮和总结按钮
+(function enhanceSmsPages() {
+  var origBuildSmsListPage = window.buildSmsListPage || buildSmsListPage
+  if (typeof origBuildSmsListPage !== 'function') return
+
+  // 增强聊天页：加总结按钮
+  var origOpenSmsChat = window.openSmsChat || openSmsChat
+  if (typeof origOpenSmsChat === 'function') {
+    var enhanced = async function(conversationId, listPage) {
+      await origOpenSmsChat(conversationId, listPage)
+      // 在聊天页顶部加总结按钮
+      var header = document.querySelector('.imessage-chat-header')
+      if (header) {
+        var summaryBtn = document.createElement('button')
+        summaryBtn.className = 'imessage-chat-summary-btn'
+        summaryBtn.innerHTML = '<i class="fa-solid fa-brain"></i>'
+        summaryBtn.title = '总结并记忆'
+        summaryBtn.style.cssText = 'background:none;border:none;color:#8e8e93;font-size:16px;cursor:pointer;padding:8px;margin-left:auto'
+        summaryBtn.addEventListener('click', function() { window.summarizeSmsToMemory(conversationId) })
+        header.appendChild(summaryBtn)
+      }
+    }
+    window.openSmsChat = enhanced
+  }
+})()
