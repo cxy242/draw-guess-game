@@ -456,26 +456,29 @@
 /* === 弹出面板 === */
 .pet-popup {
   position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.94);
   z-index: 9999;
   background: rgba(42,40,44,.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 16px;
   padding: 18px;
-  min-width: 240px;
+  width: min(300px, 85vw);
   max-width: 300px;
+  max-height: 70vh;
+  overflow-y: auto;
   box-shadow: 0 16px 48px rgba(0,0,0,.2), 0 4px 16px rgba(0,0,0,.1);
   border: 1px solid rgba(255,255,255,.06);
   color: #c4bfbf;
   font-size: 12px;
   opacity: 0;
-  transform: scale(0.94) translateY(8px);
-  transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1), transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
   pointer-events: none;
 }
 .pet-popup.show {
   opacity: 1;
-  transform: scale(1) translateY(0);
+  transform: translate(-50%, -50%) scale(1);
   pointer-events: auto;
 }
 .pet-popup-title {
@@ -605,3 +608,8 @@
   .pet-ball-wrap:not(.is-dragging):not(.pet-popup-open) .pet-idle-target { animation: none; }
   .pet-mood { transition-duration: 100ms; }
 }
+
+/* 模型列表和API日志限制高度 */
+.pet-chat-model-list,.pet-offline-model-list{max-height:80px;overflow-y:auto}
+.pet-api-log{max-height:60px;overflow-y:auto;font-size:11px}
+.pet-popup-section{max-height:none}

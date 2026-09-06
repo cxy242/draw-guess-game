@@ -460,8 +460,14 @@
     root.querySelector('#sp-history-btn').onclick = function() { renderHistoryPage(root) }
     var loginBtn=root.querySelector('#sp-login'); if(loginBtn) loginBtn.onclick=doWechatLogin
     var switchBtn=root.querySelector('#sp-switch'); if(switchBtn) switchBtn.onclick=doWechatLogin
-    root.querySelectorAll('[data-flavor]').forEach(function(el) { el.onclick=function(){settings.flavor=el.getAttribute('data-flavor');showStartPage(root)} })
-    root.querySelectorAll('[data-length]').forEach(function(el) { el.onclick=function(){settings.gameLength=parseInt(el.getAttribute('data-length'));showStartPage(root)} })
+    root.querySelectorAll('[data-flavor]').forEach(function(el) { el.onclick=function(){
+      settings.flavor=el.getAttribute('data-flavor')
+      root.querySelectorAll('[data-flavor]').forEach(function(b){b.className='spicy-btn spicy-btn-sm '+(b.getAttribute('data-flavor')===settings.flavor?'spicy-btn-primary':'spicy-btn-ghost')})
+    } })
+    root.querySelectorAll('[data-length]').forEach(function(el) { el.onclick=function(){
+      settings.gameLength=parseInt(el.getAttribute('data-length'))
+      root.querySelectorAll('[data-length]').forEach(function(b){b.className='spicy-btn spicy-btn-sm '+(parseInt(b.getAttribute('data-length'))===settings.gameLength?'spicy-btn-primary':'spicy-btn-ghost')})
+    } })
     root.querySelector('#sp-start-game').onclick = function() { if(selectedUser) showCharacterSelect(root) }
   }
 

@@ -685,21 +685,12 @@
   color: var(--x-like);
 }
 
-/* 二级回复（缩进） */
+/* 二级回复（缩进） — 头像与父评论对齐，竖线连接 */
 .x-comment-reply {
-  margin-left: 20px;
-  padding-left: 0;
+  margin-left: 0;
+  padding-left: 36px; /* 推开内容，给竖线留空间。头像对齐父头像中心(16+20=36) */
   position: relative;
-}
-.x-comment-reply::before {
-  content: '';
-  position: absolute;
-  left: 20px; /* 对齐回复头像中心: 20(margin)+20(半径)=40px=父(16+20+4间距)+0=40 */
-  top: 0;
-  width: 2px;
-  height: 100%;
-  background: var(--x-border-strong, #536471);
-  pointer-events: none;
+  border-left: 2px solid var(--x-border-strong, #536471);
 }
 
 /* 详情页评论输入 */
@@ -2108,7 +2099,7 @@
 @media (max-width: 380px) {
   .x-post { padding: 10px 12px; }
   .x-comment { padding: 10px 12px; }
-  .x-comment-reply { margin-left: 20px; padding-left: 0; }
+  .x-comment-reply { margin-left: 0; padding-left: 32px; border-left: 2px solid var(--x-border-strong, #536471); }
   .x-profile-info { padding-left: 16px; padding-right: 16px; }
   .x-profile-avatar { left: 16px; width: 78px; height: 78px; }
   .x-profile-name { font-size: 22px; }
@@ -2156,24 +2147,15 @@
 .x-post-gen-comments:hover { color: var(--x-accent, #1d9bf0); }
 .x-post-gen-comments.loading { animation: spin 1s linear infinite; }
 
-/* 评论竖线连接 — 子评论头像之间 */
+/* 评论竖线连接 — 头像对齐+竖线 */
 .x-comment {
   position: relative;
 }
 .x-comment-reply {
-  margin-left: 20px;
-  padding-left: 0;
+  margin-left: 0;
+  padding-left: 36px;
   position: relative;
-}
-.x-comment-reply::before {
-  content: '';
-  position: absolute;
-  left: 20px;
-  top: -12px;
-  width: 2px;
-  height: calc(100% + 12px);
-  background: var(--x-border-strong, #536471);
-  pointer-events: none;
+  border-left: 2px solid var(--x-border-strong, #536471);
 }
 
 /* 生成帖子按钮 */
