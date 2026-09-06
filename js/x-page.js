@@ -1558,7 +1558,86 @@ function renderXProfileContent(container, user, isOwnProfile) {
   }
   var backBtn = container.querySelector('.xh-back-btn')
   if (backBtn) backBtn.addEventListener('click', function() { closePage('x-page') })
+
+  // 关注数字点击 → 弹出关注列表
+  var followStat = container.querySelectorAll('.xh-stat-item')[1] // 第二个是关注
+  if (followStat) {
+    followStat.style.cursor = 'pointer'
+    followStat.addEventListener('click', function() { showFollowListPanel(user) })
+  }
+
   bindPostCardEvents(container, user)
+}
+
+// 关注列表弹窗
+function showFollowListPanel(user) {
+  var existing = document.getElementById('x-follow-list-panel')
+  if (existing) { existing.remove(); return }
+
+  var follows = xLoadFollows(user.id)
+  var panel = document.createElement('div')
+  panel.id = 'x-follow-list-panel'
+  panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:rgba(0,0,0,0.95);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:env(safe-area-inset-top) 0 0 0'
+
+  var listHTML = ''
+  if (!follows.length) {
+    listHTML = '<div style="text-align:center;padding:40px;color:#636366;font-size:14px">还没有关注任何人</div>'
+  } else {
+    follows.forEach(function(fid) {
+      var char = null
+      if (fid === X_XX_CHARACTER.id) {
+        char = X_XX_CHARACTER
+      }
+      if (char) {
+        var avatar = xLoadImage('avatar_' + char.id) || char.avatar || ''
+        var avatarHTML = avatar ? '<img src="' + xEscape(avatar) + '" style="width:44px;height:44px;border-radius:50%;object-fit:cover">' : buildXDefaultAvatar(char.name)
+        listHTML += '<div class="x-follow-item" data-char-id="' + char.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+          '<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0">' + avatarHTML + '</div>' +
+          '<div><div style="font-size:15px;font-weight:600;color:#e5e5ea">' + xEscape(char.name) + '</div>' +
+          '<div style="font-size:13px;color:#71767b">@' + xEscape(char.handle || '') + '</div></div></div>'
+      } else if (window.db && db.characters) {
+        db.characters.get(parseInt(fid) || fid).then(function(c) {
+          if (!c) return
+          var avatar = xLoadImage('avatar_' + c.id) || c.avatar || ''
+          var avatarHTML = avatar ? '<img src="' + xEscape(avatar) + '" style="width:44px;height:44px;border-radius:50%;object-fit:cover">' : buildXDefaultAvatar(c.name)
+          var item = document.createElement('div')
+          item.className = 'x-follow-item'
+          item.dataset.charId = c.id
+          item.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.06)'
+          item.innerHTML = '<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0">' + avatarHTML + '</div>' +
+            '<div><div style="font-size:15px;font-weight:600;color:#e5e5ea">' + xEscape(c.name) + '</div>' +
+            '<div style="font-size:13px;color:#71767b">@' + xEscape(c.identity?.account || c.handle || '') + '</div></div>'
+          var list = panel.querySelector('#x-follow-list-body')
+          if (list) list.appendChild(item)
+          bindFollowItemClick(panel, user)
+        })
+      }
+    })
+  }
+
+  panel.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.08)">' +
+      '<button id="x-follow-close" style="background:none;border:none;color:#e5e5ea;font-size:18px;cursor:pointer;padding:8px"><i class="fa fa-angle-left"></i></button>' +
+      '<span style="font-size:16px;font-weight:600;color:#e5e5ea">关注的人</span>' +
+      '<span style="width:32px"></span>' +
+    '</div>' +
+    '<div id="x-follow-list-body">' + listHTML + '</div>'
+
+  document.body.appendChild(panel)
+  document.getElementById('x-follow-close').addEventListener('click', function() { panel.remove() })
+  bindFollowItemClick(panel, user)
+}
+
+function bindFollowItemClick(panel, user) {
+  panel.querySelectorAll('.x-follow-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      var charId = item.dataset.charId
+      if (charId) {
+        panel.remove()
+        showXCharacterProfile(charId, user)
+      }
+    })
+  })
 }
 
 // ===== 角色主页 =====
@@ -1636,7 +1715,7 @@ function renderXCharProfilePage(char, user) {
   if (followBtn) {
     followBtn.addEventListener('click', function() {
       var nowFollowing = xToggleFollow(user.id, char.id)
-      followBtn.textContent = nowFollowing ? '正在关注' : '关注'
+      followBtn.textContent = nowFollowing ? '已关注' : '+ 关注'
       followBtn.classList.toggle('following', nowFollowing)
     })
   }
@@ -2245,14 +2324,22 @@ async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
   var pickedChars = []
   for (var i = 0; i < count; i++) pickedChars.push(randomPick(chars))
 
-  var charDescs = pickedChars.map(function(c, i) { return (i+1) + '. ' + c.name }).join('\n')
+  var npcSample = X_NPC_TYPES.sort(function(){return Math.random()-0.5}).slice(0,6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')' }).join('\n')
+  var charDescs = pickedChars.map(function(c, i) { return (i+1) + '. ' + c.name + '（' + (c.identity?.bio || c.signature || '普通用户').slice(0, 30) + '）' }).join('\n')
   var categories = X_CATEGORIES.map(function(c) { return c.id + '.' + c.name }).join('\n')
 
-  var prompt = '你是社交媒体内容生成器。请为以下' + count + '个角色各生成1条帖子。\n\n' +
+  var prompt = '你是社交媒体内容生成器。请为以下' + count + '个角色各生成1条帖子，每条帖子都要有完整的评论互动。\n\n' +
     '发帖人：\n' + charDescs + '\n\n' +
     '帖子分类：\n' + categories + '\n\n' +
-    '要求：\n1. 每条帖子30-80字，真实自然，体现角色性格\n2. 可包含hashtag\n\n' +
-    '返回JSON：{"posts":[{"content":"帖子内容","tags":["标签"],"category":1}]}'
+    '可用NPC人设（每条评论从这些中随机选）：\n' + npcSample + '\n\n' +
+    '要求：\n' +
+    '1. 每条帖子30-80字，真实自然，体现角色性格，可包含hashtag\n' +
+    '2. 每条帖子生成5条评论，来自不同的NPC人设（30字以内）\n' +
+    '3. 发帖人必须回复其中一条NPC评论（体现发帖人性格）\n' +
+    '4. 再生成2条NPC回复其他人的评论（路人互评，形成对话链）\n' +
+    '5. 每条评论用replyToIndex指向被回复评论的序号（顶级评论为-1），isAuthorReply标记发帖人回复\n\n' +
+    '返回JSON格式：\n' +
+    '{"posts":[{"content":"帖子内容","tags":["标签"],"category":1,"comments":[{"name":"NPC名","content":"评论内容","replyToIndex":-1},{"name":"发帖人","content":"发帖人回复","replyToIndex":0,"isAuthorReply":true},{"name":"另一个NPC","content":"路人互评","replyToIndex":0}]}]}'
 
   try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
@@ -2263,8 +2350,9 @@ async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
     var newPosts = []
     data.posts.forEach(function(p, i) {
       var char = pickedChars[i] || pickedChars[0]
+      var postId = xGenId()
       var post = {
-        id: xGenId(),
+        id: postId,
         authorId: String(char.id),
         authorName: char.nick || char.name,
         authorHandle: '@' + (char.identity?.account || char.name),
@@ -2278,15 +2366,42 @@ async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
       }
       allPosts.unshift(post)
       newPosts.push(post)
+
+      // 生成评论（在同一API调用中）
+      if (p.comments && p.comments.length) {
+        var comments = []
+        p.comments.forEach(function(c, ci) {
+          var isAuthorReply = c.isAuthorReply || false
+          var npcType = randomPick(X_NPC_TYPES)
+          var commentId = xGenId()
+          var commentObj = {
+            id: commentId,
+            authorId: isAuthorReply ? String(char.id) : ('npc_' + xGenId()),
+            authorName: isAuthorReply ? (char.nick || char.name) : (c.name || npcType.name),
+            authorHandle: isAuthorReply ? ('@' + (char.identity?.account || char.name)) : ('@user-' + String(ci).slice(-4)),
+            authorAvatar: isAuthorReply ? (char.avatar || null) : null,
+            isNpc: !isAuthorReply,
+            npcType: isAuthorReply ? null : npcType,
+            content: c.content,
+            stats: generateCommentStats(),
+            createdAt: new Date(baseTime + (i + 1) * intervalMs + ci * 60000).toISOString(),
+            isReply: false
+          }
+          if (c.replyToIndex >= 0 && c.replyToIndex < comments.length) {
+            commentObj.replyTo = comments[c.replyToIndex].id
+            commentObj.replyToName = comments[c.replyToIndex].authorName
+            commentObj.isReply = true
+          }
+          comments.push(commentObj)
+        })
+        xSaveComments(postId, comments)
+      }
     })
     xSavePosts(allPosts)
     localStorage.setItem(X_LAST_AUTOPOST_KEY, String(Date.now()))
 
     showToastLong('补回成功 ' + newPosts.length + ' 条帖子', 3000)
-    console.log('[X] 补回完成：' + newPosts.length + '条帖子')
-
-    // 为每条帖子生成评论
-    newPosts.forEach(function(post) { generateAIComments(post, user) })
+    console.log('[X] 补回完成：' + newPosts.length + '条帖子（含评论）')
 
     // 刷新首页
     var page = document.getElementById('x-page')
