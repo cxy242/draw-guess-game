@@ -687,7 +687,8 @@
 
 /* 二级回复（缩进） */
 .x-comment-reply {
-  margin-left: 52px;
+  margin-left: 34px;
+  padding-left: 18px;
 }
 
 /* 详情页评论输入 */
@@ -2096,7 +2097,7 @@
 @media (max-width: 380px) {
   .x-post { padding: 10px 12px; }
   .x-comment { padding: 10px 12px; }
-  .x-comment-reply { margin-left: 40px; }
+  .x-comment-reply { margin-left: 28px; padding-left: 16px; }
   .x-profile-info { padding-left: 16px; padding-right: 16px; }
   .x-profile-avatar { left: 16px; width: 78px; height: 78px; }
   .x-profile-name { font-size: 22px; }
@@ -2147,19 +2148,19 @@
 /* 评论竖线连接 — 从父评论头像底部连到子评论头像顶部 */
 .x-comment {
   position: relative;
-  overflow: visible;
 }
 .x-comment-reply {
-  margin-left: 52px;
+  margin-left: 34px; /* 52-18=34, 留出18px给竖线padding */
+  padding-left: 18px; /* 竖线区域 */
   position: relative;
 }
 .x-comment-reply::before {
   content: '';
   position: absolute;
-  left: -16px; /* 对齐父评论头像中心(36px) - 回复margin(52px) = -16px */
+  left: 8px; /* 18px padding中心=9px, 线宽2px, 左偏移=9-1=8px */
   top: 0;
   width: 2px;
-  height: 12px; /* 填充回复padding区域，连接父评论底部 */
+  height: 12px; /* 连接父评论底部到子评论头像 */
   background: var(--x-border, rgba(255,255,255,0.15));
 }
 
