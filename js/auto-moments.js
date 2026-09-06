@@ -196,10 +196,21 @@ async function startScheduler() {
     if (missed > 0) {
       missed = Math.min(missed, 10);
       console.log('[Moments] 补回：距上次' + Math.round(elapsed/60000) + '分钟，需补' + missed + '条');
+      if (window.showToastLong) showToastLong('正在补回 ' + missed + ' 条朋友圈...', 4000);
+      var ok = 0, fail = 0, details = [];
       for (var i = 0; i < missed; i++) {
-        try { await postMoment(); } catch(e) { console.error('[Moments] 补回第' + (i+1) + '条失败:', e); }
+        try {
+          var result = await postMoment();
+          if (result) { ok++; details.push('✓ 朋友圈补回成功'); }
+          else { fail++; details.push('✗ 生成失败'); }
+        } catch(e) { fail++; details.push('✗ ' + (e.message || '调用出错')); }
       }
       localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
+      if (window.showToastLong) {
+        var msg = '朋友圈补回完成\n成功 ' + ok + ' 条' + (fail ? '，失败 ' + fail + ' 条' : '');
+        if (details.length <= 5) msg += '\n' + details.join('\n');
+        showToastLong(msg, 5000);
+      }
     }
   }
   if (!lastPost) localStorage.setItem(_LAST_MOMENT_KEY, String(now));

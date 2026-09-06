@@ -1991,6 +1991,20 @@ function showToast(msg) {
   setTimeout(function(){ toast.classList.remove('show'); setTimeout(function(){ toast.remove() }, 300) }, 2500)
 }
 
+// 长时间Toast（多行，自定义时长）
+function showToastLong(msg, duration) {
+  duration = duration || 3000
+  var old = document.getElementById('x-toast-long')
+  if (old) old.remove()
+  var toast = document.createElement('div')
+  toast.id = 'x-toast-long'
+  toast.className = 'x-toast-long'
+  toast.innerHTML = msg.replace(/\n/g, '<br>')
+  document.body.appendChild(toast)
+  setTimeout(function(){ toast.classList.add('show') }, 10)
+  setTimeout(function(){ toast.classList.remove('show'); setTimeout(function(){ toast.remove() }, 300) }, duration)
+}
+
 // ===== 批量生成帖子 =====
 async function generateBatchPosts(user, preference) {
   if (!window.callAI) return
@@ -2128,14 +2142,15 @@ function startXAutoPostScheduler(user) {
 // 补回：一次API生成N条帖子
 async function xAutoPostCatchUp(user, count) {
   if (!window.callAI) return
+  showToastLong('正在补回 ' + count + ' 条帖子...', 4000)
   var settings = xLoadSettings()
   var enabledChars = settings.enabledChars || []
   var chars = []
   try {
     var all = await db.characters.where('type').equals('char').toArray()
     chars = enabledChars.length ? all.filter(function(c) { return enabledChars.indexOf(String(c.id)) !== -1 }) : all
-  } catch(e) { return }
-  if (!chars.length) return
+  } catch(e) { showToastLong('补回失败：无法加载角色', 3000); return }
+  if (!chars.length) { showToastLong('补回失败：没有可用角色', 3000); return }
 
   // 随机选角色
   var pickedChars = []
@@ -2153,7 +2168,7 @@ async function xAutoPostCatchUp(user, count) {
   try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
-    if (!data.posts) return
+    if (!data.posts) { showToastLong('补回失败：AI未返回内容', 3000); return }
 
     var allPosts = xLoadPosts()
     var newPosts = []
@@ -2177,6 +2192,12 @@ async function xAutoPostCatchUp(user, count) {
     })
     xSavePosts(allPosts)
     localStorage.setItem(X_LAST_AUTOPOST_KEY, String(Date.now()))
+
+    // 成功提示：显示每条帖子的作者和摘要
+    var details = newPosts.map(function(p) {
+      return '✓ ' + p.authorName + '：' + p.content.slice(0, 20) + (p.content.length > 20 ? '...' : '')
+    }).join('\n')
+    showToastLong('补回成功 ' + newPosts.length + ' 条\n' + details, 5000)
     console.log('[X] 补回完成：' + newPosts.length + '条帖子')
 
     // 为每条帖子生成评论
@@ -2186,6 +2207,7 @@ async function xAutoPostCatchUp(user, count) {
     var page = document.getElementById('x-page')
     if (page) renderXHomeTab(page, user)
   } catch(e) {
+    showToastLong('补回失败：' + (e.message || 'API调用出错'), 4000)
     console.error('[X] 补回失败:', e)
   }
 }

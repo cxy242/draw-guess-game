@@ -2130,6 +2130,37 @@ ground-color: var(--x-accent);
 #x-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--x-accent,#1d9bf0);color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;z-index:99999;opacity:0;transition:all .3s cubic-bezier(.23,1,.32,1);pointer-events:none}
 #x-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* 补回提示弹窗 */
+.x-toast-long {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  width: min(320px, 80vw);
+  max-height: 50vh;
+  overflow-y: auto;
+  background: rgba(28, 28, 30, 0.92);
+  color: #e5e5ea;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 500;
+  z-index: 99999;
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+  box-sizing: border-box;
+  word-break: break-word;
+}
+.x-toast-long.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* 关闭动画 */
 .x-gen-overlay,.x-gen-card{transition:opacity .2s ease}
 #x-gen-dialog.closing .x-gen-overlay{opacity:0}
