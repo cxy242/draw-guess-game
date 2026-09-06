@@ -835,83 +835,83 @@ window.summarizeSmsToMemory = async function(conversationId) {
 
 // 匿名短信设置页面
 window.showAnonSmsSettings = function() {
-  var existing = document.getElementById('anon-sms-settings')
+  var existing = document.getElementById('anon-sms-settings-panel')
   if (existing) { existing.remove(); return }
-
-  var page = document.createElement('div')
-  page.id = 'anon-sms-settings'
-  page.className = 'full-page imessage-main'
 
   var interval = parseInt(localStorage.getItem('anonSmsInterval')) || 180
   var enabledChars = JSON.parse(localStorage.getItem('anonSmsChars') || '[]')
 
-  page.innerHTML =
-    '<div class="imessage-header">' +
-      '<button class="imessage-back" id="anon-sms-back"><i class="fa fa-angle-left"></i></button>' +
-      '<span class="imessage-phone-title">匿名短信设置</span>' +
+  var panel = document.createElement('div')
+  panel.id = 'anon-sms-settings-panel'
+  panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:rgba(0,0,0,0.95);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:env(safe-area-inset-top) 0 0 0'
+
+  panel.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.08)">' +
+      '<button id="anon-sms-close" style="background:none;border:none;color:#e5e5ea;font-size:18px;cursor:pointer;padding:8px"><i class="fa fa-angle-left"></i></button>' +
+      '<span style="font-size:16px;font-weight:600;color:#e5e5ea">匿名短信设置</span>' +
       '<span style="width:32px"></span>' +
     '</div>' +
-    '<div style="padding:16px;overflow-y:auto;flex:1">' +
+    '<div style="padding:16px">' +
       '<div style="margin-bottom:20px">' +
-        '<div style="font-size:14px;font-weight:600;color:#e5e5ea;margin-bottom:8px">发送间隔</div>' +
+        '<div style="font-size:14px;font-weight:600;color:#e5e5ea;margin-bottom:10px">发送间隔</div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap" id="anon-interval-btns">' +
           [60,120,180,360,720].map(function(v) {
-            return '<button class="anon-interval-btn' + (interval === v ? ' active' : '') + '" data-val="' + v + '" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:' + (interval === v ? 'var(--x-accent,#1d9bf0)' : 'transparent') + ';color:' + (interval === v ? '#fff' : '#8e8e93') + ';font-size:13px;cursor:pointer">' + (v >= 60 ? (v/60) + '小时' : v + '分钟') + '</button>'
+            return '<button class="anon-interval-btn" data-val="' + v + '" style="padding:8px 16px;border-radius:10px;border:1px solid ' + (interval === v ? 'var(--x-accent,#1d9bf0)' : 'rgba(255,255,255,0.12)') + ';background:' + (interval === v ? 'var(--x-accent,#1d9bf0)' : 'rgba(255,255,255,0.04)') + ';color:' + (interval === v ? '#fff' : '#8e8e93') + ';font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s">' + (v >= 60 ? (v/60) + '小时' : v + '分钟') + '</button>'
           }).join('') +
         '</div>' +
       '</div>' +
       '<div style="margin-bottom:20px">' +
-        '<div style="font-size:14px;font-weight:600;color:#e5e5ea;margin-bottom:8px">可发送匿名短信的角色</div>' +
+        '<div style="font-size:14px;font-weight:600;color:#e5e5ea;margin-bottom:10px">可发送匿名短信的角色</div>' +
         '<div id="anon-chars-list" style="display:flex;flex-direction:column;gap:8px"></div>' +
       '</div>' +
-      '<div style="font-size:12px;color:#636366;line-height:1.5;padding:12px 0;border-top:1px solid rgba(255,255,255,0.08)">' +
-        '触发条件：打开小手机超过25分钟自动触发，每次打开最多触发一次。' +
-        '角色会伪装成陌生人发短信试探你。' +
+      '<div style="font-size:12px;color:#636366;line-height:1.6;padding:14px 0;border-top:1px solid rgba(255,255,255,0.06)">' +
+        '触发条件：打开小手机超过25分钟自动触发，每次打开最多触发一次。角色会伪装成陌生人发短信试探你。' +
       '</div>' +
     '</div>'
 
-  window.openPage(page)
+  document.body.appendChild(panel)
 
-  // 返回按钮
-  page.querySelector('#anon-sms-back').addEventListener('click', function() {
-    window.closePage('anon-sms-settings')
-  })
+  // 关闭
+  document.getElementById('anon-sms-close').addEventListener('click', function() { panel.remove() })
 
   // 间隔按钮
-  page.querySelectorAll('.anon-interval-btn').forEach(function(btn) {
+  panel.querySelectorAll('.anon-interval-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var val = parseInt(btn.dataset.val)
       localStorage.setItem('anonSmsInterval', String(val))
-      page.querySelectorAll('.anon-interval-btn').forEach(function(b) {
-        b.style.background = b === btn ? 'var(--x-accent,#1d9bf0)' : 'transparent'
-        b.style.color = b === btn ? '#fff' : '#8e8e93'
+      panel.querySelectorAll('.anon-interval-btn').forEach(function(b) {
+        var isActive = b === btn
+        b.style.background = isActive ? 'var(--x-accent,#1d9bf0)' : 'rgba(255,255,255,0.04)'
+        b.style.borderColor = isActive ? 'var(--x-accent,#1d9bf0)' : 'rgba(255,255,255,0.12)'
+        b.style.color = isActive ? '#fff' : '#8e8e93'
       })
       window.toast && window.toast('间隔已设为' + (val >= 60 ? (val/60) + '小时' : val + '分钟'))
     })
   })
 
   // 角色列表
-  db.characters.where('type').equals('char').toArray().then(function(chars) {
-    var list = page.querySelector('#anon-chars-list')
-    if (!chars.length) { list.innerHTML = '<div style="color:#636366;font-size:13px">暂无角色</div>'; return }
-    var html = ''
-    chars.forEach(function(c) {
-      var checked = enabledChars.length === 0 || enabledChars.indexOf(String(c.id)) !== -1
-      html += '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:10px;cursor:pointer">' +
-        '<input type="checkbox" class="anon-char-cb" data-id="' + c.id + '"' + (checked ? ' checked' : '') + ' style="width:18px;height:18px">' +
-        '<span style="font-size:14px;color:#e5e5ea">' + escSmsHtml(c.name) + '</span>' +
-      '</label>'
-    })
-    list.innerHTML = html
-
-    list.querySelectorAll('.anon-char-cb').forEach(function(cb) {
-      cb.addEventListener('change', function() {
-        var selected = []
-        list.querySelectorAll('.anon-char-cb:checked').forEach(function(c) { selected.push(c.dataset.id) })
-        localStorage.setItem('anonSmsChars', JSON.stringify(selected))
+  if (window.db && db.characters) {
+    db.characters.where('type').equals('char').toArray().then(function(chars) {
+      var list = panel.querySelector('#anon-chars-list')
+      if (!list) return
+      if (!chars.length) { list.innerHTML = '<div style="color:#636366;font-size:13px">暂无角色</div>'; return }
+      chars.forEach(function(c) {
+        var checked = enabledChars.length === 0 || enabledChars.indexOf(String(c.id)) !== -1
+        var label = document.createElement('label')
+        label.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:12px;cursor:pointer'
+        label.innerHTML = '<input type="checkbox" class="anon-char-cb" data-id="' + c.id + '"' + (checked ? ' checked' : '') + ' style="width:20px;height:20px;accent-color:var(--x-accent,#1d9bf0)">' +
+          '<span style="font-size:14px;color:#e5e5ea;font-weight:500">' + escSmsHtml(c.name) + '</span>'
+        list.appendChild(label)
+      })
+      list.querySelectorAll('.anon-char-cb').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          var selected = []
+          list.querySelectorAll('.anon-char-cb:checked').forEach(function(c) { selected.push(c.dataset.id) })
+          localStorage.setItem('anonSmsChars', JSON.stringify(selected))
+        })
       })
     })
-  })
+  }
 }
 
 // 在短信列表页添加设置按钮和总结按钮
