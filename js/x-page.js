@@ -750,10 +750,16 @@ function showXPostDetail(postId, user) {
   sendBtn.addEventListener('click', function() {
     var text = input.value.trim()
     if (!text) return
-    addXComment(postId, user, text)
+    var quoteContent = input.dataset.quoteContent || ''
+    var quoteName = input.dataset.quoteName || ''
+    addXComment(postId, user, text, quoteContent, quoteName)
     input.value = ''
+    input.placeholder = '发表评论...'
+    delete input.dataset.replyTo
+    delete input.dataset.replyToName
+    delete input.dataset.quoteContent
+    delete input.dataset.quoteName
     sendBtn.classList.remove('active')
-    // 刷新评论列表
     page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(xLoadComments(postId))
     bindCommentEvents(page, postId, user, input, sendBtn)
   })
@@ -797,16 +803,18 @@ function bindCommentEvents(page, postId, user, input, sendBtn) {
         input.focus()
       }
     })
-    // 长按引用回复
+    // 长按引用回复（微信风格）
     var pressTimer = null
     el.addEventListener('touchstart', function(e) {
       pressTimer = setTimeout(function() {
         var content = el.querySelector('.x-comment-content')
         var name = el.querySelector('.x-comment-name')
         if (content && name) {
-          input.value = '引用 @' + name.textContent + '：「' + content.textContent + '」\n'
           input.dataset.replyTo = el.dataset.commentId
           input.dataset.replyToName = name.textContent
+          input.dataset.quoteContent = content.textContent
+          input.dataset.quoteName = name.textContent
+          input.placeholder = '回复 @' + name.textContent + '...'
           input.focus()
           sendBtn.classList.add('active')
         }
@@ -854,6 +862,7 @@ var name = isAnon ? '匿名用户' : (comment.authorName || '未知')
         '<span class="x-comment-more">' + X_SVG.more + '</span>' +
       '</div>' +
       (comment.replyToName ? '<div class="x-comment-reply-to">回复 <span class="x-mention">@' + xEscape(comment.replyToName) + '</span></div>' : '') +
+      (comment.quoteContent ? '<div class="x-comment-quote"><span class="x-quote-name">@' + xEscape(comment.quoteName || '') + '</span>' + xEscape(comment.quoteContent) + '</div>' : '') +
       '<div class="x-comment-content">' + formatXContent(comment.content) + '</div>' +
       '<div class="x-comment-actions">' +
         '<button class="x-comment-action comment">' + X_SVG.reply + '<span>' + (stats.comments || 0) + '</span></button>' +
@@ -867,9 +876,9 @@ var name = isAnon ? '匿名用户' : (comment.authorName || '未知')
 }
 
 // 添加评论
-function addXComment(postId, user, text) {
+function addXComment(postId, user, text, quoteContent, quoteName) {
   var comments = xLoadComments(postId)
-  comments.push({
+  var obj = {
     id: xGenId(),
     authorId: user.id,
     authorName: getXUserName(user),
@@ -879,7 +888,12 @@ function addXComment(postId, user, text) {
     stats: generateCommentStats(),
     createdAt: new Date().toISOString(),
     replies: []
-  })
+  }
+  if (quoteContent) {
+    obj.quoteContent = quoteContent
+    obj.quoteName = quoteName || ''
+  }
+  comments.push(obj)
   xSaveComments(postId, comments)
 
   // 添加通知
@@ -1218,6 +1232,57 @@ function renderXProfileTab(page, user) {
   renderXProfileContent(panel, user, true)
 }
 
+// ===== 共享主页模板（抖音/TikTok风格）=====
+function buildXProfileHTML(opts) {
+  var coverStyle = opts.coverImg ? ' style="background-image:url(' + xEscape(opts.coverImg) + ')"' : ''
+  var avatarHTML = opts.avatarHTML || ''
+  var actions = ''
+
+  // 按钮区
+  if (opts.showEdit) {
+    actions += '<button class="xh-edit-btn" id="x-edit-profile-btn">编辑个人资料</button>'
+  }
+  if (opts.showFollow) {
+    actions += '<button class="xh-edit-btn' + (opts.isFollowing ? ' following' : '') + '" id="x-char-follow-btn">' + (opts.isFollowing ? '正在关注' : '关注') + '</button>'
+  }
+  if (opts.showGenBtn) {
+    actions += '<button class="xh-gen-btn" id="x-gen-5-posts"><i class="fa-solid fa-wand-magic-sparkles"></i> 生成5篇帖子</button>'
+  }
+
+  return '<div class="xh-cover" id="xh-cover"' + coverStyle + '>' +
+      '<button class="x-profile-circle-btn x-profile-back" type="button">' + X_SVG.back + '</button>' +
+      '<button class="xh-cover-edit" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' +
+    '</div>' +
+    '<div class="xh-scroll">' +
+    '<div class="xh-avatar-row">' +
+      '<div class="xh-avatar-wrap" id="xh-avatar-wrap">' + avatarHTML +
+        '<div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="xh-user-info">' +
+      '<div class="xh-name">' + xEscape(opts.name || '') + '</div>' +
+      '<div class="xh-handle">' + xEscape(opts.handle || '') + '</div>' +
+      (opts.bio ? '<div class="xh-bio">' + xEscape(opts.bio) + '</div>' : '') +
+      (opts.bio2 ? '<div class="xh-bio">' + xEscape(opts.bio2) + '</div>' : '') +
+    '</div>' +
+    '<div class="xh-stats-row">' +
+      '<div class="xh-stat"><strong>' + (opts.postCount || 0) + '</strong><span>帖子</span></div>' +
+      '<div class="xh-stat"><strong>' + (opts.followingCount || 0) + '</strong><span>关注</span></div>' +
+      '<div class="xh-stat"><strong>' + (opts.followerCount || 0) + '</strong><span>粉丝</span></div>' +
+      '<div class="xh-stat"><strong>' + (opts.likeCount || 0) + '</strong><span>获赞</span></div>' +
+    '</div>' +
+    (actions ? '<div class="xh-actions">' + actions + '</div>' : '') +
+    '<div class="xh-tabs">' +
+      '<button class="xh-tab active" data-tab="posts"><i class="fa-solid fa-table-cells"></i> 帖子</button>' +
+      '<button class="xh-tab" data-tab="comments"><i class="fa-solid fa-comment"></i> 评论</button>' +
+      '<button class="xh-tab" data-tab="likes"><i class="fa-solid fa-heart"></i> 赞过</button>' +
+    '</div>' +
+    '<div class="xh-tab-content active" id="xh-tab-posts">' + (opts.postsHTML || '') + '</div>' +
+    '<div class="xh-tab-content" id="xh-tab-comments">' + (opts.commentsHTML || '') + '</div>' +
+    '<div class="xh-tab-content" id="xh-tab-likes">' + (opts.likesHTML || '') + '</div>' +
+    '</div>'
+}
+
 function renderXProfileContent(container, user, isOwnProfile) {
   var follows = xLoadFollows(user.id)
   var posts = xLoadPosts().filter(function(p) { return String(p.authorId) === String(user.id) })
@@ -1225,61 +1290,31 @@ function renderXProfileContent(container, user, isOwnProfile) {
   xLoadPosts().forEach(function(p) {
     var pc = xLoadComments(p.id)
     pc.forEach(function(c) {
-      if (String(c.authorId) === String(user.id)) {
-        comments.push({ comment: c, post: p })
-      }
+      if (String(c.authorId) === String(user.id)) comments.push({ comment: c, post: p })
     })
-  })
-  var likedPosts = xLoadPosts().filter(function(p) {
-    var el = document.querySelector('.x-post[data-post-id="' + p.id + '"] .x-post-action.like')
-    return el && el.dataset.liked === '1'
   })
   var savedAvatar = xLoadImage('avatar_' + user.id)
   var savedCover = xLoadImage('cover_' + user.id)
-  var avatarSrc = savedAvatar || (user.avatar || '')
-  var sig = user.signature || user.bio || ''
+  var avatarSrc = savedAvatar || user.avatar || ''
+  var avatarHTML = avatarSrc ? '<img src="' + xEscape(avatarSrc) + '" alt="">' : getXAvatarHTML(user)
 
-  container.innerHTML =
-    '<div class="xh-cover" id="xh-cover"' + (savedCover ? ' style="background-image:url(' + xEscape(savedCover) + ')"' : '') + '>' +
-      (isOwnProfile ? '<button class="xh-cover-edit" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' : '') +
-    '</div>' +
-    '<div class="xh-info-row">' +
-      '<div class="xh-avatar-wrap" id="xh-avatar-wrap">' +
-        (avatarSrc ? '<img src="' + xEscape(avatarSrc) + '" alt="">' : getXAvatarHTML(user)) +
-        (isOwnProfile ? '<div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>' : '') +
-      '</div>' +
-      '<div class="xh-stats-row">' +
-        '<div class="xh-stat"><strong>' + posts.length + '</strong><span>帖子</span></div>' +
-        '<div class="xh-stat"><strong>' + follows.length + '</strong><span>关注</span></div>' +
-        '<div class="xh-stat"><strong>' + randomInt(10, 500) + '</strong><span>粉丝</span></div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="xh-user-info">' +
-      '<div class="xh-name">' + xEscape(getXUserName(user)) + '</div>' +
-      '<div class="xh-handle">' + xEscape(getXUserHandle(user)) + '</div>' +
-      (sig ? '<div class="xh-bio">' + xEscape(sig) + '</div>' : '<div class="xh-bio xh-bio-empty">点击编辑个人资料添加简介</div>') +
-      (isOwnProfile ? '<button class="xh-edit-btn" id="x-edit-profile-btn">编辑个人资料</button>' : '') +
-    '</div>' +
-    '<div class="xh-tabs">' +
-      '<button class="xh-tab active" data-tab="posts"><i class="fa-solid fa-grid"></i></button>' +
-      '<button class="xh-tab" data-tab="comments"><i class="fa-solid fa-comment"></i></button>' +
-      '<button class="xh-tab" data-tab="likes"><i class="fa-solid fa-heart"></i></button>' +
-    '</div>' +
-    '<div class="xh-tab-content active" id="xh-tab-posts">' +
-      (posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>') +
-    '</div>' +
-    '<div class="xh-tab-content" id="xh-tab-comments">' +
-      (comments.length ? comments.map(function(item) {
-        return '<div class="xh-comment-item">' +
-          '<div class="xh-comment-post-title">回复了 ' + xEscape(item.post.authorName || '匿名') + ' 的帖子</div>' +
-          '<div class="xh-comment-text">' + xEscape(item.comment.content) + '</div>' +
-          '<div class="xh-comment-time">' + timeAgo(item.comment.createdAt) + '</div>' +
-        '</div>'
-      }).join('') : '<div class="xh-empty">还没有评论</div>') +
-    '</div>' +
-    '<div class="xh-tab-content" id="xh-tab-likes">' +
-      (likedPosts.length ? likedPosts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有点赞的帖子</div>') +
-    '</div>'
+  container.innerHTML = buildXProfileHTML({
+    coverImg: savedCover || '',
+    avatarHTML: avatarHTML,
+    name: getXUserName(user),
+    handle: getXUserHandle(user),
+    bio: user.signature || user.bio || '',
+    postCount: posts.length,
+    followingCount: follows.length,
+    followerCount: randomInt(10, 500),
+    likeCount: randomInt(50, 2000),
+    showEdit: isOwnProfile,
+    postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
+    commentsHTML: comments.length ? comments.map(function(item) {
+      return '<div class="xh-comment-item"><div class="xh-comment-post-title">回复了 ' + xEscape(item.post.authorName || '匿名') + ' 的帖子</div><div class="xh-comment-text">' + xEscape(item.comment.content) + '</div><div class="xh-comment-time">' + timeAgo(item.comment.createdAt) + '</div></div>'
+    }).join('') : '<div class="xh-empty">还没有评论</div>',
+    likesHTML: '<div class="xh-empty">还没有点赞的帖子</div>'
+  })
 
   // Tab切换
   container.querySelectorAll('.xh-tab').forEach(function(tab) {
@@ -1291,33 +1326,24 @@ function renderXProfileContent(container, user, isOwnProfile) {
     })
   })
 
-  // 换头像
+  // 换头像/封面
+  container.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('avatar_' + user.id, dataUrl)
+      container.querySelector('#xh-avatar-wrap').innerHTML = '<img src="' + dataUrl + '" alt=""><div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>'
+    }, 400)
+  })
+  container.querySelector('#xh-cover-btn').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('cover_' + user.id, dataUrl)
+      container.querySelector('#xh-cover').style.backgroundImage = 'url(' + dataUrl + ')'
+    }, 800)
+  })
+
   if (isOwnProfile) {
-    var avatarWrap = container.querySelector('#xh-avatar-wrap')
-    if (avatarWrap) {
-      avatarWrap.addEventListener('click', function() {
-        xPickImage(function(dataUrl) {
-          xSaveImage('avatar_' + user.id, dataUrl)
-          avatarWrap.innerHTML = '<img src="' + dataUrl + '" alt="">' +
-            '<div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>'
-        }, 400)
-      })
-    }
-    // 换封面
-    var coverBtn = container.querySelector('#xh-cover-btn')
-    if (coverBtn) {
-      coverBtn.addEventListener('click', function() {
-        xPickImage(function(dataUrl) {
-          xSaveImage('cover_' + user.id, dataUrl)
-          container.querySelector('#xh-cover').style.backgroundImage = 'url(' + dataUrl + ')'
-        }, 800)
-      })
-    }
-    // 编辑资料
     var editBtn = container.querySelector('#x-edit-profile-btn')
     if (editBtn) editBtn.addEventListener('click', function() { showXProfileEdit(user) })
   }
-
   bindPostCardEvents(container, user)
 }
 
@@ -1346,57 +1372,43 @@ function renderXCharProfilePage(char, user) {
   var savedAvatar = xLoadImage('avatar_' + char.id)
   var savedCover = xLoadImage('cover_' + char.id)
   var avatarSrc = savedAvatar || char.avatar || ''
-  var sig = char.signature || char.identity?.bio || ''
+  var avatarHTML = avatarSrc ? '<img src="' + xEscape(avatarSrc) + '" alt="">' : getXAvatarHTML(char)
 
   var page = document.createElement('div')
   page.id = 'x-char-profile'
   page.className = 'x-profile-page'
 
-  page.innerHTML =
-    '<div class="xh-cover" id="xh-cover"' + (savedCover || char.coverImage ? ' style="background-image:url(' + xEscape(savedCover || char.coverImage) + ')"' : '') + '>' +
-      '<button class="x-profile-circle-btn x-profile-back" type="button">' + X_SVG.back + '</button>' +
-      '<button class="xh-cover-edit" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' +
-    '</div>' +
-    '<div class="xh-scroll">' +
-    '<div class="xh-info-row">' +
-      '<div class="xh-avatar-wrap" id="xh-avatar-wrap">' +
-        (avatarSrc ? '<img src="' + xEscape(avatarSrc) + '" alt="">' : getXAvatarHTML(char)) +
-        '<div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>' +
-      '</div>' +
-      '<div class="xh-stats-row">' +
-        '<div class="xh-stat"><strong>' + posts.length + '</strong><span>帖子</span></div>' +
-        '<div class="xh-stat"><strong>' + randomInt(5, 200) + '</strong><span>关注</span></div>' +
-        '<div class="xh-stat"><strong>' + randomInt(50, 5000) + '</strong><span>粉丝</span></div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="xh-user-info">' +
-      '<div class="xh-name">' + xEscape(char.nick || char.name) + '</div>' +
-      '<div class="xh-handle">@' + xEscape(char.identity?.account || char.handle || char.name) + '</div>' +
-      (sig ? '<div class="xh-bio">' + xEscape(sig) + '</div>' : '') +
-      (isSelf ? '' : '<button class="xh-edit-btn' + (isFollowing ? ' following' : '') + '" id="x-char-follow-btn">' + (isFollowing ? '正在关注' : '关注') + '</button>') +
-    '</div>' +
-    (char.type === 'char' ? '<button class="x-profile-generate-btn" id="x-gen-5-posts">一键生成5篇帖子</button>' : '') +
-    '<div class="xh-tabs">' +
-      '<button class="xh-tab active" data-tab="c-posts"><i class="fa-solid fa-grid"></i></button>' +
-    '</div>' +
-    '<div class="xh-tab-content active" id="xh-tab-c-posts">' +
-      (posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>') +
-    '</div>' +
-    '</div>'
+  page.innerHTML = buildXProfileHTML({
+    coverImg: savedCover || char.coverImage || '',
+    avatarHTML: avatarHTML,
+    name: char.nick || char.name,
+    handle: '@' + (char.identity?.account || char.handle || char.name),
+    bio: char.signature || '',
+    bio2: char.identity?.bio || '',
+    postCount: posts.length,
+    followingCount: randomInt(5, 200),
+    followerCount: randomInt(50, 5000),
+    likeCount: randomInt(100, 10000),
+    showFollow: !isSelf,
+    isFollowing: isFollowing,
+    showGenBtn: char.type === 'char',
+    postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
+    commentsHTML: '<div class="xh-empty">还没有评论</div>',
+    likesHTML: '<div class="xh-empty">还没有点赞的帖子</div>'
+  })
 
   if (window.openPage) window.openPage(page)
   else document.body.appendChild(page)
 
   page.querySelector('.x-profile-back').addEventListener('click', function() { closePage('x-char-profile') })
 
-  // 换头像
+  // 换头像/封面
   page.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
     xPickImage(function(dataUrl) {
       xSaveImage('avatar_' + char.id, dataUrl)
       page.querySelector('#xh-avatar-wrap').innerHTML = '<img src="' + dataUrl + '" alt=""><div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>'
     }, 400)
   })
-  // 换封面
   page.querySelector('#xh-cover-btn').addEventListener('click', function() {
     xPickImage(function(dataUrl) {
       xSaveImage('cover_' + char.id, dataUrl)
@@ -1418,12 +1430,12 @@ function renderXCharProfilePage(char, user) {
   var genBtn = page.querySelector('#x-gen-5-posts')
   if (genBtn) {
     genBtn.addEventListener('click', function() {
-      genBtn.textContent = '生成中...'
+      genBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 生成中...'
       genBtn.disabled = true
       generate5PostsForChar(char).then(function() {
-        genBtn.textContent = '一键生成5篇帖子'
+        genBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 生成5篇帖子'
         genBtn.disabled = false
-        var postsEl = page.querySelector('#xh-tab-c-posts')
+        var postsEl = page.querySelector('#xh-tab-posts')
         var newPosts = xLoadPosts().filter(function(p) { return String(p.authorId) === String(char.id) })
         postsEl.innerHTML = newPosts.map(function(p) { return buildXPostCard(p) }).join('')
         bindPostCardEvents(postsEl, user)
@@ -1431,10 +1443,10 @@ function renderXCharProfilePage(char, user) {
     })
   }
 
-  bindPostCardEvents(page.querySelector('#xh-tab-c-posts'), user)
+  bindPostCardEvents(page.querySelector('#xh-tab-posts'), user)
 }
 
-// XX角色主页
+// XX角色主页（统一模板）
 function showXXProfile(user) {
   var existing = document.getElementById('x-char-profile')
   if (existing) existing.remove()
@@ -1443,57 +1455,43 @@ function showXXProfile(user) {
   var posts = xLoadPosts().filter(function(p) { return p.authorId === char.id })
   var savedAvatar = xLoadImage('avatar_' + char.id)
   var savedCover = xLoadImage('cover_' + char.id)
+  var avatarHTML = savedAvatar ? '<img src="' + xEscape(savedAvatar) + '" alt="">' : buildXDefaultAvatar('X')
 
   var page = document.createElement('div')
   page.id = 'x-char-profile'
   page.className = 'x-profile-page'
 
-  page.innerHTML =
-    '<div class="xh-cover" id="xh-cover"' + (savedCover ? ' style="background-image:url(' + xEscape(savedCover) + ')"' : '') + '>' +
-      '<button class="x-profile-circle-btn x-profile-back" type="button">' + X_SVG.back + '</button>' +
-      '<button class="xh-cover-edit" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' +
-    '</div>' +
-    '<div class="xh-scroll">' +
-    '<div class="xh-info-row">' +
-      '<div class="xh-avatar-wrap" id="xh-avatar-wrap">' +
-        (savedAvatar ? '<img src="' + xEscape(savedAvatar) + '" alt="">' : buildXDefaultAvatar('X')) +
-        '<div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>' +
-      '</div>' +
-      '<div class="xh-stats-row">' +
-        '<div class="xh-stat"><strong>' + posts.length + '</strong><span>帖子</span></div>' +
-        '<div class="xh-stat"><strong>1</strong><span>关注</span></div>' +
-        '<div class="xh-stat"><strong>' + randomInt(1000, 99999) + '</strong><span>粉丝</span></div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="xh-user-info">' +
-      '<div class="xh-name">XX</div>' +
-      '<div class="xh-handle">@xx_love</div>' +
-      '<div class="xh-bio" style="font-style:italic">有老婆就是了不起</div>' +
-      '<div class="xh-bio">表面吐槽老婆，实际全世界最爱老婆。谁敢说我老婆一句坏话，我弄死你。老婆做什么都是对的，老婆永远是最好的。</div>' +
-      '<button class="xh-edit-btn following">已关注</button>' +
-    '</div>' +
-    '<button class="x-profile-generate-btn" id="x-gen-5-posts">一键生成5篇帖子</button>' +
-    '<div class="xh-tabs">' +
-      '<button class="xh-tab active" data-tab="xx-posts"><i class="fa-solid fa-grid"></i></button>' +
-    '</div>' +
-    '<div class="xh-tab-content active" id="xh-tab-xx-posts">' +
-      (posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>') +
-    '</div>' +
-    '</div>'
+  page.innerHTML = buildXProfileHTML({
+    coverImg: savedCover || '',
+    avatarHTML: avatarHTML,
+    name: 'XX',
+    handle: '@xx_love',
+    bio: '有老婆就是了不起',
+    bio2: '表面吐槽老婆，实际全世界最爱老婆。谁敢说我老婆一句坏话，我弄死你。老婆做什么都是对的，老婆永远是最好的。',
+    postCount: posts.length,
+    followingCount: 1,
+    followerCount: randomInt(1000, 99999),
+    likeCount: randomInt(5000, 99999),
+    showFollow: true,
+    isFollowing: true,
+    showGenBtn: true,
+    postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
+    commentsHTML: '<div class="xh-empty">还没有评论</div>',
+    likesHTML: '<div class="xh-empty">还没有点赞的帖子</div>'
+  })
 
   if (window.openPage) window.openPage(page)
   else document.body.appendChild(page)
 
   page.querySelector('.x-profile-back').addEventListener('click', function() { closePage('x-char-profile') })
 
-  // 换头像
+  // 换头像/封面
   page.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
     xPickImage(function(dataUrl) {
       xSaveImage('avatar_' + char.id, dataUrl)
       page.querySelector('#xh-avatar-wrap').innerHTML = '<img src="' + dataUrl + '" alt=""><div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>'
     }, 400)
   })
-  // 换封面
   page.querySelector('#xh-cover-btn').addEventListener('click', function() {
     xPickImage(function(dataUrl) {
       xSaveImage('cover_' + char.id, dataUrl)
@@ -1505,12 +1503,12 @@ function showXXProfile(user) {
   var genBtn = page.querySelector('#x-gen-5-posts')
   if (genBtn) {
     genBtn.addEventListener('click', function() {
-      genBtn.textContent = '生成中...'
+      genBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 生成中...'
       genBtn.disabled = true
       generate5PostsForChar(char).then(function() {
-        genBtn.textContent = '一键生成5篇帖子'
+        genBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 生成5篇帖子'
         genBtn.disabled = false
-        var postsEl = page.querySelector('#xh-tab-xx-posts')
+        var postsEl = page.querySelector('#xh-tab-posts')
         var newPosts = xLoadPosts().filter(function(p) { return p.authorId === char.id })
         postsEl.innerHTML = newPosts.map(function(p) { return buildXPostCard(p) }).join('')
         bindPostCardEvents(postsEl, user)
@@ -1518,7 +1516,7 @@ function showXXProfile(user) {
     })
   }
 
-  bindPostCardEvents(page.querySelector('#xh-tab-xx-posts'), user)
+  bindPostCardEvents(page.querySelector('#xh-tab-posts'), user)
 }
 
 // AI一键生成5篇帖子
