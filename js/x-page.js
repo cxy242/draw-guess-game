@@ -1519,20 +1519,25 @@ function showXXProfile(user) {
   bindPostCardEvents(page.querySelector('#xh-tab-posts'), user)
 }
 
-// AI一键生成5篇帖子
+// AI一键生成5篇帖子（含评论+发帖人回复+路人互评）
 async function generate5PostsForChar(char) {
   if (!window.callAI) return
 
-  var prompt = '你是社交媒体帖子生成器。请为以下角色生成5条帖子，每条帖子要体现角色性格。\n\n' +
-    '角色名：' + char.name + '\n' +
-    '角色简介：' + (char.identity?.bio || char.signature || '普通用户') + '\n\n' +
+  var npcSample = X_NPC_TYPES.sort(function(){return Math.random()-0.5}).slice(0,6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')' }).join('\n')
+
+  var prompt = '你是社交媒体内容生成器。为以下角色生成5条帖子，每条帖子都要有完整的评论互动。\n\n' +
+    '发帖人：' + char.name + '（' + (char.identity?.bio || char.signature || '普通用户') + '）\n\n' +
     '帖子分类（每条选一个不同的）：\n' +
     X_CATEGORIES.map(function(c) { return c.id + '.' + c.name }).join('\n') + '\n\n' +
+    '可用NPC人设（每条评论从这些中随机选，每条帖子的评论要用不同人设）：\n' + npcSample + '\n\n' +
     '要求：\n' +
-    '1. 每条帖子30-80字，真实自然\n' +
-    '2. 符合角色性格\n' +
-    '3. 可以包含hashtag\n\n' +
-    '返回JSON：{"posts":[{"content":"帖子内容","category":1}]}'
+    '1. 每条帖子30-80字，真实自然，可包含hashtag\n' +
+    '2. 每条帖子生成5条评论，来自不同的NPC人设（30字以内）\n' +
+    '3. 发帖人（' + char.name + '）必须回复其中一条NPC评论（体现发帖人性格）\n' +
+    '4. 再生成2条NPC回复其他人的评论（路人互评，形成对话链）\n' +
+    '5. 每条评论用replyToIndex指向被回复评论的序号（顶级评论为-1），isAuthorReply标记发帖人回复\n\n' +
+    '返回JSON格式：\n' +
+    '{"posts":[{"content":"帖子内容","tags":["标签"],"category":1,"comments":[{"name":"NPC名","content":"评论内容","replyToIndex":-1},{"name":"' + char.name + '","content":"发帖人回复","replyToIndex":0,"isAuthorReply":true},{"name":"另一个NPC","content":"路人互评","replyToIndex":0}]}]}'
 
   try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
@@ -1541,18 +1546,51 @@ async function generate5PostsForChar(char) {
     var allPosts = xLoadPosts()
     if (data.posts) {
       data.posts.forEach(function(p, i) {
+        var postId = xGenId()
         allPosts.push({
-          id: xGenId(),
+          id: postId,
           authorId: String(char.id),
           authorName: char.nick || char.name,
           authorHandle: '@' + (char.identity?.account || char.name),
           authorAvatar: char.avatar || null,
           content: p.content,
+          tags: p.tags || [],
           category: p.category || randomPick(X_CATEGORIES).id,
           isAnonymous: false,
           engagement: generateEngagement(),
           createdAt: new Date(Date.now() - i * 3600000).toISOString()
         })
+
+        // 生成评论（含发帖人回复+路人互评）
+        if (p.comments && p.comments.length) {
+          var comments = []
+          p.comments.forEach(function(c, ci) {
+            var isAuthorReply = c.isAuthorReply || false
+            var npcType = randomPick(X_NPC_TYPES)
+            var commentId = xGenId()
+            var commentObj = {
+              id: commentId,
+              authorId: isAuthorReply ? String(char.id) : ('npc_' + xGenId()),
+              authorName: isAuthorReply ? (char.nick || char.name) : (c.name || npcType.name),
+              authorHandle: isAuthorReply ? ('@' + (char.identity?.account || char.name)) : ('@user-' + String(ci).slice(-4)),
+              authorAvatar: isAuthorReply ? (char.avatar || null) : null,
+              isNpc: !isAuthorReply,
+              npcType: isAuthorReply ? null : npcType,
+              content: c.content,
+              stats: generateCommentStats(),
+              createdAt: new Date(Date.now() - i * 3600000 + ci * 60000).toISOString(),
+              isReply: false
+            }
+            // 处理回复关系（楼中楼）
+            if (c.replyToIndex >= 0 && c.replyToIndex < comments.length) {
+              commentObj.replyTo = comments[c.replyToIndex].id
+              commentObj.replyToName = comments[c.replyToIndex].authorName
+              commentObj.isReply = true
+            }
+            comments.push(commentObj)
+          })
+          xSaveComments(postId, comments)
+        }
       })
       xSavePosts(allPosts)
     }
