@@ -207,9 +207,8 @@ async function startScheduler() {
       }
       localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
       if (window.showToastLong) {
-        var msg = '朋友圈补回完成\n成功 ' + ok + ' 条' + (fail ? '，失败 ' + fail + ' 条' : '');
-        if (details.length <= 5) msg += '\n' + details.join('\n');
-        showToastLong(msg, 5000);
+        if (fail) showToastLong('补回成功 ' + ok + ' 条，失败 ' + fail + ' 条朋友圈', 3000);
+        else showToastLong('补回成功 ' + ok + ' 条朋友圈', 3000);
       }
     }
   }

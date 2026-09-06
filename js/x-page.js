@@ -2128,7 +2128,7 @@ function startXAutoPostScheduler(user) {
     if (missed > 0) {
       missed = Math.min(missed, 10) // 最多补10条，防止疯狂补帖
       console.log('[X] 补回：距上次' + Math.round(elapsed/60000) + '分钟，需补' + missed + '条')
-      xAutoPostCatchUp(user, missed)
+      xAutoPostCatchUp(user, missed, lastPost, intervalMs)
     }
   }
 
@@ -2140,7 +2140,7 @@ function startXAutoPostScheduler(user) {
 }
 
 // 补回：一次API生成N条帖子
-async function xAutoPostCatchUp(user, count) {
+async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
   if (!window.callAI) return
   showToastLong('正在补回 ' + count + ' 条帖子...', 4000)
   var settings = xLoadSettings()
@@ -2185,7 +2185,7 @@ async function xAutoPostCatchUp(user, count) {
         category: p.category || randomPick(X_CATEGORIES).id,
         isAnonymous: false,
         engagement: generateEngagement(),
-        createdAt: new Date(Date.now() - (count - i) * 60000).toISOString()
+        createdAt: new Date(baseTime + (i + 1) * intervalMs).toISOString()
       }
       allPosts.unshift(post)
       newPosts.push(post)
@@ -2193,11 +2193,7 @@ async function xAutoPostCatchUp(user, count) {
     xSavePosts(allPosts)
     localStorage.setItem(X_LAST_AUTOPOST_KEY, String(Date.now()))
 
-    // 成功提示：显示每条帖子的作者和摘要
-    var details = newPosts.map(function(p) {
-      return '✓ ' + p.authorName + '：' + p.content.slice(0, 20) + (p.content.length > 20 ? '...' : '')
-    }).join('\n')
-    showToastLong('补回成功 ' + newPosts.length + ' 条\n' + details, 5000)
+    showToastLong('补回成功 ' + newPosts.length + ' 条帖子', 3000)
     console.log('[X] 补回完成：' + newPosts.length + '条帖子')
 
     // 为每条帖子生成评论
