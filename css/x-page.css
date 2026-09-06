@@ -509,8 +509,8 @@
   font-size: 14px;
   color: var(--x-text-muted);
   white-space: nowrap;
-  overflow: hidden;
-  flex-wrap: nowrap;
+  padding-left: 16px;
+  margin-top: 8px;
 }
 
 .x-detail-stats strong {
@@ -688,7 +688,7 @@
 /* 二级回复（缩进） — 头像与父评论对齐，竖线连接 */
 .x-comment-reply {
   margin-left: 0;
-  padding-left: 36px; /* 推开内容，给竖线留空间。头像对齐父头像中心(16+20=36) */
+  padding-left: 34px; /* 34+2(border)=36px=父头像中心(16+20) */
   position: relative;
   border-left: 2px solid var(--x-border-strong, #536471);
 }
@@ -2099,7 +2099,7 @@
 @media (max-width: 380px) {
   .x-post { padding: 10px 12px; }
   .x-comment { padding: 10px 12px; }
-  .x-comment-reply { margin-left: 0; padding-left: 32px; border-left: 2px solid var(--x-border-strong, #536471); }
+  .x-comment-reply { margin-left: 0; padding-left: 30px; border-left: 2px solid var(--x-border-strong, #536471); }
   .x-profile-info { padding-left: 16px; padding-right: 16px; }
   .x-profile-avatar { left: 16px; width: 78px; height: 78px; }
   .x-profile-name { font-size: 22px; }
@@ -2153,7 +2153,7 @@
 }
 .x-comment-reply {
   margin-left: 0;
-  padding-left: 36px;
+  padding-left: 34px;
   position: relative;
   border-left: 2px solid var(--x-border-strong, #536471);
 }

@@ -276,3 +276,8 @@
 .game-card-spicy .game-card-icon {
   background: linear-gradient(135deg, #667eea, #764ba2);
 }
+
+/* 模型选择器限制高度 */
+.model-row{display:flex;gap:8px;align-items:center}
+.model-row select.input-field{max-height:120px;overflow-y:auto;flex:1}
+.setting-section{overflow-y:auto;max-height:calc(100vh - 200px)}

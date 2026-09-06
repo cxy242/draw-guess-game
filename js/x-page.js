@@ -665,9 +665,8 @@ function showXPostDetail(postId, user) {
         (post.tags && post.tags.length ? '<div class="x-post-tags">' + post.tags.map(function(t) { return '<span class="x-post-tag">#' + xEscape(t) + '</span>' }).join(' ') + '</div>' : '') +
         '</div>' +
         '<div class="x-detail-meta">' +
-        '<div class="x-detail-time">' + formatXTime(post.createdAt) + '</div>' +
+        '<div class="x-detail-time">' + formatXTime(post.createdAt) + ' · <strong>' + formatXNumber(e.views || 0) + '</strong> 次查看</div>' +
         '<div class="x-detail-stats">' +
-          '<span><strong>' + formatXNumber(e.views || 0) + '</strong> 次查看</span>' +
           '<span><strong>' + formatXNumber(e.retweets || 0) + '</strong> 转推</span>' +
           '<span><strong>' + formatXNumber(e.quotes || 0) + '</strong> 引用推文</span>' +
           '<span><strong>' + formatXNumber(e.likes || 0) + '</strong> 喜欢</span>' +

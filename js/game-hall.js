@@ -187,7 +187,8 @@
         if (!res.ok) throw new Error('HTTP ' + res.status)
         var json = await res.json()
         var models = (json.data || []).map(function(item) { return item && item.id }).filter(Boolean)
-        modelSelect.innerHTML = '<option value="">请选择模型</option>' + models.map(function(model) {
+        var showModels = models.slice(0, 50)
+        modelSelect.innerHTML = '<option value="">请选择模型(' + models.length + '个)</option>' + showModels.map(function(model) {
           return '<option value="' + esc(model) + '">' + esc(model) + '</option>'
         }).join('')
         window.toast && window.toast(models.length ? '已获取 ' + models.length + ' 个模型' : '未获取到模型')
