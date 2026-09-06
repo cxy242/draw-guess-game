@@ -1430,6 +1430,7 @@ function renderXProfileContent(container, user, isOwnProfile) {
     followerCount: randomInt(10, 500),
     likeCount: randomInt(50, 2000),
     
+    showBack: isOwnProfile ? false : undefined,
     showEdit: isOwnProfile,
     postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
     commentsHTML: comments.length ? comments.map(function(item) {

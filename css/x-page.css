@@ -2141,13 +2141,12 @@ ground-color: var(--x-accent);
 
 /* ===== 小红书风格主页 ===== */
 .xh-page {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  position: relative;
   background: var(--x-bg, #000);
   color: var(--x-text, #fff);
-  z-index: 400;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  min-height: 100%;
 }
 .xh-cover {
   position: relative;
