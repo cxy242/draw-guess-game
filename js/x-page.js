@@ -1383,7 +1383,7 @@ function buildXProfileHTML(opts) {
       '</div>' +
       (opts.bio ? '<div class="xh-bio">' + xEscape(opts.bio) + '</div>' : '') +
       (opts.bio2 ? '<div class="xh-bio">' + xEscape(opts.bio2) + '</div>' : '') +
-      (opts.ipLocation ? '<div class="xh-ip"><i class="fa-solid fa-location-dot"></i> IP属地：' + xEscape(opts.ipLocation) + '</div>' : '') +
+      '<div class="xh-ip"><i class="fa-solid fa-location-dot"></i> IP属地：' + xEscape(opts.ipLocation || '未设置') + '</div>' +
       '<div class="xh-stats">' +
         '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.postCount || 0) + '</div><div class="xh-stat-label">帖子</div></div>' +
         '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.followingCount || 0) + '</div><div class="xh-stat-label">关注</div></div>' +
@@ -1429,7 +1429,7 @@ function renderXProfileContent(container, user, isOwnProfile) {
     followingCount: follows.length,
     followerCount: randomInt(10, 500),
     likeCount: randomInt(50, 2000),
-    showBack: false,
+    
     showEdit: isOwnProfile,
     postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
     commentsHTML: comments.length ? comments.map(function(item) {
@@ -1466,6 +1466,8 @@ function renderXProfileContent(container, user, isOwnProfile) {
     var editBtn = container.querySelector('#x-edit-profile-btn')
     if (editBtn) editBtn.addEventListener('click', function() { showXProfileEdit(user) })
   }
+  var backBtn = container.querySelector('.xh-back-btn')
+  if (backBtn) backBtn.addEventListener('click', function() { closePage('x-page') })
   bindPostCardEvents(container, user)
 }
 
