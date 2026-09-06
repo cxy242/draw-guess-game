@@ -2144,14 +2144,23 @@
 .x-post-gen-comments:hover { color: var(--x-accent, #1d9bf0); }
 .x-post-gen-comments.loading { animation: spin 1s linear infinite; }
 
-/* 评论竖线连接 */
+/* 评论竖线连接 — 从父评论头像底部连到子评论头像顶部 */
 .x-comment {
   position: relative;
+  overflow: visible;
 }
-.x-comment.x-comment-reply {
+.x-comment-reply {
   margin-left: 52px;
-  padding-left: 16px;
-  border-left: 2px solid var(--x-border, rgba(255,255,255,0.15));
+  position: relative;
+}
+.x-comment-reply::before {
+  content: '';
+  position: absolute;
+  left: -16px; /* 对齐父评论头像中心(36px) - 回复margin(52px) = -16px */
+  top: 0;
+  width: 2px;
+  height: 12px; /* 填充回复padding区域，连接父评论底部 */
+  background: var(--x-border, rgba(255,255,255,0.15));
 }
 
 /* 生成帖子按钮 */
