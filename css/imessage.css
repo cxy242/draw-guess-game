@@ -501,3 +501,38 @@ html.has-android-bottom-inset .imessage-chat-input {
     padding: 0 10px;
   }
 }
+
+/* 匿名短信解除按钮 */
+.sms-reveal-row {
+  text-align: center;
+  margin: 4px 0 8px;
+}
+.sms-reveal-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #8e8e93;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+.sms-reveal-btn:active {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+.sms-reveal-btn i { font-size: 11px; }
+.sms-revealed-tag {
+  text-align: center;
+  margin: 2px 0 6px;
+  font-size: 11px;
+  color: #636366;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.sms-revealed-tag i { font-size: 10px; }

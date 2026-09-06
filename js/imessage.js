@@ -277,6 +277,7 @@ async function loadSmsChatMessages(page, conversationId) {
 
   var html = ''
   var lastDate = ''
+  var revealedIds = JSON.parse(localStorage.getItem('anonSmsRevealed') || '[]')
   for (var i = 0; i < msgs.length; i++) {
     var m = msgs[i]
     var dateStr = formatSmsFullTime(m.createdAt)
@@ -285,10 +286,27 @@ async function loadSmsChatMessages(page, conversationId) {
       lastDate = dateStr
     }
     var cls = m.direction === 'out' ? 'sms-out' : 'sms-in'
+    var isAnon = m._anonCharId && !m._anonRevealed && revealedIds.indexOf(m.id) === -1
     html += '<div class="sms-bubble ' + cls + '">' + escSmsHtml(m.body) + '</div>'
+    // 匿名消息显示解除匿名按钮
+    if (isAnon && m.direction === 'in') {
+      html += '<div class="sms-reveal-row"><button class="sms-reveal-btn" data-msg-id="' + m.id + '"><i class="fa-solid fa-eye"></i> 解除匿名</button></div>'
+    }
+    // 已解除匿名的消息显示真实身份
+    if (m._anonCharId && (m._anonRevealed || revealedIds.indexOf(m.id) !== -1)) {
+      html += '<div class="sms-revealed-tag"><i class="fa-solid fa-user"></i> ' + escSmsHtml(m._anonCharName) + '</div>'
+    }
   }
   container.innerHTML = html
   container.scrollTop = container.scrollHeight
+
+  // 绑定解除匿名按钮
+  container.querySelectorAll('.sms-reveal-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var msgId = parseInt(btn.dataset.msgId)
+      if (msgId) window.revealAnonSms(msgId)
+    })
+  })
 }
 
 // ===== 欢迎短信 =====
@@ -507,3 +525,201 @@ function showImessageTopMessagePopup(opts) {
   requestAnimationFrame(function() { el.classList.add('show') })
   el._hideTimer = setTimeout(closeImessageTopMessagePopup, IMESSAGE_TOP_MESSAGE_POPUP_MS)
 }
+
+// ===== AI匿名短信系统 =====
+var _anonSmsTimer = null
+var ANON_SMS_LAST_KEY = 'anonSmsLastTime'
+var ANON_SMS_INTERVAL_KEY = 'anonSmsInterval'
+var ANON_SMS_REVEAL_KEY = 'anonSmsRevealed' // 存已解除匿名的消息ID
+
+// 生成随机手机号
+function genAnonPhone() {
+  var prefixes = ['138','139','150','151','152','157','158','159','186','187','188','135','136','137']
+  var prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
+  var rest = ''
+  for (var i = 0; i < 8; i++) rest += Math.floor(Math.random() * 10)
+  return prefix + rest
+}
+
+// 生成匿名名字
+function genAnonName() {
+  var names = ['陌生人','好奇路人','路过的人','匿名用户','不告诉你','别问我是谁','神秘人','一个好奇的人']
+  return names[Math.floor(Math.random() * names.length)]
+}
+
+// 启动匿名短信调度器
+function startAnonSmsScheduler(user) {
+  if (_anonSmsTimer) clearInterval(_anonSmsTimer)
+  var interval = parseInt(localStorage.getItem(ANON_SMS_INTERVAL_KEY)) || 180 // 默认3小时
+  var intervalMs = interval * 60 * 1000
+
+  // 补回逻辑
+  var lastTime = parseInt(localStorage.getItem(ANON_SMS_LAST_KEY)) || 0
+  var now = Date.now()
+  if (lastTime > 0) {
+    var elapsed = now - lastTime
+    var missed = Math.floor(elapsed / intervalMs)
+    if (missed > 0) {
+      missed = Math.min(missed, 3) // 最多补3条
+      console.log('[AnonSMS] 补回：需补' + missed + '条匿名短信')
+      for (var i = 0; i < missed; i++) {
+        sendAnonymousCharSMS(user)
+      }
+      localStorage.setItem(ANON_SMS_LAST_KEY, String(now))
+    }
+  }
+  if (!lastTime) localStorage.setItem(ANON_SMS_LAST_KEY, String(now))
+
+  _anonSmsTimer = setInterval(function() {
+    sendAnonymousCharSMS(user)
+    localStorage.setItem(ANON_SMS_LAST_KEY, String(Date.now()))
+  }, intervalMs)
+  console.log('[AnonSMS] 调度器启动，间隔' + interval + '分钟')
+}
+
+// 核心：AI角色匿名发短信
+async function sendAnonymousCharSMS(user) {
+  if (!window.callAI) return
+  if (!user || !user.identity || !user.identity.phone) return
+
+  // 随机选一个AI角色
+  var chars = []
+  try {
+    chars = await db.characters.where('type').equals('char').toArray()
+  } catch(e) { return }
+  if (!chars.length) return
+  var char = chars[Math.floor(Math.random() * chars.length)]
+
+  // 构建prompt，要求隐藏身份
+  var charDesc = char.name + '（' + (char.identity?.bio || char.signature || '普通角色') + '）'
+  var relationships = (char.relations || []).map(function(r) { return r.desc || r.type || '' }).filter(Boolean).join('、')
+
+  var prompt = '你是' + charDesc + '。你想给用户发一条短信，但必须隐藏你的真实身份。\n\n' +
+    '你的性格和关系：' + (relationships || '普通朋友') + '\n\n' +
+    '要求：\n' +
+    '1. 绝对不能暴露你是AI或游戏角色\n' +
+    '2. 伪装成一个真实的人（陌生人、网友、朋友的朋友等）\n' +
+    '3. 可以试探用户、问问题、聊天、表达关心\n' +
+    '4. 语气自然，像真人发短信\n' +
+    '5. 内容20-60字\n' +
+    '6. 你的目的是了解用户、试探用户对某些事情的态度\n\n' +
+    '返回JSON：{"body":"短信内容"}'
+
+  try {
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
+    if (!data || !data.body) return
+
+    var anonPhone = genAnonPhone()
+    var anonName = genAnonName()
+    var now = Date.now()
+    var ownerPhone = user.identity.phone
+
+    // 查找或创建对话
+    var conv = await db.smsConversations
+      .where('[ownerPhone+remotePhone]')
+      .equals([ownerPhone, anonPhone])
+      .first()
+
+    var convId
+    if (conv) {
+      convId = conv.id
+      await db.smsConversations.update(convId, {
+        lastMessage: data.body,
+        lastMessageAt: now,
+        unreadCount: (conv.unreadCount || 0) + 1,
+        updatedAt: now
+      })
+    } else {
+      convId = await db.smsConversations.add({
+        ownerPhone: ownerPhone,
+        remotePhone: anonPhone,
+        remoteAvatar: SMS_DEFAULT_AVATAR,
+        remoteName: anonName,
+        lastMessage: data.body,
+        lastMessageAt: now,
+        unreadCount: 1,
+        updatedAt: now
+      })
+    }
+
+    // 保存消息（带角色真实信息，用于解除匿名）
+    await db.smsMessages.add({
+      conversationId: convId,
+      direction: 'in',
+      body: data.body,
+      createdAt: now,
+      read: false,
+      // 匿名信息（解除前不显示）
+      _anonCharId: char.id,
+      _anonCharName: char.name,
+      _anonCharAvatar: char.avatar || '',
+      _anonRevealed: false
+    })
+
+    // 弹出通知
+    showImessageTopMessagePopup({
+      title: anonName,
+      body: data.body,
+      avatar: SMS_DEFAULT_AVATAR
+    })
+
+    console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone)
+  } catch(e) {
+    console.error('[AnonSMS] 发送失败:', e)
+  }
+}
+
+// 解除匿名
+window.revealAnonSms = async function(msgId) {
+  var msg = await db.smsMessages.get(msgId)
+  if (!msg || !msg._anonCharId) return
+
+  // 标记已解除
+  await db.smsMessages.update(msgId, { _anonRevealed: true })
+
+  // 记录已解除的ID
+  var revealed = JSON.parse(localStorage.getItem(ANON_SMS_REVEAL_KEY) || '[]')
+  if (revealed.indexOf(msgId) === -1) revealed.push(msgId)
+  localStorage.setItem(ANON_SMS_REVEAL_KEY, JSON.stringify(revealed))
+
+  // 更新对话的头像和名字
+  var conv = await db.smsConversations.get(msg.conversationId)
+  if (conv) {
+    var char = await db.characters.get(msg._anonCharId)
+    if (char) {
+      await db.smsConversations.update(conv.id, {
+        remoteName: char.name,
+        remoteAvatar: char.avatar || SMS_DEFAULT_AVATAR
+      })
+    }
+  }
+
+  // 刷新当前页面
+  var chatPage = document.getElementById('imessage-chat-page')
+  if (chatPage) {
+    var convId = msg.conversationId
+    var listPage = document.getElementById('imessage-page')
+    window.closePage('imessage-chat-page')
+    setTimeout(function() {
+      if (listPage) loadSmsConversations(listPage)
+      // 重新打开聊天
+      openSmsChat(convId, listPage)
+    }, 200)
+  } else {
+    var listPage = document.getElementById('imessage-page')
+    if (listPage) loadSmsConversations(listPage)
+  }
+
+  window.toast && window.toast('已解除匿名')
+}
+
+// 设置匿名短信间隔
+window.setAnonSmsInterval = function(minutes) {
+  localStorage.setItem(ANON_SMS_INTERVAL_KEY, String(minutes))
+  window.toast && window.toast('匿名短信间隔已设为' + minutes + '分钟')
+}
+
+// 导出给外部调用
+window.startAnonSmsScheduler = startAnonSmsScheduler
+window.sendAnonymousCharSMS = sendAnonymousCharSMS
