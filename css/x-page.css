@@ -1117,131 +1117,11 @@
   width: 22px;
   height: 22px;
   fill: #07c160;
-  flex-shrink: 0;
-}
+  flex-shrink: 
 
-.x-login-users {
-  margin-top: 18px;
-  border-top: 1px solid var(--x-border);
-  max-height: min(320px, 38vh);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
+... [OUTPUT TRUNCATED - 2,209 chars omitted out of 52,137 total] ...
 
-.x-login-user {
-  width: 100%;
-  min-height: 66px;
-  border: 0;
-  border-bottom: 1px solid var(--x-border);
-  background: transparent;
-  color: var(--x-text);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.x-login-user:active {
-  background: var(--x-hover);
-}
-
-.x-login-user-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.x-login-user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.x-login-user-main {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.x-login-user-name {
-  color: var(--x-text);
-  font-size: 15px;
-  line-height: 1.35;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.x-login-user-account {
-  color: var(--x-text-muted);
-  font-size: 13px;
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.x-login-user i {
-  color: var(--x-text-muted);
-  font-size: 17px;
-  flex-shrink: 0;
-}
-
-.x-login-loading,
-.x-login-empty {
-  min-height: 92px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: var(--x-text-muted);
-  font-size: 14px;
-  text-align: center;
-}
-
-.x-login-empty span {
-  font-size: 12px;
-  color: var(--x-text-muted);
-}
-
-/* ===== 个人主页 ===== */
-.x-profile-page {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--x-bg);
-  color: var(--x-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  z-index: 60;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.x-profile-cover {
-  position: relative;
-  height: min(28vh, 188px);
-  min-height: 154px;
-  flex-shrink: 0;
-  overflow: visible;
-  background: var(--x-accent);
-  background-size: cover;
-  background-position: center;
-}
-
-
-.x-profile-banner {
-  height: 200px;
-  background-color: var(--x-accent);
+ground-color: var(--x-accent);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -2259,99 +2139,119 @@
 @keyframes x-slide-up{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
-/* ===== 抖音/TikTok风格主页 ===== */
+/* ===== 小红书风格主页 ===== */
+.xh-page {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--x-bg, #000);
+  color: var(--x-text, #fff);
+  z-index: 400;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .xh-cover {
   position: relative;
   height: 200px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(160deg, #2d2b3a 0%, #1a1a2e 40%, #16213e 100%);
   background-size: cover;
   background-position: center;
-  flex-shrink: 0;
 }
-.xh-cover-edit {
+.xh-cover::after {
+  content: '';
   position: absolute;
-  bottom: 10px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
+  bottom: 0; left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(to top, var(--x-bg, #000), transparent);
+  pointer-events: none;
+}
+.xh-back-btn {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0));
+  left: 12px;
+  width: 36px; height: 36px;
   border-radius: 50%;
   border: none;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,0.35);
   color: #fff;
-  font-size: 13px;
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  backdrop-filter: blur(4px);
+  z-index: 2;
+  backdrop-filter: blur(8px);
 }
-.xh-scroll {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+.xh-back-btn:active { background: rgba(0,0,0,0.5); }
+.xh-cover-cam {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  backdrop-filter: blur(8px);
 }
-/* 头像行：头像左下角半露出来 */
-.xh-avatar-row {
+.xh-body {
   position: relative;
-  padding: 0 16px;
-  margin-top: -40px;
+  padding: 0 0 20px;
+}
+.xh-avatar-area {
   display: flex;
   align-items: flex-end;
-  z-index: 2;
+  padding: 0 16px;
+  margin-top: -32px;
+  position: relative;
+  z-index: 3;
+  gap: 14px;
 }
-.xh-avatar-wrap {
-  width: 80px;
-  height: 80px;
+.xh-avatar {
+  width: 72px; height: 72px;
   border-radius: 50%;
-  border: 4px solid var(--x-bg, #000);
+  border: 3px solid var(--x-bg, #000);
   overflow: hidden;
   position: relative;
   cursor: pointer;
   background: var(--x-avatar-placeholder-bg, #333);
   flex-shrink: 0;
 }
-.xh-avatar-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.xh-avatar-wrap .x-avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 30px;
+.xh-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.xh-avatar .x-avatar-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
   background: var(--x-avatar-placeholder-bg, #333);
   color: var(--x-avatar-placeholder-text, #fff);
 }
-.xh-avatar-badge {
+.xh-avatar-cam {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 22px;
+  bottom: 0; left: 0; right: 0;
+  height: 20px;
   background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #fff;
   pointer-events: none;
 }
-/* 用户信息 */
-.xh-user-info {
-  padding: 10px 16px 0;
+.xh-user-meta {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 4px;
 }
 .xh-name {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--x-text, #fff);
   line-height: 1.2;
+  letter-spacing: -0.3px;
 }
 .xh-handle {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--x-text-muted, #71767b);
   margin-top: 2px;
 }
@@ -2359,109 +2259,103 @@
   font-size: 14px;
   color: var(--x-text, #e7e9ea);
   line-height: 1.5;
-  margin-top: 6px;
+  padding: 10px 16px 0;
   word-break: break-word;
 }
-/* 数据栏：帖子|关注|粉丝|获赞 */
-.xh-stats-row {
+.xh-ip {
+  font-size: 12px;
+  color: var(--x-text-muted, #71767b);
+  padding: 6px 16px 0;
   display: flex;
-  gap: 0;
-  padding: 12px 16px;
+  align-items: center;
+  gap: 4px;
 }
-.xh-stat {
-  flex: 1;
-  text-align: center;
+.xh-ip i { font-size: 11px; }
+.xh-stats {
+  display: flex;
+  padding: 16px 16px 12px;
 }
-.xh-stat strong {
-  display: block;
+.xh-stat-item { flex: 1; text-align: center; }
+.xh-stat-num {
   font-size: 17px;
   font-weight: 800;
   color: var(--x-text, #fff);
   line-height: 1.2;
 }
-.xh-stat span {
+.xh-stat-label {
   font-size: 12px;
   color: var(--x-text-muted, #71767b);
+  margin-top: 2px;
 }
-/* 按钮区 */
 .xh-actions {
   display: flex;
   gap: 8px;
-  padding: 0 16px 10px;
-  flex-wrap: wrap;
+  padding: 0 16px 12px;
 }
 .xh-edit-btn {
-  padding: 7px 20px;
-  border-radius: 999px;
-  border: 1px solid var(--x-border-strong, #536471);
-  background: var(--x-text, #fff);
-  color: var(--x-bg, #000);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .15s;
-}
-.xh-edit-btn:active { opacity: 0.85; transform: scale(0.97); }
-.xh-edit-btn.following {
-  background: transparent;
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: none;
+  background: var(--x-hover, rgba(255,255,255,0.08));
   color: var(--x-text, #e7e9ea);
-  border-color: var(--x-border-strong, #536471);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s ease;
 }
-/* 生成按钮 */
+.xh-edit-btn:active { background: rgba(255,255,255,0.12); transform: scale(0.98); }
+.xh-edit-btn.following {
+  background: var(--x-accent, #1d9bf0);
+  color: #fff;
+}
 .xh-gen-btn {
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--x-accent, #1d9bf0);
-  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--x-hover, rgba(255,255,255,0.08));
   color: var(--x-accent, #1d9bf0);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  transition: all .15s;
+  transition: background 0.15s ease;
 }
-.xh-gen-btn:active { background: rgba(29,155,240,0.1); }
-.xh-gen-btn:disabled { opacity: 0.5; }
-/* Tab栏：帖子 | 评论 | 赞过 */
+.xh-gen-btn:active { background: rgba(29,155,240,0.15); }
+.xh-gen-btn:disabled { opacity: 0.4; }
 .xh-tabs {
   display: flex;
-  border-bottom: 1px solid var(--x-border, rgba(255,255,255,0.1));
+  border-bottom: 1px solid var(--x-border, rgba(255,255,255,0.08));
 }
 .xh-tab {
   flex: 1;
   padding: 12px 0;
-  border: none;
-  background: transparent;
-  color: var(--x-text-muted, #71767b);
-  font-size: 14px;
-  font-weight: 600;
+  text-align: center;
   cursor: pointer;
+  color: var(--x-text-muted, #71767b);
+  font-size: 16px;
   position: relative;
-  transition: color .15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
+  transition: color 0.15s ease;
 }
-.xh-tab i { font-size: 15px; }
-.xh-tab.active {
-  color: var(--x-text, #fff);
-}
+.xh-tab.active { color: var(--x-text, #fff); }
 .xh-tab.active::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 50%;
+  bottom: 0; left: 50%;
   transform: translateX(-50%);
-  width: 36px;
-  height: 3px;
+  width: 28px; height: 3px;
   background: var(--x-accent, #1d9bf0);
   border-radius: 2px;
 }
-.xh-tab-content { display: none; }
-.xh-tab-content.active { display: block; }
+.xh-tab-panel { display: none; }
+.xh-tab-panel.active { display: block; }
 .xh-empty {
   text-align: center;
   padding: 40px 16px;
@@ -2469,8 +2363,8 @@
   font-size: 14px;
 }
 .xh-comment-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--x-border, rgba(255,255,255,0.1));
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--x-border, rgba(255,255,255,0.06));
 }
 .xh-comment-post-title {
   font-size: 12px;
@@ -2487,7 +2381,6 @@
   color: var(--x-text-muted, #71767b);
   margin-top: 4px;
 }
-
 /* ===== 微信风格评论引用 ===== */
 .x-comment-quote {
   margin: 4px 0 6px;

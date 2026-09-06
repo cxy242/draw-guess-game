@@ -1339,53 +1339,55 @@ function renderXProfileTab(page, user) {
 
 // ===== 共享主页模板（抖音/TikTok风格）=====
 function buildXProfileHTML(opts) {
-  var coverStyle = opts.coverImg ? ' style="background-image:url(' + xEscape(opts.coverImg) + ')"' : ''
+  var coverStyle = opts.coverImg ? 'background-image:url(' + xEscape(opts.coverImg) + ')' : ''
   var avatarHTML = opts.avatarHTML || ''
   var actions = ''
 
-  // 按钮区
   if (opts.showEdit) {
-    actions += '<button class="xh-edit-btn" id="x-edit-profile-btn">编辑个人资料</button>'
+    actions += '<button class="xh-edit-btn" id="x-edit-profile-btn"><i class="fa-solid fa-pen"></i> 编辑个人资料</button>'
   }
   if (opts.showFollow) {
-    actions += '<button class="xh-edit-btn' + (opts.isFollowing ? ' following' : '') + '" id="x-char-follow-btn">' + (opts.isFollowing ? '正在关注' : '关注') + '</button>'
+    actions += '<button class="xh-edit-btn' + (opts.isFollowing ? ' following' : '') + '" id="x-char-follow-btn">' + (opts.isFollowing ? '已关注' : '+ 关注') + '</button>'
   }
   if (opts.showGenBtn) {
     actions += '<button class="xh-gen-btn" id="x-gen-5-posts"><i class="fa-solid fa-wand-magic-sparkles"></i> 生成5篇帖子</button>'
   }
 
-  return '<div class="xh-cover" id="xh-cover"' + coverStyle + '>' +
-      '<button class="x-profile-circle-btn x-profile-back" type="button">' + X_SVG.back + '</button>' +
-      '<button class="xh-cover-edit" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' +
+  return '<div class="xh-page">' +
+    '<div class="xh-cover" id="xh-cover" style="' + coverStyle + '">' +
+      '<button class="xh-back-btn" type="button"><i class="fa-solid fa-chevron-left"></i></button>' +
+      '<button class="xh-cover-cam" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' +
     '</div>' +
-    '<div class="xh-scroll">' +
-    '<div class="xh-avatar-row">' +
-      '<div class="xh-avatar-wrap" id="xh-avatar-wrap">' + avatarHTML +
-        '<div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>' +
+    '<div class="xh-body">' +
+      '<div class="xh-avatar-area">' +
+        '<div class="xh-avatar" id="xh-avatar-wrap">' + avatarHTML +
+          '<div class="xh-avatar-cam"><i class="fa-solid fa-camera"></i></div>' +
+        '</div>' +
+        '<div class="xh-user-meta">' +
+          '<div class="xh-name">' + xEscape(opts.name || '') + '</div>' +
+          '<div class="xh-handle">' + xEscape(opts.handle || '') + '</div>' +
+        '</div>' +
       '</div>' +
-    '</div>' +
-    '<div class="xh-user-info">' +
-      '<div class="xh-name">' + xEscape(opts.name || '') + '</div>' +
-      '<div class="xh-handle">' + xEscape(opts.handle || '') + '</div>' +
       (opts.bio ? '<div class="xh-bio">' + xEscape(opts.bio) + '</div>' : '') +
       (opts.bio2 ? '<div class="xh-bio">' + xEscape(opts.bio2) + '</div>' : '') +
+      (opts.ipLocation ? '<div class="xh-ip"><i class="fa-solid fa-location-dot"></i> IP属地：' + xEscape(opts.ipLocation) + '</div>' : '') +
+      '<div class="xh-stats">' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.postCount || 0) + '</div><div class="xh-stat-label">帖子</div></div>' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.followingCount || 0) + '</div><div class="xh-stat-label">关注</div></div>' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.followerCount || 0) + '</div><div class="xh-stat-label">粉丝</div></div>' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.likeCount || 0) + '</div><div class="xh-stat-label">获赞</div></div>' +
+      '</div>' +
+      (actions ? '<div class="xh-actions">' + actions + '</div>' : '') +
+      '<div class="xh-tabs">' +
+        '<div class="xh-tab active" data-tab="posts"><i class="fa-solid fa-table-cells-large"></i></div>' +
+        '<div class="xh-tab" data-tab="comments"><i class="fa-solid fa-bookmark"></i></div>' +
+        '<div class="xh-tab" data-tab="likes"><i class="fa-solid fa-heart"></i></div>' +
+      '</div>' +
+      '<div class="xh-tab-panel active" id="xh-tab-posts">' + (opts.postsHTML || '') + '</div>' +
+      '<div class="xh-tab-panel" id="xh-tab-comments">' + (opts.commentsHTML || '') + '</div>' +
+      '<div class="xh-tab-panel" id="xh-tab-likes">' + (opts.likesHTML || '') + '</div>' +
     '</div>' +
-    '<div class="xh-stats-row">' +
-      '<div class="xh-stat"><strong>' + (opts.postCount || 0) + '</strong><span>帖子</span></div>' +
-      '<div class="xh-stat"><strong>' + (opts.followingCount || 0) + '</strong><span>关注</span></div>' +
-      '<div class="xh-stat"><strong>' + (opts.followerCount || 0) + '</strong><span>粉丝</span></div>' +
-      '<div class="xh-stat"><strong>' + (opts.likeCount || 0) + '</strong><span>获赞</span></div>' +
-    '</div>' +
-    (actions ? '<div class="xh-actions">' + actions + '</div>' : '') +
-    '<div class="xh-tabs">' +
-      '<button class="xh-tab active" data-tab="posts"><i class="fa-solid fa-table-cells"></i> 帖子</button>' +
-      '<button class="xh-tab" data-tab="comments"><i class="fa-solid fa-comment"></i> 评论</button>' +
-      '<button class="xh-tab" data-tab="likes"><i class="fa-solid fa-heart"></i> 赞过</button>' +
-    '</div>' +
-    '<div class="xh-tab-content active" id="xh-tab-posts">' + (opts.postsHTML || '') + '</div>' +
-    '<div class="xh-tab-content" id="xh-tab-comments">' + (opts.commentsHTML || '') + '</div>' +
-    '<div class="xh-tab-content" id="xh-tab-likes">' + (opts.likesHTML || '') + '</div>' +
-    '</div>'
+  '</div>'
 }
 
 function renderXProfileContent(container, user, isOwnProfile) {
@@ -1409,6 +1411,7 @@ function renderXProfileContent(container, user, isOwnProfile) {
     name: getXUserName(user),
     handle: getXUserHandle(user),
     bio: function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));if(p&&p.signature)return p.signature}catch(e){} return user.signature || user.bio || ''}(),
+    ipLocation: function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));if(p&&p.ipLocation)return p.ipLocation}catch(e){} return ''}(),
     postCount: posts.length,
     followingCount: follows.length,
     followerCount: randomInt(10, 500),
@@ -1425,7 +1428,7 @@ function renderXProfileContent(container, user, isOwnProfile) {
   container.querySelectorAll('.xh-tab').forEach(function(tab) {
     tab.addEventListener('click', function() {
       container.querySelectorAll('.xh-tab').forEach(function(t) { t.classList.remove('active') })
-      container.querySelectorAll('.xh-tab-content').forEach(function(c) { c.classList.remove('active') })
+      container.querySelectorAll('.xh-tab-panel').forEach(function(c) { c.classList.remove('active') })
       tab.classList.add('active')
       container.querySelector('#xh-tab-' + tab.dataset.tab).classList.add('active')
     })
@@ -1489,6 +1492,7 @@ function renderXCharProfilePage(char, user) {
     name: char.nick || char.name,
     handle: '@' + (char.identity?.account || char.handle || char.name),
     bio: char.signature || '',
+    ipLocation: function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+char.id));if(p&&p.ipLocation)return p.ipLocation}catch(e){} return ''}(),
     bio2: char.identity?.bio || '',
     postCount: posts.length,
     followingCount: randomInt(5, 200),
@@ -1505,7 +1509,7 @@ function renderXCharProfilePage(char, user) {
   if (window.openPage) window.openPage(page)
   else document.body.appendChild(page)
 
-  page.querySelector('.x-profile-back').addEventListener('click', function() { closePage('x-char-profile') })
+  page.querySelector('.xh-back-btn').addEventListener('click', function() { closePage('x-char-profile') })
 
   // 换头像/封面
   page.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
@@ -1588,7 +1592,7 @@ function showXXProfile(user) {
   if (window.openPage) window.openPage(page)
   else document.body.appendChild(page)
 
-  page.querySelector('.x-profile-back').addEventListener('click', function() { closePage('x-char-profile') })
+  page.querySelector('.xh-back-btn').addEventListener('click', function() { closePage('x-char-profile') })
 
   // 换头像/封面
   page.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
@@ -1866,6 +1870,7 @@ function showXProfileEdit(user) {
       '<label class="x-profile-edit-field">昵称<input class="input-field" id="x-edit-name" value="' + xEscape(getXUserName(user)) + '"></label>' +
       '<label class="x-profile-edit-field">用户名<input class="input-field" id="x-edit-handle" value="' + xEscape(getXUserHandle(user).replace('@', '')) + '"></label>' +
       '<label class="x-profile-edit-field">个性签名<input class="input-field" id="x-edit-sig" value="' + xEscape(function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));return p&&p.signature||''}catch(e){return ''}}()) + '" placeholder="写一句话介绍自己"></label>' +
+      '<label class="x-profile-edit-field">IP属地<input class="input-field" id="x-edit-ip" value="' + xEscape(function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));return p&&p.ipLocation||''}catch(e){return ''}}()) + '" placeholder="例如：浙江、广东、北京"></label>' +
     '</div>'
 
   if (window.openPage) window.openPage(page)
