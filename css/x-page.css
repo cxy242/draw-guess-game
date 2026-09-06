@@ -689,7 +689,7 @@
 .x-comment-reply {
   margin-left: 34px;
   padding-left: 2px;
-  border-left: 2px solid var(--x-border, rgba(255,255,255,0.15));
+  border-left: 2px solid var(--x-border-strong, #536471);
 }
 
 /* 详情页评论输入 */
@@ -2098,7 +2098,7 @@
 @media (max-width: 380px) {
   .x-post { padding: 10px 12px; }
   .x-comment { padding: 10px 12px; }
-  .x-comment-reply { margin-left: 28px; padding-left: 4px; border-left: 2px solid var(--x-border, rgba(255,255,255,0.15)); }
+  .x-comment-reply { margin-left: 28px; padding-left: 4px; border-left: 2px solid var(--x-border-strong, #536471); }
   .x-profile-info { padding-left: 16px; padding-right: 16px; }
   .x-profile-avatar { left: 16px; width: 78px; height: 78px; }
   .x-profile-name { font-size: 22px; }
@@ -2153,7 +2153,7 @@
 .x-comment-reply {
   margin-left: 34px;
   padding-left: 2px; /* 使border-left对齐父头像中心: 34+2=36px */
-  border-left: 2px solid var(--x-border, rgba(255,255,255,0.15));
+  border-left: 2px solid var(--x-border-strong, #536471);
 }
 
 /* 生成帖子按钮 */

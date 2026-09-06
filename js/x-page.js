@@ -176,7 +176,24 @@ function xSavePosts(posts) {
 }
 
 function xLoadComments(postId) {
-  try { return JSON.parse(localStorage.getItem(X_COMMENTS_PREFIX + postId)) || [] } catch(e) { return [] }
+  try {
+    var comments = JSON.parse(localStorage.getItem(X_COMMENTS_PREFIX + postId)) || []
+    // 修复旧数据：replyTo可能是authorId而不是comment.id
+    var dirty = false
+    comments.forEach(function(c) {
+      if (c.isReply && c.replyTo) {
+        var target = comments.find(function(t) { return t.id === c.replyTo })
+        if (!target) {
+          // replyTo没匹配到id，尝试用authorId匹配
+          var byAuthor = comments.find(function(t) { return t.authorId === c.replyTo })
+          if (byAuthor) { c.replyTo = byAuthor.id; c.replyToName = byAuthor.authorName; dirty = true }
+          else { c.isReply = false; dirty = true }
+        }
+      }
+    })
+    if (dirty) localStorage.setItem(X_COMMENTS_PREFIX + postId, JSON.stringify(comments))
+    return comments
+  } catch(e) { return [] }
 }
 
 function xSaveComments(postId, comments) {
@@ -495,12 +512,11 @@ async function generateInitialPosts(user) {
   xSavePosts(posts)
 
   // XX帖子的评论
-  var xxComments = [
-    { id: xGenId(), authorId: 'npc1', authorName: '吃瓜群众', authorHandle: '@chigua', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[6], content: '哈哈哈哈哈这什么黑暗料理，但是好甜啊', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3500000).toISOString(), replies: [] },
-    { id: xGenId(), authorId: 'npc2', authorName: '毒舌达人', authorHandle: '@dushe', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[5], content: '盐和糖都分不清？你确定这不是在养女儿？', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3400000).toISOString(), replies: [] },
-    { id: xGenId(), authorId: 'npc3', authorName: '温柔姐姐', authorHandle: '@wenrou', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[7], content: '愿意吃完就是最大的浪漫了，祝福你们', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3300000).toISOString(), replies: [] },
-    { id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name, authorHandle: '@' + X_XX_CHARACTER.handle, authorAvatar: null, isSystem: true, content: '你管得着吗？我老婆做的就是最好吃的，你肯定是嫉妒我有老婆', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3200000).toISOString(), replies: [], isReply: true, replyTo: 'npc2' }
-  ]
+  var npc1 = { id: xGenId(), authorId: 'npc1', authorName: '吃瓜群众', authorHandle: '@chigua', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[6], content: '哈哈哈哈哈这什么黑暗料理，但是好甜啊', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3500000).toISOString(), replies: [] }
+  var npc2 = { id: xGenId(), authorId: 'npc2', authorName: '毒舌达人', authorHandle: '@dushe', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[5], content: '盐和糖都分不清？你确定这不是在养女儿？', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3400000).toISOString(), replies: [] }
+  var npc3 = { id: xGenId(), authorId: 'npc3', authorName: '温柔姐姐', authorHandle: '@wenrou', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[7], content: '愿意吃完就是最大的浪漫了，祝福你们', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3300000).toISOString(), replies: [] }
+  var xxReply = { id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name, authorHandle: '@' + X_XX_CHARACTER.handle, authorAvatar: null, isSystem: true, content: '你管得着吗？我老婆做的就是最好吃的，你肯定是嫉妒我有老婆', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3200000).toISOString(), replies: [], isReply: true, replyTo: npc2.id, replyToName: npc2.authorName }
+  var xxComments = [npc1, npc2, npc3, xxReply]
   xSaveComments(xxPost.id, xxComments)
 }
 
