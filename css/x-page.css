@@ -497,9 +497,13 @@
 }
 
 .x-detail-time {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--x-text-muted);
   margin-bottom: 12px;
+}
+.x-detail-time strong {
+  color: var(--x-text);
+  font-weight: 700;
 }
 
 .x-detail-stats {
@@ -2099,6 +2103,7 @@
 @media (max-width: 380px) {
   .x-post { padding: 10px 12px; }
   .x-comment { padding: 10px 12px; }
+  .x-comments-section::before { left: 32px; } /* 12px padding + 20px */
   .x-comment-reply { margin-left: 0; padding-left: 30px; border-left: 2px solid var(--x-border-strong, #536471); }
   .x-profile-info { padding-left: 16px; padding-right: 16px; }
   .x-profile-avatar { left: 16px; width: 78px; height: 78px; }
@@ -2148,14 +2153,30 @@
 .x-post-gen-comments.loading { animation: spin 1s linear infinite; }
 
 /* 评论竖线连接 — 头像对齐+竖线 */
-.x-comment {
+.x-comments-section {
   position: relative;
 }
-.x-comment-reply {
-  margin-left: 0;
-  padding-left: 34px;
+/* 竖线：穿过所有一级评论头像中心 */
+.x-comments-section::before {
+  content: '';
+  position: absolute;
+  left: 36px; /* 16px padding + 20px(40px头像一半) = 头像中心 */
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--x-border-strong, #536471);
+  z-index: 0;
+}
+.x-comment {
   position: relative;
-  border-left: 2px solid var(--x-border-strong, #536471);
+  background: var(--x-bg, #000); /* 盖住竖线穿过头像的部分 */
+}
+/* 头像在竖线之上 */
+.x-comment-avatar {
+  position: relative;
+  z-index: 1;
+  background: var(--x-bg, #000);
+  border-radius: 50%;
 }
 
 /* 生成帖子按钮 */
