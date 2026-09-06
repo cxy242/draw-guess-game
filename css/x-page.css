@@ -688,7 +688,8 @@
 /* 二级回复（缩进） */
 .x-comment-reply {
   margin-left: 34px;
-  padding-left: 18px;
+  padding-left: 2px;
+  border-left: 2px solid var(--x-border, rgba(255,255,255,0.15));
 }
 
 /* 详情页评论输入 */
@@ -2097,7 +2098,7 @@
 @media (max-width: 380px) {
   .x-post { padding: 10px 12px; }
   .x-comment { padding: 10px 12px; }
-  .x-comment-reply { margin-left: 28px; padding-left: 16px; }
+  .x-comment-reply { margin-left: 28px; padding-left: 4px; border-left: 2px solid var(--x-border, rgba(255,255,255,0.15)); }
   .x-profile-info { padding-left: 16px; padding-right: 16px; }
   .x-profile-avatar { left: 16px; width: 78px; height: 78px; }
   .x-profile-name { font-size: 22px; }
@@ -2150,18 +2151,9 @@
   position: relative;
 }
 .x-comment-reply {
-  margin-left: 34px; /* 52-18=34, 留出18px给竖线padding */
-  padding-left: 18px; /* 竖线区域 */
-  position: relative;
-}
-.x-comment-reply::before {
-  content: '';
-  position: absolute;
-  left: 8px; /* 18px padding中心=9px, 线宽2px, 左偏移=9-1=8px */
-  top: 0;
-  width: 2px;
-  height: 12px; /* 连接父评论底部到子评论头像 */
-  background: var(--x-border, rgba(255,255,255,0.15));
+  margin-left: 34px;
+  padding-left: 2px; /* 使border-left对齐父头像中心: 34+2=36px */
+  border-left: 2px solid var(--x-border, rgba(255,255,255,0.15));
 }
 
 /* 生成帖子按钮 */

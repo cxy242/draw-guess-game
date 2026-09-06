@@ -1,1 +1,1 @@
-{"version": "2.5.25", "date": "2026-09-06", "note": "X软件评论竖线CSS修正：padding方案避免overflow裁剪"}
+{"version": "2.5.26", "date": "2026-09-06", "note": "X软件评论竖线改用border-left方案"}
