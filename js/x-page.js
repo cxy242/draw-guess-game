@@ -983,6 +983,14 @@ var name = isAnon ? '匿名用户' : (comment.authorName || '未知')
 // 添加评论
 function addXComment(postId, user, text, quoteContent, quoteName) {
   var comments = xLoadComments(postId)
+  var replyToId = null
+  var replyToName = ''
+  // 从输入框获取回复目标
+  var input = document.querySelector('.x-comment-input')
+  if (input && input.dataset.replyTo) {
+    replyToId = input.dataset.replyTo
+    replyToName = input.dataset.replyToName || ''
+  }
   var obj = {
     id: xGenId(),
     authorId: user.id,
@@ -993,6 +1001,11 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
     stats: generateCommentStats(),
     createdAt: new Date().toISOString(),
     replies: []
+  }
+  if (replyToId) {
+    obj.replyTo = replyToId
+    obj.replyToName = replyToName
+    obj.isReply = true
   }
   if (quoteContent) {
     obj.quoteContent = quoteContent
@@ -1355,7 +1368,7 @@ function buildXProfileHTML(opts) {
 
   return '<div class="xh-page">' +
     '<div class="xh-cover" id="xh-cover" style="' + coverStyle + '">' +
-      '<button class="xh-back-btn" type="button"><i class="fa-solid fa-chevron-left"></i></button>' +
+      (opts.showBack !== false ? '<button class="xh-back-btn" type="button"><i class="fa-solid fa-chevron-left"></i></button>' : '') +
       '<button class="xh-cover-cam" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' +
     '</div>' +
     '<div class="xh-body">' +
@@ -1416,6 +1429,7 @@ function renderXProfileContent(container, user, isOwnProfile) {
     followingCount: follows.length,
     followerCount: randomInt(10, 500),
     likeCount: randomInt(50, 2000),
+    showBack: false,
     showEdit: isOwnProfile,
     postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
     commentsHTML: comments.length ? comments.map(function(item) {
@@ -1883,7 +1897,8 @@ function showXProfileEdit(user) {
     var profile = {
       name: page.querySelector('#x-edit-name').value.trim() || getXUserName(user),
       handle: page.querySelector('#x-edit-handle').value.trim(),
-      signature: page.querySelector('#x-edit-sig').value.trim()
+      signature: page.querySelector('#x-edit-sig').value.trim(),
+      ipLocation: page.querySelector('#x-edit-ip').value.trim()
     }
     localStorage.setItem(profileKey, JSON.stringify(profile))
     closePage('x-profile-edit-page')
