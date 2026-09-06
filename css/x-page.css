@@ -687,9 +687,19 @@
 
 /* 二级回复（缩进） */
 .x-comment-reply {
-  margin-left: 34px;
-  padding-left: 2px;
-  border-left: 2px solid var(--x-border-strong, #536471);
+  margin-left: 20px;
+  padding-left: 0;
+  position: relative;
+}
+.x-comment-reply::before {
+  content: '';
+  position: absolute;
+  left: 20px; /* 对齐回复头像中心: 20(margin)+20(半径)=40px=父(16+20+4间距)+0=40 */
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--x-border-strong, #536471);
+  pointer-events: none;
 }
 
 /* 详情页评论输入 */
@@ -2098,7 +2108,7 @@
 @media (max-width: 380px) {
   .x-post { padding: 10px 12px; }
   .x-comment { padding: 10px 12px; }
-  .x-comment-reply { margin-left: 28px; padding-left: 4px; border-left: 2px solid var(--x-border-strong, #536471); }
+  .x-comment-reply { margin-left: 20px; padding-left: 0; }
   .x-profile-info { padding-left: 16px; padding-right: 16px; }
   .x-profile-avatar { left: 16px; width: 78px; height: 78px; }
   .x-profile-name { font-size: 22px; }
@@ -2146,14 +2156,24 @@
 .x-post-gen-comments:hover { color: var(--x-accent, #1d9bf0); }
 .x-post-gen-comments.loading { animation: spin 1s linear infinite; }
 
-/* 评论竖线连接 — 从父评论头像底部连到子评论头像顶部 */
+/* 评论竖线连接 — 子评论头像之间 */
 .x-comment {
   position: relative;
 }
 .x-comment-reply {
-  margin-left: 34px;
-  padding-left: 2px; /* 使border-left对齐父头像中心: 34+2=36px */
-  border-left: 2px solid var(--x-border-strong, #536471);
+  margin-left: 20px;
+  padding-left: 0;
+  position: relative;
+}
+.x-comment-reply::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: -12px;
+  width: 2px;
+  height: calc(100% + 12px);
+  background: var(--x-border-strong, #536471);
+  pointer-events: none;
 }
 
 /* 生成帖子按钮 */
