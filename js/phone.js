@@ -444,6 +444,11 @@ async function renderPhoneRolePicker(page, ownerUid) {
 function closePhoneFullscreen() {
   window.closeWechatRolePhonePages?.()
   window.closePhoneAppSnapshotPages?.()
+
+  // 清理可能残留的弹窗（匿名设置等）
+  var oldPanel = document.getElementById('anon-sms-settings-panel')
+  if (oldPanel) oldPanel.remove()
+
   const el = document.getElementById('phone-fullscreen-overlay')
   if (!el) return
   el.classList.add('is-closing')
@@ -454,6 +459,10 @@ function closePhoneFullscreen() {
 async function showPhoneLockScreen(context) {
   const existing = document.getElementById('phone-fullscreen-overlay')
   if (existing) existing.remove()
+
+  // 清理可能残留的弹窗（匿名设置等）
+  var oldPanel = document.getElementById('anon-sms-settings-panel')
+  if (oldPanel) oldPanel.remove()
 
   context.personalization = await loadPhoneRecordsPersonalization(context)
   context.phoneProfile = await getPhoneProfileCardData(context)
