@@ -12,13 +12,33 @@ function getMemoryPanelKey(charId) {
 async function loadMemoryPanel(charId) {
   try {
     const stored = await db.config.get(getMemoryPanelKey(charId))
-    if (stored && stored.value) {
-      return stored.value
+    const panel = stored && stored.value ? stored.value : createEmptyPanel()
+
+    // 从记忆库(db.memories)加载该角色的记忆
+    if (db.memories) {
+      try {
+        const memories = await db.memories.where('charId').equals(charId).toArray()
+        panel.memories = memories.filter(m => m.status !== 'archived').map(m => ({
+          id: m.id,
+          title: m.title || '',
+          content: m.content || '',
+          keywords: m.keywords || [],
+          sourceType: m.sourceType || 'wechat',
+          createdAt: m.createdAt || m.sourceAt || Date.now(),
+          importance: m.importance || 5,
+          status: m.status || 'active'
+        })).sort((a, b) => b.createdAt - a.createdAt)
+      } catch(e) {
+        console.warn('[MemoryPanel] 加载记忆库失败:', e)
+        panel.memories = []
+      }
     }
+
+    return panel
   } catch(e) {
     console.warn('[MemoryPanel] 加载失败:', e)
+    return createEmptyPanel()
   }
-  return createEmptyPanel()
 }
 
 async function saveMemoryPanel(charId, panel) {
@@ -39,6 +59,7 @@ function createEmptyPanel() {
     togetherDate: '',   // 在一起日期 'YYYY-MM-DD'
     health: '',     // 当前身体状态
     mood: '',       // 当前情绪
+    memories: [],   // 来自db.memories的记忆（只读，不存入config）
     lastUpdated: 0
   }
 }
@@ -131,8 +152,24 @@ function buildMemoryPanelHTML(panel) {
     html += buildTogetherCard(panel.togetherDate)
   }
 
+  // 记忆库（来自db.memories）
+  if (panel.memories && panel.memories.length) {
+    html += '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">记忆库</span><span class="mem-date-line"></span></div>'
+    panel.memories.slice(0, 20).forEach(m => {
+      const sourceLabel = m.sourceType === 'offlineMeet' ? '线下' : (m.sourceType === 'sms' ? '短信' : (m.sourceType === 'x' ? 'X' : '微信'))
+      const dateStr = formatTimestamp(m.createdAt)
+      html += '<div class="mem-item" data-memory-id="' + m.id + '">' +
+        '<span class="mem-item-time">' + dateStr + '</span>' +
+        '<span class="mem-item-content">' +
+          '<span class="mem-item-tag mem-tag-' + (m.sourceType || 'wechat') + '" style="font-size:9px">' + sourceLabel + '</span> ' +
+          escMemHtml(m.title ? (m.title + '：' + m.content) : m.content) +
+        '</span>' +
+        '</div>'
+    })
+  }
+
   // 空状态
-  if (!panel.items.length && !panel.promises.length && !panel.belongings.length) {
+  if (!panel.items.length && !panel.promises.length && !panel.belongings.length && !(panel.memories && panel.memories.length)) {
     html += '<div class="mem-empty"><div class="mem-empty-icon"><i class="fa-solid fa-brain"></i></div><div class="mem-empty-text">暂无记忆，点击下方按钮添加</div></div>'
   }
 
@@ -151,6 +188,17 @@ function formatDateDisplay(dateStr) {
   if (!dateStr) return ''
   const parts = dateStr.split('-')
   return parseInt(parts[1]) + '月' + parseInt(parts[2]) + '日'
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return ''
+  const d = new Date(Number(ts))
+  if (isNaN(d.getTime())) return ''
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  const h = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return m + '/' + day + ' ' + h + ':' + min
 }
 
 function buildDateDivider(dateStr, label) {

@@ -667,3 +667,24 @@
 .mem-panel-body::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* 记忆来源标签 */
+.mem-tag-wechat {
+  background: rgba(80,180,100,0.15);
+  color: #70c880;
+}
+
+.mem-tag-sms {
+  background: rgba(100,120,220,0.15);
+  color: #8090e8;
+}
+
+.mem-tag-x {
+  background: rgba(200,200,200,0.15);
+  color: #b0b0b0;
+}
+
+.mem-tag-offlineMeet {
+  background: rgba(200,120,160,0.15);
+  color: #d08090;
+}
