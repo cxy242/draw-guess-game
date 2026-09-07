@@ -4720,7 +4720,25 @@ function bindChatWindowEvents(page) {
 
   // 左侧魔法棒按钮：唯一触发 AI 回复的入口
   bindWanWanMobileAction(page.querySelector('#btn-chat-reply'), doRequestAIReply)
-  bindWechatPatGesture(page.querySelector('.chat-header-name'), async () => {
+
+  // 点击角色名字打开记忆面板（单击，双击是拍一拍）
+  const headerNameEl = page.querySelector('.chat-header-name')
+  if (headerNameEl) {
+    let singleClickTimer = null
+    headerNameEl.addEventListener('click', (e) => {
+      // 如果是双击，不触发单击
+      if (singleClickTimer) { clearTimeout(singleClickTimer); singleClickTimer = null; return }
+      singleClickTimer = setTimeout(() => {
+        singleClickTimer = null
+        if (window.openMemoryPanel) {
+          const charId = parseInt(page.dataset.charId)
+          openMemoryPanel(charId, getWechatDisplayName(char))
+        }
+      }, 250)
+    })
+  }
+
+  bindWechatPatGesture(headerNameEl, async () => {
     const chatId = parseInt(page.dataset.chatId)
     const charId = parseInt(page.dataset.charId)
     if (!chatId || !charId) return
