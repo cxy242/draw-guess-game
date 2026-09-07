@@ -2149,7 +2149,7 @@ function showXGenPostsDialog(user, genBtn, page) {
 }
 
 // Toast通知
-function showToast(msg) {
+window.showToast = function(msg) {
   var old = document.getElementById('x-toast')
   if (old) old.remove()
   var toast = document.createElement('div')
@@ -2161,7 +2161,7 @@ function showToast(msg) {
 }
 
 // 长时间Toast（多行，自定义时长）
-function showToastLong(msg, duration) {
+window.showToastLong = function(msg, duration) {
   duration = duration || 3000
   var old = document.getElementById('x-toast-long')
   if (old) old.remove()

@@ -340,14 +340,17 @@ function buildPrompt(char, mode, commentsOn, relations, isManual) {
   p += '- 可以有emoji但自然使用不要堆砌\n';
   p += '- 配图描述要具体（"今天的拿铁拉花"而不是"咖啡"）\n';
 
-  if (commentsOn && relations.length) {
-    p += '\n【评论规则】\n';
-    p += '- 生成3-5条评论\n';
+  // 始终生成评论（NPC评论增加互动感）
+  p += '\n【评论规则】\n';
+  p += '- 生成3-5条评论\n';
+  if (relations.length) {
     p += '- 评论人从这些人中选：' + relations.join('、') + '\n';
-    p += '- 评论像真人朋友互动（调侃、关心、吐槽）\n';
-    p += '- 你回复其中1-2条评论\n';
-    p += '- 绝对不要生成"用户"的评论\n';
+  } else {
+    p += '- 评论人用普通网友名字（如：路人甲、吃瓜群众、热心市民等）\n';
   }
+  p += '- 评论像真人朋友互动（调侃、关心、吐槽）\n';
+  p += '- ' + char.name + '回复其中1-2条评论\n';
+  p += '- 绝对不要生成"用户"的评论\n';
 
   if (isManual) {
     p += '\n- 这是用户主动让你发的，内容可以更丰富一点\n';
