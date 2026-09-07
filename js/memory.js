@@ -12,6 +12,8 @@
   }
   var LAMBDA_MAP = { low: 0.02, medium: 0.04, high: 0.08 }
   var STATUS_LABEL = { active: '活跃', sleeping: '沉睡', archived: '归档' }
+  var LAYER_LABEL = { 1: '第一层', 2: '第二层', 3: '第三层', 4: '第四层' }
+  var SOURCE_TYPE_LABEL = { wechat: '微信', x: 'X', sms: '短信', moments: '朋友圈', offline: '线下', manual: '手动', offlineMeet: '见面' }
   var ROLE_SUBTITLE_DEFAULT = '于是我们建立羁绊'
   var _launchFilter = null
 
@@ -121,6 +123,17 @@
 
   function getDecayScore(memory, settings) {
     if (memory.status === 'archived') return 0
+    // 长期记忆锁定100%
+    if (memory.isLongTerm) return 100
+    // 使用decayPercent字段（80%起步，每天-1%）
+    if (typeof memory.decayPercent === 'number') {
+      var now = Date.now()
+      var last = memory.lastRecalledAt || memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
+      var days = Math.max(0, Math.floor((now - last) / 86400000))
+      var current = Math.max(0, memory.decayPercent - days)
+      return current
+    }
+    // 旧版兼容：用原公式计算
     var now = Date.now()
     var last = memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
     var days = Math.max(0, (now - last) / 86400000)
@@ -129,6 +142,27 @@
     var accessCount = parseInt(memory.accessCount || 0, 10) || 0
     var arousal = clamp(memory.arousal, 0, 1, 0)
     return importance * Math.pow(accessCount + 1, 0.3) * Math.exp(-lambda * days) * (1 + arousal * 0.5)
+  }
+
+  // 获取衰减百分比（新版：直接返回decayPercent经过天数衰减后的值）
+  function getDecayPercent(memory) {
+    if (memory.status === 'archived') return 0
+    if (memory.isLongTerm) return 100
+    if (typeof memory.decayPercent === 'number') {
+      var now = Date.now()
+      var last = memory.lastRecalledAt || memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
+      var days = Math.max(0, Math.floor((now - last) / 86400000))
+      return Math.max(0, memory.decayPercent - days)
+    }
+    return 80 // 默认值
+  }
+
+  // 回忆：将记忆恢复到80%
+  function recallMemory(memory) {
+    memory.decayPercent = 80
+    memory.lastRecalledAt = Date.now()
+    if (memory.status === 'sleeping') memory.status = 'active'
+    return memory
   }
 
   function getKeywordScore(memory, queryText) {
@@ -745,7 +779,9 @@ ${lines}`
     var isNew = !memory
     var m = memory || {
       title: '', content: '', keywords: [], valence: 0, arousal: 0.3, importance: 5,
-      status: 'active', sourceType: 'wechat', sourceAt: Date.now()
+      status: 'active', sourceType: 'wechat', sourceAt: Date.now(),
+      decayPercent: 80, isLongTerm: false, injectionLayer: 2,
+      participants: [], lastRecalledAt: null
     }
     var overlay = document.createElement('div')
     overlay.className = 'sheet-overlay'
@@ -778,6 +814,22 @@ ${lines}`
           <label>唤醒<input class="input-field" id="mem-edit-arousal" type="number" min="0" max="1" step="0.1" value="${m.arousal || 0.3}"></label>
           <label>重要度<input class="input-field" id="mem-edit-importance" type="number" min="1" max="10" step="1" value="${m.importance || 5}"></label>
         </div>
+        <div class="memory-edit-select-grid">
+          <label class="memory-edit-label">注入层级
+            <select class="input-field" id="mem-edit-layer">
+              ${[1,2,3,4].map(function(l) { return `<option value="${l}" ${(m.injectionLayer || 2) === l ? 'selected' : ''}>${LAYER_LABEL[l]}</option>` }).join('')}
+            </select>
+          </label>
+          <label class="memory-edit-label">衰减起始
+            <input class="input-field" id="mem-edit-decay" type="number" min="0" max="100" value="${m.decayPercent != null ? m.decayPercent : 80}">
+          </label>
+        </div>
+        <div class="memory-edit-checkbox-row">
+          <label class="memory-edit-checkbox">
+            <input type="checkbox" id="mem-edit-longterm" ${m.isLongTerm ? 'checked' : ''}>
+            <span>长期记忆（锁定100%，永不衰减）</span>
+          </label>
+        </div>
       </div>
       <div class="sheet-actions">
         <button class="btn-pill btn-full" id="mem-edit-save">保存</button>
@@ -805,6 +857,9 @@ ${lines}`
         sourceAt: sourceAt,
         sourceType: modal.querySelector('#mem-edit-source-type').value === 'offlineMeet' ? 'offlineMeet' : 'wechat',
         status: STATUS_LABEL[modal.querySelector('#mem-edit-status').value] ? modal.querySelector('#mem-edit-status').value : 'active',
+        decayPercent: parseInt(modal.querySelector('#mem-edit-decay').value) || 80,
+        isLongTerm: modal.querySelector('#mem-edit-longterm').checked,
+        injectionLayer: parseInt(modal.querySelector('#mem-edit-layer').value) || 2,
         updatedAt: Date.now()
       }
       if (!patch.content) { window.toast && window.toast('请填写内容'); return }
@@ -1092,37 +1147,54 @@ ${lines}`
   function buildMemoryCard(m, chars) {
     var owner = chars[m.ownerUid]
     var role = chars[m.charId]
-    var decay = getDecayScore(m, DEFAULT_SETTINGS).toFixed(2)
+    var decay = getDecayPercent(m)
     var isMeet = m.sourceType ? m.sourceType === 'offlineMeet' : !!m.sourceSessionId
-    var sourceLabel = isMeet ? '见面' : '微信'
-    var sourceClass = sourceLabel === '见面' ? 'is-meet' : 'is-wechat'
+    var sourceLabel = SOURCE_TYPE_LABEL[m.sourceType] || (isMeet ? '见面' : '微信')
+    var sourceClass = 'is-' + (m.sourceType || 'wechat')
+    var layerLabel = LAYER_LABEL[m.injectionLayer] || '第二层'
+    var isLongTerm = !!m.isLongTerm
+    // 衰减进度条颜色：绿(>60) → 黄(30-60) → 红(<30)
+    var barColor = decay > 60 ? '#70c880' : (decay > 30 ? '#e8c070' : '#e88070')
+    var recallText = m.lastRecalledAt ? formatRecallTime(m.lastRecalledAt) : '从未回忆'
     return `
       <div class="memory-card" data-id="${m.id}">
         <div class="memory-card-top">
           <div>
             <div class="memory-title-row">
               <div class="memory-title">${esc(m.title)}</div>
-              <span class="memory-source-badge ${sourceClass}">${sourceLabel}</span>
+              <span class="memory-source-badge ${sourceClass}">${esc(sourceLabel)}</span>
+              <span class="memory-layer-badge">${esc(layerLabel)}</span>
+              ${isLongTerm ? '<span class="memory-longterm-badge" title="长期记忆"><i class="fa-solid fa-lock"></i></span>' : ''}
             </div>
             <div class="memory-meta">${esc(owner?.nick || owner?.name || '未知账号')} · ${esc(role?.nick || role?.name || '未知角色')} · ${STATUS_LABEL[m.status] || m.status}</div>
           </div>
-          <span class="memory-score">遗忘分 ${decay}</span>
+        </div>
+        <div class="memory-decay-bar">
+          <div class="memory-decay-fill" style="width:${decay}%;background:${barColor}"></div>
+          <span class="memory-decay-text">${isLongTerm ? '长期100%' : decay + '%'}</span>
         </div>
         <div class="memory-content-text">${esc(m.content)}</div>
         <div class="memory-tags">
           <span>重要度 ${esc(m.importance || 5)}</span>
-          <span>效价 ${esc(m.valence || 0)}</span>
-          <span>唤醒 ${esc(m.arousal || 0)}</span>
-          <span>读取 ${esc(m.accessCount || 0)} 次</span>
           <span>发生时间 ${esc(isValidTimestamp(m.sourceAt) ? formatMemoryDateTime(m.sourceAt) : '未知')}</span>
-          <span>上次读取 ${esc(formatTime(m.lastAccessedAt))}</span>
+          <span>上次回忆 ${esc(recallText)}</span>
         </div>
+        ${(m.keywords && m.keywords.length) ? '<div class="memory-keywords">' + m.keywords.map(function(k) { return '<span class="memory-keyword-tag">' + esc(k) + '</span>' }).join('') + '</div>' : ''}
         <div class="memory-actions">
           <button class="btn-ghost btn-sm" data-action="edit">编辑</button>
+          <button class="btn-ghost btn-sm" data-action="recall">回忆</button>
           <button class="btn-ghost btn-sm" data-action="toggle">${m.status === 'archived' ? '恢复' : '归档'}</button>
           <button class="btn-ghost btn-sm btn-text-danger" data-action="delete">删除</button>
         </div>
       </div>`
+  }
+
+  function formatRecallTime(ts) {
+    if (!ts) return '从未'
+    var now = Date.now()
+    var diff = now - ts
+    if (diff < 600000) return '刚刚想起来' // 10分钟内
+    return formatMemoryDateTime(ts) + '想起来'
   }
 
   function bindPageEvents(page) {
@@ -1183,6 +1255,11 @@ ${lines}`
           if (!m) return
           var action = btn.dataset.action
           if (action === 'edit') return openEditor(m, page)
+          if (action === 'recall') {
+            // 回忆：将衰减恢复到80%，更新上次回忆时间
+            await db.memories.update(id, { decayPercent: 80, lastRecalledAt: Date.now(), status: m.status === 'sleeping' ? 'active' : m.status, updatedAt: Date.now() })
+            window.toast && window.toast('已回忆，记忆恢复到80%')
+          }
           if (action === 'toggle') await db.memories.update(id, { status: m.status === 'archived' ? 'active' : 'archived', updatedAt: Date.now() })
           if (action === 'delete') await db.memories.delete(id)
           await renderMemoryPage(page)
@@ -1218,6 +1295,8 @@ ${lines}`
     getMemoryContext: getMemoryContext,
     listMemories: listMemories,
     testEmbedding: testEmbedding,
-    getDecayScore: getDecayScore
+    getDecayScore: getDecayScore,
+    getDecayPercent: getDecayPercent,
+    recallMemory: recallMemory
   }
 })()

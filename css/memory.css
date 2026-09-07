@@ -491,6 +491,123 @@
   margin-top: 10px;
 }
 
+/* 衰减进度条 */
+.memory-decay-bar {
+  position: relative;
+  height: 6px;
+  background: var(--c-surface-2);
+  border-radius: 3px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.memory-decay-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 300ms ease-out;
+}
+
+.memory-decay-text {
+  position: absolute;
+  right: 0;
+  top: -16px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--c-hint);
+}
+
+/* 层级标签 */
+.memory-layer-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c-accent) 10%, transparent);
+  color: var(--c-accent);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* 长期记忆锁 */
+.memory-longterm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #e8c070 15%, transparent);
+  color: #e8c070;
+  font-size: 10px;
+}
+
+/* 关键词标签 */
+.memory-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.memory-keyword-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--c-surface-2);
+  color: var(--c-sub);
+  font-size: 11px;
+}
+
+/* 来源标签颜色 */
+.memory-source-badge.is-wechat {
+  background: color-mix(in srgb, #70c880 12%, transparent);
+  color: #70c880;
+}
+
+.memory-source-badge.is-x {
+  background: color-mix(in srgb, #b0b0b0 12%, transparent);
+  color: #b0b0b0;
+}
+
+.memory-source-badge.is-sms {
+  background: color-mix(in srgb, #8090e8 12%, transparent);
+  color: #8090e8;
+}
+
+.memory-source-badge.is-offline {
+  background: color-mix(in srgb, #d08090 12%, transparent);
+  color: #d08090;
+}
+
+.memory-source-badge.is-manual {
+  background: color-mix(in srgb, #d0b060 12%, transparent);
+  color: #d0b060;
+}
+
+/* 编辑器新增字段 */
+.memory-edit-select-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.memory-edit-checkbox-row {
+  padding: 4px 0;
+}
+
+.memory-edit-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--c-text);
+}
+
+.memory-edit-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--c-accent);
+}
+
 .memory-empty {
   color: var(--c-hint);
   text-align: center;
