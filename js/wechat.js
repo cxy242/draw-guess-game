@@ -7867,11 +7867,14 @@ async function generateAIReply(chatId, charId, options = {}) {
   const memoryCtx = window.WanWanMemory?.getMemoryContext
     ? await window.WanWanMemory.getMemoryContext(chatId, charId, _wechatUid, context.loreMessages)
     : ''
+  const memoryPanelCtx = window.WanWanMemory?.getMemoryPanelContext
+    ? await window.WanWanMemory.getMemoryPanelContext(chatId, charId, _wechatUid)
+    : ''
   const mcp = await runWechatMcpPrefetch(options.allowMcp === true, {
     scope: 'chat',
     conversationId: chatId
   }, context.textHistory || history)
-  const system = await buildChatSystem(char, loreSegments, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, bilingualSettings, imageGenEnabled, options.replyRequirement, idleContext, narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState)
+  const system = await buildChatSystem(char, loreSegments, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, memoryPanelCtx, bilingualSettings, imageGenEnabled, options.replyRequirement, idleContext, narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState)
   const avatarCtx = await buildWechatAvatarContext(charId)
   const nowTimestamp = Date.now()
   const gapContext = calculateWechatReplyGap(context.gapTimeline || context.timeline, options, nowTimestamp)
@@ -8001,7 +8004,7 @@ async function getPrivateReplyIdleContext(chatId, options = {}) {
 
 
 // 构建聊天系统提示词（loreCtx 可为字符串或 { before, middle, after } 分段对象）
-async function buildChatSystem(char, loreCtx, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, bilingualSettings, imageGenEnabled, replyRequirement = '', idleContext = null, narrativeSettings = null, patPatSettings = null, longDistSettings = null, blockSettings = null, blockState = null) {
+async function buildChatSystem(char, loreCtx, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, memoryPanelCtx, bilingualSettings, imageGenEnabled, replyRequirement = '', idleContext = null, narrativeSettings = null, patPatSettings = null, longDistSettings = null, blockSettings = null, blockState = null) {
   const loreSeg = (loreCtx && typeof loreCtx === 'object')
     ? loreCtx
     : { before: '', middle: loreCtx || '', after: '' }
@@ -8045,7 +8048,7 @@ async function buildChatSystem(char, loreCtx, charName, userName, userNick, stic
   let system = buildSystemPart5(charName, userName, thoughtTemplate, blockSettings, blockState) +
     buildSystemBilingualPart(bilingualSettings) +
     buildSystemPart1(char, charName, loreSeg.middle, loreSeg.before) +
-    buildSystemMemoryPart(memoryCtx) +
+    buildSystemMemoryPart(memoryCtx, memoryPanelCtx) +
     part2 +
     loreAfterBlock +
     buildSystemPart3(charName, userName, stickerNames, imageGenEnabled) +
@@ -8161,16 +8164,24 @@ function buildBilingualCorrectionPrompt(bilingualSettings) {
   return `系统纠错：上一条 reply 没有遵守当前聊天已开启的双语模式。请重新输出同一个 JSON 对象结构。reply 字段中，外语普通文字消息和外语语音消息必须使用 [{${sourceLabel}原文}「{${targetLabel}翻译}」] 格式；如果角色按人设主动说中文，可以使用纯中文普通消息或中文语音消息，不需要翻译。禁止解释规则。`
 }
 
-function buildSystemMemoryPart(memoryCtx) {
-  if (!memoryCtx) return ''
-  return `# 【长期记忆】
-以下记忆只属于当前微信账号与当前角色之间的关系。请自然参考这些事实，不要机械复述，也不要提到“记忆系统”。
-
-${memoryCtx}
-
----
-
-`
+function buildSystemMemoryPart(memoryCtx, memoryPanelCtx) {
+  if (!memoryCtx && !memoryPanelCtx) return ''
+  var parts = []
+  parts.push('# 【长期记忆】')
+  parts.push('以下记忆只属于当前微信账号与当前角色之间的关系。请自然参考这些事实，不要机械复述，也不要提到“记忆系统”。')
+  parts.push('')
+  if (memoryCtx) parts.push(memoryCtx)
+  if (memoryPanelCtx) {
+    parts.push('')
+    parts.push(memoryPanelCtx)
+    parts.push('')
+    parts.push('注意：记忆面板中标记为"约定"的事情，如果在聊天中已经完成，请在回复中暗示已完成后更新面板状态。')
+    parts.push('如果聊天中发生了重要的新事件（受伤、新约定、情绪变化等），请在回复中一并更新记忆面板。')
+  }
+  parts.push('')
+  parts.push('---')
+  parts.push('')
+  return parts.join('\n')
 }
 
 // 系统提示词Part5：输出格式

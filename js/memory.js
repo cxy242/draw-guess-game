@@ -1300,6 +1300,137 @@ ${lines}`
     renderMemoryPage(page)
   }
 
+  // 生成记忆面板文本（注入prompt用）
+  async function getMemoryPanelContext(chatId, charId, ownerUid) {
+    if (!db.memories || !charId) return ''
+    try {
+      var rows = await db.memories.where('charId').equals(charId).filter(function(m) {
+        return m.status !== 'archived' && getDecayPercent(m) > 0
+      }).toArray()
+      if (!rows.length) return ''
+
+      var now = new Date()
+      var today = formatDateStr(now)
+      var yesterday = formatDateStr(new Date(now - 86400000))
+      var dayBefore = formatDateStr(new Date(now - 172800000))
+
+      // 按日期分组
+      var grouped = { before: [], yesterday: [], today: [], future: [] }
+      var todayTime = new Date(today).getTime()
+
+      rows.forEach(function(m) {
+        var memDate = formatDateStr(new Date(m.sourceAt || m.createdAt))
+        if (memDate === today) grouped.today.push(m)
+        else if (memDate === yesterday) grouped.yesterday.push(m)
+        else if (new Date(memDate).getTime() < todayTime) grouped.before.push(m)
+        else grouped.future.push(m)
+      })
+
+      // 从config加载记忆面板数据（用户配置的）
+      var panelKey = 'memoryPanel_' + charId
+      var panelStored = await db.config.get(panelKey)
+      var panel = (panelStored && panelStored.value) || {}
+
+      var lines = []
+      lines.push('【记忆面板 — 截至' + (now.getMonth() + 1) + '月' + now.getDate() + '日】')
+      lines.push('')
+
+      // 前天
+      if (grouped.before.length) {
+        lines.push('━━ 前天（' + dayBefore + '）━━')
+        grouped.before.slice(-5).forEach(function(m) {
+          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
+          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
+        })
+        lines.push('')
+      }
+
+      // 昨天
+      if (grouped.yesterday.length) {
+        lines.push('━━ 昨天（' + yesterday + '）━━')
+        grouped.yesterday.slice(-5).forEach(function(m) {
+          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
+          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
+        })
+        lines.push('')
+      }
+
+      // 今天
+      if (grouped.today.length) {
+        lines.push('━━ 今天（' + today + '）━━')
+        grouped.today.slice(-5).forEach(function(m) {
+          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
+          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
+        })
+        lines.push('')
+      }
+
+      // 将要做的事
+      if (grouped.future.length) {
+        lines.push('━━ 将要做的事 ━━')
+        grouped.future.forEach(function(m) {
+          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
+          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
+        })
+        lines.push('')
+      }
+
+      // 用户配置的面板数据
+      if (panel.health || panel.mood) {
+        lines.push('━━ 当前状态 ━━')
+        if (panel.health) lines.push('• 身体：' + panel.health)
+        if (panel.mood) lines.push('• 情绪：' + panel.mood)
+        lines.push('')
+      }
+
+      if (panel.belongings && panel.belongings.length) {
+        lines.push('━━ 随身物品/信物 ━━')
+        panel.belongings.forEach(function(b) {
+          var typeLabel = b.type === 'keepsake' ? '信物' : (b.type === 'borrowed' ? '借物' : '日常')
+          lines.push('• ' + b.name + (b.source ? '（' + b.source + '）' : '') + ' [' + typeLabel + ']')
+        })
+        lines.push('')
+      }
+
+      if (panel.promises && panel.promises.length) {
+        lines.push('━━ 约定 ━━')
+        panel.promises.forEach(function(p) {
+          var statusLabel = p.status === 'done' ? '已完成' : (p.status === 'pending' ? '待定' : '进行中')
+          lines.push('• ' + p.title + (p.date ? '（' + p.date + '）' : '') + ' [' + statusLabel + ']')
+        })
+        lines.push('')
+      }
+
+      if (panel.togetherDate) {
+        var startDate = new Date(panel.togetherDate)
+        var diffDays = Math.floor((now - startDate) / 86400000)
+        lines.push('━━ 在一起天数 ━━')
+        lines.push('在一起第 ' + diffDays + ' 天（自' + (startDate.getMonth() + 1) + '月' + startDate.getDate() + '日起）')
+        lines.push('')
+      }
+
+      return lines.join('\n')
+    } catch(e) {
+      console.warn('[memory] 生成记忆面板失败:', e)
+      return ''
+    }
+  }
+
+  function formatDateStr(date) {
+    var d = new Date(date)
+    var y = d.getFullYear()
+    var m = String(d.getMonth() + 1).padStart(2, '0')
+    var day = String(d.getDate()).padStart(2, '0')
+    return y + '-' + m + '-' + day
+  }
+
+  function formatTimeShort(ts) {
+    if (!ts) return ''
+    var d = new Date(Number(ts))
+    if (isNaN(d.getTime())) return ''
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+  }
+
   window.WanWanMemory = {
     getSettings: getSettings,
     saveSettings: saveSettings,
@@ -1307,6 +1438,7 @@ ${lines}`
     summarizeNow: summarizeNow,
     summarizeMeeting: summarizeMeeting,
     getMemoryContext: getMemoryContext,
+    getMemoryPanelContext: getMemoryPanelContext,
     listMemories: listMemories,
     testEmbedding: testEmbedding,
     getDecayScore: getDecayScore,

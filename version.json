@@ -1,1 +1,1 @@
-{"version": "2.5.58", "date": "2026-09-07", "note": "记忆面板v3：loadMemoryPanel+显示全部新字段(衰减/层级/长期/关键词)"}
+{"version": "2.5.59", "date": "2026-09-07", "note": "记忆面板v4：getMemoryPanelContext注入prompt+buildSystemMemoryPart双参数+wechat.js集成"}
