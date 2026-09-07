@@ -26,7 +26,12 @@ async function loadMemoryPanel(charId) {
           sourceType: m.sourceType || 'wechat',
           createdAt: m.createdAt || m.sourceAt || Date.now(),
           importance: m.importance || 5,
-          status: m.status || 'active'
+          status: m.status || 'active',
+          decayPercent: typeof m.decayPercent === 'number' ? m.decayPercent : 80,
+          injectionLayer: m.injectionLayer || 2,
+          isLongTerm: !!m.isLongTerm,
+          lastRecalledAt: m.lastRecalledAt || null,
+          participants: m.participants || []
         })).sort((a, b) => b.createdAt - a.createdAt)
       } catch(e) {
         console.warn('[MemoryPanel] 加载记忆库失败:', e)
@@ -156,14 +161,31 @@ function buildMemoryPanelHTML(panel) {
   if (panel.memories && panel.memories.length) {
     html += '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">记忆库</span><span class="mem-date-line"></span></div>'
     panel.memories.slice(0, 20).forEach(m => {
-      const sourceLabel = m.sourceType === 'offlineMeet' ? '线下' : (m.sourceType === 'sms' ? '短信' : (m.sourceType === 'x' ? 'X' : '微信'))
+      const sourceLabels = { wechat: '微信', x: 'X', sms: '短信', moments: '朋友圈', offline: '线下', manual: '手动', offlineMeet: '见面' }
+      const sourceLabel = sourceLabels[m.sourceType] || '微信'
+      const layerLabel = { 1: '第一层', 2: '第二层', 3: '第三层', 4: '第四层' }[m.injectionLayer] || '第二层'
+      const isLongTerm = !!m.isLongTerm
+      const decay = typeof m.decayPercent === 'number' ? m.decayPercent : 80
+      const barColor = decay > 60 ? '#70c880' : (decay > 30 ? '#e8c070' : '#e88070')
       const dateStr = formatTimestamp(m.createdAt)
-      html += '<div class="mem-item" data-memory-id="' + m.id + '">' +
-        '<span class="mem-item-time">' + dateStr + '</span>' +
-        '<span class="mem-item-content">' +
-          '<span class="mem-item-tag mem-tag-' + (m.sourceType || 'wechat') + '" style="font-size:9px">' + sourceLabel + '</span> ' +
+      const recallText = m.lastRecalledAt ? formatTimestamp(m.lastRecalledAt) + '想起' : '从未回忆'
+      html += '<div class="mem-item mem-memory-item" data-memory-id="' + m.id + '">' +
+        '<div class="mem-item-header">' +
+          '<span class="mem-item-time">' + dateStr + '</span>' +
+          '<span class="mem-item-tag mem-tag-' + (m.sourceType || 'wechat') + '">' + sourceLabel + '</span>' +
+          '<span class="mem-item-tag mem-tag-layer">' + layerLabel + '</span>' +
+          (isLongTerm ? '<span class="mem-item-tag mem-tag-longterm"><i class="fa-solid fa-lock"></i> 长期</span>' : '') +
+        '</div>' +
+        '<div class="mem-decay-bar">' +
+          '<div class="mem-decay-fill" style="width:' + decay + '%;background:' + barColor + '"></div>' +
+        '</div>' +
+        '<div class="mem-item-content">' +
           escMemHtml(m.title ? (m.title + '：' + m.content) : m.content) +
-        '</span>' +
+        '</div>' +
+        '<div class="mem-item-meta">' +
+          '<span>' + recallText + '</span>' +
+          (m.keywords && m.keywords.length ? '<span>关键词：' + m.keywords.slice(0, 3).join('、') + '</span>' : '') +
+        '</div>' +
         '</div>'
     })
   }

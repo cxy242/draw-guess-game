@@ -1,1 +1,1 @@
-{"version": "2.5.57", "date": "2026-09-07", "note": "记忆系统v2：normalizeMemory+getMemoryContext+imessage+x-page全部对接新字段"}
+{"version": "2.5.58", "date": "2026-09-07", "note": "记忆面板v3：loadMemoryPanel+显示全部新字段(衰减/层级/长期/关键词)"}
