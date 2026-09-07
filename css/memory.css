@@ -668,3 +668,101 @@
     padding-right: 10px;
   }
 }
+
+/* 失败总结区域 */
+.memory-failed-panel {
+  border: 1px solid color-mix(in srgb, #e88070 20%, transparent);
+  background: color-mix(in srgb, #e88070 3%, var(--c-surface-1, #fff));
+}
+
+.memory-failed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memory-failed-card {
+  padding: 12px;
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid color-mix(in srgb, #e88070 12%, transparent);
+  background: var(--c-surface-1, #fff);
+}
+
+.memory-failed-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.memory-failed-time {
+  font-size: 11px;
+  color: var(--c-hint, #999);
+}
+
+.memory-failed-count {
+  font-size: 11px;
+  color: var(--c-sub, #666);
+  padding: 2px 6px;
+  background: var(--c-surface-2, #f0f0f0);
+  border-radius: 999px;
+}
+
+.memory-failed-reason {
+  font-size: 12px;
+  color: #e88070;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: color-mix(in srgb, #e88070 6%, transparent);
+  border-radius: 6px;
+  line-height: 1.4;
+}
+
+.memory-failed-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.memory-failed-actions .btn-ghost {
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+/* 原文弹窗 */
+.memory-original-modal {
+  max-width: 400px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.memory-original-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 10px;
+  font-size: 12px;
+  color: var(--c-hint, #999);
+}
+
+.memory-original-info span {
+  padding: 2px 8px;
+  background: var(--c-surface-2, #f0f0f0);
+  border-radius: 999px;
+}
+
+.memory-original-text {
+  margin: 0 16px 10px;
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--c-text, #333);
+  background: var(--c-surface-2, #f8f8f8);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-overflow-scrolling: touch;
+}

@@ -556,10 +556,54 @@ ${lines}`
     var fromMsgId = fresh[0].id
     var toMsgId = fresh[fresh.length - 1].id
     var sourceAt = isValidTimestamp(fresh[fresh.length - 1].createdAt) ? Number(fresh[fresh.length - 1].createdAt) : null
+
+    // 存储完整原文（用于重新总结）
+    var originalText = fresh.map(function(m) {
+      var time = isValidTimestamp(m.createdAt) ? formatMemoryDateTime(Number(m.createdAt)) : ''
+      var role = m.role === 'user' ? '用户' : 'AI'
+      return '[' + time + '] ' + role + '：' + (m.content || '')
+    }).join('\n')
+
     var prompt = buildSummaryPrompt(fresh)
-    var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode') })
-    var parsed = extractJson(raw)
-    var memories = Array.isArray(parsed.memories) ? parsed.memories : []
+
+    // 自动重试逻辑：最多尝试2次
+    var lastError = null
+    var parsed = null
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode') })
+        parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
+        lastError = 'AI返回为空或格式错误'
+      } catch(e) {
+        lastError = e.message || String(e)
+        console.warn('[memory] 总结第' + attempt + '次失败：', lastError)
+      }
+    }
+
+    // 2次都失败 → 记录失败，不标记为已总结
+    if (!parsed || !Array.isArray(parsed.memories) || parsed.memories.length === 0) {
+      await db.memoryRuns.add({
+        ownerUid: ownerUid,
+        charId: charId,
+        chatId: chatId,
+        fromMsgId: fromMsgId,
+        toMsgId: toMsgId,
+        sourceType: 'wechat',
+        sourceAt: sourceAt,
+        createdAt: Date.now(),
+        memoryCount: 0,
+        mode: options.force ? 'manual' : 'auto',
+        status: 'failed',
+        failReason: lastError || '未知错误',
+        originalText: originalText,
+        messageCount: fresh.length
+      })
+      // 不更新lastSummarizedMessageId → 下次会重新尝试
+      return { ok: false, skipped: false, reason: lastError || '总结失败', memoryCount: 0, messageCount: fresh.length, failed: true, originalText: originalText }
+    }
+
+    var memories = parsed.memories
     var rows = []
     var embeddingFailed = false
     for (var i = 0; i < memories.length; i++) {
@@ -590,7 +634,10 @@ ${lines}`
       sourceAt: sourceAt,
       createdAt: Date.now(),
       memoryCount: rows.length,
-      mode: options.force ? 'manual' : 'auto'
+      mode: options.force ? 'manual' : 'auto',
+      status: 'success',
+      originalText: originalText,
+      messageCount: fresh.length
     })
     await saveSettings(chatId, { lastSummarizedMessageId: toMsgId })
     await db.config.put({ key: 'memoryLastSummaryAt', value: Date.now() })
@@ -599,11 +646,17 @@ ${lines}`
 
   async function summarizeIfNeeded(chatId, charId, ownerUid) {
     try {
-      return await runSummary(chatId, charId, ownerUid, { force: false })
+      var result = await runSummary(chatId, charId, ownerUid, { force: false })
+      // 如果失败，弹窗提示
+      if (result.failed && window.toast) {
+        window.toast('记忆总结失败：' + (result.reason || '未知错误'))
+      }
+      return result
     } catch (e) {
       console.warn('[memory] 自动总结失败：', e)
       await db.config.put({ key: 'memoryLastError', value: e.message || String(e) })
-      return { ok: false, skipped: false, error: e.message || String(e), memoryCount: 0, messageCount: 0 }
+      if (window.toast) window.toast('记忆总结异常：' + (e.message || '未知错误'))
+      return { ok: false, skipped: false, error: e.message || String(e), memoryCount: 0, messageCount: 0, failed: true }
     }
   }
 
@@ -618,8 +671,16 @@ ${lines}`
     var source = Array.isArray(messages) ? messages.filter(function(m) { return String(m.content || '').trim() }) : []
     if (!source.length) throw new Error('没有可总结的见面记录')
 
+    // 存储完整原文
+    var originalText = source.map(function(m) {
+      var time = isValidTimestamp(m.createdAt) ? formatMemoryDateTime(Number(m.createdAt)) : ''
+      var role = m.role === 'user' ? '用户' : 'AI'
+      return '[' + time + '] ' + role + '：' + (m.content || '')
+    }).join('\n')
+
+    // 检查已有的成功总结（失败的不算）
     var existingRun = await db.memoryRuns.where('chatId').equals(chatId).filter(function(run) {
-      return run.ownerUid === ownerUid && run.charId === charId && run.sourceSessionId === sessionId && run.mode === 'meet'
+      return run.ownerUid === ownerUid && run.charId === charId && run.sourceSessionId === sessionId && run.mode === 'meet' && run.status !== 'failed'
     }).first()
     if (existingRun) {
       return { ok: true, skipped: true, alreadySummarized: true, memoryCount: existingRun.memoryCount || 0, messageCount: source.length }
@@ -634,9 +695,47 @@ ${lines}`
     var settings = await getSettings(chatId)
     var fromMsgId = source[0].id || 0
     var toMsgId = source[source.length - 1].id || fromMsgId
-    var raw = await window.callMemoryAI([{ role: 'user', content: buildMeetingSummaryPrompt(source) }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode') })
-    var parsed = extractJson(raw)
-    var memories = Array.isArray(parsed.memories) ? parsed.memories : []
+    var prompt = buildMeetingSummaryPrompt(source)
+
+    // 自动重试逻辑：最多尝试2次
+    var lastError = null
+    var parsed = null
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode') })
+        parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
+        lastError = 'AI返回为空或格式错误'
+      } catch(e) {
+        lastError = e.message || String(e)
+        console.warn('[memory] 见面总结第' + attempt + '次失败：', lastError)
+      }
+    }
+
+    // 2次都失败 → 记录失败
+    if (!parsed || !Array.isArray(parsed.memories) || parsed.memories.length === 0) {
+      await db.memoryRuns.add({
+        ownerUid: ownerUid,
+        charId: charId,
+        chatId: chatId,
+        fromMsgId: fromMsgId,
+        toMsgId: toMsgId,
+        sourceSessionId: sessionId,
+        sourceEndedAt: Number(endedAt) || null,
+        sourceType: 'offlineMeet',
+        sourceAt: Number(endedAt) || null,
+        createdAt: Date.now(),
+        memoryCount: 0,
+        mode: 'meet',
+        status: 'failed',
+        failReason: lastError || '未知错误',
+        originalText: originalText,
+        messageCount: source.length
+      })
+      return { ok: false, skipped: false, reason: lastError || '总结失败', memoryCount: 0, messageCount: source.length, failed: true, originalText: originalText }
+    }
+
+    var memories = parsed.memories
     var rows = []
     var embeddingFailed = false
     for (var i = 0; i < memories.length; i++) {
@@ -671,7 +770,10 @@ ${lines}`
       sourceAt: Number(endedAt) || null,
       createdAt: Date.now(),
       memoryCount: rows.length,
-      mode: 'meet'
+      mode: 'meet',
+      status: 'success',
+      originalText: originalText,
+      messageCount: source.length
     })
     await db.config.put({ key: 'memoryLastSummaryAt', value: Date.now() })
     return { ok: true, skipped: false, memoryCount: rows.length, messageCount: source.length, embeddingFailed: embeddingFailed }
@@ -1091,6 +1193,8 @@ ${lines}`
     var activeRole = state.charId ? chars[state.charId] : null
     var listTitle = activeRole ? getCharName(activeRole) + '的回忆' : '全部回忆'
     var roleSubtitle = (await db.config.get('memoryRoleSubtitle'))?.value || ROLE_SUBTITLE_DEFAULT
+    // 加载失败的总结记录
+    var failedRuns = await getFailedRuns(state.ownerUid, state.charId)
     var subtitleHtml = activeRole
       ? `<button class="memory-corridor-subtitle memory-role-subtitle" id="btn-memory-role-subtitle" type="button">${esc(roleSubtitle)}</button>`
       : `<div class="memory-corridor-subtitle">${esc(getUserAccountAtText(owner))}</div>`
@@ -1135,6 +1239,7 @@ ${lines}`
           ${rows.length ? rows.map(function(m) { return buildMemoryCard(m, chars) }).join('') : '<div class="memory-empty">暂无记忆</div>'}
         </div>
       </div>
+      ${failedRuns.length ? buildFailedRunsSection(failedRuns) : ''}
       <div class="memory-panel memory-api-status-panel">
         <div>
           <div class="memory-panel-title">记忆设置</div>
@@ -1144,6 +1249,37 @@ ${lines}`
         <button class="btn-ghost btn-sm" id="btn-memory-api-config" type="button">配置</button>
       </div>`
     bindPageEvents(page)
+  }
+
+  // 构建失败总结区域
+  function buildFailedRunsSection(runs) {
+    var sourceLabels = { wechat: '微信', x: 'X', sms: '短信', offlineMeet: '线下', moments: '朋友圈' }
+    return `
+      <div class="memory-panel memory-failed-panel">
+        <div class="memory-panel-head">
+          <div class="memory-panel-title" style="color:#e88070"><i class="fa-solid fa-triangle-exclamation"></i> 总结失败</div>
+          <span class="memory-panel-sub">${runs.length} 条待处理</span>
+        </div>
+        <div class="memory-failed-list">
+          ${runs.map(function(run) {
+            var sourceLabel = sourceLabels[run.sourceType] || '未知'
+            var timeStr = formatTime(run.createdAt)
+            var msgCount = run.messageCount || 0
+            return `<div class="memory-failed-card" data-run-id="${run.id}">
+              <div class="memory-failed-header">
+                <span class="memory-source-badge is-${run.sourceType || 'wechat'}">${esc(sourceLabel)}</span>
+                <span class="memory-failed-time">${esc(timeStr)}</span>
+                <span class="memory-failed-count">${msgCount} 条消息</span>
+              </div>
+              <div class="memory-failed-reason">${esc(run.failReason || '未知错误')}</div>
+              <div class="memory-failed-actions">
+                <button class="btn-ghost btn-sm memory-failed-view-btn" data-run-id="${run.id}"><i class="fa-solid fa-eye"></i> 查看原文</button>
+                <button class="btn-ghost btn-sm memory-failed-retry-btn" data-run-id="${run.id}"><i class="fa-solid fa-rotate-right"></i> 重新总结</button>
+              </div>
+            </div>`
+          }).join('')}
+        </div>
+      </div>`
   }
 
   function buildMemoryStats(rows) {
@@ -1279,6 +1415,61 @@ ${lines}`
           await renderMemoryPage(page)
         })
       })
+    })
+    // 失败总结按钮事件
+    page.querySelectorAll('.memory-failed-view-btn').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var runId = parseInt(btn.dataset.runId, 10)
+        var run = await db.memoryRuns.get(runId)
+        if (!run || !run.originalText) { window.toast && window.toast('找不到原始记录'); return }
+        showOriginalTextModal(run)
+      })
+    })
+    page.querySelectorAll('.memory-failed-retry-btn').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var runId = parseInt(btn.dataset.runId, 10)
+        btn.disabled = true
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 总结中...'
+        var result = await retrySummary(runId)
+        await renderMemoryPage(page)
+      })
+    })
+  }
+
+  // 显示原文弹窗
+  function showOriginalTextModal(run) {
+    var sourceLabels = { wechat: '微信聊天', x: 'X软件', sms: '短信', offlineMeet: '线下见面', moments: '朋友圈' }
+    var sourceLabel = sourceLabels[run.sourceType] || '未知'
+    var overlay = document.createElement('div')
+    overlay.className = 'sheet-overlay'
+    var modal = document.createElement('div')
+    modal.className = 'center-modal memory-original-modal'
+    modal.innerHTML = `
+      <div class="sheet-title">${esc(sourceLabel)}原文</div>
+      <div class="memory-original-info">
+        <span>${run.messageCount || 0} 条消息</span>
+        <span>${formatTime(run.createdAt)}</span>
+        ${run.failReason ? '<span style="color:#e88070">失败原因：' + esc(run.failReason) + '</span>' : ''}
+      </div>
+      <div class="memory-original-text">${esc(run.originalText || '无原文')}</div>
+      <div class="sheet-actions">
+        <button class="btn-pill btn-full" id="btn-original-retry"><i class="fa-solid fa-rotate-right"></i> 重新总结</button>
+        <button class="btn-ghost btn-full" id="btn-original-close">关闭</button>
+      </div>`
+    document.getElementById('app').appendChild(overlay)
+    document.getElementById('app').appendChild(modal)
+    requestAnimationFrame(function() { overlay.classList.add('show'); modal.classList.add('show') })
+    var close = function() {
+      overlay.classList.remove('show'); modal.classList.remove('show')
+      setTimeout(function() { overlay.remove(); modal.remove() }, 200)
+    }
+    overlay.addEventListener('click', close)
+    modal.querySelector('#btn-original-close').addEventListener('click', close)
+    modal.querySelector('#btn-original-retry').addEventListener('click', async function() {
+      close()
+      var result = await retrySummary(run.id)
+      var page = document.getElementById('memory-page')
+      if (page) await renderMemoryPage(page)
     })
   }
 
@@ -1431,6 +1622,72 @@ ${lines}`
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
   }
 
+  // 获取失败的总结记录
+  async function getFailedRuns(ownerUid, charId) {
+    if (!db.memoryRuns) return []
+    var all = await db.memoryRuns.toArray()
+    return all.filter(function(r) {
+      if (r.status !== 'failed') return false
+      if (ownerUid && String(r.ownerUid) !== String(ownerUid)) return false
+      if (charId && parseInt(r.charId) !== parseInt(charId)) return false
+      return true
+    }).sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0) })
+  }
+
+  // 重新总结（从失败记录的原文重新调用API）
+  async function retrySummary(runId) {
+    var run = await db.memoryRuns.get(runId)
+    if (!run || !run.originalText) { window.toast && window.toast('找不到原始记录'); return { ok: false } }
+
+    window.toast && window.toast('正在重新总结...')
+
+    var prompt = '请总结以下对话，提取关键记忆信息。\n\n对话内容：\n' + run.originalText + '\n\n' +
+      '返回JSON格式：\n' +
+      '{"memories":[{"title":"标题(10字以内)","content":"内容(50字以内)","keywords":["关键词"],"importance":5,"valence":0,"arousal":0.3}]}'
+
+    var lastError = null
+    var parsed = null
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        var callFn = window.callMemoryAI || window.callAI
+        if (!callFn) { lastError = 'AI不可用'; break }
+        var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+        parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
+        lastError = 'AI返回为空或格式错误'
+      } catch(e) {
+        lastError = e.message || String(e)
+      }
+    }
+
+    if (!parsed || !Array.isArray(parsed.memories) || parsed.memories.length === 0) {
+      // 更新失败记录
+      await db.memoryRuns.update(runId, { failReason: lastError || '重新总结仍失败', updatedAt: Date.now() })
+      window.toast && window.toast('重新总结失败：' + (lastError || '未知错误'))
+      return { ok: false, reason: lastError }
+    }
+
+    // 保存成功的记忆
+    var rows = []
+    for (var i = 0; i < parsed.memories.length; i++) {
+      var row = normalizeMemory(parsed.memories[i], {
+        ownerUid: run.ownerUid, charId: run.charId, chatId: run.chatId,
+        fromMsgId: run.fromMsgId, toMsgId: run.toMsgId,
+        sourceAt: run.sourceAt
+      })
+      if (!row) continue
+      row.sourceType = run.sourceType || 'wechat'
+      rows.push(row)
+    }
+    if (rows.length) await db.memories.bulkAdd(rows)
+
+    // 更新原来的失败记录为成功
+    await db.memoryRuns.update(runId, { status: 'success', memoryCount: rows.length, failReason: null, updatedAt: Date.now() })
+
+    window.toast && window.toast('重新总结成功，生成 ' + rows.length + ' 条记忆')
+    return { ok: true, memoryCount: rows.length }
+  }
+
   window.WanWanMemory = {
     getSettings: getSettings,
     saveSettings: saveSettings,
@@ -1443,6 +1700,8 @@ ${lines}`
     testEmbedding: testEmbedding,
     getDecayScore: getDecayScore,
     getDecayPercent: getDecayPercent,
-    recallMemory: recallMemory
+    recallMemory: recallMemory,
+    getFailedRuns: getFailedRuns,
+    retrySummary: retrySummary
   }
 })()

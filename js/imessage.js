@@ -756,8 +756,8 @@ window.summarizeSmsToMemory = async function(conversationId) {
 
   window.toast && window.toast('正在总结聊天...')
 
-  // 构建对话文本
-  var chatText = msgs.map(function(m) {
+  // 存储完整原文
+  var originalText = msgs.map(function(m) {
     var role = m.direction === 'out' ? '用户' : '对方'
     return role + '：' + m.body
   }).join('\n')
@@ -765,7 +765,6 @@ window.summarizeSmsToMemory = async function(conversationId) {
   // 找到对应的角色
   var charId = null
   var charName = '匿名用户'
-  // 找最近的匿名消息获取角色ID
   for (var i = msgs.length - 1; i >= 0; i--) {
     if (msgs[i]._anonCharId) {
       charId = msgs[i]._anonCharId
@@ -775,65 +774,109 @@ window.summarizeSmsToMemory = async function(conversationId) {
   }
 
   var prompt = '请总结以下短信对话，提取关键信息。\n\n' +
-    '对话内容：\n' + chatText + '\n\n' +
+    '对话内容：\n' + originalText + '\n\n' +
     '返回JSON格式：\n' +
     '{"title":"记忆标题(10字以内)","content":"记忆内容(50字以内)","keywords":["关键词1","关键词2"],"importance":5,"valence":0,"arousal":0.3}'
 
-  try {
-    if (!window.callAI) { window.toast && window.toast('AI不可用'); return }
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
-    if (!data || !data.content) { window.toast && window.toast('总结失败'); return }
-
-    // 写入记忆库
-    var ownerUid = null
+  // 自动重试逻辑：最多尝试2次
+  var lastError = null
+  var data = null
+  for (var attempt = 1; attempt <= 2; attempt++) {
     try {
-      var users = await db.characters.where('type').equals('user').toArray()
-      if (users.length) ownerUid = String(users[0].id)
-    } catch(e) {}
+      if (!window.callAI) { lastError = 'AI不可用'; break }
+      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+      data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
+      if (data && data.content) break
+      lastError = 'AI返回为空或格式错误'
+    } catch(e) {
+      lastError = e.message || String(e)
+      console.warn('[AnonSMS] 总结第' + attempt + '次失败：', lastError)
+    }
+  }
 
-    // 计算对话时间范围
-    var firstTime = msgs[0] ? new Date(msgs[0].createdAt) : new Date()
-    var lastTime = msgs[msgs.length-1] ? new Date(msgs[msgs.length-1].createdAt) : new Date()
-    var timeRange = (firstTime.getMonth()+1) + '/' + firstTime.getDate() + ' ' +
-      firstTime.getHours().toString().padStart(2,'0') + ':' + firstTime.getMinutes().toString().padStart(2,'0') +
-      '~' + lastTime.getHours().toString().padStart(2,'0') + ':' + lastTime.getMinutes().toString().padStart(2,'0')
+  // 计算对话时间范围
+  var firstTime = msgs[0] ? new Date(msgs[0].createdAt) : new Date()
+  var lastTime = msgs[msgs.length-1] ? new Date(msgs[msgs.length-1].createdAt) : new Date()
+  var timeRange = (firstTime.getMonth()+1) + '/' + firstTime.getDate() + ' ' +
+    firstTime.getHours().toString().padStart(2,'0') + ':' + firstTime.getMinutes().toString().padStart(2,'0') +
+    '~' + lastTime.getHours().toString().padStart(2,'0') + ':' + lastTime.getMinutes().toString().padStart(2,'0')
 
-    var memoryRow = {
+  var ownerUid = null
+  try {
+    var users = await db.characters.where('type').equals('user').toArray()
+    if (users.length) ownerUid = String(users[0].id)
+  } catch(e) {}
+
+  // 2次都失败 → 记录失败
+  if (!data || !data.content) {
+    if (db.memoryRuns) {
+      await db.memoryRuns.add({
+        ownerUid: ownerUid || 'default',
+        charId: charId || 0,
+        chatId: 'sms_' + conversationId,
+        sourceType: 'sms',
+        sourceAt: Date.now(),
+        createdAt: Date.now(),
+        memoryCount: 0,
+        mode: 'sms',
+        status: 'failed',
+        failReason: lastError || '未知错误',
+        originalText: originalText,
+        messageCount: msgs.length
+      })
+    }
+    window.toast && window.toast('短信总结失败：' + (lastError || '未知错误'))
+    return
+  }
+
+  var memoryRow = {
+    ownerUid: ownerUid || 'default',
+    charId: charId || 0,
+    chatId: 'sms_' + conversationId,
+    title: String(data.title || '短信对话').slice(0, 30),
+    content: '[' + timeRange + '] ' + String(data.content).slice(0, 130),
+    keywords: Array.isArray(data.keywords) ? data.keywords.slice(0, 8) : [],
+    valence: typeof data.valence === 'number' ? data.valence : 0,
+    arousal: typeof data.arousal === 'number' ? data.arousal : 0.3,
+    importance: typeof data.importance === 'number' ? data.importance : 5,
+    embedding: null,
+    status: 'active',
+    sourceMsgStartId: msgs[0] ? msgs[0].id : null,
+    sourceMsgEndId: msgs[msgs.length - 1] ? msgs[msgs.length - 1].id : null,
+    sourceAt: Date.now(),
+    sourceType: 'sms',
+    decayPercent: 80,
+    isLongTerm: false,
+    injectionLayer: 2,
+    participants: [],
+    lastRecalledAt: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    lastAccessedAt: null,
+    accessCount: 0
+  }
+
+  await db.memories.add(memoryRow)
+
+  // 记录成功的总结
+  if (db.memoryRuns) {
+    await db.memoryRuns.add({
       ownerUid: ownerUid || 'default',
       charId: charId || 0,
       chatId: 'sms_' + conversationId,
-      title: String(data.title || '短信对话').slice(0, 30),
-      content: '[' + timeRange + '] ' + String(data.content).slice(0, 130),
-      keywords: Array.isArray(data.keywords) ? data.keywords.slice(0, 8) : [],
-      valence: typeof data.valence === 'number' ? data.valence : 0,
-      arousal: typeof data.arousal === 'number' ? data.arousal : 0.3,
-      importance: typeof data.importance === 'number' ? data.importance : 5,
-      embedding: null,
-      status: 'active',
-      sourceMsgStartId: msgs[0] ? msgs[0].id : null,
-      sourceMsgEndId: msgs[msgs.length - 1] ? msgs[msgs.length - 1].id : null,
-      sourceAt: Date.now(),
       sourceType: 'sms',
-      // 新增字段
-      decayPercent: 80,
-      isLongTerm: false,
-      injectionLayer: 2,
-      participants: [],
-      lastRecalledAt: null,
+      sourceAt: Date.now(),
       createdAt: Date.now(),
-      updatedAt: Date.now(),
-      lastAccessedAt: null,
-      accessCount: 0
-    }
-
-    await db.memories.add(memoryRow)
-    window.toast && window.toast('已写入记忆库：' + data.title)
-    console.log('[AnonSMS] 记忆已保存：', data.title)
-  } catch(e) {
-    console.error('[AnonSMS] 总结失败:', e)
-    window.toast && window.toast('总结失败：' + (e.message || '未知错误'))
+      memoryCount: 1,
+      mode: 'sms',
+      status: 'success',
+      originalText: originalText,
+      messageCount: msgs.length
+    })
   }
+
+  window.toast && window.toast('已写入记忆库：' + data.title)
+  console.log('[AnonSMS] 记忆已保存：', data.title)
 }
 
 // 匿名短信设置页面
