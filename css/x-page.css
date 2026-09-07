@@ -2171,6 +2171,18 @@ ground-color: var(--x-accent);
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 /* ===== 小红书风格主页 ===== */
+/* 角色主页全屏容器 */
+.x-profile-page {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--x-bg, #000);
+  color: var(--x-text, #fff);
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .xh-page {
   position: relative;
   background: var(--x-bg, #000);

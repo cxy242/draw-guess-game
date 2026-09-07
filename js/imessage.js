@@ -112,9 +112,6 @@ function buildSmsListPage() {
       '<button class="imessage-new-btn" id="imessage-new-btn">' +
         '<i class="fa fa-plus"></i>' +
       '</button>' +
-      '<button class="imessage-new-btn" id="imessage-anon-settings" style="margin-left:6px" onclick="window.showAnonSmsSettings()">' +
-        '<i class="fa-solid fa-user-secret"></i>' +
-      '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
     '</div>' +
     '<div class="imessage-list" id="imessage-list"></div>'
@@ -189,8 +186,6 @@ function bindSmsListEvents(page) {
   page.querySelector('#imessage-new-btn').addEventListener('click', function() {
     window.toast && window.toast('暂不支持新建短信')
   })
-  var anonBtn = page.querySelector('#imessage-anon-settings')
-  if (anonBtn) anonBtn.addEventListener('click', function() { window.showAnonSmsSettings() })
 }
 
 async function loadSmsConversations(page) {
@@ -249,6 +244,7 @@ async function openSmsChat(conversationId, listPage) {
         '<img class="imessage-chat-avatar" src="' + escSmsHtml(conv.remoteAvatar || SMS_DEFAULT_AVATAR) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
         '<span class="imessage-chat-name">' + escSmsHtml(conv.remoteName || conv.remotePhone) + '</span>' +
       '</div>' +
+      '<button class="imessage-chat-settings" onclick="window.showAnonSmsSettings()" style="background:none;border:none;color:#8e8e93;font-size:16px;cursor:pointer;padding:8px;margin-left:auto"><i class="fa-solid fa-gear"></i></button>' +
     '</div>' +
     '<div class="imessage-chat-messages" id="imessage-chat-msgs"></div>' +
     '<div class="imessage-chat-input">' +
