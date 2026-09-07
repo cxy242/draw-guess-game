@@ -112,7 +112,7 @@ function buildSmsListPage() {
       '<button class="imessage-new-btn" id="imessage-new-btn">' +
         '<i class="fa fa-plus"></i>' +
       '</button>' +
-      '<button class="imessage-new-btn" id="imessage-anon-settings" style="margin-left:6px">' +
+      '<button class="imessage-new-btn" id="imessage-anon-settings" style="margin-left:6px" onclick="window.showAnonSmsSettings()">' +
         '<i class="fa-solid fa-user-secret"></i>' +
       '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
@@ -555,31 +555,24 @@ function genAnonName() {
 // 启动匿名短信调度器
 function startAnonSmsScheduler(user) {
   if (_anonSmsTimer) clearInterval(_anonSmsTimer)
-  var interval = parseInt(localStorage.getItem(ANON_SMS_INTERVAL_KEY)) || 180 // 默认3小时
+  var interval = parseInt(localStorage.getItem(ANON_SMS_INTERVAL_KEY)) || 180
   var intervalMs = interval * 60 * 1000
 
-  // 补回逻辑
-  var lastTime = parseInt(localStorage.getItem(ANON_SMS_LAST_KEY)) || 0
-  var now = Date.now()
-  if (lastTime > 0) {
-    var elapsed = now - lastTime
-    var missed = Math.floor(elapsed / intervalMs)
-    if (missed > 0) {
-      missed = Math.min(missed, 3) // 最多补3条
-      console.log('[AnonSMS] 补回：需补' + missed + '条匿名短信')
-      for (var i = 0; i < missed; i++) {
-        sendAnonymousCharSMS(user)
-      }
-      localStorage.setItem(ANON_SMS_LAST_KEY, String(now))
-    }
-  }
-  if (!lastTime) localStorage.setItem(ANON_SMS_LAST_KEY, String(now))
-
-  _anonSmsTimer = setInterval(function() {
-    sendAnonymousCharSMS(user)
+  // 不做补回——匿名短信只在app打开25分钟后由定时器触发
+  // 记录当前时间（首次使用时）
+  if (!localStorage.getItem(ANON_SMS_LAST_KEY)) {
     localStorage.setItem(ANON_SMS_LAST_KEY, String(Date.now()))
+  }
+
+  // 定期检查器（备用，主要靠25分钟定时器）
+  _anonSmsTimer = setInterval(function() {
+    // 只在25分钟定时器已触发后才执行
+    if (_smsSessionTriggered) {
+      sendAnonymousCharSMS(user)
+      localStorage.setItem(ANON_SMS_LAST_KEY, String(Date.now()))
+    }
   }, intervalMs)
-  console.log('[AnonSMS] 调度器启动，间隔' + interval + '分钟')
+  console.log('[AnonSMS] 调度器启动，间隔' + interval + '分钟，等待25分钟触发')
 }
 
 // 核心：AI角色匿名发短信

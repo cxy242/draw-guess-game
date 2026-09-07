@@ -1648,11 +1648,12 @@ function showXCharacterProfile(charId, user) {
     return
   }
 
-  if (!window.db || !db.characters) return
-  db.characters.get(parseInt(charId) || charId).then(function(char) {
-    if (!char) return
+  if (!window.db || !db.characters) { console.warn('[X] db不可用'); return }
+  var lookupId = parseInt(charId) || charId
+  db.characters.get(lookupId).then(function(char) {
+    if (!char) { console.warn('[X] 角色未找到:', charId, 'lookupId:', lookupId); return }
     renderXCharProfilePage(char, user)
-  })
+  }).catch(function(e) { console.error('[X] 查找角色失败:', e) })
 }
 
 function renderXCharProfilePage(char, user) {
