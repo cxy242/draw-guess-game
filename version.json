@@ -1,1 +1,1 @@
-{"version": "2.5.56", "date": "2026-09-07", "note": "记忆系统升级v1：衰减80%+长期记忆+层级+进度条+回忆按钮+关键词"}
+{"version": "2.5.57", "date": "2026-09-07", "note": "记忆系统v2：normalizeMemory+getMemoryContext+imessage+x-page全部对接新字段"}

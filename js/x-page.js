@@ -251,6 +251,13 @@ async function saveXMemory(charId, title, content, keywords) {
       sourceMsgStartId: null,
       sourceMsgEndId: null,
       sourceAt: Date.now(),
+      sourceType: 'x',
+      // 新增字段
+      decayPercent: 80,
+      isLongTerm: false,
+      injectionLayer: 2,
+      participants: [],
+      lastRecalledAt: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       lastAccessedAt: null,

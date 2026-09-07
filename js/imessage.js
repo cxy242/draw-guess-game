@@ -814,6 +814,13 @@ window.summarizeSmsToMemory = async function(conversationId) {
       sourceMsgStartId: msgs[0] ? msgs[0].id : null,
       sourceMsgEndId: msgs[msgs.length - 1] ? msgs[msgs.length - 1].id : null,
       sourceAt: Date.now(),
+      sourceType: 'sms',
+      // 新增字段
+      decayPercent: 80,
+      isLongTerm: false,
+      injectionLayer: 2,
+      participants: [],
+      lastRecalledAt: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       lastAccessedAt: null,

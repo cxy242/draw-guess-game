@@ -523,6 +523,12 @@ ${lines}`
       sourceMsgStartId: meta.fromMsgId,
       sourceMsgEndId: meta.toMsgId,
       sourceAt: isValidTimestamp(meta.sourceAt) ? Number(meta.sourceAt) : null,
+      // 新增字段：衰减、层级、长期记忆、参与人物
+      decayPercent: 80,
+      isLongTerm: false,
+      injectionLayer: clamp(raw.injectionLayer, 1, 4, 2),
+      participants: Array.isArray(raw.participants) ? raw.participants : [],
+      lastRecalledAt: null,
       createdAt: now,
       updatedAt: now,
       lastAccessedAt: null,
@@ -695,10 +701,13 @@ ${lines}`
       var keywordScore = getKeywordScore(m, queryText)
       var importanceScore = clamp(m.importance, 1, 10, 5) / 10
       var emotionScore = getEmotionScore(m)
-      var decayScore = Math.min(1, getDecayScore(m, settings) / 10)
+      var decayPercent = getDecayPercent(m)
+      var decayScore = Math.min(1, decayPercent / 100)
+      // 层级越高（数字越小）分数越高
+      var layerScore = (5 - (m.injectionLayer || 2)) / 4
       return {
         memory: m,
-        score: semanticScore * 4 + keywordScore * 3 + importanceScore * 2 + emotionScore * 1.5 + decayScore
+        score: semanticScore * 4 + keywordScore * 3 + importanceScore * 2 + emotionScore * 1.5 + decayScore + layerScore * 2
       }
     }).sort(function(a, b) { return b.score - a.score })
     var selected = scored.slice(0, settings.injectLimit).filter(function(x) { return x.score > 0.15 || x.memory.status === 'active' })
@@ -712,19 +721,24 @@ ${lines}`
     }))
     var sleepUpdates = []
     for (var i = 0; i < rows.length; i++) {
-      if (rows[i].status === 'active' && getDecayScore(rows[i], settings) < 0.8) {
+      if (rows[i].status === 'active' && getDecayPercent(rows[i]) < 20 && !rows[i].isLongTerm) {
         sleepUpdates.push(db.memories.update(rows[i].id, { status: 'sleeping' }))
       }
     }
     if (sleepUpdates.length) await Promise.all(sleepUpdates)
     if (!selected.length) return ''
+    // 按注入层级排序：第一层最前面，第四层最后面
     var orderedForInjection = selected.map(function(x, index) {
       return {
         item: x,
         originalIndex: index,
+        layer: x.memory.injectionLayer || 2,
         sourceAt: getMemoryInjectionSourceAt(x.memory)
       }
     }).sort(function(a, b) {
+      // 先按层级排（数字小的在前）
+      if (a.layer !== b.layer) return a.layer - b.layer
+      // 同层级内按时间排
       var aHasSourceAt = a.sourceAt != null
       var bHasSourceAt = b.sourceAt != null
       if (aHasSourceAt !== bHasSourceAt) return aHasSourceAt ? 1 : -1
@@ -736,12 +750,12 @@ ${lines}`
     })
     return orderedForInjection.map(function(x, i) {
       var m = x.memory
-      var isMeet = m.sourceType ? m.sourceType === 'offlineMeet' : !!m.sourceSessionId
+      var sourceLabel = SOURCE_TYPE_LABEL[m.sourceType] || '微信'
       var memoryTime = getMemoryInjectionSourceAt(m)
-      var sourceTime = isMeet
-        ? `【线下见面｜发生时间：${memoryTime ? formatMemoryDateTime(memoryTime) : '未知'}】`
-        : `【微信聊天｜发生时间：${memoryTime ? formatMemoryDateTime(memoryTime) : '未知'}】`
-      return `${i + 1}. ${sourceTime}${m.title}：${m.content}`
+      var timeStr = memoryTime ? formatMemoryDateTime(memoryTime) : '未知时间'
+      var layerTag = '【' + (LAYER_LABEL[m.injectionLayer] || '第二层') + '】'
+      var keywordsTag = (m.keywords && m.keywords.length) ? ' 关键词：' + m.keywords.join('、') : ''
+      return `${i + 1}. ${layerTag}【${sourceLabel}｜发生时间：${timeStr}】${m.title}：${m.content}${keywordsTag}`
     }).join('\n')
   }
 
