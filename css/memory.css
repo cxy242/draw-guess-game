@@ -766,3 +766,38 @@
   word-break: break-word;
   -webkit-overflow-scrolling: touch;
 }
+
+/* 参与人物选择 */
+.memory-edit-participants {
+  padding: 4px 0;
+}
+
+.memory-participant-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.memory-participant-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--c-surface-2, #f0f0f0);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.memory-participant-item:has(input:checked) {
+  background: color-mix(in srgb, var(--c-accent, #6b7d8d) 15%, transparent);
+  color: var(--c-accent, #6b7d8d);
+}
+
+.memory-participant-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--c-accent, #6b7d8d);
+}

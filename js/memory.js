@@ -946,6 +946,10 @@ ${lines}`
             <span>长期记忆（锁定100%，永不衰减）</span>
           </label>
         </div>
+        <div class="memory-edit-participants">
+          <label class="memory-edit-label">参与人物</label>
+          <div class="memory-participant-list" id="mem-edit-participants"></div>
+        </div>
       </div>
       <div class="sheet-actions">
         <button class="btn-pill btn-full" id="mem-edit-save">保存</button>
@@ -954,6 +958,21 @@ ${lines}`
     document.getElementById('app').appendChild(overlay)
     document.getElementById('app').appendChild(modal)
     requestAnimationFrame(function() { overlay.classList.add('show'); modal.classList.add('show') })
+
+    // 加载参与人物列表
+    var participantContainer = modal.querySelector('#mem-edit-participants')
+    var selectedParticipants = Array.isArray(m.participants) ? m.participants.map(String) : []
+    if (participantContainer && db.characters) {
+      db.characters.where('type').equals('char').toArray().then(function(chars) {
+        if (!chars.length) { participantContainer.innerHTML = '<span style="font-size:12px;color:var(--c-hint)">暂无角色</span>'; return }
+        participantContainer.innerHTML = chars.map(function(c) {
+          var checked = selectedParticipants.indexOf(String(c.id)) !== -1 ? 'checked' : ''
+          var name = c.nick || c.name || '未知'
+          return '<label class="memory-participant-item"><input type="checkbox" class="memory-participant-cb" data-id="' + c.id + '"' + checked + '><span>' + esc(name) + '</span></label>'
+        }).join('')
+      })
+    }
+
     var close = function() {
       overlay.classList.remove('show'); modal.classList.remove('show')
       setTimeout(function() { overlay.remove(); modal.remove() }, 200)
@@ -976,6 +995,11 @@ ${lines}`
         decayPercent: parseInt(modal.querySelector('#mem-edit-decay').value) || 80,
         isLongTerm: modal.querySelector('#mem-edit-longterm').checked,
         injectionLayer: parseInt(modal.querySelector('#mem-edit-layer').value) || 2,
+        participants: (function() {
+          var selected = []
+          modal.querySelectorAll('.memory-participant-cb:checked').forEach(function(cb) { selected.push(parseInt(cb.dataset.id)) })
+          return selected
+        })(),
         updatedAt: Date.now()
       }
       if (!patch.content) { window.toast && window.toast('请填写内容'); return }
