@@ -1668,6 +1668,24 @@ function renderXCharProfilePage(char, user) {
   var avatarSrc = savedAvatar || char.avatar || ''
   var avatarHTML = avatarSrc ? '<img src="' + xEscape(avatarSrc) + '" alt="">' : getXAvatarHTML(char)
 
+  // 检查是否已有缓存的AI生成资料
+  var profileKey = 'x_ai_profile_' + char.id
+  var cachedProfile = null
+  try { cachedProfile = JSON.parse(localStorage.getItem(profileKey)) } catch(e) {}
+
+  // 评论和点赞
+  var charComments = []
+  xLoadPosts().forEach(function(p) {
+    var pc = xLoadComments(p.id)
+    pc.forEach(function(c) {
+      if (String(c.authorId) === String(char.id)) charComments.push({ comment: c, post: p })
+    })
+  })
+
+  var bio = cachedProfile ? cachedProfile.bio : (char.signature || char.identity?.bio || '')
+  var ipLocation = cachedProfile ? cachedProfile.ipLocation : ''
+  var handle = cachedProfile ? cachedProfile.handle : ('@' + (char.identity?.account || char.handle || char.name))
+
   var page = document.createElement('div')
   page.id = 'x-char-profile'
   page.className = 'x-profile-page'
@@ -1676,10 +1694,9 @@ function renderXCharProfilePage(char, user) {
     coverImg: savedCover || char.coverImage || '',
     avatarHTML: avatarHTML,
     name: char.nick || char.name,
-    handle: '@' + (char.identity?.account || char.handle || char.name),
-    bio: char.signature || '',
-    ipLocation: function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+char.id));if(p&&p.ipLocation)return p.ipLocation}catch(e){} return ''}(),
-    bio2: char.identity?.bio || '',
+    handle: handle,
+    bio: bio,
+    ipLocation: ipLocation,
     postCount: posts.length,
     followingCount: randomInt(5, 200),
     followerCount: randomInt(50, 5000),
@@ -1688,7 +1705,9 @@ function renderXCharProfilePage(char, user) {
     isFollowing: isFollowing,
     showGenBtn: char.type === 'char',
     postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
-    commentsHTML: '<div class="xh-empty">还没有评论</div>',
+    commentsHTML: charComments.length ? charComments.map(function(item) {
+      return '<div class="xh-comment-item"><div class="xh-comment-post-title">回复了 ' + xEscape(item.post.authorName || '匿名') + ' 的帖子</div><div class="xh-comment-text">' + xEscape(item.comment.content) + '</div><div class="xh-comment-time">' + timeAgo(item.comment.createdAt) + '</div></div>'
+    }).join('') : '<div class="xh-empty">还没有评论</div>',
     likesHTML: '<div class="xh-empty">还没有点赞的帖子</div>'
   })
 
@@ -1696,6 +1715,11 @@ function renderXCharProfilePage(char, user) {
   else document.body.appendChild(page)
 
   page.querySelector('.xh-back-btn').addEventListener('click', function() { closePage('x-char-profile') })
+
+  // 如果没有缓存资料，调API生成
+  if (!cachedProfile && window.callAI) {
+    generateAIProfile(char, page)
+  }
 
   // 换头像/封面
   page.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
@@ -1739,6 +1763,44 @@ function renderXCharProfilePage(char, user) {
   }
 
   bindPostCardEvents(page.querySelector('#xh-tab-posts'), user)
+}
+
+// AI角色资料生成（调API，缓存到localStorage）
+async function generateAIProfile(char, page) {
+  if (!window.callAI) return
+  var profileKey = 'x_ai_profile_' + char.id
+
+  var prompt = '你是' + char.name + '。' + (char.identity?.bio || char.signature || '') + '\n\n' +
+    '请为自己填写社交媒体个人资料。根据你的性格和设定来写。\n\n' +
+    '返回JSON格式：\n' +
+    '{"bio":"一句话简介(20字以内)","ipLocation":"你所在的省份或城市(如：浙江、北京)","handle":"@你的英文账号(英文字母+短横线)"}'
+
+  try {
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
+    if (!data) return
+
+    var profile = {
+      bio: String(data.bio || '').slice(0, 30),
+      ipLocation: String(data.ipLocation || '').slice(0, 10),
+      handle: String(data.handle || '@' + char.name).slice(0, 20)
+    }
+
+    localStorage.setItem(profileKey, JSON.stringify(profile))
+    console.log('[X] AI资料已生成：' + char.name, profile)
+
+    // 刷新页面上的资料
+    if (page) {
+      var bioEl = page.querySelector('.xh-bio')
+      var handleEl = page.querySelector('.xh-handle')
+      var ipEl = page.querySelector('.xh-ip')
+      if (bioEl && profile.bio) bioEl.textContent = profile.bio
+      if (handleEl && profile.handle) handleEl.textContent = profile.handle
+      if (ipEl && profile.ipLocation) ipEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> IP属地：' + profile.ipLocation
+    }
+  } catch(e) {
+    console.warn('[X] AI资料生成失败:', e)
+  }
 }
 
 // XX角色主页（统一模板）

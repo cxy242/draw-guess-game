@@ -35,6 +35,10 @@ function formatSmsFullTime(ts) {
 
 // ===== 入口 =====
 window.showMessagePage = async function() {
+  // 清理可能残留的设置面板
+  var oldPanel = document.getElementById('anon-sms-settings-panel')
+  if (oldPanel) oldPanel.remove()
+
   var users = await db.characters.where('type').equals('user').toArray()
   var seen = {}
   _smsUserPhones = []
@@ -111,6 +115,9 @@ function buildSmsListPage() {
       '</span>' +
       '<button class="imessage-new-btn" id="imessage-new-btn">' +
         '<i class="fa fa-plus"></i>' +
+      '</button>' +
+      '<button class="imessage-new-btn" id="imessage-anon-settings-btn" onclick="window.showAnonSmsSettings()" style="margin-left:4px">' +
+        '<i class="fa-solid fa-gear"></i>' +
       '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
     '</div>' +
