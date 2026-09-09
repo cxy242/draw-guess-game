@@ -4,7 +4,7 @@
 (function() {
   var DEFAULT_SETTINGS = {
     enabled: true,
-    summarizeEvery: 30,
+    summarizeEvery: 10,
     injectLimit: 12,
     embeddingEnabled: false,
     decayStrength: 'medium',
@@ -168,11 +168,45 @@
   function getKeywordScore(memory, queryText) {
     var text = String(queryText || '').toLowerCase()
     var keywords = Array.isArray(memory.keywords) ? memory.keywords : []
+    // 关键词精确匹配
     var keywordHits = keywords.filter(function(k) { return k && text.includes(String(k).toLowerCase()) }).length
+    // 分词匹配
     var queryTokens = tokenize(queryText)
     var memoryTokens = new Set(tokenize([memory.title, memory.content, keywords.join(' ')].join(' ')))
     var tokenHits = queryTokens.filter(function(t) { return memoryTokens.has(t) }).length
-    return Math.min(1, keywordHits * 0.35 + tokenHits * 0.12)
+    // 中文字符bigram匹配（提升语义相关性）
+    var chineseQuery = text.replace(/[^\u4e00-\u9fa5]/g, '')
+    var chineseMemory = [memory.title, memory.content].join('').replace(/[^\u4e00-\u9fa5]/g, '')
+    var bigramHits = 0
+    for (var i = 0; i < chineseQuery.length - 1; i++) {
+      var bigram = chineseQuery.slice(i, i + 2)
+      if (chineseMemory.includes(bigram)) bigramHits++
+    }
+    var bigramScore = Math.min(1, bigramHits * 0.1)
+    return Math.min(1, keywordHits * 0.35 + tokenHits * 0.12 + bigramScore)
+  }
+
+  // 自动回忆：AI回复后检查是否引用了记忆内容
+  async function autoRecallMemories(chatId, charId, ownerUid, aiReplyText) {
+    if (!db.memories || !aiReplyText) return
+    try {
+      var rows = await db.memories.where('chatId').equals(chatId).filter(function(m) {
+        return m.ownerUid === ownerUid && m.charId === charId && m.status !== 'archived'
+      }).toArray()
+      if (!rows.length) return
+      var now = Date.now()
+      rows.forEach(function(m) {
+        var score = getKeywordScore(m, aiReplyText)
+        if (score > 0.25) {
+          recallMemory(m)
+          db.memories.update(m.id, {
+            decayPercent: m.decayPercent,
+            lastRecalledAt: now,
+            status: m.status
+          }).catch(function() {})
+        }
+      })
+    } catch(e) {}
   }
 
   function getEmotionScore(memory) {
@@ -408,9 +442,11 @@
       : '未配置专属 API'
   }
 
-  function buildSummaryPrompt(messages) {
+  function buildSummaryPrompt(messages, charName, userName) {
+    charName = charName || '角色'
+    userName = userName || '用户'
     var lines = messages.map(function(m) {
-      var speaker = m.role === 'assistant' ? '角色' : '用户'
+      var speaker = m.role === 'assistant' ? charName : userName
       return speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
     }).join('\n')
     return `你是一个长期记忆整理器。请根据下面的聊天记录，提取适合长期保存的记忆。
@@ -421,7 +457,7 @@
 3. 禁止使用强烈情绪词汇，例如“极度愤怒”“痛彻心扉”“欣喜若狂”等。
 4. 不要价值升华，不要写感悟，不要总结人生意义。
 5. 禁止加入聊天记录中没有出现的信息。
-6. 标题应尽量简短；内容应控制在150字以内，适合未来角色回复时参考。
+6. 标题应尽量简短；内容应控制在150字以内，适合未来${charName}回复时参考。
 
 请返回合法 JSON，不要输出 Markdown，不要输出 JSON 以外的文字。
 
@@ -451,22 +487,27 @@ JSON 格式：
 ${lines}`
   }
 
-  function buildMeetingSummaryPrompt(messages) {
+  function buildMeetingSummaryPrompt(messages, charName, userName) {
+    charName = charName || '角色'
+    userName = userName || '用户'
     var lines = messages.map(function(m) {
-      var speaker = m.role === 'assistant' ? '角色' : '用户'
+      var speaker = m.role === 'assistant' ? charName : userName
       return speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
     }).join('\n')
     return `你是一个线下见面记忆整理器。请根据下面的见面记录，提取适合长期保存的记忆。
 
 要求：
 1. 使用第三人称叙述。
-2. 客观平实：只记录双方在线下发生的重要事件、表达的偏好、形成的约定或关系变化。
+2. 每条记忆的内容必须按以下5个板块结构化：
+   【当前状态】时间、地点、氛围，各角色的状态（情绪、身体等）
+   【认知与变动】对话中获得的新认知，关系的变化
+   【物品与伏笔】出现的重要物品，对话中暗示的未来事件
+   【未完成的悬念】答应但还没做的事，未解决的问题
+   【剧情总结】3-5句话概括核心事件和情感变化
 3. 区分已经发生的事件和尚未完成的计划，不要将计划写成事实。
 4. 禁止使用强烈情绪词汇，不要进行文学化描写。
-5. 不要价值升华，不要写感悟，不要总结人生意义。
-6. 禁止加入见面记录中没有出现的信息。
-7. 不同事件或信息应拆分为多条记忆。
-8. 标题应尽量简短；内容应控制在150字以内，适合未来互动时参考。
+5. 禁止加入见面记录中没有出现的信息。
+6. 标题应尽量简短；内容按5板块格式，每板块2-3句话。
 
 请返回合法 JSON，不要输出 Markdown，不要输出 JSON 以外的文字。
 
@@ -475,7 +516,7 @@ JSON 格式：
   "memories": [
     {
       "title": "简短标题",
-      "content": "第三人称、客观平实的记忆内容，150字以内",
+      "content": "【当前状态】...【认知与变动】...【物品与伏笔】...【未完成的悬念】...【剧情总结】...",
       "keywords": ["关键词1", "关键词2"],
       "valence": 0,
       "arousal": 0.3,
@@ -485,12 +526,12 @@ JSON 格式：
 }
 
 字段说明：
-- title：尽量简短，用于快速识别这条记忆。
-- content：第三人称客观陈述，150字以内，禁止夸张、抒情、升华。
+- title：尽量简短，用于快速识别。
+- content：按5板块格式书写，每板块2-3句话。板块之间用换行分隔。
 - keywords：用于后续检索的关键词。
-- valence：情感效价，-1 到 1。负数表示负向，0 表示中性，正数表示正向。
-- arousal：唤醒度，0 到 1。越接近平静越低，越涉及冲突、紧张、强烈偏好越高。
-- importance：重要度，1 到 10。长期关系事实、稳定偏好、身份背景更高；临时闲聊更低。
+- valence：情感效价，-1到1。
+- arousal：唤醒度，0到1。
+- importance：重要度，1到10。
 
 见面记录：
 ${lines}`
@@ -541,6 +582,15 @@ ${lines}`
     if (!window.callMemoryAI || !db.memories || !ownerUid || !chatId || !charId) {
       return { ok: false, skipped: true, reason: '记忆系统未就绪', memoryCount: 0, messageCount: 0 }
     }
+    // 查找角色和用户的真实名字
+    var charName = 'AI'
+    var userName = '用户'
+    try {
+      var char = await db.characters.get(charId)
+      if (char) charName = getCharName(char, 'AI')
+      var user = await db.characters.get(ownerUid)
+      if (user) userName = getCharName(user, '用户')
+    } catch(e) {}
     var settings = await getSettings(chatId)
     if (!options.force && !settings.enabled) {
       return { ok: false, skipped: true, reason: '自动总结未开启', memoryCount: 0, messageCount: 0 }
@@ -560,11 +610,11 @@ ${lines}`
     // 存储完整原文（用于重新总结）
     var originalText = fresh.map(function(m) {
       var time = isValidTimestamp(m.createdAt) ? formatMemoryDateTime(Number(m.createdAt)) : ''
-      var role = m.role === 'user' ? '用户' : 'AI'
+      var role = m.role === 'user' ? userName : charName
       return '[' + time + '] ' + role + '：' + (m.content || '')
     }).join('\n')
 
-    var prompt = buildSummaryPrompt(fresh)
+    var prompt = buildSummaryPrompt(fresh, charName, userName)
 
     // 自动重试逻辑：最多尝试2次
     var lastError = null
@@ -668,13 +718,22 @@ ${lines}`
     if (!window.callMemoryAI || !db.memories || !db.memoryRuns || !ownerUid || !chatId || !charId || !sessionId) {
       throw new Error('记忆系统未就绪')
     }
+    // 查找角色和用户的真实名字
+    var charName = 'AI'
+    var userName = '用户'
+    try {
+      var char = await db.characters.get(charId)
+      if (char) charName = getCharName(char, 'AI')
+      var user = await db.characters.get(ownerUid)
+      if (user) userName = getCharName(user, '用户')
+    } catch(e) {}
     var source = Array.isArray(messages) ? messages.filter(function(m) { return String(m.content || '').trim() }) : []
     if (!source.length) throw new Error('没有可总结的见面记录')
 
     // 存储完整原文
     var originalText = source.map(function(m) {
       var time = isValidTimestamp(m.createdAt) ? formatMemoryDateTime(Number(m.createdAt)) : ''
-      var role = m.role === 'user' ? '用户' : 'AI'
+      var role = m.role === 'user' ? userName : charName
       return '[' + time + '] ' + role + '：' + (m.content || '')
     }).join('\n')
 
@@ -695,7 +754,7 @@ ${lines}`
     var settings = await getSettings(chatId)
     var fromMsgId = source[0].id || 0
     var toMsgId = source[source.length - 1].id || fromMsgId
-    var prompt = buildMeetingSummaryPrompt(source)
+    var prompt = buildMeetingSummaryPrompt(source, charName, userName)
 
     // 自动重试逻辑：最多尝试2次
     var lastError = null
@@ -850,15 +909,48 @@ ${lines}`
     }).map(function(entry) {
       return entry.item
     })
-    return orderedForInjection.map(function(x, i) {
+    var result = orderedForInjection.map(function(x, i) {
       var m = x.memory
       var sourceLabel = SOURCE_TYPE_LABEL[m.sourceType] || '微信'
       var memoryTime = getMemoryInjectionSourceAt(m)
       var timeStr = memoryTime ? formatMemoryDateTime(memoryTime) : '未知时间'
+      var relativeStr = memoryTime ? '（' + formatRelativeTime(memoryTime) + '）' : ''
       var layerTag = '【' + (LAYER_LABEL[m.injectionLayer] || '第二层') + '】'
       var keywordsTag = (m.keywords && m.keywords.length) ? ' 关键词：' + m.keywords.join('、') : ''
-      return `${i + 1}. ${layerTag}【${sourceLabel}｜发生时间：${timeStr}】${m.title}：${m.content}${keywordsTag}`
+      return `${i + 1}. ${layerTag}【${sourceLabel}｜${timeStr}${relativeStr}】${m.title}：${m.content}${keywordsTag}`
     }).join('\n')
+
+    // 追加未总结的近期动态（X帖子+朋友圈）
+    var recentActivity = []
+    try {
+      // X帖子（从localStorage读取）
+      var xPosts = JSON.parse(localStorage.getItem('wanwan_x_posts') || '[]')
+      var charXPosts = xPosts.filter(function(p) { return String(p.authorId) === String(charId) })
+        .sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0) })
+        .slice(0, 3)
+      charXPosts.forEach(function(p) {
+        var time = p.createdAt ? formatRelativeTime(p.createdAt) : '最近'
+        recentActivity.push('【X帖子｜' + time + '】' + (p.content || '').slice(0, 100))
+      })
+    } catch(e) {}
+
+    try {
+      // 朋友圈（从db读取）
+      if (db.moments) {
+        var moments = await db.moments.where('charId').equals(charId).toArray()
+        moments.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0) })
+        moments.slice(0, 3).forEach(function(m) {
+          var time = m.createdAt ? formatRelativeTime(m.createdAt) : '最近'
+          recentActivity.push('【朋友圈｜' + time + '】' + (m.text || '').slice(0, 100))
+        })
+      }
+    } catch(e) {}
+
+    if (recentActivity.length) {
+      result += '\n\n【近期动态（未总结）】\n' + recentActivity.join('\n')
+    }
+
+    return result
   }
 
   function formatMemoryDateTime(ts) {
@@ -869,6 +961,22 @@ ${lines}`
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
     })
+  }
+
+  // 相对时间（让AI知道这是多久前的事）
+  function formatRelativeTime(ts) {
+    if (!isValidTimestamp(ts)) return ''
+    var diff = Date.now() - Number(ts)
+    if (diff < 0) return '刚刚'
+    var mins = Math.floor(diff / 60000)
+    if (mins < 1) return '刚刚'
+    if (mins < 60) return mins + '分钟前'
+    var hours = Math.floor(mins / 60)
+    if (hours < 24) return hours + '小时前'
+    var days = Math.floor(hours / 24)
+    if (days < 30) return days + '天前'
+    var months = Math.floor(days / 30)
+    return months + '个月前'
   }
 
   async function listMemories(filter) {
@@ -909,45 +1017,88 @@ ${lines}`
         <input class="input-field" id="mem-edit-title" placeholder="标题" value="${esc(m.title)}">
         <textarea class="input-field" id="mem-edit-content" placeholder="内容，150字以内">${esc(m.content)}</textarea>
         <input class="input-field" id="mem-edit-keywords" placeholder="关键词，用逗号分隔" value="${esc((m.keywords || []).join(','))}">
-        <label class="memory-edit-label">发生时间
-          <input class="input-field" id="mem-edit-source-at" type="datetime-local" step="1" value="${esc(formatDateTimeLocal(m.sourceAt))}">
-        </label>
-        <div class="memory-edit-select-grid">
-          <label class="memory-edit-label">来源
-            <select class="input-field" id="mem-edit-source-type">
-              <option value="wechat" ${m.sourceType !== 'offlineMeet' ? 'selected' : ''}>微信</option>
-              <option value="offlineMeet" ${m.sourceType === 'offlineMeet' ? 'selected' : ''}>线下见面</option>
-            </select>
-          </label>
-          <label class="memory-edit-label">状态
-            <select class="input-field" id="mem-edit-status">
-              ${['active','sleeping','archived'].map(function(status) { return `<option value="${status}" ${m.status === status ? 'selected' : ''}>${STATUS_LABEL[status]}</option>` }).join('')}
-            </select>
-          </label>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">来源</span>
+          <div class="mem-pill-group" id="mem-pills-source">
+            ${Object.keys(SOURCE_TYPE_LABEL).map(function(k) {
+              return '<span class="mem-pill' + (m.sourceType === k ? ' active' : '') + '" data-val="' + k + '">' + SOURCE_TYPE_LABEL[k] + '</span>'
+            }).join('')}
+          </div>
         </div>
-        <div class="memory-edit-grid">
-          <label>效价<input class="input-field" id="mem-edit-valence" type="number" min="-1" max="1" step="0.1" value="${m.valence || 0}"></label>
-          <label>唤醒<input class="input-field" id="mem-edit-arousal" type="number" min="0" max="1" step="0.1" value="${m.arousal || 0.3}"></label>
-          <label>重要度<input class="input-field" id="mem-edit-importance" type="number" min="1" max="10" step="1" value="${m.importance || 5}"></label>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">注入层级</span>
+          <div class="mem-pill-group" id="mem-pills-layer">
+            ${[1,2,3,4].map(function(l) {
+              return '<span class="mem-pill' + ((m.injectionLayer || 2) === l ? ' active' : '') + '" data-val="' + l + '">' + LAYER_LABEL[l] + '</span>'
+            }).join('')}
+          </div>
         </div>
-        <div class="memory-edit-select-grid">
-          <label class="memory-edit-label">注入层级
-            <select class="input-field" id="mem-edit-layer">
-              ${[1,2,3,4].map(function(l) { return `<option value="${l}" ${(m.injectionLayer || 2) === l ? 'selected' : ''}>${LAYER_LABEL[l]}</option>` }).join('')}
-            </select>
-          </label>
-          <label class="memory-edit-label">衰减起始
-            <input class="input-field" id="mem-edit-decay" type="number" min="0" max="100" value="${m.decayPercent != null ? m.decayPercent : 80}">
-          </label>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">情绪方向</span>
+          <div class="mem-pill-group" id="mem-pills-valence">
+            ${[['-1','很消极'],['-0.5','消极'],['0','中性'],['0.5','积极'],['1','很积极']].map(function(v) {
+              var cur = m.valence || 0
+              var isActive = Math.abs(cur - parseFloat(v[0])) < 0.3
+              return '<span class="mem-pill' + (isActive ? ' active' : '') + '" data-val="' + v[0] + '">' + v[1] + '</span>'
+            }).join('')}
+          </div>
         </div>
-        <div class="memory-edit-checkbox-row">
-          <label class="memory-edit-checkbox">
-            <input type="checkbox" id="mem-edit-longterm" ${m.isLongTerm ? 'checked' : ''}>
-            <span>长期记忆（锁定100%，永不衰减）</span>
-          </label>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">情绪强度</span>
+          <div class="mem-pill-group" id="mem-pills-arousal">
+            ${[['0.1','平静'],['0.3','轻微'],['0.5','中等'],['0.7','强烈'],['0.9','非常强烈']].map(function(v) {
+              var cur = m.arousal || 0.3
+              var isActive = Math.abs(cur - parseFloat(v[0])) < 0.2
+              return '<span class="mem-pill' + (isActive ? ' active' : '') + '" data-val="' + v[0] + '">' + v[1] + '</span>'
+            }).join('')}
+          </div>
         </div>
-        <div class="memory-edit-participants">
-          <label class="memory-edit-label">参与人物</label>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">重要程度</span>
+          <div class="mem-pill-group" id="mem-pills-importance">
+            ${[['2','不重要'],['4','一般'],['6','重要'],['8','非常重要'],['10','至关重要']].map(function(v) {
+              var cur = m.importance || 5
+              var isActive = Math.abs(cur - parseInt(v[0])) <= 1
+              return '<span class="mem-pill' + (isActive ? ' active' : '') + '" data-val="' + v[0] + '">' + v[1] + '</span>'
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">衰减起始</span>
+          <div class="mem-pill-group" id="mem-pills-decay">
+            ${[['80','80%'],['60','60%'],['40','40%'],['20','20%'],['0','0%']].map(function(v) {
+              var cur = m.decayPercent != null ? m.decayPercent : 80
+              var isActive = Math.abs(cur - parseInt(v[0])) <= 5
+              return '<span class="mem-pill' + (isActive ? ' active' : '') + '" data-val="' + v[0] + '">' + v[1] + '</span>'
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">状态</span>
+          <div class="mem-pill-group" id="mem-pills-status">
+            ${['active','sleeping','archived'].map(function(s) {
+              return '<span class="mem-pill' + (m.status === s ? ' active' : '') + '" data-val="' + s + '">' + STATUS_LABEL[s] + '</span>'
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="memory-edit-row">
+          <div>
+            <div class="memory-edit-row-label">长期记忆</div>
+            <div class="memory-edit-row-desc">锁定100%，永不衰减</div>
+          </div>
+          <div class="mem-toggle${m.isLongTerm ? ' on' : ''}" id="mem-edit-longterm-toggle"></div>
+        </div>
+
+        <div class="memory-edit-field">
+          <span class="mem-pill-label">参与人物</span>
           <div class="memory-participant-list" id="mem-edit-participants"></div>
         </div>
       </div>
@@ -958,6 +1109,32 @@ ${lines}`
     document.getElementById('app').appendChild(overlay)
     document.getElementById('app').appendChild(modal)
     requestAnimationFrame(function() { overlay.classList.add('show'); modal.classList.add('show') })
+
+    // Pill按钮点击事件（单选）
+    function bindPillGroup(groupId) {
+      var group = modal.querySelector('#' + groupId)
+      if (!group) return
+      group.addEventListener('click', function(e) {
+        var pill = e.target.closest('.mem-pill')
+        if (!pill) return
+        group.querySelectorAll('.mem-pill').forEach(function(p) { p.classList.remove('active') })
+        pill.classList.add('active')
+      })
+    }
+    ;['mem-pills-source','mem-pills-layer','mem-pills-valence','mem-pills-arousal',
+      'mem-pills-importance','mem-pills-decay','mem-pills-status'].forEach(bindPillGroup)
+
+    // 开关点击
+    var toggleEl = modal.querySelector('#mem-edit-longterm-toggle')
+    if (toggleEl) {
+      toggleEl.addEventListener('click', function() { toggleEl.classList.toggle('on') })
+    }
+
+    // 读取pill选中值
+    function getPillVal(groupId, fallback) {
+      var active = modal.querySelector('#' + groupId + ' .mem-pill.active')
+      return active ? active.dataset.val : fallback
+    }
 
     // 加载参与人物列表
     var participantContainer = modal.querySelector('#mem-edit-participants')
@@ -980,21 +1157,19 @@ ${lines}`
     overlay.addEventListener('click', close)
     modal.querySelector('#mem-edit-cancel').addEventListener('click', close)
     modal.querySelector('#mem-edit-save').addEventListener('click', async function() {
-      var sourceAtInput = modal.querySelector('#mem-edit-source-at').value
-      var sourceAt = sourceAtInput ? new Date(sourceAtInput).getTime() : null
       var patch = {
         title: modal.querySelector('#mem-edit-title').value.trim().slice(0, 30) || '未命名记忆',
         content: modal.querySelector('#mem-edit-content').value.trim().slice(0, 150),
         keywords: modal.querySelector('#mem-edit-keywords').value.split(/[,，]/).map(function(k) { return k.trim() }).filter(Boolean),
-        valence: clamp(modal.querySelector('#mem-edit-valence').value, -1, 1, 0),
-        arousal: clamp(modal.querySelector('#mem-edit-arousal').value, 0, 1, 0.3),
-        importance: clamp(modal.querySelector('#mem-edit-importance').value, 1, 10, 5),
-        sourceAt: sourceAt,
-        sourceType: modal.querySelector('#mem-edit-source-type').value === 'offlineMeet' ? 'offlineMeet' : 'wechat',
-        status: STATUS_LABEL[modal.querySelector('#mem-edit-status').value] ? modal.querySelector('#mem-edit-status').value : 'active',
-        decayPercent: parseInt(modal.querySelector('#mem-edit-decay').value) || 80,
-        isLongTerm: modal.querySelector('#mem-edit-longterm').checked,
-        injectionLayer: parseInt(modal.querySelector('#mem-edit-layer').value) || 2,
+        valence: parseFloat(getPillVal('mem-pills-valence', '0')) || 0,
+        arousal: parseFloat(getPillVal('mem-pills-arousal', '0.3')) || 0.3,
+        importance: parseInt(getPillVal('mem-pills-importance', '5')) || 5,
+        sourceAt: m.sourceAt || Date.now(),
+        sourceType: getPillVal('mem-pills-source', 'wechat'),
+        status: getPillVal('mem-pills-status', 'active'),
+        decayPercent: parseInt(getPillVal('mem-pills-decay', '80')) || 80,
+        isLongTerm: toggleEl ? toggleEl.classList.contains('on') : false,
+        injectionLayer: parseInt(getPillVal('mem-pills-layer', '2')) || 2,
         participants: (function() {
           var selected = []
           modal.querySelectorAll('.memory-participant-cb:checked').forEach(function(cb) { selected.push(parseInt(cb.dataset.id)) })
@@ -1003,7 +1178,6 @@ ${lines}`
         updatedAt: Date.now()
       }
       if (!patch.content) { window.toast && window.toast('请填写内容'); return }
-      if (sourceAtInput && !isValidTimestamp(sourceAt)) { window.toast && window.toast('请选择有效的发生时间'); return }
       if (m.id) {
         await db.memories.update(m.id, patch)
       } else {
@@ -1725,6 +1899,7 @@ ${lines}`
     getDecayScore: getDecayScore,
     getDecayPercent: getDecayPercent,
     recallMemory: recallMemory,
+    autoRecallMemories: autoRecallMemories,
     getFailedRuns: getFailedRuns,
     retrySummary: retrySummary
   }

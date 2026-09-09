@@ -178,6 +178,7 @@ function buildMemoryPanelHTML(panel) {
         '</div>' +
         '<div class="mem-decay-bar">' +
           '<div class="mem-decay-fill" style="width:' + decay + '%;background:' + barColor + '"></div>' +
+          '<span class="mem-decay-text">' + decay + '%</span>' +
         '</div>' +
         '<div class="mem-item-content">' +
           escMemHtml(m.title ? (m.title + '：' + m.content) : m.content) +
@@ -328,6 +329,13 @@ async function openMemoryPanel(charId, charName) {
 
   const panel = await loadMemoryPanel(charId)
 
+  // 存储上下文信息（用于手动添加记忆）
+  try {
+    const ownerUid = await db.config.get('currentUserId')
+    panel._ownerUid = ownerUid?.value || 0
+  } catch(e) { panel._ownerUid = 0 }
+  panel._charId = charId
+
   const overlay = document.createElement('div')
   overlay.id = 'mem-panel-overlay'
   overlay.className = 'mem-panel-overlay'
@@ -337,6 +345,18 @@ async function openMemoryPanel(charId, charName) {
       '<div class="mem-panel-header">' +
         '<span class="mem-panel-title">' + escMemHtml(charName) + ' 的记忆</span>' +
         '<button class="mem-panel-close" id="mem-panel-close"><i class="fa-solid fa-xmark"></i></button>' +
+      '</div>' +
+      '<div class="mem-filter-bar">' +
+        '<input class="mem-filter-input" id="mem-filter-search" placeholder="搜索记忆...">' +
+        '<div class="mem-filter-pills" id="mem-filter-pills">' +
+          '<span class="mem-filter-pill active" data-filter="all">全部</span>' +
+          '<span class="mem-filter-pill" data-filter="wechat">微信</span>' +
+          '<span class="mem-filter-pill" data-filter="x">X</span>' +
+          '<span class="mem-filter-pill" data-filter="sms">短信</span>' +
+          '<span class="mem-filter-pill" data-filter="moments">朋友圈</span>' +
+          '<span class="mem-filter-pill" data-filter="offlineMeet">线下</span>' +
+          '<span class="mem-filter-pill" data-filter="manual">手动</span>' +
+        '</div>' +
       '</div>' +
       '<div class="mem-panel-body" id="mem-panel-body">' +
         buildMemoryPanelHTML(panel) +
@@ -353,6 +373,45 @@ async function openMemoryPanel(charId, charName) {
   requestAnimationFrame(() => {
     overlay.classList.add('open')
   })
+
+  // 筛选功能
+  function filterMemories() {
+    const searchTerm = (overlay.querySelector('#mem-filter-search').value || '').toLowerCase()
+    const activeFilter = overlay.querySelector('.mem-filter-pill.active')?.dataset.filter || 'all'
+    const items = overlay.querySelectorAll('.mem-memory-item')
+    items.forEach(item => {
+      const memoryId = item.dataset.memoryId
+      const mem = (panel.memories || []).find(m => String(m.id) === String(memoryId))
+      if (!mem) return
+      let show = true
+      // 类型筛选
+      if (activeFilter !== 'all' && mem.sourceType !== activeFilter) show = false
+      // 搜索筛选
+      if (searchTerm && show) {
+        const hay = [mem.title, mem.content, (mem.keywords || []).join(' ')].join(' ').toLowerCase()
+        if (!hay.includes(searchTerm)) show = false
+      }
+      item.style.display = show ? '' : 'none'
+    })
+  }
+
+  // 筛选pill点击
+  const pillContainer = overlay.querySelector('#mem-filter-pills')
+  if (pillContainer) {
+    pillContainer.addEventListener('click', (e) => {
+      const pill = e.target.closest('.mem-filter-pill')
+      if (!pill) return
+      pillContainer.querySelectorAll('.mem-filter-pill').forEach(p => p.classList.remove('active'))
+      pill.classList.add('active')
+      filterMemories()
+    })
+  }
+
+  // 搜索输入
+  const searchInput = overlay.querySelector('#mem-filter-search')
+  if (searchInput) {
+    searchInput.addEventListener('input', filterMemories)
+  }
 
   // 关闭按钮
   overlay.querySelector('#mem-panel-close').addEventListener('click', () => {
@@ -425,6 +484,7 @@ function showAddMemoryModal(charId, panel, parentOverlay) {
       '<div class="mem-add-field">' +
         '<label class="mem-add-label">类型</label>' +
         '<select class="mem-add-select" id="mem-add-type">' +
+          '<option value="memory">记忆（存入记忆库）</option>' +
           '<option value="item">记忆条目</option>' +
           '<option value="promise">约定</option>' +
           '<option value="belonging">随身物品</option>' +
@@ -442,6 +502,10 @@ function showAddMemoryModal(charId, panel, parentOverlay) {
       '<div class="mem-add-field">' +
         '<label class="mem-add-label">内容</label>' +
         '<textarea class="mem-add-textarea" id="mem-add-content" placeholder="记录发生了什么..."></textarea>' +
+      '</div>' +
+      '<div class="mem-add-field" id="mem-add-keywords-field" style="display:none">' +
+        '<label class="mem-add-label">关键词（逗号分隔）</label>' +
+        '<input class="mem-edit-input" id="mem-add-keywords" placeholder="关键词1,关键词2">' +
       '</div>' +
       '<div class="mem-add-field" id="mem-add-tags-field">' +
         '<label class="mem-add-label">标签</label>' +
@@ -481,6 +545,9 @@ function showAddMemoryModal(charId, panel, parentOverlay) {
     modal.querySelector('#mem-add-date-field').style.display = (type === 'item' || type === 'date') ? '' : 'none'
     modal.querySelector('#mem-add-time-field').style.display = type === 'item' ? '' : 'none'
     modal.querySelector('#mem-add-tags-field').style.display = type === 'item' ? '' : 'none'
+    // 记忆类型显示关键词输入
+    const kwField = modal.querySelector('#mem-add-keywords-field')
+    if (kwField) kwField.style.display = type === 'memory' ? '' : 'none'
   })
 
   // 保存
@@ -489,7 +556,36 @@ function showAddMemoryModal(charId, panel, parentOverlay) {
     const content = modal.querySelector('#mem-add-content').value.trim()
     if (!content) return
 
-    if (type === 'item') {
+    if (type === 'memory') {
+      // 存入记忆库（db.memories）
+      const keywords = (modal.querySelector('#mem-add-keywords').value || '').split(/[,，]/).map(k => k.trim()).filter(Boolean)
+      const mem = {
+        ownerUid: panel._ownerUid || 0,
+        charId: charId,
+        chatId: panel._chatId || 0,
+        title: content.slice(0, 30),
+        content: content,
+        keywords: keywords,
+        valence: 0,
+        arousal: 0.3,
+        importance: 5,
+        sourceType: 'manual',
+        sourceAt: Date.now(),
+        decayPercent: 80,
+        isLongTerm: false,
+        injectionLayer: 2,
+        participants: [charId],
+        lastRecalledAt: null,
+        status: 'active',
+        embedding: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }
+      if (db.memories) await db.memories.add(mem)
+      // 重新加载面板数据
+      const freshPanel = await loadMemoryPanel(charId)
+      Object.assign(panel, freshPanel)
+    } else if (type === 'item') {
       const date = modal.querySelector('#mem-add-date').value
       const time = modal.querySelector('#mem-add-time').value
       const tags = []

@@ -489,19 +489,79 @@ document.addEventListener('DOMContentLoaded', async function() {
   } catch(e) {
     console.error('[月月] 初始化失败:', e)
   } finally {
-    _onSplashReady()
+    // DB加载完成，允许点击开屏立刻进入
+    var loading = document.getElementById('loading')
+    if (loading && window._enterApp) {
+      loading.addEventListener('click', window._enterApp)
+    }
   }
 
-  // ===== 保活音频 visibilitychange 恢复 =====
+  // ===== 后台保活系统 =====
+  // 1. 保活音频 — 页面可见时播放静音音频防止浏览器休眠
   document.addEventListener('visibilitychange', async function() {
-    if (document.visibilityState !== 'visible') return
-    if (window._avgBgmActive) return  // 橙光 BGM 播放中自带保活，避免双音频流
+    if (window._avgBgmActive) return
     var cfg = await db.config.get('keepAliveEnabled')
     if (!cfg || !cfg.value) return
     var audio = document.getElementById('keepalive-audio')
-    if (audio && audio.paused) {
-      audio.volume = 0
-      audio.play().catch(function() {})
+    if (!audio) return
+    if (document.visibilityState === 'visible') {
+      // 页面恢复可见：重启音频
+      if (audio.paused) { audio.volume = 0; audio.play().catch(function() {}) }
+    } else {
+      // 页面隐藏：也保持音频播放（部分浏览器支持）
+      if (audio.paused) { audio.volume = 0; audio.play().catch(function() {}) }
+    }
+  })
+
+  // 2. Service Worker注册 — 后台ping通知
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').then(function(reg) {
+      if (reg.active) reg.active.postMessage('start')
+      reg.addEventListener('updatefound', function() {
+        var nw = reg.installing
+        if (nw) nw.addEventListener('statechange', function() {
+          if (nw.state === 'activated') nw.postMessage('start')
+        })
+      })
+    }).catch(function() {})
+
+    // 处理SW的keepalive-ping
+    navigator.serviceWorker.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'keepalive-ping') {
+        // 收到SW ping，确保keepalive音频在播放
+        var audio = document.getElementById('keepalive-audio')
+        if (audio && audio.paused) { audio.volume = 0; audio.play().catch(function() {}) }
+      }
+    })
+  }
+
+  // 3. Web Locks — 告诉浏览器此页面正在使用，不要杀死
+  if ('locks' in navigator) {
+    navigator.locks.request('wanwan-alive', { mode: 'shared' }, function() {
+      // 锁定期间页面不会被浏览器杀死
+      return new Promise(function() {}) // 永不释放
+    }).catch(function() {})
+  }
+
+  // 4. 阻止页面被卸载（如果正在API调用中）
+  window.addEventListener('beforeunload', function(e) {
+    if (window._pendingAPIcalls > 0) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+  })
+
+  // 5. 页面隐藏时定期唤醒keepalive音频
+  var _bgKeepaliveTimer = null
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+      // 每30秒尝试恢复音频
+      _bgKeepaliveTimer = setInterval(function() {
+        var audio = document.getElementById('keepalive-audio')
+        if (audio && audio.paused) { audio.volume = 0; audio.play().catch(function() {}) }
+      }, 30000)
+    } else {
+      if (_bgKeepaliveTimer) { clearInterval(_bgKeepaliveTimer); _bgKeepaliveTimer = null }
     }
   })
 })

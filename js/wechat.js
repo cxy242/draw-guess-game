@@ -1546,9 +1546,26 @@ window.closeWechatChatWindow = function() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) return
-  const page = document.getElementById('wechat-page')
-  page?._flushWechatChatComposeText?.().catch(err => console.warn('保存微信顶部文字失败', err))
+  if (document.hidden) {
+    const page = document.getElementById('wechat-page')
+    page?._flushWechatChatComposeText?.().catch(err => console.warn('保存微信顶部文字失败', err))
+    // 恢复keepalive音频（页面隐藏时也保持播放）
+    try {
+      const audio = document.getElementById('keepalive-audio')
+      if (audio && audio.paused) { audio.volume = 0; audio.play().catch(() => {}) }
+    } catch(e) {}
+  } else {
+    // 页面重新可见时，刷新当前聊天（显示后台AI回复）
+    try {
+      const cw = document.querySelector('.private-chat-window')
+      if (cw && cw.dataset.chatId) {
+        const chatId = parseInt(cw.dataset.chatId)
+        if (chatId && window.refreshChat) {
+          setTimeout(() => refreshChat(cw, { scrollToBottom: true }).catch(() => {}), 300)
+        }
+      }
+    } catch(e) {}
+  }
 })
 
 window.addEventListener('pagehide', () => {
@@ -4721,20 +4738,23 @@ function bindChatWindowEvents(page) {
   // 左侧魔法棒按钮：唯一触发 AI 回复的入口
   bindWanWanMobileAction(page.querySelector('#btn-chat-reply'), doRequestAIReply)
 
-  // 点击角色名字打开记忆面板（单击，双击是拍一拍）
+  // 点击角色名字打开记忆面板
   const headerNameEl = page.querySelector('.chat-header-name')
   if (headerNameEl) {
-    let singleClickTimer = null
+    let _mpClickTimer = null
+    headerNameEl.style.cursor = 'pointer'
     headerNameEl.addEventListener('click', (e) => {
-      // 如果是双击，不触发单击
-      if (singleClickTimer) { clearTimeout(singleClickTimer); singleClickTimer = null; return }
-      singleClickTimer = setTimeout(() => {
-        singleClickTimer = null
-        if (window.openMemoryPanel) {
-          const charId = parseInt(page.dataset.charId)
-          openMemoryPanel(charId, getWechatDisplayName(char))
-        }
-      }, 250)
+      // 双击取消单击（拍一拍用）
+      if (_mpClickTimer) { clearTimeout(_mpClickTimer); _mpClickTimer = null; return }
+      _mpClickTimer = setTimeout(() => {
+        _mpClickTimer = null
+        try {
+          if (window.openMemoryPanel) {
+            const charId = parseInt(page.dataset.charId)
+            if (charId) openMemoryPanel(charId, getWechatDisplayName(char))
+          }
+        } catch(err) { console.error('[MemoryPanel] 打开失败:', err) }
+      }, 200)
     })
   }
 
@@ -6193,6 +6213,14 @@ function startPrivateAIReply(chatId, charId, options = {}) {
         setTimeout(() => {
           window.WanWanMemory.summarizeIfNeeded(chatId, charId, _wechatUid)
         }, 0)
+      }
+      // 自动回忆：AI回复后检查是否引用了记忆内容
+      if (window.WanWanMemory?.autoRecallMemories) {
+        try {
+          const batch = await getTrailingAssistantBatch(chatId)
+          const replyText = batch.map(m => m.content || '').join(' ')
+          if (replyText) window.WanWanMemory.autoRecallMemories(chatId, charId, _wechatUid, replyText)
+        } catch(e) {}
       }
     } catch (e) {
       const cw = _getVisibleChatWindow('chat', chatId)

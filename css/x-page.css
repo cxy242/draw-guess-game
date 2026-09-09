@@ -27,7 +27,7 @@
   --x-scrollbar: #cfd9de;
 }
 
-:root.theme-dark {
+.theme-dark {
   --x-bg: #000000;
   --x-text: #e7e9ea;
   --x-text-secondary: #71767b;

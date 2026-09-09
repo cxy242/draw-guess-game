@@ -507,6 +507,10 @@ function renderXMainPage(user) {
   if (window.openPage) window.openPage(page)
   else document.body.appendChild(page)
 
+  // 应用X主题（只影响X页面内部）
+  var _xSettings = xLoadSettings()
+  applyXTheme(_xSettings.theme)
+
   // 渲染各Tab内容
   renderXHomeTab(page, user)
   renderXSearchTab(page, user)
@@ -2021,6 +2025,9 @@ function showXSettingsPage(user) {
   if (window.openPage) window.openPage(page)
   else document.body.appendChild(page)
 
+  // 设置页面也应用当前主题
+  page.classList.toggle('theme-dark', settings.theme === 'dark')
+
   // 返回
   page.querySelector('.x-settings-back').addEventListener('click', function() { closePage('x-settings-page') })
 
@@ -2099,10 +2106,31 @@ function loadXCharChecklist(page, settings) {
   })
 }
 
-// 应用主题
+// 应用主题（只影响X页面，不污染全局）
 function applyXTheme(theme) {
-  document.documentElement.classList.toggle('theme-dark', theme === 'dark')
+  var isDark = theme === 'dark'
+  // 给所有X相关页面应用主题
+  var xIds = ['x-page','x-settings-page','x-detail-page','x-compose',
+    'x-login-page','x-char-profile','x-profile-edit-page','x-gen-dialog','x-follow-list-panel']
+  xIds.forEach(function(id) {
+    var el = document.getElementById(id)
+    if (el) el.classList.toggle('theme-dark', isDark)
+  })
 }
+// 自动给新创建的X子页面应用当前主题
+var _xThemeObserver = new MutationObserver(function(mutations) {
+  var settings = xLoadSettings()
+  var isDark = settings.theme === 'dark'
+  mutations.forEach(function(m) {
+    m.addedNodes.forEach(function(node) {
+      if (node.nodeType !== 1) return
+      if (node.id && node.id.startsWith('x-')) {
+        node.classList.toggle('theme-dark', isDark)
+      }
+    })
+  })
+})
+_xThemeObserver.observe(document.body, { childList: true })
 
 // ===== 编辑个人资料 =====
 function showXProfileEdit(user) {
@@ -2538,9 +2566,4 @@ async function autoPostTick(user) {
   }
 }
 
-// ===== 初始化 =====
-// 确保应用正确的主题
-(function() {
-  var settings = xLoadSettings()
-  applyXTheme(settings.theme)
-})()
+// 主题在 renderXMainPage 中页面创建后应用

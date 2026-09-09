@@ -3146,6 +3146,8 @@ function getApiConsoleErrorMessage(parsed, rawText, fallback) {
 async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) {
   var startedAt = Date.now()
   var response
+  // 后台保护：追踪API调用数量，防止页面被杀死
+  window._pendingAPIcalls = (window._pendingAPIcalls || 0) + 1
   try {
     response = await fetch(cfg.url + '/chat/completions', {
       method: 'POST',
@@ -3153,6 +3155,7 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
       body: JSON.stringify(body)
     })
   } catch (networkError) {
+    window._pendingAPIcalls = Math.max(0, (window._pendingAPIcalls || 1) - 1)
     if (captureEnabled && await isApiConsoleCaptureEnabled()) {
       addApiConsoleRecord({
         id: 'api-' + startedAt + '-' + Math.random().toString(36).slice(2),
@@ -3237,6 +3240,7 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
   }
 
   // API成功
+  window._pendingAPIcalls = Math.max(0, (window._pendingAPIcalls || 1) - 1)
   if (window.PetBall) PetBall.setApiStatus('ok')
   if (window.PetBall) PetBall.addApiLog({ model: cfg.model || '?', ok: true, time: new Date().toLocaleTimeString() })
   if (window.PetBall) PetBall.happy()
