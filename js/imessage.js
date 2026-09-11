@@ -116,14 +116,12 @@ function buildSmsListPage() {
       '<button class="imessage-new-btn" id="imessage-new-btn">' +
         '<i class="fa fa-plus"></i>' +
       '</button>' +
+      '<button class="imessage-new-btn" id="imessage-anon-settings-btn" onclick="window.showAnonSmsSettings()" style="margin-left:4px">' +
         '<i class="fa-solid fa-gear"></i>' +
       '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
     '</div>' +
-    '<div class="imessage-list" id="imessage-list"></div>' +
-      '<div style="text-align:center;padding:12px 0 20px">' +
-        '<button onclick="window.showAnonSmsSettings()" style="background:none;border:none;color:#636366;font-size:12px;cursor:pointer;padding:6px 12px;text-decoration:underline">匿名短信设置</button>' +
-      '</div>' +
+    '<div class="imessage-list" id="imessage-list"></div>'
 
   bindSmsListEvents(page)
   return page
@@ -253,7 +251,7 @@ async function openSmsChat(conversationId, listPage) {
         '<img class="imessage-chat-avatar" src="' + escSmsHtml(conv.remoteAvatar || SMS_DEFAULT_AVATAR) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
         '<span class="imessage-chat-name">' + escSmsHtml(conv.remoteName || conv.remotePhone) + '</span>' +
       '</div>' +
-      '<span style="width:32px"></span>' +
+      '<button class="imessage-chat-settings" onclick="window.showAnonSmsSettings()" style="background:none;border:none;color:#8e8e93;font-size:16px;cursor:pointer;padding:8px;margin-left:auto"><i class="fa-solid fa-gear"></i></button>' +
     '</div>' +
     '<div class="imessage-chat-messages" id="imessage-chat-msgs"></div>' +
     '<div class="imessage-chat-input">' +
@@ -987,5 +985,3 @@ window.showAnonSmsSettings = function() {
     window.openSmsChat = enhanced
   }
 })()
-
-
