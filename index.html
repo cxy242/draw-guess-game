@@ -1,8 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <!-- 资源预加载提示 -->
+  <link rel="preload" href="vendor/fonts/eb-garamond.css" as="style">
+  <link rel="preload" href="vendor/css/fontawesome.min.css" as="style">
+  <link rel="preload" href="vendor/js/jszip.min.js" as="script">
+  <link rel="preload" href="vendor/js/dexie.min.js" as="script">
+  <link rel="preload" href="js/main.js" as="script">
+  <link rel="preload" href="js/db.js" as="script">
+  <link rel="preload" href="css/base.css" as="style">
+  <link rel="preload" href="css/home.css" as="style">
+
   <meta charset="UTF-8">
-  <link href="https://fonts.googleapis.cn/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+  <link href="vendor/fonts/eb-garamond.css" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,19 +24,19 @@
   <title>月月机</title>
 
   <!-- Font Awesome 7.2.0 -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css">
+  <link rel="stylesheet" href="vendor/css/fontawesome.min.css">
 
   <!-- Flaticon UIcons -->
-  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-brands/css/uicons-brands.css">
-  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-thin-rounded/css/uicons-thin-rounded.css">
-  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-thin-straight/css/uicons-thin-straight.css">
-  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-regular-rounded/css/uicons-regular-rounded.css">
+  <link rel="stylesheet" href="vendor/css/uicons-brands.css">
+  <link rel="stylesheet" href="vendor/css/uicons-thin-rounded.css">
+  <link rel="stylesheet" href="vendor/css/uicons-thin-straight.css">
+  <link rel="stylesheet" href="vendor/css/uicons-regular-rounded.css">
 
   <!-- Dexie 多CDN备用加载 -->
   <script>
   (function() {
     var cdns = [
-      'https://cdn.jsdelivr.net/npm/dexie@4.4.3/dist/dexie.min.js',
+      'vendor/js/dexie.min.js',
       'https://unpkg.com/dexie@4.4.3/dist/dexie.min.js',
       'https://cdnjs.cloudflare.com/ajax/libs/dexie/4.4.3/dexie.min.js'
     ]
@@ -44,7 +54,7 @@
   </script>
 
   <!-- JSZip -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="vendor/js/jszip.min.js" defer></script>
 
   <!-- CSS 引用顺序 -->
   <link rel="stylesheet" href="css/base.css?v=2.5.5">
@@ -107,60 +117,60 @@
 
   <!-- JS 加载顺序 -->
   <script src="js/db.js?v=1.0.6"></script>
-  <script src="js/chill-thought.js?v=2.5.5"></script>
-  <script src="js/auto-moments.js?v=2.5.5"></script>
+  <script src="js/chill-thought.js?v=2.5.5" defer></script>
+  <script src="js/auto-moments.js?v=2.5.5" defer></script>
   <link rel="stylesheet" href="css/auto-moments.css?v=2.5.5">
-  <script src="js/pet-ball.js?v=2.5.5"></script>
+  <script src="js/pet-ball.js?v=2.5.5" defer></script>
   <script src="js/main.js?v=2.5.62"></script>
-  <script src="js/home.js?v=1.0.4"></script>
-  <script src="js/settings.js?v=2.5.62"></script>
-  <script src="js/about.js?v=2.5.62"></script>
-  <script src="js/data.js?v=1.0.14"></script>
-  <script src="js/export-stream.js?v=1.0.0"></script>
-  <script src="js/data-stream.js?v=1.0.4"></script>
-  <script src="js/sync.js?v=1.0.8"></script>
-  <script src="js/tutorial.js?v=1.0.7"></script>
-  <script src="js/character.js?v=1.0.3"></script>
-  <script src="js/lorebook.js?v=1.0.5"></script>
-  <script src="js/memory.js?v=2.5.62"></script>
-  <script src="js/chill-thought.js?v=2.5.5"></script>
-  <script src="js/wechat.js?v=2.5.62"></script>
-  <script src="js/tutorial-chatgenerator.js?v=1.0.0"></script>
-  <script src="js/online.js?v=1.0.3"></script>
-  <script src="js/miss-you.js?v=1.0.6"></script>
-  <script src="js/icity.js?v=1.0.4"></script>
-  <script src="js/phone.js?v=2.5.53"></script>
-  <script src="js/phone-wechat.js?v=1.0.2"></script>
-  <script src="js/phone-apps.js?v=1.0.0"></script>
-  <script src="js/music-page.js?v=1.0.3"></script>
-  <script src="js/wallet.js?v=1.0.3"></script>
-  <script src="js/x-page.js?v=2.5.62"></script>
-  <script src="js/ig-page.js?v=1.0.3"></script>
-  <script src="js/ins-page.js?v=1.0.3"></script>
-  <script src="js/work.js?v=1.0.3"></script>
-  <script src="js/bank.js?v=1.0.3"></script>
-  <script src="js/imessage.js?v=2.5.53"></script>
-  <script src="js/memory-panel.js?v=2.5.62"></script>
-  <script src="js/wechat-login-modal.js?v=1.0.3"></script>
-  <script src="js/taobao.js?v=1.0.3"></script>
-  <script src="js/bookstore.js?v=1.0.3"></script>
-  <script src="js/yumyum.js?v=1.0.3"></script>
-  <script src="js/anywhere-door.js?v=1.0.4"></script>
-  <script src="js/game-hall.js?v=1.7.0"></script>
-  <script src="js/werewolf-game.js?v=1.0.3"></script>
-  <script src="js/spicy-ai-thinking.js?v=1.7.1"></script>
-  <script src="js/spicy-modals.js?v=1.7.1"></script>
-  <script src="js/spicy-invite.js?v=2.5.5"></script>
-  <script src="js/spicy-loading.js?v=1.7.1"></script>
-  <script src="js/spicy-assets.js?v=1.7.1"></script>
-  <script src="js/spicy-settlement.js?v=1.7.1"></script>
-  <script src="js/spicy-memory.js?v=1.7.1"></script>
-  <script src="js/spicy-task.js?v=1.7.1"></script>
-  <script src="js/spicy-data.js?v=1.8.0"></script>
-  <script src="js/spicy-offline.js?v=1.8.0"></script>
-  <script src="js/spicy-monopoly.js?v=2.5.5"></script>
-  <script src="js/avg.js?v=1.1.0"></script>
-  <script src="js/terminal.js?v=1.1.5"></script>
+  <script src="js/home.js?v=1.0.4" defer></script>
+  <script src="js/settings.js?v=2.5.62" defer></script>
+  <script src="js/about.js?v=2.5.62" defer></script>
+  <script src="js/data.js?v=1.0.14" defer></script>
+  <script src="js/export-stream.js?v=1.0.0" defer></script>
+  <script src="js/data-stream.js?v=1.0.4" defer></script>
+  <script src="js/sync.js?v=1.0.8" defer></script>
+  <script src="js/tutorial.js?v=1.0.7" defer></script>
+  <script src="js/character.js?v=1.0.3" defer></script>
+  <script src="js/lorebook.js?v=1.0.5" defer></script>
+  <script src="js/memory.js?v=2.5.62" defer></script>
+  <script src="js/chill-thought.js?v=2.5.5" defer></script>
+  <script src="js/wechat.js?v=2.5.62" defer></script>
+  <script src="js/tutorial-chatgenerator.js?v=1.0.0" defer></script>
+  <script src="js/online.js?v=1.0.3" defer></script>
+  <script src="js/miss-you.js?v=1.0.6" defer></script>
+  <script src="js/icity.js?v=1.0.4" defer></script>
+  <script src="js/phone.js?v=2.5.53" defer></script>
+  <script src="js/phone-wechat.js?v=1.0.2" defer></script>
+  <script src="js/phone-apps.js?v=1.0.0" defer></script>
+  <script src="js/music-page.js?v=1.0.3" defer></script>
+  <script src="js/wallet.js?v=1.0.3" defer></script>
+  <script src="js/x-page.js?v=2.5.62" defer></script>
+  <script src="js/ig-page.js?v=1.0.3" defer></script>
+  <script src="js/ins-page.js?v=1.0.3" defer></script>
+  <script src="js/work.js?v=1.0.3" defer></script>
+  <script src="js/bank.js?v=1.0.3" defer></script>
+  <script src="js/imessage.js?v=2.5.53" defer></script>
+  <script src="js/memory-panel.js?v=2.5.62" defer></script>
+  <script src="js/wechat-login-modal.js?v=1.0.3" defer></script>
+  <script src="js/taobao.js?v=1.0.3" defer></script>
+  <script src="js/bookstore.js?v=1.0.3" defer></script>
+  <script src="js/yumyum.js?v=1.0.3" defer></script>
+  <script src="js/anywhere-door.js?v=1.0.4" defer></script>
+  <script src="js/game-hall.js?v=1.7.0" defer></script>
+  <script src="js/werewolf-game.js?v=1.0.3" defer></script>
+  <script src="js/spicy-ai-thinking.js?v=1.7.1" defer></script>
+  <script src="js/spicy-modals.js?v=1.7.1" defer></script>
+  <script src="js/spicy-invite.js?v=2.5.5" defer></script>
+  <script src="js/spicy-loading.js?v=1.7.1" defer></script>
+  <script src="js/spicy-assets.js?v=1.7.1" defer></script>
+  <script src="js/spicy-settlement.js?v=1.7.1" defer></script>
+  <script src="js/spicy-memory.js?v=1.7.1" defer></script>
+  <script src="js/spicy-task.js?v=1.7.1" defer></script>
+  <script src="js/spicy-data.js?v=1.8.0" defer></script>
+  <script src="js/spicy-offline.js?v=1.8.0" defer></script>
+  <script src="js/spicy-monopoly.js?v=2.5.5" defer></script>
+  <script src="js/avg.js?v=1.1.0" defer></script>
+  <script src="js/terminal.js?v=1.1.5" defer></script>
   <!-- MoonScape 星盘动画 -->
   <script>
   (function(){
@@ -601,3 +611,4 @@
   </script>
 </body>
 </html>
+
