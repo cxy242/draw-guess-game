@@ -728,24 +728,6 @@ window.sendAnonymousCharSMS = sendAnonymousCharSMS
 // ===== SMS记忆联通 + 聊天总结 + 设置 =====
 
 // 会话计时（25分钟触发匿名短信）
-var _smsSessionStart = Date.now()
-var _smsSessionTriggered = false
-var _smsCheckTimer = setInterval(function() {
-  var elapsed = Date.now() - _smsSessionStart
-  if (elapsed > 25 * 60 * 1000 && !_smsSessionTriggered) {
-    _smsSessionTriggered = true
-    console.log('[AnonSMS] 25分钟触发条件达成')
-    // 延迟1-3分钟再发，更自然
-    var delay = (60 + Math.random() * 120) * 1000
-    setTimeout(function() {
-      var user = _smsUserPhones[0]
-      if (user && window.sendAnonymousCharSMS) {
-        window.sendAnonymousCharSMS(user)
-        localStorage.setItem('anonSmsLastTime', String(Date.now()))
-      }
-    }, delay)
-  }
-}, 60000)
 
 // 聊天总结按钮（写入记忆库）
 window.summarizeSmsToMemory = async function(conversationId) {
