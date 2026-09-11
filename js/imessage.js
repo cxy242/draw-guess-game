@@ -116,7 +116,6 @@ function buildSmsListPage() {
       '<button class="imessage-new-btn" id="imessage-new-btn">' +
         '<i class="fa fa-plus"></i>' +
       '</button>' +
-      '<button class="imessage-new-btn" id="imessage-anon-settings-btn" onclick="window.showAnonSmsSettings()" style="margin-left:4px">' +
         '<i class="fa-solid fa-gear"></i>' +
       '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
