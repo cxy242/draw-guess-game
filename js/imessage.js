@@ -122,7 +122,6 @@ function buildSmsListPage() {
       '<button class="imessage-new-btn" id="imessage-new-btn">' +
         '<i class="fa fa-plus"></i>' +
       '</button>' +
-      '<button class="imessage-new-btn" id="imessage-anon-settings-btn" onclick="window.showAnonSmsSettings()" style="margin-left:4px">' +
         '<i class="fa-solid fa-gear"></i>' +
       '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
@@ -257,7 +256,6 @@ async function openSmsChat(conversationId, listPage) {
         '<img class="imessage-chat-avatar" src="' + escSmsHtml(conv.remoteAvatar || SMS_DEFAULT_AVATAR) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
         '<span class="imessage-chat-name">' + escSmsHtml(conv.remoteName || conv.remotePhone) + '</span>' +
       '</div>' +
-      '<button class="imessage-chat-settings" onclick="window.showAnonSmsSettings()" style="background:none;border:none;color:#8e8e93;font-size:16px;cursor:pointer;padding:8px;margin-left:auto"><i class="fa-solid fa-gear"></i></button>' +
     '</div>' +
     '<div class="imessage-chat-messages" id="imessage-chat-msgs"></div>' +
     '<div class="imessage-chat-input">' +
