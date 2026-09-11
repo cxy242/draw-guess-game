@@ -120,7 +120,10 @@ function buildSmsListPage() {
       '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
     '</div>' +
-    '<div class="imessage-list" id="imessage-list"></div>'
+    '<div class="imessage-list" id="imessage-list"></div>' +
+      '<div style="text-align:center;padding:12px 0 20px">' +
+        '<button onclick="window.showAnonSmsSettings()" style="background:none;border:none;color:#636366;font-size:12px;cursor:pointer;padding:6px 12px;text-decoration:underline">匿名短信设置</button>' +
+      '</div>' +
 
   bindSmsListEvents(page)
   return page
@@ -984,4 +987,5 @@ window.showAnonSmsSettings = function() {
     window.openSmsChat = enhanced
   }
 })()
+
 
