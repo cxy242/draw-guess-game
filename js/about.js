@@ -51,7 +51,7 @@ window.openAboutDevicePage = function() {
     var valEl = page.querySelector('#val-check-update')
     valEl.textContent = '检查中...'
     valEl.style.color = '#8e8e93'
-    fetch('https://draw-guess-game-production-0fdb.up.railway.app/version.json?' + Date.now())
+    fetch('/version.json?' + Date.now())
       .then(function(r) { return r.json() })
       .then(function(data) {
         if (data.version && data.version !== APP_VERSION) {
