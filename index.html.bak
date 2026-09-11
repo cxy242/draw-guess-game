@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <link href="vendor/fonts/eb-garamond.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.cn/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,19 +14,19 @@
   <title>月月机</title>
 
   <!-- Font Awesome 7.2.0 -->
-  <link rel="stylesheet" href="vendor/css/fontawesome.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css">
 
   <!-- Flaticon UIcons -->
-  <link rel="stylesheet" href="vendor/css/uicons-brands.css">
-  <link rel="stylesheet" href="vendor/css/uicons-thin-rounded.css">
-  <link rel="stylesheet" href="vendor/css/uicons-thin-straight.css">
-  <link rel="stylesheet" href="vendor/css/uicons-regular-rounded.css">
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-brands/css/uicons-brands.css">
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-thin-rounded/css/uicons-thin-rounded.css">
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-thin-straight/css/uicons-thin-straight.css">
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-regular-rounded/css/uicons-regular-rounded.css">
 
   <!-- Dexie 多CDN备用加载 -->
   <script>
   (function() {
     var cdns = [
-      'vendor/js/dexie.min.js',
+      'https://cdn.jsdelivr.net/npm/dexie@4.4.3/dist/dexie.min.js',
       'https://unpkg.com/dexie@4.4.3/dist/dexie.min.js',
       'https://cdnjs.cloudflare.com/ajax/libs/dexie/4.4.3/dexie.min.js'
     ]
@@ -44,7 +44,7 @@
   </script>
 
   <!-- JSZip -->
-  <script src="vendor/js/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <!-- CSS 引用顺序 -->
   <link rel="stylesheet" href="css/base.css?v=2.5.5">
