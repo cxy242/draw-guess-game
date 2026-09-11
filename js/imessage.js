@@ -67,6 +67,12 @@ window.showMessagePage = async function() {
   var page = buildSmsListPage()
   window.openPage(page)
   loadSmsConversations(page)
+  // 匿名短信计时通知
+  if (!_smsSessionTriggered) {
+    var remaining = Math.max(0, 25 * 60 * 1000 - (Date.now() - _smsSessionStart))
+    var minutes = Math.ceil(remaining / 60000)
+    window.toast && window.toast('匿名短信将在' + minutes + '分钟后触发')
+  }
 }
 
 // ===== 无手机号页面 =====
@@ -728,6 +734,25 @@ window.sendAnonymousCharSMS = sendAnonymousCharSMS
 // ===== SMS记忆联通 + 聊天总结 + 设置 =====
 
 // 会话计时（25分钟触发匿名短信）
+var _smsSessionStart = Date.now()
+var _smsSessionTriggered = false
+var _smsCheckTimer = setInterval(function() {
+  var elapsed = Date.now() - _smsSessionStart
+  if (elapsed > 25 * 60 * 1000 && !_smsSessionTriggered) {
+    _smsSessionTriggered = true
+    console.log('[AnonSMS] 25分钟触发条件达成')
+    window.toast && window.toast('收到一条匿名短信')
+    var delay = (30 + Math.random() * 60) * 1000
+    setTimeout(function() {
+      var user = _smsUserPhones[0]
+      if (user && window.sendAnonymousCharSMS) {
+        window.sendAnonymousCharSMS(user)
+        localStorage.setItem('anonSmsLastTime', String(Date.now()))
+      }
+    }, delay)
+  }
+}, 60000)
+
 
 // 聊天总结按钮（写入记忆库）
 window.summarizeSmsToMemory = async function(conversationId) {
@@ -967,3 +992,4 @@ window.showAnonSmsSettings = function() {
     window.openSmsChat = enhanced
   }
 })()
+
