@@ -561,7 +561,6 @@ function renderXMainPage(user) {
   // 启动自动发帖定时器
   startXAutoPostScheduler(user)
   // 启动匿名短信调度器
-  if (window.startAnonSmsScheduler) startAnonSmsScheduler(user)
 }
 
 function buildXBottomBar() {
