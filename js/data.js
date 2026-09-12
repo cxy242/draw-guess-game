@@ -1129,15 +1129,42 @@ window.WanWanBackupStreams.createJsonStream = function(options) {
   })
 }
 
-// ===== 下载JSON文件 =====
+// ===== 下载JSON文件（浏览器+APK通用）=====
 function downloadJSON(data, filename) {
-  var blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+  var jsonStr = JSON.stringify(data)
+  var blob = new Blob([jsonStr], { type: 'application/json' })
+  var blobUrl = URL.createObjectURL(blob)
+
+  // 方法1: <a download>（浏览器有效，APK WebView无效）
   var a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
+  a.href = blobUrl
   a.download = filename
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  var url = a.href
-  setTimeout(function() { URL.revokeObjectURL(url) }, 60000)
+  document.body.removeChild(a)
+
+  // 方法2: WebView fallback — 用新窗口打开blob URL触发下载
+  // APK的WebView不支持<a download>，但支持window.open(blob)
+  var isWebView = /wv|WebView/i.test(navigator.userAgent) || !!window.Android
+  if (isWebView) {
+    setTimeout(function() {
+      try { window.open(blobUrl) } catch(e) {}
+    }, 300)
+  }
+
+  // 方法3: 最终兜底 — 提示用户手动保存
+  setTimeout(function() {
+    // 如果上面都没成功，提供base64文本复制方案
+    var reader = new FileReader()
+    reader.onload = function() {
+      var base64 = reader.result
+      window._exportedDataBase64 = base64
+      window._exportedDataFilename = filename
+    }
+    reader.readAsDataURL(blob)
+    URL.revokeObjectURL(blobUrl)
+  }, 60000)
 }
 
 // ===== 关闭Sheet弹窗 =====
