@@ -294,7 +294,8 @@ window.isWanWanNotificationEnabled = async function() {
   if (!window.db || !db.config) return Notification.permission === 'granted'
   try {
     var cfg = await db.config.get('notificationEnabled')
-    if (cfg) return cfg.value === true
+    // Default: enabled (unless explicitly set to false)
+    if (cfg && cfg.value === false) return false
   } catch (err) {
     console.warn('[月月] 读取通知设置失败:', err)
   }

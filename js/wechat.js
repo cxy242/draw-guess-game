@@ -4610,6 +4610,11 @@ async function showGroupAIMessagePopupIfNeeded(groupId, group, memberId, content
 async function notifyPrivateAIMessageIfBackground(chatId, charId, content, createdAt) {
   if (document.visibilityState === 'visible') return
   if (!window.sendWanWanNotification) return
+  // Check per-chat notification setting (not just global)
+  try {
+    const chatNotify = await getChatMsgNotifySettings(chatId)
+    if (!chatNotify.enabled) return
+  } catch(e) {}
   try {
     const displayChar = await getWechatDisplayCharacter(charId)
     const title = getWechatDisplayName(displayChar)
@@ -17104,10 +17109,21 @@ function bindChatSettingsDirtyTracking(settingsPage) {
 }
 
 function bindMsgNotifyEvents(settingsPage) {
-  settingsPage.querySelector('#cs-msg-notify-enabled')?.addEventListener('change', e => {
+  settingsPage.querySelector('#cs-msg-notify-enabled')?.addEventListener('change', async e => {
     const fields = settingsPage.querySelector('#cs-msg-notify-fields')
     if (fields) fields.style.display = e.target.checked ? '' : 'none'
     markChatSettingsDirty(settingsPage)
+    // Enable global browser notification when per-chat is enabled
+    if (e.target.checked) {
+      try {
+        await db.config.put({ key: 'notificationEnabled', value: true })
+        if (window.ensureWanWanNotificationPermission) {
+          const granted = await window.ensureWanWanNotificationPermission()
+          if (granted) window.toast && window.toast('已开启通知')
+          else window.toast && window.toast('请在系统设置中允许通知')
+        }
+      } catch(err) {}
+    }
   })
 }
 
