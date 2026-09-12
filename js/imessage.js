@@ -150,6 +150,9 @@ function buildPhoneDropdownHTML() {
 
 function bindSmsListEvents(page) {
   page.querySelector('#imessage-list-back').addEventListener('click', function() {
+    // 返回前清理可能残留的设置面板
+    var p = document.getElementById('anon-sms-settings-panel')
+    if (p) p.remove()
     window.closePage('imessage-page')
   })
 
@@ -264,6 +267,9 @@ async function openSmsChat(conversationId, listPage) {
     '</div>'
 
   page.querySelector('#imessage-chat-back').addEventListener('click', function() {
+    // 返回前清理可能残留的设置面板
+    var p = document.getElementById('anon-sms-settings-panel')
+    if (p) p.remove()
     window.closePage('imessage-chat-page')
     if (listPage) loadSmsConversations(listPage)
   })
@@ -920,7 +926,9 @@ window.showAnonSmsSettings = function() {
       '</div>' +
     '</div>'
 
-  document.body.appendChild(panel)
+  // 挂载到#app内（和手机同级，手机关闭时有统一清理；不挂body避免残留）
+  var mountTarget = document.getElementById('app') || document.body
+  mountTarget.appendChild(panel)
 
   // 关闭
   document.getElementById('anon-sms-close').addEventListener('click', function() { panel.remove() })
