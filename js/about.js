@@ -1,7 +1,7 @@
 // about.js — 关于本机页面
 // 依赖：main.js（免责声明）、settings.js（子页面构建器）
 
-var APP_VERSION = 2.5.66
+var APP_VERSION = 2.5.67
 
 window.openAboutDevicePage = function() {
   var existing = document.getElementById('sub-about-device')
@@ -51,7 +51,7 @@ window.openAboutDevicePage = function() {
     var valEl = page.querySelector('#val-check-update')
     valEl.textContent = '检查中...'
     valEl.style.color = '#8e8e93'
-    fetch('https://draw-guess-game-production-0fdb.up.railway.app/version.json?' + Date.now())
+    fetch('/version.json?' + Date.now(), { cache: 'no-store' })
       .then(function(r) { return r.json() })
       .then(function(data) {
         if (data.version && data.version !== APP_VERSION) {
@@ -112,3 +112,4 @@ window.openAboutDevicePage = function() {
       })
   })
 }
+
