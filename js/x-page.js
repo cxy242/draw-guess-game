@@ -1237,20 +1237,22 @@ async function generateAIComments(post, user) {
 
   var npcSample = X_NPC_TYPES.slice(0, 5).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')' }).join('\n')
 
-  var prompt = '你是一个社交媒体评论生成器。根据以下帖子内容，生成5-6条评论。\n\n' +
+  var prompt = '你是一个社交媒体评论生成器。根据以下帖子内容，生成评论互动。\n\n' +
     '帖子内容："' + post.content.slice(0, 200) + '"\n\n' +
     '可用NPC人设（随机选择5种）：\n' + npcSample + '\n\n' +
     '可用自建AI角色（可选1个参与评论）：' + (charList || '无') + '\n\n' +
     '要求：\n' +
-    '1. 每条评论风格完全不同，体现NPC人设特点\n' +
-    '2. 评论真实自然，像真人网友\n' +
-    '3. 发帖AI（' + (post.authorName || '楼主') + '）必须回复每条评论\n' +
-    '4. 根据上下文判断是否有追评，话题结束则停止\n\n' +
+    '1. 先生成5条一级评论，每条来自不同NPC人设，风格完全不同\n' +
+    '2. 发帖人（' + (post.authorName || '楼主') + '）选择性回复其中2-3条感兴趣的评论（不是每条都回）\n' +
+    '3. 被发帖人回复的NPC可以再回复发帖人，形成对话（NPC回发帖人）\n' +
+    '4. 没被发帖人回复的NPC之间可以互评（路人A回复路人B的评论）\n' +
+    '5. 互评后，原评论人可以再回复（形成3层对话链）\n' +
+    '6. 评论真实自然，像真人网友，不要太长\n\n' +
     '返回JSON格式：\n' +
-    '{"comments":[{"name":"xxx","content":"评论内容","npcType":5,"isNpc":true}],"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"回复内容"}],"replies2":[{"replyToCommentIndex":0,"replyToReplyIndex":0,"name":"xxx","content":"追评内容"}]}'
+    '{"comments":[{"name":"NPC名","content":"评论内容","npcType":5,"isNpc":true}],"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"发帖人回复"}],"replies2":[{"replyToCommentIndex":0,"replyToReplyIndex":-1,"name":"NPC名","content":"NPC回发帖人或路人互评"}]}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
 
     var comments = xLoadComments(post.id)
@@ -1786,7 +1788,7 @@ async function generateAIProfile(char, page) {
     '{"bio":"一句话简介(20字以内)","ipLocation":"你所在的省份或城市(如：浙江、北京)","handle":"@你的英文账号(英文字母+短横线)"}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
     if (!data) return
 
@@ -1899,15 +1901,17 @@ async function generate5PostsForChar(char) {
     '可用NPC人设（每条评论从这些中随机选，每条帖子的评论要用不同人设）：\n' + npcSample + '\n\n' +
     '要求：\n' +
     '1. 每条帖子30-80字，真实自然，可包含hashtag\n' +
-    '2. 每条帖子生成5条评论，来自不同的NPC人设（30字以内）\n' +
-    '3. 发帖人（' + char.name + '）必须回复其中一条NPC评论（体现发帖人性格）\n' +
-    '4. 再生成2条NPC回复其他人的评论（路人互评，形成对话链）\n' +
-    '5. 每条评论用replyToIndex指向被回复评论的序号（顶级评论为-1），isAuthorReply标记发帖人回复\n\n' +
+    '2. 每条帖子生成5条一级评论，来自不同的NPC人设（30字以内）\n' +
+    '3. 发帖人（' + char.name + '）选择性回复其中2-3条感兴趣的评论（不是每条都回）\n' +
+    '4. 被发帖人回复的NPC可以再回复发帖人，形成对话\n' +
+    '5. 没被发帖人回复的NPC之间可以互评（路人A回复路人B）\n' +
+    '6. 互评后原评论人可以再回复，形成3层对话链\n' +
+    '7. 每条评论用replyToIndex指向被回复评论的序号（顶级评论为-1），isAuthorReply标记发帖人回复\n\n' +
     '返回JSON格式：\n' +
-    '{"posts":[{"content":"帖子内容","tags":["标签"],"category":1,"comments":[{"name":"NPC名","content":"评论内容","replyToIndex":-1},{"name":"' + char.name + '","content":"发帖人回复","replyToIndex":0,"isAuthorReply":true},{"name":"另一个NPC","content":"路人互评","replyToIndex":0}]}]}'
+    '{"posts":[{"content":"帖子内容","tags":["标签"],"category":1,"comments":[{"name":"NPC名","content":"评论内容","replyToIndex":-1},{"name":"' + char.name + '","content":"发帖人回复","replyToIndex":0,"isAuthorReply":true},{"name":"另一个NPC","content":"NPC回发帖人或路人互评","replyToIndex":0}]}]}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
 
     var allPosts = xLoadPosts()
@@ -2314,7 +2318,7 @@ async function generateBatchPosts(user, preference) {
     '{"posts":[{"content":"帖子内容","tags":["标签"],"isAnonymous":false,"comments":[{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"]}]}'
 
   try {
-    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift: true})
+    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object'})
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw
     var items = data.posts || (Array.isArray(data) ? data : [])
 
@@ -2447,7 +2451,7 @@ async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
     '{"posts":[{"content":"帖子内容","tags":["标签"],"category":1,"comments":[{"name":"NPC名","content":"评论内容","replyToIndex":-1},{"name":"发帖人","content":"发帖人回复","replyToIndex":0,"isAuthorReply":true},{"name":"另一个NPC","content":"路人互评","replyToIndex":0}]}]}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
     if (!data.posts) { showToastLong('补回失败：AI未返回内容', 3000); return }
 
@@ -2541,7 +2545,7 @@ async function autoPostTick(user) {
     '返回JSON：{"content":"帖子内容"}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
 
     var post = {
@@ -2574,4 +2578,3 @@ async function autoPostTick(user) {
 }
 
 // 主题在 renderXMainPage 中页面创建后应用
-
