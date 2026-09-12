@@ -1,7 +1,7 @@
 // about.js — 关于本机页面
 // 依赖：main.js（免责声明）、settings.js（子页面构建器）
 
-var APP_VERSION = '2.5.69'
+var APP_VERSION = '2.5.70'
 
 window.openAboutDevicePage = function() {
   var existing = document.getElementById('sub-about-device')
@@ -92,15 +92,23 @@ window.openAboutDevicePage = function() {
           }))
         }
         Promise.all(tasks).then(function() {
-          // 4. 显示加载遮罩，防止闪屏
+          // 4. 更新所有JS/CSS文件的?v=参数（关键！只改页面URL不够）
+          var ts = Date.now()
+          document.querySelectorAll('script[src]').forEach(function(s) {
+            s.src = s.src.replace(/[?&]v=[^&]*/g, '').replace(/[?&]t=[^&]*/g, '') + (s.src.indexOf('?') >= 0 ? '&' : '?') + 'v=' + newVer + '&t=' + ts
+          })
+          document.querySelectorAll('link[rel="stylesheet"]').forEach(function(l) {
+            l.href = l.href.replace(/[?&]v=[^&]*/g, '').replace(/[?&]t=[^&]*/g, '') + (l.href.indexOf('?') >= 0 ? '&' : '?') + 'v=' + newVer + '&t=' + ts
+          })
+          // 5. 显示加载遮罩，防止闪屏
           var overlay = document.createElement('div')
           overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0a0a1a;display:flex;align-items:center;justify-content:center;'
           overlay.innerHTML = '<div style="text-align:center;color:#fff;"><div style="font-size:17px;font-weight:700;margin-bottom:12px;">正在更新到 v' + newVer + '...</div><div style="font-size:13px;color:#888;">请稍候</div></div>'
           document.body.appendChild(overlay)
-          // 5. 直接跳转（不改DOM，避免闪屏）
+          // 6. 延迟后重新加载（让浏览器用新的?v=重新请求文件）
           setTimeout(function() {
-            window.location.replace(window.location.pathname + '?v=' + newVer + '&t=' + Date.now())
-          }, 300)
+            window.location.replace(window.location.pathname + '?v=' + newVer + '&t=' + ts)
+          }, 500)
         }).catch(function() {
           window.location.replace(window.location.pathname + '?v=' + Date.now())
         })
