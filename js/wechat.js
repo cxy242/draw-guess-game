@@ -16473,13 +16473,6 @@ function bindChatExtrasEvents(settingsPage, chatId) {
     const container = chatPage?.querySelector('#chat-messages')
     if (container) await updateBlockBanner(container, chatId)
   })
-  // 匿名短信设置按钮
-  const anonSmsBtn = settingsPage.querySelector('#btn-anon-sms-settings')
-  if (anonSmsBtn) {
-    anonSmsBtn.addEventListener('click', () => {
-      if (window.showAnonSmsSettings) window.showAnonSmsSettings()
-    })
-  }
   // 匿名短信开关 — 加载当前角色的设置
   const anonSmsToggle = settingsPage.querySelector('#cs-anon-sms-enabled')
   if (anonSmsToggle) {
