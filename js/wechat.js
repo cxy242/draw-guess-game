@@ -4610,11 +4610,6 @@ async function showGroupAIMessagePopupIfNeeded(groupId, group, memberId, content
 async function notifyPrivateAIMessageIfBackground(chatId, charId, content, createdAt) {
   if (document.visibilityState === 'visible') return
   if (!window.sendWanWanNotification) return
-  // Check per-chat notification setting (not just global)
-  try {
-    const chatNotify = await getChatMsgNotifySettings(chatId)
-    if (!chatNotify.enabled) return
-  } catch(e) {}
   try {
     const displayChar = await getWechatDisplayCharacter(charId)
     const title = getWechatDisplayName(displayChar)
@@ -16410,9 +16405,13 @@ function buildChatExtrasSectionHTML(narrativeSettings, patPatSettings, longDistS
       <div style="border-top:1px solid var(--c-border,rgba(0,0,0,0.06));margin:8px 0"></div>
       <div class="cs-status-toggle-row">
         <span>匿名短信</span>
-        <button class="btn-ghost btn-sm" id="btn-anon-sms-settings" type="button"><i class="fa-solid fa-gear"></i> 设置</button>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="cs-anon-sms-enabled">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
       </div>
-      <div class="cs-section-sub">角色伪装陌生人发短信试探你，打开小手机超过25分钟自动触发</div>
+      <div class="cs-section-sub">开启后，打开小手机超过25分钟，该角色会伪装陌生人发短信试探你</div>
     </div>
   `
 }
@@ -16480,6 +16479,15 @@ function bindChatExtrasEvents(settingsPage, chatId) {
     anonSmsBtn.addEventListener('click', () => {
       if (window.showAnonSmsSettings) window.showAnonSmsSettings()
     })
+  }
+  // 匿名短信开关 — 加载当前角色的设置
+  const anonSmsToggle = settingsPage.querySelector('#cs-anon-sms-enabled')
+  if (anonSmsToggle) {
+    try {
+      var enabledChars = JSON.parse(localStorage.getItem('anonSmsChars') || '[]')
+      // 默认开启（enabledChars为空时所有角色都开启）
+      anonSmsToggle.checked = enabledChars.length === 0 || enabledChars.indexOf(String(charId)) !== -1
+    } catch(e) { anonSmsToggle.checked = true }
   }
 }
 
@@ -17109,21 +17117,10 @@ function bindChatSettingsDirtyTracking(settingsPage) {
 }
 
 function bindMsgNotifyEvents(settingsPage) {
-  settingsPage.querySelector('#cs-msg-notify-enabled')?.addEventListener('change', async e => {
+  settingsPage.querySelector('#cs-msg-notify-enabled')?.addEventListener('change', e => {
     const fields = settingsPage.querySelector('#cs-msg-notify-fields')
     if (fields) fields.style.display = e.target.checked ? '' : 'none'
     markChatSettingsDirty(settingsPage)
-    // Enable global browser notification when per-chat is enabled
-    if (e.target.checked) {
-      try {
-        await db.config.put({ key: 'notificationEnabled', value: true })
-        if (window.ensureWanWanNotificationPermission) {
-          const granted = await window.ensureWanWanNotificationPermission()
-          if (granted) window.toast && window.toast('已开启通知')
-          else window.toast && window.toast('请在系统设置中允许通知')
-        }
-      } catch(err) {}
-    }
   })
 }
 
@@ -17390,6 +17387,21 @@ async function saveChatSettingsPage(settingsPage, chatId, charId, chatPage, char
     }})
     await db.config.put({ key: `chatLongDistance_${chatId}`, value: { enabled: !!settingsPage.querySelector('#cs-long-distance-enabled')?.checked } })
     await db.config.put({ key: `chatBlock_${chatId}`, value: { enabled: !!settingsPage.querySelector('#cs-block-enabled')?.checked } })
+
+    // 匿名短信 — per-char开关存入anonSmsChars
+    var anonSmsEnabled = settingsPage.querySelector('#cs-anon-sms-enabled')?.checked
+    if (anonSmsEnabled !== undefined) {
+      var _enabledChars = []
+      try { _enabledChars = JSON.parse(localStorage.getItem('anonSmsChars') || '[]') } catch(e) {}
+      var _charIdStr = String(charId)
+      var _idx = _enabledChars.indexOf(_charIdStr)
+      if (anonSmsEnabled && _idx === -1) {
+        _enabledChars.push(_charIdStr)
+      } else if (!anonSmsEnabled && _idx !== -1) {
+        _enabledChars.splice(_idx, 1)
+      }
+      localStorage.setItem('anonSmsChars', JSON.stringify(_enabledChars))
+    }
 
     const selectedThought = settingsPage.querySelector('input[name="cs-thought-preset"]:checked')
     await db.config.put({
