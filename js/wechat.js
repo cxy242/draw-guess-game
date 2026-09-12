@@ -6124,7 +6124,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       }
       const notify = await getChatMsgNotifySettings(chatId)
       const thoughtTemplate = await getChatThoughtTemplateConfig(chatId)
-      let { thought, status, reply, pat, blockAction, narrative, chill } = await generateAIReply(chatId, charId, {
+      let { thought, status, reply, pat, blockAction, narrative, chill, memPanel: memPanelData } = await generateAIReply(chatId, charId, {
         replyRequirement: options.replyRequirement,
         idleTriggerMode: options.idleTriggerMode,
         idleMinutes: options.idleMinutes,
@@ -6291,6 +6291,22 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           if (replyText) window.WanWanMemory.autoRecallMemories(chatId, charId, _wechatUid, replyText)
         } catch(e) {}
       }
+      // 保存记忆面板数据到localStorage（每次AI回复后更新）
+      if (memPanelData && (memPanelData.wearing || memPanelData.activity || memPanelData.mood)) {
+        try {
+          var _existing = JSON.parse(localStorage.getItem('memPanel_' + charId) || '{}')
+          var _now = Date.now()
+          if (memPanelData.wearing) _existing.wearing = { v: memPanelData.wearing, t: _now }
+          if (memPanelData.activity) _existing.activity = { v: memPanelData.activity, t: _now }
+          if (memPanelData.location) _existing.location = { v: memPanelData.location, t: _now }
+          if (memPanelData.mood) _existing.mood = { v: memPanelData.mood, t: _now }
+          if (memPanelData.next) _existing.next = { v: memPanelData.next, t: _now }
+          if (memPanelData.healthAi) _existing.healthAi = { v: memPanelData.healthAi, t: _now }
+          if (memPanelData.healthUser) _existing.healthUser = { v: memPanelData.healthUser, t: _now }
+          _existing.updatedAt = _now
+          localStorage.setItem('memPanel_' + charId, JSON.stringify(_existing))
+        } catch(e) {}
+      }
     } catch (e) {
       const cw = _getVisibleChatWindow('chat', chatId)
       if (cw) {
@@ -6394,7 +6410,14 @@ const _WECHAT_AI_JSON_SCHEMA = {
       account_3_messages: { type: 'string', description: '另一个小号消息' },
       photo_description: { type: 'string', description: '照片描述' },
       hidden_fragment_1: { type: 'string', description: '隐藏内容片段1' },
-      hidden_fragment_2: { type: 'string', description: '隐藏内容片段2' }
+      hidden_fragment_2: { type: 'string', description: '隐藏内容片段2' },
+      mem_wearing: { type: 'string', description: '你现在穿着什么（10字以内）' },
+      mem_activity: { type: 'string', description: '你现在在做什么（15字以内）' },
+      mem_location: { type: 'string', description: '你现在在哪里（10字以内）' },
+      mem_mood: { type: 'string', description: '你现在心情（15字以内）' },
+      mem_next: { type: 'string', description: '你下一步打算做什么（15字以内）' },
+      mem_health_ai: { type: 'string', description: '你身体状况，受伤则标注，如无则空字符串' },
+      mem_health_user: { type: 'string', description: '用户身体状况，如无则空字符串' }
     },
     required: ['reply'],
     additionalProperties: false
@@ -6597,7 +6620,17 @@ function normalizeWechatAIFields(parsed) {
     if (val) { chill[key] = val; hasChill = true }
   })
 
-  return { thought, status, reply, pat, blockAction, narrative, chill: hasChill ? chill : null }
+  return { thought, status, reply, pat, blockAction, narrative, chill: hasChill ? chill : null,
+    memPanel: {
+      wearing: typeof parsed.mem_wearing === 'string' ? parsed.mem_wearing.trim() : '',
+      activity: typeof parsed.mem_activity === 'string' ? parsed.mem_activity.trim() : '',
+      location: typeof parsed.mem_location === 'string' ? parsed.mem_location.trim() : '',
+      mood: typeof parsed.mem_mood === 'string' ? parsed.mem_mood.trim() : '',
+      next: typeof parsed.mem_next === 'string' ? parsed.mem_next.trim() : '',
+      healthAi: typeof parsed.mem_health_ai === 'string' ? parsed.mem_health_ai.trim() : '',
+      healthUser: typeof parsed.mem_health_user === 'string' ? parsed.mem_health_user.trim() : ''
+    }
+  }
 }
 
 // 组装报错诊断信息（结合 fetchAI 记录的最近一次响应元数据）
