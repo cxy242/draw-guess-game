@@ -1538,6 +1538,8 @@ async function refreshVisibleWechatChatList(options = {}) {
 window.closeWechatChatWindow = function() {
   const chatPage = document.getElementById('chat-window')
   if (!chatPage) return
+  // 清理定时器和事件监听器
+  try { chatPage.dispatchEvent(new CustomEvent('pageDispose', { bubbles: false })) } catch (_) {}
   if (chatPage?.dataset.chatId) removeChatBeautyStyle(chatPage.dataset.chatId)
   clearWechatBlobUrlCache()
   clearWechatAvatarBlobCache()
@@ -16400,6 +16402,12 @@ function buildChatExtrasSectionHTML(narrativeSettings, patPatSettings, longDistS
           </div>
         </div>
       </div>
+      <div style="border-top:1px solid var(--c-border,rgba(0,0,0,0.06));margin:8px 0"></div>
+      <div class="cs-status-toggle-row">
+        <span>匿名短信</span>
+        <button class="btn-ghost btn-sm" id="btn-anon-sms-settings" type="button"><i class="fa-solid fa-gear"></i> 设置</button>
+      </div>
+      <div class="cs-section-sub">角色伪装陌生人发短信试探你，打开小手机超过25分钟自动触发</div>
     </div>
   `
 }
@@ -16461,6 +16469,13 @@ function bindChatExtrasEvents(settingsPage, chatId) {
     const container = chatPage?.querySelector('#chat-messages')
     if (container) await updateBlockBanner(container, chatId)
   })
+  // 匿名短信设置按钮
+  const anonSmsBtn = settingsPage.querySelector('#btn-anon-sms-settings')
+  if (anonSmsBtn) {
+    anonSmsBtn.addEventListener('click', () => {
+      if (window.showAnonSmsSettings) window.showAnonSmsSettings()
+    })
+  }
 }
 
 function buildBilingualSectionHTML(rawSettings) {
