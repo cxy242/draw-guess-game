@@ -586,10 +586,10 @@ function startAnonSmsScheduler(user) {
   console.log('[AnonSMS] 调度器启动，间隔' + interval + '分钟，等待25分钟触发')
 }
 
-// 核心：AI角色匿名发短信
+// 核心：AI角色匿名发短信（支持一次发多条）
 async function sendAnonymousCharSMS(user) {
   if (!window.callAI) return
-  if (!user || !user.identity || !user.identity.phone) return
+  if (!user) return
 
   // 随机选一个AI角色
   var chars = []
@@ -599,30 +599,34 @@ async function sendAnonymousCharSMS(user) {
   if (!chars.length) return
   var char = chars[Math.floor(Math.random() * chars.length)]
 
-  // 构建prompt，要求隐藏身份
+  // 构建prompt，要求隐藏身份，一次发1-3条消息
   var charDesc = char.name + '（' + (char.identity?.bio || char.signature || '普通角色') + '）'
   var relationships = (char.relations || []).map(function(r) { return r.desc || r.type || '' }).filter(Boolean).join('、')
 
-  var prompt = '你是' + charDesc + '。你想给用户发一条短信，但必须隐藏你的真实身份。\n\n' +
+  var prompt = '你是' + charDesc + '。你想给用户发短信，但必须隐藏你的真实身份。\n\n' +
     '你的性格和关系：' + (relationships || '普通朋友') + '\n\n' +
     '要求：\n' +
     '1. 绝对不能暴露你是AI或游戏角色\n' +
     '2. 伪装成一个真实的人（陌生人、网友、朋友的朋友等）\n' +
     '3. 可以试探用户、问问题、聊天、表达关心\n' +
     '4. 语气自然，像真人发短信\n' +
-    '5. 内容20-60字\n' +
+    '5. 发1-3条消息（像真人连发短信，每条20-40字）\n' +
     '6. 你的目的是了解用户、试探用户对某些事情的态度\n\n' +
-    '返回JSON：{"body":"短信内容"}'
+    '返回JSON：{"messages":["第一条","第二条"]}'
 
   try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
-    if (!data || !data.body) return
+    if (!data) return
+
+    // 支持单条或多条
+    var messages = data.messages || (data.body ? [data.body] : [])
+    if (!messages.length) return
 
     var anonPhone = genAnonPhone()
     var anonName = genAnonName()
     var now = Date.now()
-    var ownerPhone = user.identity.phone
+    var ownerPhone = user.identity ? user.identity.phone : ('user_' + (user.id || 'default'))
 
     // 查找或创建对话
     var conv = await db.smsConversations
@@ -634,9 +638,9 @@ async function sendAnonymousCharSMS(user) {
     if (conv) {
       convId = conv.id
       await db.smsConversations.update(convId, {
-        lastMessage: data.body,
+        lastMessage: messages[messages.length - 1],
         lastMessageAt: now,
-        unreadCount: (conv.unreadCount || 0) + 1,
+        unreadCount: (conv.unreadCount || 0) + messages.length,
         updatedAt: now
       })
     } else {
@@ -645,35 +649,36 @@ async function sendAnonymousCharSMS(user) {
         remotePhone: anonPhone,
         remoteAvatar: SMS_DEFAULT_AVATAR,
         remoteName: anonName,
-        lastMessage: data.body,
+        lastMessage: messages[messages.length - 1],
         lastMessageAt: now,
-        unreadCount: 1,
+        unreadCount: messages.length,
         updatedAt: now
       })
     }
 
-    // 保存消息（带角色真实信息，用于解除匿名）
-    await db.smsMessages.add({
-      conversationId: convId,
-      direction: 'in',
-      body: data.body,
-      createdAt: now,
-      read: false,
-      // 匿名信息（解除前不显示）
-      _anonCharId: char.id,
-      _anonCharName: char.name,
-      _anonCharAvatar: char.avatar || '',
-      _anonRevealed: false
-    })
+    // 保存所有消息
+    for (var i = 0; i < messages.length; i++) {
+      await db.smsMessages.add({
+        conversationId: convId,
+        direction: 'in',
+        body: messages[i],
+        createdAt: now + i * 1000,
+        read: false,
+        _anonCharId: char.id,
+        _anonCharName: char.name,
+        _anonCharAvatar: char.avatar || '',
+        _anonRevealed: false
+      })
+    }
 
-    // 弹出通知
+    // 弹出通知（只弹最后一条）
     showImessageTopMessagePopup({
       title: anonName,
-      body: data.body,
+      body: messages[messages.length - 1],
       avatar: SMS_DEFAULT_AVATAR
     })
 
-    console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone)
+    console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone + ' (' + messages.length + '条)')
   } catch(e) {
     console.error('[AnonSMS] 发送失败:', e)
   }
@@ -746,8 +751,8 @@ var _smsCheckTimer = setInterval(function() {
     window.toast && window.toast('收到一条匿名短信')
     var delay = (30 + Math.random() * 60) * 1000
     setTimeout(function() {
-      var user = _smsUserPhones[0]
-      if (user && window.sendAnonymousCharSMS) {
+      var user = _smsUserPhones[0] || { id: 0, name: '用户' }
+      if (window.sendAnonymousCharSMS) {
         window.sendAnonymousCharSMS(user)
         localStorage.setItem('anonSmsLastTime', String(Date.now()))
       }
@@ -793,7 +798,7 @@ window.summarizeSmsToMemory = async function(conversationId) {
   for (var attempt = 1; attempt <= 2; attempt++) {
     try {
       if (!window.callAI) { lastError = 'AI不可用'; break }
-      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
       data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
       if (data && data.content) break
       lastError = 'AI返回为空或格式错误'
@@ -996,6 +1001,5 @@ window.showAnonSmsSettings = function() {
     window.openSmsChat = enhanced
   }
 })()
-
 
 
