@@ -2126,10 +2126,18 @@ var _xThemeObserver = new MutationObserver(function(mutations) {
       if (node.id && node.id.startsWith('x-')) {
         node.classList.toggle('theme-dark', isDark)
       }
+      // 也检查子节点（openPage添加到#app内）
+      if (node.querySelectorAll) {
+        node.querySelectorAll('[id^="x-"]').forEach(function(el) {
+          el.classList.toggle('theme-dark', isDark)
+        })
+      }
     })
   })
 })
-_xThemeObserver.observe(document.body, { childList: true })
+// 监听#app和body，openPage添加到#app内
+var _xThemeTarget = document.getElementById('app') || document.body
+_xThemeObserver.observe(_xThemeTarget, { childList: true, subtree: true })
 
 // ===== 编辑个人资料 =====
 function showXProfileEdit(user) {
@@ -2566,3 +2574,4 @@ async function autoPostTick(user) {
 }
 
 // 主题在 renderXMainPage 中页面创建后应用
+
