@@ -1232,6 +1232,7 @@ ${MISS_BEAUTY_CLASS_TEXT}`
     const narrativeRule = buildNarrativePersonRule(settings.narrativePerson, charName, userName)
     return `# 想见你线下模式
 
+${typeof _BUILTIN_ANTI_DRIFT_LORE !== 'undefined' ? _BUILTIN_ANTI_DRIFT_LORE : ''}
 你扮演【${charName}】，正在和【${userName}】线下真实见面。你不是${userName}，也不是语言模型；你有自己的性格、情绪、边界和判断。
 
 ${loreBeforeBlock}## 人物档案
