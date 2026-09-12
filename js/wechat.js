@@ -3606,6 +3606,56 @@ async function openPrivateChat(wechatPage, charId, chatId) {
     await waitNextFrame()
     if (!isPrivateChatPageCurrent(chatPage, chat.id)) return
     await enhanceVisibleChat(chatPage, chat.id, char.id)
+
+    // 自动生成记忆面板（首次打开聊天时调用API）
+    var _memPanelKey = 'memPanel_' + char.id
+    var _existingMemPanel = null
+    try { _existingMemPanel = JSON.parse(localStorage.getItem(_memPanelKey) || 'null') } catch(e) {}
+    // 如果没有缓存或缓存超过30分钟，重新生成
+    var _needGen = !_existingMemPanel || !_existingMemPanel.updatedAt || (Date.now() - _existingMemPanel.updatedAt > 30 * 60 * 1000)
+    if (_needGen && window.callAI) {
+      var _memBanner = document.createElement('div')
+      _memBanner.className = 'mem-gen-banner'
+      _memBanner.innerHTML = '<div class="mem-gen-spinner"></div><span>正在生成记忆面板...</span>'
+      chatPage.querySelector('.chat-messages')?.appendChild(_memBanner)
+      try {
+        var _recentMsgs = []
+        try {
+          var _rows = await db.messages.where('chatId').equals(chat.id).reverse().limit(100).toArray()
+          _recentMsgs = _rows.reverse().map(function(m) { return { role: m.role, content: m.content || '' } })
+        } catch(e) {}
+        var _memories = []
+        try { _memories = await db.memories.where('participants').equals(char.id).toArray() } catch(e) {}
+        var _memContext = _memories.map(function(m) { return m.title + ': ' + (m.content || '').slice(0, 100) }).join('\n')
+        var _sysPrompt = '你是' + (char.nick || char.name) + '。根据最近聊天记录和记忆，生成当前状态信息。返回JSON：{"mem_wearing":"穿着","mem_activity":"在做什么","mem_location":"在哪里","mem_mood":"心情","mem_next":"下一步打算","mem_health_ai":"身体状况","mem_health_user":"用户身体状况"}。简洁，每项15字以内。'
+        var _msgs = _recentMsgs.slice(-20).map(function(m) { return m.role + ': ' + m.content.slice(0, 200) }).join('\n')
+        if (_memContext) _msgs += '\n\n记忆库：\n' + _memContext
+        var _raw = await window.callAI([{ role: 'user', content: _msgs }], { system: _sysPrompt, responseFormat: 'json_object', charAntiDrift: true })
+        var _data = typeof _raw === 'string' ? JSON.parse(_raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : _raw
+        if (_data) {
+          var _now = Date.now()
+          var _panel = _existingMemPanel || {}
+          if (_data.mem_wearing) _panel.wearing = { v: _data.mem_wearing, t: _now }
+          if (_data.mem_activity) _panel.activity = { v: _data.mem_activity, t: _now }
+          if (_data.mem_location) _panel.location = { v: _data.mem_location, t: _now }
+          if (_data.mem_mood) _panel.mood = { v: _data.mem_mood, t: _now }
+          if (_data.mem_next) _panel.next = { v: _data.mem_next, t: _now }
+          if (_data.mem_health_ai) _panel.healthAi = { v: _data.mem_health_ai, t: _now }
+          if (_data.mem_health_user) _panel.healthUser = { v: _data.mem_health_user, t: _now }
+          _panel.updatedAt = _now
+          localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
+          _memBanner.innerHTML = '<span style="color:var(--c-accent,#00d4aa)">✓ 记忆面板已生成</span>'
+          setTimeout(function() { _memBanner.remove() }, 2000)
+        } else {
+          _memBanner.innerHTML = '<span style="color:var(--c-danger,#e53935)">生成失败，点击重试</span>'
+          _memBanner.onclick = function() { _memBanner.remove() }
+        }
+      } catch(e) {
+        console.warn('[MemoryPanel] 自动生成失败:', e)
+        _memBanner.innerHTML = '<span style="color:var(--c-danger,#e53935)">生成失败，点击重试</span>'
+        _memBanner.onclick = function() { _memBanner.remove() }
+      }
+    }
   })().catch(error => {
     logWechatChatOpenIssue('postOpenPrivateChat', error, stageMeta)
   })

@@ -569,6 +569,23 @@ html.has-android-bottom-inset .chat-window-page {
   z-index: 0;
 }
 .chat-empty { text-align: center; color: var(--c-hint); font-size: 13px; padding: 40px 0; }
+
+/* 记忆面板生成提示 */
+.mem-gen-banner {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 16px; margin: 8px 12px;
+  background: rgba(107,143,143,0.08); border-radius: 10px;
+  font-size: 12px; color: var(--c-sub, #8a8a8a);
+  animation: memGenFadeIn 0.3s ease-out;
+}
+.mem-gen-spinner {
+  width: 14px; height: 14px; border: 2px solid rgba(107,143,143,0.2);
+  border-top-color: var(--c-accent, #6b8f8f); border-radius: 50%;
+  animation: memGenSpin 0.8s linear infinite;
+}
+@keyframes memGenSpin { to { transform: rotate(360deg) } }
+@keyframes memGenFadeIn { from { opacity: 0; transform: translateY(8px) } }
+
 .chat-load-earlier { display: flex; padding: 4px 0 8px; }
 .chat-load-earlier button {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
