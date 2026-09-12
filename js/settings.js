@@ -3624,6 +3624,11 @@ function showApiTestModal(title, ok, message, detail) {
 // ===== 全局AI调用（主 API） =====
 window.callAI = async function(messages, opts) {
   opts = opts || {}
+  // Char角色防八股世界书注入
+  if (opts.charAntiDrift && typeof _BUILTIN_ANTI_DRIFT_LORE !== 'undefined') {
+    opts = Object.assign({}, opts)
+    opts.system = _BUILTIN_ANTI_DRIFT_LORE + (opts.system || '')
+  }
   var cfg = await loadApiConfig()
   return await fetchAI(cfg.primary, messages, Object.assign({}, opts, { apiConsoleType: '主 API' }))
 }
