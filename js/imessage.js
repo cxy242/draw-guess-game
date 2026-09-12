@@ -615,7 +615,7 @@ async function sendAnonymousCharSMS(user) {
     '返回JSON：{"body":"短信内容"}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
     if (!data || !data.body) return
 
@@ -793,7 +793,7 @@ window.summarizeSmsToMemory = async function(conversationId) {
   for (var attempt = 1; attempt <= 2; attempt++) {
     try {
       if (!window.callAI) { lastError = 'AI不可用'; break }
-      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
       data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
       if (data && data.content) break
       lastError = 'AI返回为空或格式错误'

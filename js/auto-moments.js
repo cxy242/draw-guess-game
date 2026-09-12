@@ -260,7 +260,7 @@ async function postMoment(opts) {
   msgs.push({ role: 'user', content: userMsg });
 
   try {
-    var raw = await window.callAI(msgs, { responseFormat: 'json_object' });
+    var raw = await window.callAI(msgs, { responseFormat: 'json_object', charAntiDrift: true });
     var data = parseJSON(raw);
     if (!data || !data.text) return null;
 

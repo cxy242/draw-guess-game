@@ -1250,7 +1250,7 @@ async function generateAIComments(post, user) {
     '{"comments":[{"name":"xxx","content":"评论内容","npcType":5,"isNpc":true}],"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"回复内容"}],"replies2":[{"replyToCommentIndex":0,"replyToReplyIndex":0,"name":"xxx","content":"追评内容"}]}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
 
     var comments = xLoadComments(post.id)
@@ -1786,7 +1786,7 @@ async function generateAIProfile(char, page) {
     '{"bio":"一句话简介(20字以内)","ipLocation":"你所在的省份或城市(如：浙江、北京)","handle":"@你的英文账号(英文字母+短横线)"}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
     if (!data) return
 
@@ -1907,7 +1907,7 @@ async function generate5PostsForChar(char) {
     '{"posts":[{"content":"帖子内容","tags":["标签"],"category":1,"comments":[{"name":"NPC名","content":"评论内容","replyToIndex":-1},{"name":"' + char.name + '","content":"发帖人回复","replyToIndex":0,"isAuthorReply":true},{"name":"另一个NPC","content":"路人互评","replyToIndex":0}]}]}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
 
     var allPosts = xLoadPosts()
@@ -2314,7 +2314,7 @@ async function generateBatchPosts(user, preference) {
     '{"posts":[{"content":"帖子内容","tags":["标签"],"isAnonymous":false,"comments":[{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"]}]}'
 
   try {
-    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object'})
+    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift: true})
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw
     var items = data.posts || (Array.isArray(data) ? data : [])
 
@@ -2447,7 +2447,7 @@ async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
     '{"posts":[{"content":"帖子内容","tags":["标签"],"category":1,"comments":[{"name":"NPC名","content":"评论内容","replyToIndex":-1},{"name":"发帖人","content":"发帖人回复","replyToIndex":0,"isAuthorReply":true},{"name":"另一个NPC","content":"路人互评","replyToIndex":0}]}]}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
     if (!data.posts) { showToastLong('补回失败：AI未返回内容', 3000); return }
 
@@ -2541,7 +2541,7 @@ async function autoPostTick(user) {
     '返回JSON：{"content":"帖子内容"}'
 
   try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
 
     var post = {
