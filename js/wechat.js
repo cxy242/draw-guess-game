@@ -4819,7 +4819,8 @@ function bindChatWindowEvents(page) {
         try {
           if (window.openMemoryPanel) {
             const charId = parseInt(page.dataset.charId)
-            if (charId) openMemoryPanel(charId, getWechatDisplayName(char))
+            const charName = page.querySelector('.chat-header-name')?.textContent?.trim() || '未知'
+            if (charId) openMemoryPanel(charId, charName)
           }
         } catch(err) { console.error('[MemoryPanel] 打开失败:', err) }
       }, 200)
