@@ -3643,6 +3643,20 @@ async function openPrivateChat(wechatPage, charId, chatId) {
           if (_data.mem_health_user) _panel.healthUser = { v: _data.mem_health_user, t: _now }
           _panel.updatedAt = _now
           localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
+          // 同时存到 db.config，让 memory-panel.js 能读到
+          try {
+            var _mpData = JSON.parse(JSON.stringify(_panel))
+            _mpData.items = []
+            _mpData.promises = []
+            _mpData.belongings = []
+            _mpData.importantDates = []
+            _mpData.togetherDate = ''
+            _mpData.health = _panel.healthAi ? _panel.healthAi.v : ''
+            _mpData.mood = _panel.mood ? _panel.mood.v : ''
+            _mpData.memories = []
+            _mpData.lastUpdated = _now
+            await db.config.put({ key: 'memoryPanel_' + char.id, value: _mpData })
+          } catch(_dbErr) {}
           _memBanner.innerHTML = '<span style="color:var(--c-accent,#00d4aa)">✓ 记忆面板已生成</span>'
           setTimeout(function() { _memBanner.remove() }, 2000)
         } else {
@@ -3694,6 +3708,20 @@ async function openPrivateChat(wechatPage, charId, chatId) {
           if (_data.mem_health_user) _panel.healthUser = { v: _data.mem_health_user, t: _now }
           _panel.updatedAt = _now
           localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
+          // 同时存到 db.config，让 memory-panel.js 能读到
+          try {
+            var _mpData = JSON.parse(JSON.stringify(_panel))
+            _mpData.items = []
+            _mpData.promises = []
+            _mpData.belongings = []
+            _mpData.importantDates = []
+            _mpData.togetherDate = ''
+            _mpData.health = _panel.healthAi ? _panel.healthAi.v : ''
+            _mpData.mood = _panel.mood ? _panel.mood.v : ''
+            _mpData.memories = []
+            _mpData.lastUpdated = _now
+            await db.config.put({ key: 'memoryPanel_' + char.id, value: _mpData })
+          } catch(_dbErr) {}
           _memBanner.innerHTML = '<span style="color:var(--c-accent,#00d4aa)">✓ 记忆面板已生成</span>'
           setTimeout(function() { _memBanner.remove() }, 2000)
         } else {
