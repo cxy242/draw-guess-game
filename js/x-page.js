@@ -1895,7 +1895,7 @@ async function generate5PostsForChar(char) {
   var npcSample = X_NPC_TYPES.sort(function(){return Math.random()-0.5}).slice(0,6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')' }).join('\n')
 
   var prompt = '你是社交媒体内容生成器。为以下角色生成5条帖子，每条帖子都要有完整的评论互动。\n\n' +
-    '发帖人：' + char.name + '（' + (char.identity?.bio || char.signature || '普通用户') + '）\n\n' +
+    '发帖人：' + char.name + '（' + (char.description || char.identity?.bio || char.signature || '普通用户') + '）\n\n' +
     '帖子分类（每条选一个不同的）：\n' +
     X_CATEGORIES.map(function(c) { return c.id + '.' + c.name }).join('\n') + '\n\n' +
     '可用NPC人设（每条评论从这些中随机选，每条帖子的评论要用不同人设）：\n' + npcSample + '\n\n' +
