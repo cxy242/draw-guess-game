@@ -522,20 +522,1468 @@ function showXLoginPage(opts) {
       '<div class="x-login-title">登录 X</div>' +
       '<div class="x-login-subtitle">选择微信账号继续</div>' +
       '<button class="x-login-wechat" id="x-login-wechat" type="button">' +
-        '<svg class="x-login-wechat-svg" viewBox="0 0 576 512"><path d="M385.2 167.6c6.4 0 12.6.3 18.8 1.1C387.4 90.3 303.3 32 207.7 32 100.5 32 13 104.8 13 197.4c0 53.4 29.3 97.5 77.9 131.6l-19.3 58.6 68.1-34.1c24.4 4.8 43.8 9.7 68.2 9.7 6.2 0 12.1-.3 18.3-.8-3.9-12.9-6.2-26.6-6.2-40.8-.1-84.9 72.9-154 165.2-154zM280.7 114.7c14.5 0 24.2 9.7 24.2 24.4 0 14.5-9.7 24.2-24.2 24.2-14.8 0-29.3-9.7-29.3-24.2.1-14.
+        '<svg class="x-login-wechat-svg" viewBox="0 0 576 512"><path d="M385.2 167.6c6.4 0 12.6.3 18.8 1.1C387.4 90.3 303.3 32 207.7 32 100.5 32 13 104.8 13 197.4c0 53.4 29.3 97.5 77.9 131.6l-19.3 58.6 68.1-34.1c24.4 4.8 43.8 9.7 68.2 9.7 6.2 0 12.1-.3 18.3-.8-3.9-12.9-6.2-26.6-6.2-40.8-.1-84.9 72.9-154 165.2-154zM280.7 114.7c14.5 0 24.2 9.7 24.2 24.4 0 14.5-9.7 24.2-24.2 24.2-14.8 0-29.3-9.7-29.3-24.2.1-14.7 14.6-24.4 29.3-24.4zm-136.4 48.6c-14.5 0-29.3-9.7-29.3-24.2 0-14.8 14.8-24.4 29.3-24.4 14.8 0 24.4 9.7 24.4 24.4 0 14.6-9.6 24.2-24.4 24.2zM563 319.4c0-77.9-77.9-141.3-165.4-141.3-92.7 0-165.4 63.4-165.4 141.3s72.8 141.3 165.4 141.3c19.3 0 38.9-5.1 58.6-9.9l53.4 29.3-14.8-48.6C534 402.1 563 363.2 563 319.4zM343.9 294.9c-9.7 0-19.3-9.7-19.3-19.4 0-9.9 9.7-19.6 19.3-19.6 14.8 0 24.4 9.7 24.4 19.6 0 9.7-9.6 19.4-24.4 19.4zm107.1 0c-9.7 0-19.3-9.7-19.3-19.4 0-9.9 9.7-19.6 19.3-19.6 14.8 0 24.4 9.7 24.4 19.6.1 9.7-9.5 19.4-24.4 19.4z"></path></svg>' +
+        '<span>通过微信登录</span>' +
+      '</button>' +
+      '<div class="x-login-users" id="x-login-users" hidden></div>' +
+    '</div>'
+  if (window.openPage) window.openPage(page)
+  else document.body.appendChild(page)
 
-... [OUTPUT TRUNCATED - 60,710 chars omitted out of 110,636 total] ...
+  page.querySelector('.x-login-close').addEventListener('click', function() { closePage('x-login-page') })
+  page.querySelector('#x-login-wechat').addEventListener('click', function() {
+    var list = page.querySelector('#x-login-users')
+    list.hidden = false
+    list.innerHTML = '<div class="x-loading"><i class="fa fa-spinner fa-spin"></i></div>'
+    getXUserList().then(function(users) {
+      if (!users.length) { list.innerHTML = '<div class="x-login-empty"><div>暂无账号</div><span>请先在角色档案里创建 USER 类型角色</span></div>'; return }
+      list.innerHTML = users.map(function(u) {
+        return '<button class="x-login-user" type="button" data-uid="' + u.id + '">' +
+          '<span class="x-login-user-avatar">' + getXAvatarHTML(u) + '</span>' +
+          '<span class="x-login-user-main"><span class="x-login-user-name">' + xEscape(getXUserName(u)) + '</span>' +
+          '<span class="x-login-user-account">' + xEscape(u.identity && u.identity.account ? '@' + u.identity.account : '微信用户') + '</span></span>' +
+          '<i class="fa fa-angle-right"></i></button>'
+      }).join('')
+      list.querySelectorAll('.x-login-user').forEach(function(row) {
+        row.addEventListener('click', function() {
+          var user = users.find(function(u) { return u.id === parseInt(row.dataset.uid) })
+          if (!user) return
+          setXSessionUser(user)
+          closePage('x-login-page')
+          renderXMainPage(user)
+        })
+      })
+    })
+  })
+}
 
-生成5篇帖子（含评论+发帖人回复+路人互评）
+function closePage(id) {
+  var el = document.getElementById(id)
+  if (!el) return
+  if (window.closePage) { try { window.closePage(id) } catch(e) { el.remove() } }
+  else el.remove()
+}
+
+// ===== 主页（4个Tab）=====
+function renderXMainPage(user) {
+  var existing = document.getElementById('x-page')
+  if (existing) existing.remove()
+
+  var page = document.createElement('div')
+  page.id = 'x-page'
+  page.dataset.uid = user.id
+
+  page.innerHTML =
+    '<div class="x-topbar">' +
+      '<div class="x-topbar-main">' +
+        '<button class="x-topbar-back" type="button">' + X_SVG.back + '</button>' +
+        '<div class="x-topbar-logo">' + X_SVG.x_logo + '</div>' +
+        '<button class="x-topbar-right" type="button"><i class="fa-solid fa-gear"></i></button>' +
+        '<button class="x-topbar-gen" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="x-feed" id="x-feed">' +
+      '<div class="x-tab-panel active" id="x-tab-home"></div>' +
+      '<div class="x-tab-panel" id="x-tab-search"></div>' +
+      '<div class="x-tab-panel" id="x-tab-notify"></div>' +
+      '<div class="x-tab-panel" id="x-tab-profile"></div>' +
+    '</div>' +
+    '<button class="x-fab" id="x-fab"><i class="fi fi-rr-plus"></i></button>' +
+    '<div class="x-bottombar" id="x-bottombar">' +
+      buildXBottomBar() +
+    '</div>'
+
+  if (window.openPage) window.openPage(page)
+  else document.body.appendChild(page)
+
+  // 应用X主题（只影响X页面内部）
+  var _xSettings = xLoadSettings()
+  applyXTheme(_xSettings.theme)
+
+  // 渲染各Tab内容
+  renderXHomeTab(page, user)
+  renderXSearchTab(page, user)
+  renderXNotifyTab(page, user)
+  renderXProfileTab(page, user)
+
+  // Tab切换
+  var items = page.querySelectorAll('.x-bottombar-item')
+  items.forEach(function(item) {
+    item.addEventListener('click', function() {
+      items.forEach(function(i) { i.classList.remove('active') })
+      item.classList.add('active')
+      var tabId = item.dataset.tab
+      page.querySelectorAll('.x-tab-panel').forEach(function(p) { p.classList.remove('active') })
+      var panel = page.querySelector('#x-tab-' + tabId)
+      if (panel) panel.classList.add('active')
+      // 通知tab清除红点
+      if (tabId === 'notify') {
+        var dot = page.querySelector('.x-bottombar-dot')
+        if (dot) dot.classList.remove('show')
+      }
+      // FAB只在首页显示
+      var fab = page.querySelector('#x-fab')
+      if (fab) fab.style.display = tabId === 'home' ? '' : 'none'
+    })
+  })
+
+  // FAB发帖
+  page.querySelector('#x-fab').addEventListener('click', function() { showXCompose(user) })
+
+  // 设置按钮
+  page.querySelector('.x-topbar-right').addEventListener('click', function() { showXSettingsPage(user) })
+
+  // 生成帖子按钮
+  var genBtn = page.querySelector('.x-topbar-gen')
+  if (genBtn) {
+    genBtn.addEventListener('click', function() {
+      showXGenPostsDialog(user, genBtn, page)
+    })
+  }
+
+  // 返回按钮
+  page.querySelector('.x-topbar-back').addEventListener('click', function() {
+    var el = document.getElementById('x-page')
+    if (el) el.remove()
+  })
+
+  // 启动自动发帖定时器
+  startXAutoPostScheduler(user)
+  // 启动匿名短信调度器
+}
+
+function buildXBottomBar() {
+  var items = [
+    { id: 'home', icon: X_SVG.home, activeIcon: X_SVG.home_filled },
+    { id: 'search', icon: X_SVG.search, activeIcon: X_SVG.search },
+    { id: 'notify', icon: X_SVG.bell, activeIcon: X_SVG.bell_filled },
+    { id: 'profile', icon: X_SVG.mail, activeIcon: X_SVG.mail_filled }
+  ]
+  return items.map(function(item, i) {
+    return '<div class="x-bottombar-item' + (i === 0 ? ' active' : '') + '" data-tab="' + item.id + '">' +
+      '<span class="icon-default">' + item.icon + '</span>' +
+      '<span class="icon-active">' + item.activeIcon + '</span>' +
+      (item.id === 'notify' ? '<span class="x-bottombar-dot" id="x-notify-dot"></span>' : '') +
+    '</div>'
+  }).join('')
+}
+
+// ===== 首页Tab =====
+function renderXHomeTab(page, user) {
+  var panel = page.querySelector('#x-tab-home')
+  var posts = xLoadPosts()
+  // 按时间倒序
+  posts.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt) })
+
+  if (!posts.length) {
+    // 生成一些初始帖子
+    panel.innerHTML = '<div class="x-loading"><i class="fa fa-spinner fa-spin"></i></div>'
+    generateInitialPosts(user).then(function() {
+      renderXHomeTab(page, user)
+    })
+    return
+  }
+
+  panel.innerHTML = posts.map(function(post) { return buildXPostCard(post) }).join('')
+  bindPostCardEvents(panel, user)
+}
+
+// 生成初始帖子
+async function generateInitialPosts(user) {
+  var posts = xLoadPosts()
+  if (posts.length >= 3) return
+
+  // XX的帖子
+  var xxPost = {
+    id: xGenId(),
+    authorId: X_XX_CHARACTER.id,
+    authorName: X_XX_CHARACTER.name,
+    authorHandle: '@' + X_XX_CHARACTER.handle,
+    authorAvatar: null,
+    content: '我老婆今天居然主动给我做饭了，虽然把盐当成了糖，但是我还是全部吃完了。你们这些单身的懂什么，这就是爱情的味道。',
+    tags: ['秀恩爱','老婆奴','做饭','甜'],
+    category: 1,
+    isAnonymous: false,
+    engagement: { views: 12500, likes: 3400, retweets: 890, quotes: 156 },
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    comments: []
+  }
+  posts.push(xxPost)
+  xSavePosts(posts)
+
+  // XX帖子的评论
+  var npc1 = { id: xGenId(), authorId: 'npc1', authorName: '吃瓜群众', authorHandle: '@chigua', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[6], content: '哈哈哈哈哈这什么黑暗料理，但是好甜啊', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3500000).toISOString(), replies: [] }
+  var npc2 = { id: xGenId(), authorId: 'npc2', authorName: '毒舌达人', authorHandle: '@dushe', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[5], content: '盐和糖都分不清？你确定这不是在养女儿？', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3400000).toISOString(), replies: [] }
+  var npc3 = { id: xGenId(), authorId: 'npc3', authorName: '温柔姐姐', authorHandle: '@wenrou', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[7], content: '愿意吃完就是最大的浪漫了，祝福你们', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3300000).toISOString(), replies: [] }
+  var xxReply = { id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name, authorHandle: '@' + X_XX_CHARACTER.handle, authorAvatar: null, isSystem: true, content: '你管得着吗？我老婆做的就是最好吃的，你肯定是嫉妒我有老婆', stats: generateCommentStats(), createdAt: new Date(Date.now() - 3200000).toISOString(), replies: [], isReply: true, replyTo: npc2.id, replyToName: npc2.authorName }
+  var xxComments = [npc1, npc2, npc3, xxReply]
+  xSaveComments(xxPost.id, xxComments)
+}
+
+// ===== 帖子卡片构建 =====
+function buildXPostCard(post) {
+  var isAnon = post.isAnonymous
+  var name = isAnon ? '匿名用户' : (post.authorName || '未知')
+  var handle = isAnon ? '' : (post.authorHandle || '')
+  var avatarHTML = isAnon ? buildXDefaultAvatar('匿名') : (post.authorAvatar ? '<img src="' + xEscape(post.authorAvatar) + '" alt="">' : buildXDefaultAvatar(name))
+  var e = post.engagement || {}
+  var comments = xLoadComments(post.id)
+
+  return '<div class="x-post" data-post-id="' + post.id + '">' +
+    '<div class="x-post-avatar" data-char-id="' + xEscape(post.authorId) + '">' + avatarHTML + '</div>' +
+    '<div class="x-post-body">' +
+      '<div class="x-post-header">' +
+        '<span class="x-post-name">' + xEscape(name) + '</span>' +
+        (handle ? '<span class="x-post-handle">' + xEscape(handle) + '</span>' : '') +
+        '<span class="x-post-dot">·</span>' +
+        '<span class="x-post-time">' + timeAgo(post.createdAt) + '</span>' +
+        '<span class="x-post-more">' + X_SVG.more + '</span>' +
+        '<button class="x-post-gen-comments" data-post-id="' + post.id + '" title="生成评论"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' +
+      '</div>' +
+      '<div class="x-post-content">' + formatXContent(post.content) + '</div>' +
+      (post.tags && post.tags.length ? '<div class="x-post-tags">' + post.tags.map(function(t) { return '<span class="x-post-tag">#' + xEscape(t) + '</span>' }).join(' ') + '</div>' : '') +
+      '<div class="x-post-actions">' +
+        '<button class="x-post-action comment" data-post-id="' + post.id + '">' + X_SVG.comment + '<span>' + comments.length + '</span></button>' +
+        '<button class="x-post-action retweet">' + X_SVG.retweet + '<span>' + formatXNumber(e.retweets || 0) + '</span></button>' +
+        '<button class="x-post-action like" data-liked="0" data-count="' + (e.likes || 0) + '">' + X_SVG.like_empty + '<span>' + formatXNumber(e.likes || 0) + '</span></button>' +
+        '<button class="x-post-action share">' + X_SVG.share + '</button>' +
+      '</div>' +
+      (isAnon && post.authorId && post.authorId.indexOf('npc_') !== 0 ?
+        '<button class="x-reveal-anon" data-post-id="' + post.id + '" style="margin-top:8px;padding:4px 12px;border-radius:999px;border:1px solid var(--x-border-strong);background:transparent;color:var(--x-accent);font-size:12px;cursor:pointer;">解除匿名</button>' : '') +
+    '</div>' +
+  '</div>'
+}
+
+// 绑定帖子卡片事件
+function bindPostCardEvents(container, user) {
+  // 点赞
+  container.querySelectorAll('.x-post-action.like').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation()
+      var liked = btn.dataset.liked === '1'
+      var count = parseInt(btn.dataset.count || 0) + (liked ? -1 : 1)
+      btn.dataset.count = String(count)
+      btn.dataset.liked = liked ? '0' : '1'
+      btn.classList.toggle('liked', !liked)
+      btn.innerHTML = (liked ? X_SVG.like_empty : X_SVG.like_solid) + '<span>' + formatXNumber(count) + '</span>'
+    })
+  })
+
+  // 帖子点击进入详情
+  container.querySelectorAll('.x-post').forEach(function(card) {
+    card.addEventListener('click', function(e) {
+      if (e.target.closest('.x-post-action') || e.target.closest('.x-reveal-anon') || e.target.closest('.x-post-avatar')) return
+      showXPostDetail(card.dataset.postId, user)
+    })
+  })
+
+  // 评论按钮点击进入详情
+  container.querySelectorAll('.x-post-action.comment').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation()
+      showXPostDetail(btn.dataset.postId, user)
+    })
+  })
+
+  // 头像点击进入角色主页
+  container.querySelectorAll('.x-post-avatar').forEach(function(avatar) {
+    avatar.addEventListener('click', function(e) {
+      e.stopPropagation()
+      var charId = avatar.dataset.charId
+      if (charId && charId.indexOf('npc_') !== 0) showXCharacterProfile(charId, user)
+    })
+  })
+
+  // 解除匿名
+  container.querySelectorAll('.x-reveal-anon').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation()
+      revealAnonymous(btn.dataset.postId, user)
+    })
+  })
+}
+
+// 解除匿名
+function revealAnonymous(postId, user) {
+  var posts = xLoadPosts()
+  var post = posts.find(function(p) { return p.id === postId })
+  if (!post || !post.isAnonymous) return
+
+  // 检查是否是自建AI（NPC无法解除）
+  if (post.authorId && post.authorId.indexOf('npc_') === 0) {
+    if (window.toast) window.toast('无法解除此匿名用户的身份')
+    return
+  }
+
+  post.isAnonymous = false
+  // 恢复真实作者信息
+  if (post.realAuthorId) {
+    post.authorId = post.realAuthorId
+    post.authorName = post.realAuthorName || '微信用户'
+    post.authorHandle = post.realAuthorHandle || ''
+    post.authorAvatar = post.realAuthorAvatar || null
+  }
+  xSavePosts(posts)
+
+  // 刷新页面
+  var page = document.getElementById('x-page')
+  if (page) renderXHomeTab(page, user)
+}
+
+// ===== 帖子详情页 =====
+function showXPostDetail(postId, user) {
+  var posts = xLoadPosts()
+  var post = posts.find(function(p) { return p.id === postId })
+  if (!post) return
+  var comments = xLoadComments(postId)
+  var isAnon = post.isAnonymous
+  var name = isAnon ? '匿名用户' : (post.authorName || '未知')
+  var handle = isAnon ? '' : (post.authorHandle || '')
+  var avatarHTML = isAnon ? buildXDefaultAvatar('匿名') : (post.authorAvatar ? '<img src="' + xEscape(post.authorAvatar) + '" alt="">' : buildXDefaultAvatar(name))
+  var e = post.engagement || {}
+
+  var page = document.createElement('div')
+  page.id = 'x-detail-page'
+  page.className = 'x-detail-page'
+  page.innerHTML =
+    '<div class="x-detail-header">' +
+      '<button class="x-detail-back" type="button">' + X_SVG.back + '</button>' +
+      '<div class="x-detail-title">帖子</div>' +
+    '</div>' +
+    '<div class="x-detail-scroll">' +
+      '<div class="x-detail-post">' +
+        '<div style="display:flex">' +
+          '<div class="x-post-avatar" data-char-id="' + xEscape(post.authorId) + '" style="cursor:pointer">' + avatarHTML + '</div>' +
+          '<div class="x-post-body">' +
+            '<div class="x-post-header">' +
+              '<span class="x-post-name">' + xEscape(name) + '</span>' +
+              (handle ? '<span class="x-post-handle">' + xEscape(handle) + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="x-post-content" style="font-size:17px;line-height:1.5;margin-top:12px">' + formatXContent(post.content) + '</div>' +
+        (post.tags && post.tags.length ? '<div class="x-post-tags">' + post.tags.map(function(t) { return '<span class="x-post-tag">#' + xEscape(t) + '</span>' }).join(' ') + '</div>' : '') +
+        '</div>' +
+        '<div class="x-detail-meta">' +
+        '<div class="x-detail-time">' + formatXTime(post.createdAt) + ' · <strong>' + formatXNumber(e.views || 0) + '</strong> 次查看</div>' +
+        '<div class="x-detail-stats">' +
+          '<span><strong>' + formatXNumber(e.retweets || 0) + '</strong> 转推</span>' +
+          '<span><strong>' + formatXNumber(e.quotes || 0) + '</strong> 引用推文</span>' +
+          '<span><strong>' + formatXNumber(e.likes || 0) + '</strong> 喜欢</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="x-detail-actions">' +
+        '<button class="x-detail-action comment">' + X_SVG.comment + '</button>' +
+        '<button class="x-detail-action retweet">' + X_SVG.retweet + '</button>' +
+        '<button class="x-detail-action like" data-liked="0" data-count="' + (e.likes || 0) + '">' + X_SVG.like_empty + '</button>' +
+        '<button class="x-detail-action share">' + X_SVG.share + '</button>' +
+      '</div>' +
+      '<div class="x-comments-section" id="x-comments-list">' +
+        buildXCommentsList(comments) +
+      '</div>' +
+    '</div>' +
+    '<div class="x-comment-input-wrap">' +
+      '<button class="x-comment-gen-btn" data-post-id="' + postId + '" title="AI生成评论"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' +
+      '<input class="x-comment-input" placeholder="发表评论..." maxlength="500">' +
+      '<button class="x-comment-send">回复</button>' +
+    '</div>'
+
+  if (window.openPage) window.openPage(page)
+  else document.body.appendChild(page)
+
+  // 返回按钮
+  page.querySelector('.x-detail-back').addEventListener('click', function() { closePage('x-detail-page') })
+
+  // 点赞
+  var likeBtn = page.querySelector('.x-detail-action.like')
+  likeBtn.addEventListener('click', function() {
+    var liked = likeBtn.dataset.liked === '1'
+    var count = parseInt(likeBtn.dataset.count || 0) + (liked ? -1 : 1)
+    likeBtn.dataset.count = String(count)
+    likeBtn.dataset.liked = liked ? '0' : '1'
+    likeBtn.classList.toggle('liked', !liked)
+    likeBtn.innerHTML = (liked ? X_SVG.like_empty : X_SVG.like_solid)
+  })
+
+  // 评论输入
+  var input = page.querySelector('.x-comment-input')
+  var sendBtn = page.querySelector('.x-comment-send')
+  input.addEventListener('input', function() {
+    sendBtn.classList.toggle('active', input.value.trim().length > 0)
+  })
+  sendBtn.addEventListener('click', function() {
+    var text = input.value.trim()
+    if (!text) return
+    var quoteContent = input.dataset.quoteContent || ''
+    var quoteName = input.dataset.quoteName || ''
+    addXComment(postId, user, text, quoteContent, quoteName)
+    input.value = ''
+    input.placeholder = '发表评论...'
+    delete input.dataset.replyTo
+    delete input.dataset.replyToName
+    delete input.dataset.quoteContent
+    delete input.dataset.quoteName
+    sendBtn.classList.remove('active')
+    page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(xLoadComments(postId))
+    bindCommentEvents(page, postId, user, input, sendBtn)
+  })
+
+  // 生成评论按钮
+  var genBtn = page.querySelector('.x-comment-gen-btn')
+  if (genBtn) {
+    genBtn.addEventListener('click', function() {
+      genBtn.classList.add('loading')
+      var posts = xLoadPosts()
+      var post = posts.find(function(p) { return p.id === postId })
+      if (post && window.callAI) {
+        generateAIComments(post).then(function() {
+          genBtn.classList.remove('loading')
+          page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(xLoadComments(postId))
+          bindCommentEvents(page, postId, user, input, sendBtn)
+        })
+      } else {
+        genBtn.classList.remove('loading')
+      }
+    })
+  }
+
+  // 绑定评论点击事件
+  bindCommentEvents(page, postId, user, input, sendBtn)
+}
+
+// 绑定评论交互事件
+function bindCommentEvents(page, postId, user, input, sendBtn) {
+  // 移除旧的弹窗
+  var oldMenu = page.querySelector('.x-comment-menu-popup')
+  if (oldMenu) oldMenu.remove()
+
+  var commentEls = page.querySelectorAll('#x-comments-list .x-comment')
+  commentEls.forEach(function(el) {
+    // 点击评论回复
+    el.addEventListener('click', function(e) {
+      if (e.target.closest('.x-comment-action') || e.target.closest('.x-comment-more')) return
+      var commentId = el.dataset.commentId
+      var name = el.querySelector('.x-comment-name')
+      if (name) {
+        input.placeholder = '回复 @' + name.textContent + '...'
+        input.dataset.replyTo = commentId
+        input.dataset.replyToName = name.textContent
+        input.focus()
+      }
+    })
+
+    // 三个点菜单
+    var moreBtn = el.querySelector('.x-comment-more')
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function(e) {
+        e.stopPropagation()
+        // 关闭已有弹窗
+        var existMenu = page.querySelector('.x-comment-menu-popup')
+        if (existMenu) { existMenu.remove(); return }
+
+        var commentId = el.dataset.commentId
+        var rect = moreBtn.getBoundingClientRect()
+        var menu = document.createElement('div')
+        menu.className = 'x-comment-menu-popup'
+        menu.style.top = (rect.bottom + 4) + 'px'
+        menu.style.right = (window.innerWidth - rect.right) + 'px'
+        menu.innerHTML =
+          '<div class="x-comment-menu-item" data-action="quote"><i class="fa-solid fa-quote-left"></i> 引用</div>' +
+          '<div class="x-comment-menu-item" data-action="edit"><i class="fa-solid fa-pen"></i> 编辑</div>' +
+          '<div class="x-comment-menu-item x-comment-menu-delete" data-action="delete"><i class="fa-solid fa-trash"></i> 删除</div>'
+
+        page.appendChild(menu)
+
+        // 点击菜单项
+        menu.querySelectorAll('.x-comment-menu-item').forEach(function(item) {
+          item.addEventListener('click', function(e) {
+            e.stopPropagation()
+            var action = item.dataset.action
+            menu.remove()
+
+            if (action === 'delete') {
+              // 删除评论
+              var comments = xLoadComments(postId)
+              comments = comments.filter(function(c) { return c.id !== commentId })
+              xSaveComments(postId, comments)
+              page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(comments)
+              bindCommentEvents(page, postId, user, input, sendBtn)
+            }
+            else if (action === 'quote') {
+              // 引用评论
+              var content = el.querySelector('.x-comment-content')
+              var nameEl = el.querySelector('.x-comment-name')
+              if (content && nameEl) {
+                input.dataset.replyTo = commentId
+                input.dataset.replyToName = nameEl.textContent
+                input.dataset.quoteContent = content.textContent
+                input.dataset.quoteName = nameEl.textContent
+                input.placeholder = '回复 @' + nameEl.textContent + '...'
+                input.focus()
+                sendBtn.classList.add('active')
+              }
+            }
+            else if (action === 'edit') {
+              // 编辑评论
+              var comments2 = xLoadComments(postId)
+              var comment = comments2.find(function(c) { return c.id === commentId })
+              if (!comment) return
+              showEditCommentPopup(page, postId, comment, user, input, sendBtn)
+            }
+          })
+        })
+
+        // 点击其他地方关闭
+        setTimeout(function() {
+          document.addEventListener('click', function closeMenu() {
+            menu.remove()
+            document.removeEventListener('click', closeMenu)
+          }, { once: true })
+        }, 10)
+      })
+    }
+  })
+}
+
+// 编辑评论弹窗
+function showEditCommentPopup(page, postId, comment, user, input, sendBtn) {
+  var overlay = document.createElement('div')
+  overlay.className = 'x-edit-comment-overlay'
+  overlay.innerHTML =
+    '<div class="x-edit-comment-card">' +
+      '<div class="x-edit-comment-title">编辑评论</div>' +
+      '<textarea class="x-edit-comment-input" id="x-edit-comment-textarea">' + xEscape(comment.content) + '</textarea>' +
+      '<div class="x-edit-comment-btns">' +
+        '<button class="x-edit-comment-cancel" id="x-edit-cancel">取消</button>' +
+        '<button class="x-edit-comment-save" id="x-edit-save">保存</button>' +
+      '</div>' +
+    '</div>'
+  page.appendChild(overlay)
+
+  var textarea = overlay.querySelector('#x-edit-comment-textarea')
+  textarea.focus()
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+
+  overlay.querySelector('#x-edit-cancel').addEventListener('click', function() { overlay.remove() })
+  overlay.querySelector('#x-edit-save').addEventListener('click', function() {
+    var newText = textarea.value.trim()
+    if (!newText) return
+    var comments = xLoadComments(postId)
+    var target = comments.find(function(c) { return c.id === comment.id })
+    if (target) {
+      target.content = newText
+      xSaveComments(postId, comments)
+      page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(comments)
+      bindCommentEvents(page, postId, user, input, sendBtn)
+    }
+    overlay.remove()
+  })
+}
+
+function buildXCommentsList(comments) {
+  if (!comments.length) return '<div style="padding:32px;text-align:center;color:var(--x-text-muted);font-size:14px">暂无评论</div>'
+
+  var html = ''
+  // 一级评论
+  comments.forEach(function(c) {
+    if (c.isReply) return // 二级回复单独渲染
+    html += buildXCommentItem(c, false)
+    // 查找该评论的回复
+    var replies = comments.filter(function(r) { return r.isReply && r.replyTo === c.id })
+    replies.forEach(function(r) {
+      html += buildXCommentItem(r, true)
+    })
+  })
+  return html
+}
+
+function buildXCommentItem(comment, isNested) {
+  var isAnon = comment.isAnonymous
+  
+  var replyTarget = comment.replyToName || comment.replyToHandle || ''
+var name = isAnon ? '匿名用户' : (comment.authorName || '未知')
+  var handle = isAnon ? '' : (comment.authorHandle || '')
+  var avatarHTML = isAnon ? buildXDefaultAvatar('匿') : (comment.authorAvatar ? '<img src="' + xEscape(comment.authorAvatar) + '" alt="">' : buildXDefaultAvatar(name))
+  var stats = comment.stats || {}
+
+  return '<div class="x-comment' + (isNested ? ' x-comment-reply' : '') + '" data-comment-id="' + comment.id + '">' +
+    '<div class="x-comment-avatar">' + avatarHTML + '</div>' +
+    '<div class="x-comment-body">' +
+      '<div class="x-comment-header">' +
+        '<span class="x-comment-name">' + xEscape(name) + '</span>' +
+        (handle ? '<span class="x-comment-handle">' + xEscape(handle) + '</span>' : '') +
+        '<span class="x-comment-dot">·</span>' +
+        '<span class="x-comment-time">' + timeAgo(comment.createdAt) + '</span>' +
+        '<span class="x-comment-more">' + X_SVG.more + '</span>' +
+      '</div>' +
+      (comment.replyToName ? '<div class="x-comment-reply-to">回复 <span class="x-mention">@' + xEscape(comment.replyToName) + '</span></div>' : '') +
+      (comment.quoteContent ? '<div class="x-comment-quote"><span class="x-quote-name">@' + xEscape(comment.quoteName || '') + '</span>' + xEscape(comment.quoteContent) + '</div>' : '') +
+      '<div class="x-comment-content">' + formatXContent(comment.content) + '</div>' +
+      '<div class="x-comment-actions">' +
+        '<button class="x-comment-action comment">' + X_SVG.reply + '<span>' + (stats.comments || 0) + '</span></button>' +
+        '<button class="x-comment-action retweet">' + X_SVG.retweet + '<span>' + formatXNumber(stats.retweets || 0) + '</span></button>' +
+        '<button class="x-comment-action like">' + X_SVG.like_empty + '<span>' + formatXNumber(stats.likes || 0) + '</span></button>' +
+        '<button class="x-comment-action chart">' + X_SVG.chart + '<span>' + formatXNumber(stats.views || 0) + '</span></button>' +
+        '<button class="x-comment-action share">' + X_SVG.share + '</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>'
+}
+
+// 添加评论
+function addXComment(postId, user, text, quoteContent, quoteName) {
+  var comments = xLoadComments(postId)
+  var replyToId = null
+  var replyToName = ''
+  // 从输入框获取回复目标
+  var input = document.querySelector('.x-comment-input')
+  if (input && input.dataset.replyTo) {
+    replyToId = input.dataset.replyTo
+    replyToName = input.dataset.replyToName || ''
+  }
+  var obj = {
+    id: xGenId(),
+    authorId: user.id,
+    authorName: getXUserName(user),
+    authorHandle: getXUserHandle(user),
+    authorAvatar: xLoadImage('avatar_' + user.id) || user.avatar || null,
+    content: text,
+    stats: generateCommentStats(),
+    createdAt: new Date().toISOString(),
+    replies: []
+  }
+  if (replyToId) {
+    obj.replyTo = replyToId
+    obj.replyToName = replyToName
+    obj.isReply = true
+  }
+  if (quoteContent) {
+    obj.quoteContent = quoteContent
+    obj.quoteName = quoteName || ''
+  }
+  comments.push(obj)
+  xSaveComments(postId, comments)
+
+  // 添加通知
+  var posts = xLoadPosts()
+  var post = posts.find(function(p) { return p.id === postId })
+  if (post) {
+    var notifs = xLoadNotifications()
+    notifs.unshift({
+      id: xGenId(),
+      type: 'comment',
+      userId: user.id,
+      userName: getXUserName(user),
+      postId: postId,
+      postPreview: text.slice(0, 30),
+      createdAt: new Date().toISOString()
+    })
+    xSaveNotifications(notifs)
+    showNotifyDot()
+
+    // 记忆联通：用户评论AI帖子时，写入该AI的记忆
+    if (post.authorId && String(post.authorId) !== String(user.id)) {
+      var postPreview = (post.content || '').slice(0, 30)
+      addToBatchMemory('x', post.authorId, {
+        title: '用户评论了我的帖子',
+        content: '我发了一条帖子"' + postPreview + '"，用户"' + getXUserName(user) + '"评论说："' + text.slice(0, 40) + '"',
+        keywords: ['评论', '互动', postPreview.slice(0, 10)]
+      });
+      checkAndFlushBatchMemory('x', post.authorId)
+    }
+
+    // 记忆联通：用户回复AI评论时，写入该AI的记忆
+    if (replyToId) {
+      var targetComment = comments.find(function(c) { return c.id === replyToId })
+      if (targetComment && targetComment.authorId && String(targetComment.authorId) !== String(user.id)) {
+        addToBatchMemory('x', targetComment.authorId, {
+          title: '用户回复了我的评论',
+          content: '我说了"' + (targetComment.content || '').slice(0, 30) + '"，用户"' + getXUserName(user) + '"回复我说："' + text.slice(0, 40) + '"',
+          keywords: ['回复', '互动']
+        });
+        checkAndFlushBatchMemory('x', targetComment.authorId)
+      }
+    }
+  }
+}
+
+// ===== 发帖页面 =====
+function showXCompose(user) {
+  var existing = document.getElementById('x-compose')
+  if (existing) existing.remove()
+  var page = document.createElement('div')
+  page.id = 'x-compose'
+  page.className = 'x-compose-page'
+  var isAnonymous = false
+
+  page.innerHTML =
+    '<div class="x-compose-header">' +
+      '<button class="x-compose-cancel">取消</button>' +
+      '<button class="x-compose-publish">发布</button>' +
+    '</div>' +
+    '<div class="x-compose-anon-row">' +
+      '<span class="x-compose-anon-label">匿名发帖</span>' +
+      '<button class="x-compose-anon-toggle" id="x-anon-toggle" type="button"></button>' +
+    '</div>' +
+    '<div class="x-compose-body">' +
+      '<div class="x-compose-avatar" id="x-compose-avatar">' + getXAvatarHTML(user) + '</div>' +
+      '<div class="x-compose-input" contenteditable="true" data-placeholder="有什么新鲜事？"></div>' +
+    '</div>' +
+    '<div class="x-compose-footer">' +
+      '<div class="x-compose-tools">' +
+        '<button class="x-compose-tool"><i class="fa-solid fa-image"></i></button>' +
+        '<button class="x-compose-tool"><i class="fa-solid fa-hashtag"></i></button>' +
+      '</div>' +
+    '</div>'
+
+  if (window.openPage) window.openPage(page)
+  else document.body.appendChild(page)
+
+  var input = page.querySelector('.x-compose-input')
+  var publishBtn = page.querySelector('.x-compose-publish')
+  var anonToggle = page.querySelector('#x-anon-toggle')
+  var avatarEl = page.querySelector('#x-compose-avatar')
+
+  // 输入监听
+  input.addEventListener('input', function() {
+    publishBtn.classList.toggle('active', input.textContent.trim().length > 0)
+  })
+
+  // 匿名切换
+  anonToggle.addEventListener('click', function() {
+    isAnonymous = !isAnonymous
+    anonToggle.classList.toggle('on', isAnonymous)
+    avatarEl.innerHTML = isAnonymous ? buildXDefaultAvatar('匿名') : getXAvatarHTML(user)
+  })
+
+  // 取消
+  page.querySelector('.x-compose-cancel').addEventListener('click', function() { closePage('x-compose') })
+
+  // 发布
+  publishBtn.addEventListener('click', function() {
+    var text = input.textContent.trim()
+    if (!text) return
+    publishXPost(user, text, isAnonymous)
+    closePage('x-compose')
+  })
+}
+
+// 发布帖子
+async function publishXPost(user, content, isAnonymous) {
+  var post = {
+    id: xGenId(),
+    authorId: isAnonymous ? 'anon_' + xGenId() : String(user.id),
+    authorName: isAnonymous ? '匿名用户' : getXUserName(user),
+    authorHandle: isAnonymous ? '' : getXUserHandle(user),
+    authorAvatar: isAnonymous ? null : (user.avatar || null),
+    realAuthorId: isAnonymous ? String(user.id) : null,
+    realAuthorName: isAnonymous ? getXUserName(user) : null,
+    realAuthorHandle: isAnonymous ? getXUserHandle(user) : null,
+    realAuthorAvatar: isAnonymous ? (user.avatar || null) : null,
+    content: content,
+    category: randomPick(X_CATEGORIES).id,
+    isAnonymous: isAnonymous,
+    engagement: generateEngagement(),
+    createdAt: new Date().toISOString()
+  }
+
+  var posts = xLoadPosts()
+  posts.unshift(post)
+  xSavePosts(posts)
+
+  // 刷新首页
+  var page = document.getElementById('x-page')
+  if (page) renderXHomeTab(page, user)
+
+  // AI生成评论（1次API调用）
+  generateAIComments(post, user)
+
+  // 添加通知：有人点赞了你的帖子
+  setTimeout(function() {
+    var notifs = xLoadNotifications()
+    notifs.unshift({
+      id: xGenId(),
+      type: 'like',
+      userName: randomPick(X_NPC_NAMES),
+      postId: post.id,
+      postPreview: content.slice(0, 30),
+      createdAt: new Date().toISOString()
+    })
+    xSaveNotifications(notifs)
+    showNotifyDot()
+  }, randomInt(5000, 30000))
+}
+
+// AI生成评论（1次API调用，生成评论+回复+追评）
+async function generateAIComments(post, user) {
+  if (!window.callAI) return
+
+  var charList = ''
+  try {
+    var chars = await db.characters.where('type').equals('char').toArray()
+    charList = chars.slice(0, 5).map(function(c) { return c.name + '(' + (c.signature || c.identity?.bio || '').slice(0, 20) + ')' }).join('、')
+  } catch(e) {}
+
+  var npcSample = X_NPC_TYPES.slice(0, 5).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')' }).join('\n')
+
+  var prompt = '你是一个社交媒体评论生成器。根据以下帖子内容，生成评论互动。\n\n' +
+    '帖子内容："' + post.content.slice(0, 200) + '"\n\n' +
+    '可用NPC人设（随机选择5种）：\n' + npcSample + '\n\n' +
+    '可用自建AI角色（可选1个参与评论）：' + (charList || '无') + '\n\n' +
+    '要求：\n' +
+    '1. 先生成5条一级评论，每条来自不同NPC人设，风格完全不同\n' +
+    '2. 发帖人（' + (post.authorName || '楼主') + '）选择性回复其中2-3条感兴趣的评论（不是每条都回）\n' +
+    '3. 被发帖人回复的NPC可以再回复发帖人，形成对话（NPC回发帖人）\n' +
+    '4. 没被发帖人回复的NPC之间可以互评（路人A回复路人B的评论）\n' +
+    '5. 互评后，原评论人可以再回复（形成3层对话链）\n' +
+    '6. 评论真实自然，像真人网友，不要太长\n\n' +
+    '返回JSON格式：\n' +
+    '{"comments":[{"name":"NPC名","content":"评论内容","npcType":5,"isNpc":true}],"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"发帖人回复"}],"replies2":[{"replyToCommentIndex":0,"replyToReplyIndex":-1,"name":"NPC名","content":"NPC回发帖人或路人互评"}]}'
+
+  try {
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
+
+    var comments = xLoadComments(post.id)
+
+    // XX老婆奴评论
+    comments.push({
+      id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name,
+      authorHandle: '@xx_love', authorAvatar: null, isSystem: true,
+      content: ['你们懂什么！楼主说得对！','别听他们的，我挺你！','又来指指点点，楼主爱怎样怎样','我老婆看到这帖子都说楼主没错'][Math.floor(Math.random()*4)],
+      stats: generateCommentStats(), createdAt: new Date().toISOString(), replies: []
+    })
+
+    // 添加一级评论
+    if (data.comments) {
+      data.comments.forEach(function(c) {
+        var npcType = X_NPC_TYPES.find(function(n) { return n.id === c.npcType }) || randomPick(X_NPC_TYPES)
+        comments.push({
+          id: xGenId(),
+          authorId: c.isNpc ? 'npc_' + xGenId() : (post.authorId || 'anon'),
+          authorName: c.name || randomPick(X_NPC_NAMES),
+          authorHandle: '@user-' + String(c.id).slice(-4),
+          authorAvatar: null,
+          isNpc: !!c.isNpc,
+          npcType: npcType,
+          content: c.content,
+          stats: generateCommentStats(),
+          createdAt: new Date().toISOString(),
+          isReply: false
+        })
+      })
+    }
+
+    // 添加发帖AI的回复（二级）
+    if (data.replies) {
+      data.replies.forEach(function(r) {
+        var targetComment = data.comments[r.replyToIndex]
+        if (!targetComment) return
+        var targetInStore = comments.find(function(c) { return c.content === targetComment.content && !c.isReply })
+        comments.push({
+          id: xGenId(),
+          authorId: post.authorId,
+          authorName: post.authorName,
+          authorHandle: post.authorHandle,
+          authorAvatar: post.authorAvatar,
+          content: r.content,
+          stats: generateCommentStats(),
+          createdAt: new Date(Date.now() + 60000).toISOString(),
+          isReply: true,
+          replyTo: targetInStore ? targetInStore.id : null,
+          replyToName: targetComment.name
+        })
+      })
+    }
+
+    // 追评
+    if (data.replies2) {
+      data.replies2.forEach(function(r2) {
+        comments.push({
+          id: xGenId(),
+          authorId: 'npc_' + xGenId(),
+          authorName: r2.name || randomPick(X_NPC_NAMES),
+          authorHandle: '@' + (r2.name || 'user').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10),
+          authorAvatar: null,
+          isNpc: true,
+          npcType: randomPick(X_NPC_TYPES),
+          content: r2.content,
+          stats: generateCommentStats(),
+          createdAt: new Date(Date.now() + 120000).toISOString(),
+          isReply: true,
+          replyToName: post.authorName
+        })
+      })
+    }
+
+    xSaveComments(post.id, comments)
+
+    // 记忆联通：AI评论用户帖子时，写入各AI的记忆
+    comments.forEach(function(c) {
+      if (c.authorId && !c.isReply) {
+        var postAuthor = post.authorName || '用户'
+        var postPreview = (post.content || '').slice(0, 25)
+        addToBatchMemory('x', c.authorId, {
+          title: '我在X上评论了帖子',
+          content: postAuthor + '发了一条帖子"' + postPreview + '"，我评论说："' + c.content.slice(0, 40) + '"',
+          keywords: ['X评论', '互动']
+        });
+        checkAndFlushBatchMemory('x', c.authorId)
+      }
+    })
+
+    // 添加评论通知
+    var notifs = xLoadNotifications()
+    comments.forEach(function(c) {
+      if (!c.isReply) {
+        notifs.unshift({
+          id: xGenId(),
+          type: 'comment',
+          userName: c.authorName,
+          postId: post.id,
+          postPreview: c.content.slice(0, 30),
+          createdAt: new Date().toISOString()
+        })
+      }
+    })
+    xSaveNotifications(notifs)
+    showNotifyDot()
+
+    // 刷新首页
+    var page = document.getElementById('x-page')
+    if (page) renderXHomeTab(page, user)
+
+  } catch(e) {
+    console.error('[X] AI评论生成失败:', e)
+  }
+}
+
+// 显示通知红点
+function showNotifyDot() {
+  var dot = document.getElementById('x-notify-dot')
+  if (dot) dot.classList.add('show')
+}
+
+// ===== 搜索Tab =====
+function renderXSearchTab(page, user) {
+  var panel = page.querySelector('#x-tab-search')
+  panel.innerHTML =
+    '<div class="x-search-page">' +
+      '<div class="x-search-box">' +
+        '<i class="fa fa-search"></i>' +
+        '<input type="text" placeholder="搜索帖子或用户..." id="x-search-input">' +
+      '</div>' +
+      '<div class="x-search-results" id="x-search-results"></div>' +
+    '</div>'
+
+  var input = panel.querySelector('#x-search-input')
+  var results = panel.querySelector('#x-search-results')
+  var debounce = null
+
+  input.addEventListener('input', function() {
+    clearTimeout(debounce)
+    debounce = setTimeout(function() { doXSearch(input.value.trim(), results, user) }, 300)
+  })
+}
+
+function doXSearch(query, resultsEl, user) {
+  if (!query) { resultsEl.innerHTML = ''; return }
+
+  var posts = xLoadPosts()
+  var q = query.toLowerCase()
+  var matched = posts.filter(function(p) {
+    return (p.content && p.content.toLowerCase().indexOf(q) !== -1) ||
+           (p.authorName && p.authorName.toLowerCase().indexOf(q) !== -1)
+  })
+
+  if (!matched.length) {
+    resultsEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--x-text-muted)">未找到相关结果</div>'
+    return
+  }
+
+  resultsEl.innerHTML = matched.map(function(post) { return buildXPostCard(post) }).join('')
+  bindPostCardEvents(resultsEl, user)
+}
+
+// ===== 通知Tab =====
+function renderXNotifyTab(page, user) {
+  var panel = page.querySelector('#x-tab-notify')
+  var notifs = xLoadNotifications()
+
+  if (!notifs.length) {
+    panel.innerHTML = '<div class="x-notify-page"><div style="padding:32px;text-align:center;color:var(--x-text-muted)">暂无通知</div></div>'
+    return
+  }
+
+  panel.innerHTML = '<div class="x-notify-page">' +
+    notifs.slice(0, 50).map(function(n) {
+      var iconClass = n.type === 'like' ? 'like-icon' : 'comment-icon'
+      var iconName = n.type === 'like' ? 'fa-heart' : 'fa-comment'
+      var text = n.type === 'like'
+        ? '<strong>' + xEscape(n.userName) + '</strong> 点赞了你的帖子'
+        : '<strong>' + xEscape(n.userName) + '</strong> 评论了你的帖子：' + xEscape(n.postPreview)
+
+      return '<div class="x-notify-item">' +
+        '<div class="x-notify-icon ' + iconClass + '"><i class="fa ' + iconName + '"></i></div>' +
+        '<div>' +
+          '<div class="x-notify-text">' + text + '</div>' +
+          '<div class="x-notify-time">' + timeAgo(n.createdAt) + '</div>' +
+        '</div>' +
+      '</div>'
+    }).join('') +
+  '</div>'
+}
+
+// ===== 消息/个人主页Tab =====
+function renderXProfileTab(page, user) {
+  var panel = page.querySelector('#x-tab-profile')
+  renderXProfileContent(panel, user, true)
+}
+
+// ===== 共享主页模板（抖音/TikTok风格）=====
+function buildXProfileHTML(opts) {
+  var coverStyle = opts.coverImg ? 'background-image:url(' + xEscape(opts.coverImg) + ')' : ''
+  var avatarHTML = opts.avatarHTML || ''
+  var actions = ''
+
+  if (opts.showEdit) {
+    actions += '<button class="xh-edit-btn" id="x-edit-profile-btn"><i class="fa-solid fa-pen"></i> 编辑个人资料</button>'
+  }
+  if (opts.showFollow) {
+    actions += '<button class="xh-edit-btn' + (opts.isFollowing ? ' following' : '') + '" id="x-char-follow-btn">' + (opts.isFollowing ? '已关注' : '+ 关注') + '</button>'
+  }
+  if (opts.showGenBtn) {
+    actions += '<button class="xh-gen-btn" id="x-gen-5-posts"><i class="fa-solid fa-wand-magic-sparkles"></i> 生成5篇帖子</button>'
+  }
+
+  return '<div class="xh-page">' +
+    '<div class="xh-cover" id="xh-cover" style="' + coverStyle + '">' +
+      (opts.showBack !== false ? '<button class="xh-back-btn" type="button"><i class="fa-solid fa-chevron-left"></i></button>' : '') +
+      '<button class="xh-cover-cam" id="xh-cover-btn" type="button"><i class="fa-solid fa-camera"></i></button>' +
+    '</div>' +
+    '<div class="xh-body">' +
+      '<div class="xh-avatar-area">' +
+        '<div class="xh-avatar" id="xh-avatar-wrap">' + avatarHTML +
+          '<div class="xh-avatar-cam"><i class="fa-solid fa-camera"></i></div>' +
+        '</div>' +
+        '<div class="xh-user-meta">' +
+          '<div class="xh-name">' + xEscape(opts.name || '') + '</div>' +
+          '<div class="xh-handle">' + xEscape(opts.handle || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      (opts.bio ? '<div class="xh-bio">' + xEscape(opts.bio) + '</div>' : '') +
+      (opts.bio2 ? '<div class="xh-bio">' + xEscape(opts.bio2) + '</div>' : '') +
+      '<div class="xh-ip"><i class="fa-solid fa-location-dot"></i> IP属地：' + xEscape(opts.ipLocation || '未设置') + '</div>' +
+      '<div class="xh-stats">' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.postCount || 0) + '</div><div class="xh-stat-label">帖子</div></div>' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.followingCount || 0) + '</div><div class="xh-stat-label">关注</div></div>' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.followerCount || 0) + '</div><div class="xh-stat-label">粉丝</div></div>' +
+        '<div class="xh-stat-item"><div class="xh-stat-num">' + (opts.likeCount || 0) + '</div><div class="xh-stat-label">获赞</div></div>' +
+      '</div>' +
+      (actions ? '<div class="xh-actions">' + actions + '</div>' : '') +
+      '<div class="xh-tabs">' +
+        '<div class="xh-tab active" data-tab="posts"><i class="fa-solid fa-table-cells-large"></i></div>' +
+        '<div class="xh-tab" data-tab="comments"><i class="fa-solid fa-bookmark"></i></div>' +
+        '<div class="xh-tab" data-tab="likes"><i class="fa-solid fa-heart"></i></div>' +
+      '</div>' +
+      '<div class="xh-tab-panel active" id="xh-tab-posts">' + (opts.postsHTML || '') + '</div>' +
+      '<div class="xh-tab-panel" id="xh-tab-comments">' + (opts.commentsHTML || '') + '</div>' +
+      '<div class="xh-tab-panel" id="xh-tab-likes">' + (opts.likesHTML || '') + '</div>' +
+    '</div>' +
+  '</div>'
+}
+
+function renderXProfileContent(container, user, isOwnProfile) {
+  var follows = xLoadFollows(user.id)
+  var posts = xLoadPosts().filter(function(p) { return String(p.authorId) === String(user.id) })
+  var comments = []
+  xLoadPosts().forEach(function(p) {
+    var pc = xLoadComments(p.id)
+    pc.forEach(function(c) {
+      if (String(c.authorId) === String(user.id)) comments.push({ comment: c, post: p })
+    })
+  })
+  var savedAvatar = xLoadImage('avatar_' + user.id)
+  var savedCover = xLoadImage('cover_' + user.id)
+  var avatarSrc = savedAvatar || user.avatar || ''
+  var avatarHTML = avatarSrc ? '<img src="' + xEscape(avatarSrc) + '" alt="">' : getXAvatarHTML(user)
+
+  container.innerHTML = buildXProfileHTML({
+    coverImg: savedCover || '',
+    avatarHTML: avatarHTML,
+    name: getXUserName(user),
+    handle: getXUserHandle(user),
+    bio: function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));if(p&&p.signature)return p.signature}catch(e){} return user.signature || user.bio || ''}(),
+    ipLocation: function(){try{var p=JSON.parse(localStorage.getItem(X_PROFILE_PREFIX+user.id));if(p&&p.ipLocation)return p.ipLocation}catch(e){} return ''}(),
+    postCount: posts.length,
+    followingCount: follows.length,
+    followerCount: randomInt(10, 500),
+    likeCount: randomInt(50, 2000),
+    
+    showBack: isOwnProfile ? false : undefined,
+    showEdit: isOwnProfile,
+    postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
+    commentsHTML: comments.length ? comments.map(function(item) {
+      return '<div class="xh-comment-item"><div class="xh-comment-post-title">回复了 ' + xEscape(item.post.authorName || '匿名') + ' 的帖子</div><div class="xh-comment-text">' + xEscape(item.comment.content) + '</div><div class="xh-comment-time">' + timeAgo(item.comment.createdAt) + '</div></div>'
+    }).join('') : '<div class="xh-empty">还没有评论</div>',
+    likesHTML: '<div class="xh-empty">还没有点赞的帖子</div>'
+  })
+
+  // Tab切换
+  container.querySelectorAll('.xh-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      container.querySelectorAll('.xh-tab').forEach(function(t) { t.classList.remove('active') })
+      container.querySelectorAll('.xh-tab-panel').forEach(function(c) { c.classList.remove('active') })
+      tab.classList.add('active')
+      container.querySelector('#xh-tab-' + tab.dataset.tab).classList.add('active')
+    })
+  })
+
+  // 换头像/封面
+  container.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('avatar_' + user.id, dataUrl)
+      container.querySelector('#xh-avatar-wrap').innerHTML = '<img src="' + dataUrl + '" alt=""><div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>'
+    }, 400)
+  })
+  container.querySelector('#xh-cover-btn').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('cover_' + user.id, dataUrl)
+      container.querySelector('#xh-cover').style.backgroundImage = 'url(' + dataUrl + ')'
+    }, 800)
+  })
+
+  if (isOwnProfile) {
+    var editBtn = container.querySelector('#x-edit-profile-btn')
+    if (editBtn) editBtn.addEventListener('click', function() { showXProfileEdit(user) })
+  }
+  var backBtn = container.querySelector('.xh-back-btn')
+  if (backBtn) backBtn.addEventListener('click', function() { closePage('x-page') })
+
+  // 关注数字点击 → 弹出关注列表
+  var followStat = container.querySelectorAll('.xh-stat-item')[1] // 第二个是关注
+  if (followStat) {
+    followStat.style.cursor = 'pointer'
+    followStat.addEventListener('click', function() { showFollowListPanel(user) })
+  }
+
+  bindPostCardEvents(container, user)
+}
+
+// 关注列表弹窗
+function showFollowListPanel(user) {
+  var existing = document.getElementById('x-follow-list-panel')
+  if (existing) { existing.remove(); return }
+
+  var follows = xLoadFollows(user.id)
+  var panel = document.createElement('div')
+  panel.id = 'x-follow-list-panel'
+  panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:rgba(0,0,0,0.95);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:env(safe-area-inset-top) 0 0 0'
+
+  var listHTML = ''
+  if (!follows.length) {
+    listHTML = '<div style="text-align:center;padding:40px;color:#636366;font-size:14px">还没有关注任何人</div>'
+  } else {
+    follows.forEach(function(fid) {
+      var char = null
+      if (fid === X_XX_CHARACTER.id) {
+        char = X_XX_CHARACTER
+      }
+      if (char) {
+        var avatar = xLoadImage('avatar_' + char.id) || char.avatar || ''
+        var avatarHTML = avatar ? '<img src="' + xEscape(avatar) + '" style="width:44px;height:44px;border-radius:50%;object-fit:cover">' : buildXDefaultAvatar(char.name)
+        listHTML += '<div class="x-follow-item" data-char-id="' + char.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+          '<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0">' + avatarHTML + '</div>' +
+          '<div><div style="font-size:15px;font-weight:600;color:#e5e5ea">' + xEscape(char.name) + '</div>' +
+          '<div style="font-size:13px;color:#71767b">@' + xEscape(char.handle || '') + '</div></div></div>'
+      } else if (window.db && db.characters) {
+        db.characters.get(parseInt(fid) || fid).then(function(c) {
+          if (!c) return
+          var avatar = xLoadImage('avatar_' + c.id) || c.avatar || ''
+          var avatarHTML = avatar ? '<img src="' + xEscape(avatar) + '" style="width:44px;height:44px;border-radius:50%;object-fit:cover">' : buildXDefaultAvatar(c.name)
+          var item = document.createElement('div')
+          item.className = 'x-follow-item'
+          item.dataset.charId = c.id
+          item.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.06)'
+          item.innerHTML = '<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0">' + avatarHTML + '</div>' +
+            '<div><div style="font-size:15px;font-weight:600;color:#e5e5ea">' + xEscape(c.name) + '</div>' +
+            '<div style="font-size:13px;color:#71767b">@' + xEscape(c.identity?.account || c.handle || '') + '</div></div>'
+          var list = panel.querySelector('#x-follow-list-body')
+          if (list) list.appendChild(item)
+          bindFollowItemClick(panel, user)
+        })
+      }
+    })
+  }
+
+  panel.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.08)">' +
+      '<button id="x-follow-close" style="background:none;border:none;color:#e5e5ea;font-size:18px;cursor:pointer;padding:8px"><i class="fa fa-angle-left"></i></button>' +
+      '<span style="font-size:16px;font-weight:600;color:#e5e5ea">关注的人</span>' +
+      '<span style="width:32px"></span>' +
+    '</div>' +
+    '<div id="x-follow-list-body">' + listHTML + '</div>'
+
+  document.body.appendChild(panel)
+  document.getElementById('x-follow-close').addEventListener('click', function() { panel.remove() })
+  bindFollowItemClick(panel, user)
+}
+
+function bindFollowItemClick(panel, user) {
+  panel.querySelectorAll('.x-follow-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      var charId = item.dataset.charId
+      if (charId) {
+        panel.remove()
+        showXCharacterProfile(charId, user)
+      }
+    })
+  })
+}
+
+// ===== 角色主页 =====
+function showXCharacterProfile(charId, user) {
+  // 特殊处理XX
+  if (charId === X_XX_CHARACTER.id || charId === 'xx_laopo') {
+    showXXProfile(user)
+    return
+  }
+
+  if (!window.db || !db.characters) { console.warn('[X] db不可用'); return }
+  var lookupId = parseInt(charId) || charId
+  db.characters.get(lookupId).then(function(char) {
+    if (!char) { console.warn('[X] 角色未找到:', charId, 'lookupId:', lookupId); return }
+    renderXCharProfilePage(char, user)
+  }).catch(function(e) { console.error('[X] 查找角色失败:', e) })
+}
+
+function renderXCharProfilePage(char, user) {
+  var existing = document.getElementById('x-char-profile')
+  if (existing) existing.remove()
+
+  var posts = xLoadPosts().filter(function(p) { return String(p.authorId) === String(char.id) })
+  var isFollowing = xIsFollowing(user.id, char.id)
+  var isSelf = String(char.id) === String(user.id)
+  var savedAvatar = xLoadImage('avatar_' + char.id)
+  var savedCover = xLoadImage('cover_' + char.id)
+  var avatarSrc = savedAvatar || char.avatar || ''
+  var avatarHTML = avatarSrc ? '<img src="' + xEscape(avatarSrc) + '" alt="">' : getXAvatarHTML(char)
+
+  // 检查是否已有缓存的AI生成资料
+  var profileKey = 'x_ai_profile_' + char.id
+  var cachedProfile = null
+  try { cachedProfile = JSON.parse(localStorage.getItem(profileKey)) } catch(e) {}
+
+  // 评论和点赞
+  var charComments = []
+  xLoadPosts().forEach(function(p) {
+    var pc = xLoadComments(p.id)
+    pc.forEach(function(c) {
+      if (String(c.authorId) === String(char.id)) charComments.push({ comment: c, post: p })
+    })
+  })
+
+  var bio = cachedProfile ? cachedProfile.bio : (char.signature || char.identity?.bio || '')
+  var ipLocation = cachedProfile ? cachedProfile.ipLocation : ''
+  var handle = cachedProfile ? cachedProfile.handle : ('@' + (char.identity?.account || char.handle || char.name))
+
+  var page = document.createElement('div')
+  page.id = 'x-char-profile'
+  page.className = 'x-profile-page'
+
+  page.innerHTML = buildXProfileHTML({
+    coverImg: savedCover || char.coverImage || '',
+    avatarHTML: avatarHTML,
+    name: char.nick || char.name,
+    handle: handle,
+    bio: bio,
+    ipLocation: ipLocation,
+    postCount: posts.length,
+    followingCount: randomInt(5, 200),
+    followerCount: randomInt(50, 5000),
+    likeCount: randomInt(100, 10000),
+    showFollow: !isSelf,
+    isFollowing: isFollowing,
+    showGenBtn: char.type === 'char',
+    postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
+    commentsHTML: charComments.length ? charComments.map(function(item) {
+      return '<div class="xh-comment-item"><div class="xh-comment-post-title">回复了 ' + xEscape(item.post.authorName || '匿名') + ' 的帖子</div><div class="xh-comment-text">' + xEscape(item.comment.content) + '</div><div class="xh-comment-time">' + timeAgo(item.comment.createdAt) + '</div></div>'
+    }).join('') : '<div class="xh-empty">还没有评论</div>',
+    likesHTML: '<div class="xh-empty">还没有点赞的帖子</div>'
+  })
+
+  if (window.openPage) window.openPage(page)
+  else document.body.appendChild(page)
+
+  page.querySelector('.xh-back-btn').addEventListener('click', function() { closePage('x-char-profile') })
+
+  // 如果没有缓存资料，调API生成
+  if (!cachedProfile && window.callAI) {
+    generateAIProfile(char, page)
+  }
+
+  // 换头像/封面
+  page.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('avatar_' + char.id, dataUrl)
+      page.querySelector('#xh-avatar-wrap').innerHTML = '<img src="' + dataUrl + '" alt=""><div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>'
+    }, 400)
+  })
+  page.querySelector('#xh-cover-btn').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('cover_' + char.id, dataUrl)
+      page.querySelector('#xh-cover').style.backgroundImage = 'url(' + dataUrl + ')'
+    }, 800)
+  })
+
+  // 关注
+  var followBtn = page.querySelector('#x-char-follow-btn')
+  if (followBtn) {
+    followBtn.addEventListener('click', function() {
+      var nowFollowing = xToggleFollow(user.id, char.id)
+      followBtn.textContent = nowFollowing ? '已关注' : '+ 关注'
+      followBtn.classList.toggle('following', nowFollowing)
+    })
+  }
+
+  // 一键生成5篇
+  var genBtn = page.querySelector('#x-gen-5-posts')
+  if (genBtn) {
+    genBtn.addEventListener('click', function() {
+      genBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 生成中...'
+      genBtn.disabled = true
+      generate5PostsForChar(char).then(function() {
+        genBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 生成5篇帖子'
+        genBtn.disabled = false
+        var postsEl = page.querySelector('#xh-tab-posts')
+        var newPosts = xLoadPosts().filter(function(p) { return String(p.authorId) === String(char.id) })
+        postsEl.innerHTML = newPosts.map(function(p) { return buildXPostCard(p) }).join('')
+        bindPostCardEvents(postsEl, user)
+      })
+    })
+  }
+
+  bindPostCardEvents(page.querySelector('#xh-tab-posts'), user)
+}
+
+// AI角色资料生成（调API，缓存到localStorage）
+async function generateAIProfile(char, page) {
+  if (!window.callAI) return
+  var profileKey = 'x_ai_profile_' + char.id
+
+  var prompt = '你是' + char.name + '。' + (char.identity?.bio || char.signature || '') + '\n\n' +
+    '请为自己填写社交媒体个人资料。根据你的性格和设定来写。\n\n' +
+    '返回JSON格式：\n' +
+    '{"bio":"一句话简介(20字以内)","ipLocation":"你所在的省份或城市(如：浙江、北京)","handle":"@你的英文账号(英文字母+短横线)"}'
+
+  try {
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
+    if (!data) return
+
+    var profile = {
+      bio: String(data.bio || '').slice(0, 30),
+      ipLocation: String(data.ipLocation || '').slice(0, 10),
+      handle: String(data.handle || '@' + char.name).slice(0, 20)
+    }
+
+    localStorage.setItem(profileKey, JSON.stringify(profile))
+    console.log('[X] AI资料已生成：' + char.name, profile)
+
+    // 刷新页面上的资料
+    if (page) {
+      var bioEl = page.querySelector('.xh-bio')
+      var handleEl = page.querySelector('.xh-handle')
+      var ipEl = page.querySelector('.xh-ip')
+      if (bioEl && profile.bio) bioEl.textContent = profile.bio
+      if (handleEl && profile.handle) handleEl.textContent = profile.handle
+      if (ipEl && profile.ipLocation) ipEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> IP属地：' + profile.ipLocation
+    }
+  } catch(e) {
+    console.warn('[X] AI资料生成失败:', e)
+  }
+}
+
+// XX角色主页（统一模板）
+function showXXProfile(user) {
+  var existing = document.getElementById('x-char-profile')
+  if (existing) existing.remove()
+
+  var char = X_XX_CHARACTER
+  var posts = xLoadPosts().filter(function(p) { return p.authorId === char.id })
+  var savedAvatar = xLoadImage('avatar_' + char.id)
+  var savedCover = xLoadImage('cover_' + char.id)
+  var avatarHTML = savedAvatar ? '<img src="' + xEscape(savedAvatar) + '" alt="">' : buildXDefaultAvatar('X')
+
+  var page = document.createElement('div')
+  page.id = 'x-char-profile'
+  page.className = 'x-profile-page'
+
+  page.innerHTML = buildXProfileHTML({
+    coverImg: savedCover || '',
+    avatarHTML: avatarHTML,
+    name: 'XX',
+    handle: '@xx_love',
+    bio: '有老婆就是了不起',
+    bio2: '表面吐槽老婆，实际全世界最爱老婆。谁敢说我老婆一句坏话，我弄死你。老婆做什么都是对的，老婆永远是最好的。',
+    postCount: posts.length,
+    followingCount: 1,
+    followerCount: randomInt(1000, 99999),
+    likeCount: randomInt(5000, 99999),
+    showFollow: true,
+    isFollowing: true,
+    showGenBtn: true,
+    postsHTML: posts.length ? posts.map(function(p) { return buildXPostCard(p) }).join('') : '<div class="xh-empty">还没有帖子</div>',
+    commentsHTML: '<div class="xh-empty">还没有评论</div>',
+    likesHTML: '<div class="xh-empty">还没有点赞的帖子</div>'
+  })
+
+  if (window.openPage) window.openPage(page)
+  else document.body.appendChild(page)
+
+  page.querySelector('.xh-back-btn').addEventListener('click', function() { closePage('x-char-profile') })
+
+  // 换头像/封面
+  page.querySelector('#xh-avatar-wrap').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('avatar_' + char.id, dataUrl)
+      page.querySelector('#xh-avatar-wrap').innerHTML = '<img src="' + dataUrl + '" alt=""><div class="xh-avatar-badge"><i class="fa-solid fa-camera"></i></div>'
+    }, 400)
+  })
+  page.querySelector('#xh-cover-btn').addEventListener('click', function() {
+    xPickImage(function(dataUrl) {
+      xSaveImage('cover_' + char.id, dataUrl)
+      page.querySelector('#xh-cover').style.backgroundImage = 'url(' + dataUrl + ')'
+    }, 800)
+  })
+
+  // 一键生成5篇
+  var genBtn = page.querySelector('#x-gen-5-posts')
+  if (genBtn) {
+    genBtn.addEventListener('click', function() {
+      genBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 生成中...'
+      genBtn.disabled = true
+      generate5PostsForChar(char).then(function() {
+        genBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 生成5篇帖子'
+        genBtn.disabled = false
+        var postsEl = page.querySelector('#xh-tab-posts')
+        var newPosts = xLoadPosts().filter(function(p) { return p.authorId === char.id })
+        postsEl.innerHTML = newPosts.map(function(p) { return buildXPostCard(p) }).join('')
+        bindPostCardEvents(postsEl, user)
+      })
+    })
+  }
+
+  bindPostCardEvents(page.querySelector('#xh-tab-posts'), user)
+}
+
+// AI一键生成5篇帖子（含评论+发帖人回复+路人互评）
 async function generate5PostsForChar(char) {
   if (!window.callAI) return
 
   var npcSample = X_NPC_TYPES.sort(function(){return Math.random()-0.5}).slice(0,6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')' }).join('\n')
 
-  var charDesc = char.description || (char.identity && char.identity.bio) || char.signature || ''
-  var charRels = (char.relations || []).map(function(r) { return r.desc || r.type || '' }).filter(Boolean).join('、')
-
-  var prompt = '你是' + char.name + '。你的人设：' + charDesc + (charRels ? '。关系：' + charRels : '') + '。以你自己的身份发帖，不能用用户信息。为以下角色生成5条帖子，每条帖子都要有完整的评论互动。\n\n' +
+  var prompt = '你是社交媒体内容生成器。为以下角色生成5条帖子，每条帖子都要有完整的评论互动。\n\n' +
     '发帖人：' + char.name + '（' + (char.description || char.identity?.bio || char.signature || '普通用户') + '）\n\n' +
     '帖子分类（每条选一个不同的）：\n' +
     X_CATEGORIES.map(function(c) { return c.id + '.' + c.name }).join('\n') + '\n\n' +

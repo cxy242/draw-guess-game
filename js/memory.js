@@ -621,7 +621,7 @@ ${lines}`
     var parsed = null
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode') })
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'), max_tokens: 2000 })
         parsed = extractJson(raw)
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'
@@ -761,7 +761,7 @@ ${lines}`
     var parsed = null
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode') })
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'), max_tokens: 2000 })
         parsed = extractJson(raw)
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'

@@ -296,6 +296,22 @@ async function postMoment(opts) {
     };
     await window.db.moments.put(moment);
 
+    // 批量记忆：记录朋友圈互动
+    if (window.addToBatchMemory && window.checkAndFlushBatchMemory) {
+      var commentSummary = (moment.comments || []).map(function(c) {
+        return c.name + (c.replyToName ? '回复' + c.replyToName : '') + '：' + c.text;
+      }).slice(0, 3).join('；');
+      var likeSummary = (moment.likes || []).map(function(l) { return l.name; }).slice(0, 5).join('、');
+      addToBatchMemory('moments', charId, {
+        title: char.name + '发了朋友圈',
+        content: char.name + '发了一条朋友圈："' + data.text.slice(0, 60) + '"' +
+          (commentSummary ? '。评论：' + commentSummary : '') +
+          (likeSummary ? '。点赞：' + likeSummary : ''),
+        keywords: ['朋友圈', char.name]
+      });
+      checkAndFlushBatchMemory('moments', charId);
+    }
+
     console.log('[AutoMoments] 已发布:', char.name, data.text.slice(0, 30));
     refreshMomentsPage();
     return moment;
