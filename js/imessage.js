@@ -627,7 +627,7 @@ async function sendAnonymousCharSMS(user) {
     var anonPhone = genAnonPhone()
     var anonName = genAnonName()
     var now = Date.now()
-    var ownerPhone = user.identity ? user.identity.phone : ('user_' + (user.id || 'default'))
+    var ownerPhone = user.phone || (user.identity && user.identity.phone) || _smsActivePhone || 'user_default'
 
     // 查找或创建对话
     var conv = await db.smsConversations
