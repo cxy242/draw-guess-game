@@ -455,6 +455,9 @@ ${MISS_BEAUTY_CLASS_TEXT}`
   }
 
   window.showMissYouPage = async function() {
+    window.toast && window.toast('想见你正在打开...')
+    console.log('[MissYou] showMissYouPage called')
+    try {
     const page = document.createElement('div')
     page.id = 'miss-you-page'
     page.className = 'full-page miss-page'
@@ -476,6 +479,7 @@ ${MISS_BEAUTY_CLASS_TEXT}`
     })
     window.openPage(page)
     await renderAccountPicker(page)
+    } catch(_missErr) { window.toast && window.toast('想见你错误: ' + String(_missErr)); console.error('[MissYou] error:', _missErr) }
   }
 
   function setMissTitle(page, title) {
