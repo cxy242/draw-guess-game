@@ -1530,6 +1530,7 @@ ${lines}`
         ${(m.keywords && m.keywords.length) ? '<div class="memory-keywords">' + m.keywords.map(function(k) { return '<span class="memory-keyword-tag">' + esc(k) + '</span>' }).join('') + '</div>' : ''}
         <div class="memory-actions">
           <button class="btn-ghost btn-sm" data-action="viewOriginal">查看原文</button>
+          <button class="btn-ghost btn-sm" data-action="resummarize">重新总结</button>
           <button class="btn-ghost btn-sm" data-action="edit">编辑</button>
           <button class="btn-ghost btn-sm" data-action="recall">回忆</button>
           <button class="btn-ghost btn-sm" data-action="toggle">${m.status === 'archived' ? '恢复' : '归档'}</button>
@@ -1608,6 +1609,19 @@ ${lines}`
             var matchingRun = runs.find(function(r) { return r.originalText })
             if (matchingRun && matchingRun.originalText) { showOriginalTextModal(matchingRun) }
             else { window.toast && window.toast('暂无原始记录') }
+            return
+          }
+          if (action === 'resummarize') {
+            var runs2 = await db.memoryRuns.where('chatId').equals(String(m.chatId || '')).toArray()
+            var run2 = runs2.find(function(r) { return r.originalText })
+            if (!run2) { window.toast && window.toast('暂无原始记录，无法重新总结'); return }
+            btn.disabled = true
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'
+            try {
+              await retrySummary(run2.id)
+              window.toast && window.toast('重新总结成功')
+              await renderMemoryPage(page)
+            } catch(e) { window.toast && window.toast('重新总结失败'); btn.disabled = false; btn.textContent = '重新总结' }
             return
           }
           if (action === 'edit') return openEditor(m, page)
