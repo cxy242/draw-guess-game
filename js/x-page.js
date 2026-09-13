@@ -812,15 +812,28 @@ function bindPostCardEvents(container, user) {
     var posts = xLoadPosts()
     var post = posts.find(function(p) { return p.id === postId })
     if (!post || (!post.isNpc && !(post.authorId && post.authorId.indexOf('npc_') === 0))) return
-    postEl.addEventListener('touchstart', function() {
+    postEl.addEventListener('touchstart', function(e) {
+      e.preventDefault()
       _longPressTimer = setTimeout(function() {
-        if (confirm('确定删除这条帖子吗？')) {
+        window.toast && window.toast('长按触发，postId: ' + postId)
+        // 自定义删除弹窗
+        var overlay = document.createElement('div')
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center'
+        var box = document.createElement('div')
+        box.style.cssText = 'background:#fff;border-radius:12px;padding:20px;max-width:280px;text-align:center'
+        box.innerHTML = '<p style="margin:0 0 16px;font-size:15px;color:#333">确定删除这条帖子吗？</p><div style="display:flex;gap:12px;justify-content:center"><button id="x-del-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#666;font-size:14px">取消</button><button id="x-del-confirm" style="padding:8px 20px;border-radius:8px;border:none;background:#e74c3c;color:#fff;font-size:14px">删除</button></div>'
+        overlay.appendChild(box)
+        document.body.appendChild(overlay)
+        box.querySelector('#x-del-cancel').onclick = function() { overlay.remove() }
+        box.querySelector('#x-del-confirm').onclick = function() {
           var allPosts = xLoadPosts().filter(function(p) { return p.id !== postId })
           xSavePosts(allPosts)
           localStorage.removeItem('x_comments_' + postId)
+          overlay.remove()
           window.toast && window.toast('已删除')
           if (typeof renderXHomeTab === 'function') renderXHomeTab()
         }
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.remove() }
       }, 600)
     })
     postEl.addEventListener('touchend', function() { clearTimeout(_longPressTimer) })

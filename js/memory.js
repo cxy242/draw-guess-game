@@ -1873,7 +1873,61 @@ ${lines}`
     }).sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0) })
   }
 
-  // 重新总结（从失败记录的原文重新调用API）
+  // 重新总结单条记忆（覆盖原内容）
+  async function resummarizeMemory(memoryId) {
+    var m = await db.memories.get(memoryId)
+    if (!m) { window.toast && window.toast('\u8bb0\u5fc6\u4e0d\u5b58\u5728'); return { ok: false } }
+
+    var allRuns = await db.memoryRuns.toArray()
+    var matchingRun = allRuns.find(function(r) {
+      if (!r.originalText) return false
+      if (m.sourceMsgStartId && r.fromMsgId && r.toMsgId) {
+        return m.sourceMsgStartId >= r.fromMsgId && m.sourceMsgEndId <= r.toMsgId
+      }
+      return String(r.chatId) === String(m.chatId || '')
+    })
+    if (!matchingRun || !matchingRun.originalText) { window.toast && window.toast('\u627e\u4e0d\u5230\u539f\u59cb\u8bb0\u5f55'); return { ok: false } }
+
+    window.toast && window.toast('\u6b63\u5728\u91cd\u65b0\u603b\u7ed3...')
+
+    var isOffline = m.sourceType === 'offlineMeet'
+    var prompt = ''
+    if (isOffline) {
+      prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u7ebf\u4e0b\u89c1\u9762\u8bb0\u5f55\uff0c\u63d0\u53d61\u6761\u6700\u91cd\u8981\u7684\u8bb0\u5fc6\u3002\n\n' +
+        '\u89c1\u9762\u5185\u5bb9\uff1a\n' + matchingRun.originalText.slice(0, 3000) + '\n\n' +
+        '\u8981\u6c42\uff1a\u7528\u7b2c\u4e09\u4eba\u79f0\u63cf\u8ff0\u8fd9\u6b21\u89c1\u9762\u53d1\u751f\u4e86\u4ec0\u4e48\uff0c\u5305\u542b\u65f6\u95f4\u3001\u5730\u70b9\u3001\u5173\u952e\u4e8b\u4ef6\u3002\n' +
+        '\u8fd4\u56deJSON\u683c\u5f0f\uff1a\n' +
+        '{"memories":[{"title":"\u6807\u9898(10\u5b57\u4ee5\u5185)","content":"\u5185\u5bb9(80\u5b57\u4ee5\u5185)","keywords":["\u5173\u952e\u8bcd"],"importance":7,"valence":0.5,"arousal":0.4}]}'
+    } else {
+      prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53d61\u6761\u5173\u952e\u8bb0\u5fc6\u3002\n\n' +
+        '\u804a\u5929\u5185\u5bb9\uff1a\n' + matchingRun.originalText.slice(0, 3000) + '\n\n' +
+        '\u8fd4\u56deJSON\u683c\u5f0f\uff1a\n' +
+        '{"memories":[{"title":"\u6807\u9898(10\u5b57\u4ee5\u5185)","content":"\u5185\u5bb9(50\u5b57\u4ee5\u5185)","keywords":["\u5173\u952e\u8bcd"],"importance":5,"valence":0,"arousal":0.3}]}'
+    }
+
+    var parsed = null
+    try {
+      var callFn = window.callMemoryAI || window.callAI
+      var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+      parsed = extractJson(raw)
+    } catch(e) { window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u5931\u8d25'); return { ok: false } }
+
+    if (!parsed || !Array.isArray(parsed.memories) || !parsed.memories.length) {
+      window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u5931\u8d25')
+      return { ok: false }
+    }
+
+    var newMem = parsed.memories[0]
+    await db.memories.update(memoryId, {
+      title: newMem.title || m.title,
+      content: newMem.content || m.content,
+      keywords: newMem.keywords || m.keywords,
+      importance: newMem.importance || m.importance,
+      updatedAt: Date.now()
+    })
+    window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u6210\u529f')
+    return { ok: true }
+  }  // 重新总结（从失败记录的原文重新调用API）
   async function retrySummary(runId) {
     var run = await db.memoryRuns.get(runId)
     if (!run || !run.originalText) { window.toast && window.toast('找不到原始记录'); return { ok: false } }

@@ -27,7 +27,7 @@
   async function loadData(charId) {
     try {
       const val = await db.config.get('memoryPanel_' + charId);
-      return val || {};
+      return (val && val.value) ? val.value : {};
     } catch (e) {
       return {};
     }
@@ -99,7 +99,7 @@
     return '<div class="mp-schedule">' +
       '<div class="mp-card-title"><i class="fa-solid fa-calendar-days"></i> 日程安排</div>' +
       '<div class="mp-tabs" data-tabs="schedule">' +
-        '<button class="mp-tab active" data-tab="past">近三天</button>' +
+        '<button class="mp-tab active" data-tab="past">前三天</button>' +
         '<button class="mp-tab" data-tab="today">今天</button>' +
         '<button class="mp-tab" data-tab="tomorrow">明天</button>' +
         '<button class="mp-tab" data-tab="agreements">约定</button>' +
