@@ -1,926 +1,191 @@
-/* memory-panel.js — 记忆整理面板 */
+// Memory Panel - 5 modules: status, health, schedule, memory, footer
+(function(){
+  'use strict';
 
-// ===== 数据结构 =====
-// 每个角色的记忆面板存储在IndexedDB的config表中
-// key: 'memoryPanel_{charId}'
-// value: { items: [...], promises: [...], belongings: [...], importantDates: [...], togetherDate: '...', lastUpdated: timestamp }
+  function escMemHtml(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
 
-function getMemoryPanelKey(charId) {
-  return 'memoryPanel_' + charId
-}
+  function formatMemTime(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    var pad = function(n){ return n<10?'0'+n:n; };
+    return (d.getMonth()+1)+'/'+d.getDate()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
 
-async function loadMemoryPanel(charId) {
-  try {
-    const stored = await db.config.get(getMemoryPanelKey(charId))
-    const panel = stored && stored.value ? stored.value : createEmptyPanel()
+  async function loadData() {
+    try {
+      if (!window.db || !window.db.config) return null;
+      var chars = [];
+      try { chars = await window.db.characters.toArray(); } catch(e){}
+      var cid = (window.currentCharId) || (chars[0] && chars[0].id) || 'default';
+      var rec = await window.db.config.get('memoryPanel_' + cid);
+      return rec ? rec : null;
+    } catch(e) {
+      console.warn('[MemoryPanel] load error', e);
+      return null;
+    }
+  }
 
-    // 从记忆库(db.memories)加载该角色的记忆
-    if (db.memories) {
-      try {
-        const memories = await db.memories.where('charId').equals(charId).toArray()
-        panel.memories = memories.filter(m => m.status !== 'archived').map(m => ({
-          id: m.id,
-          title: m.title || '',
-          content: m.content || '',
-          keywords: m.keywords || [],
-          sourceType: m.sourceType || 'wechat',
-          createdAt: m.createdAt || m.sourceAt || Date.now(),
-          importance: m.importance || 5,
-          status: m.status || 'active',
-          decayPercent: typeof m.decayPercent === 'number' ? m.decayPercent : 80,
-          injectionLayer: m.injectionLayer || 2,
-          isLongTerm: !!m.isLongTerm,
-          lastRecalledAt: m.lastRecalledAt || null,
-          participants: m.participants || []
-        })).sort((a, b) => b.createdAt - a.createdAt)
-      } catch(e) {
-        console.warn('[MemoryPanel] 加载记忆库失败:', e)
-        panel.memories = []
+  // Module 1: Status (wearing, activity, location, mood, next)
+  function renderStatus(data) {
+    if (!data) return '';
+    var rows = [
+      { icon: 'fa-tshirt', label: '穿着', key: 'wearing' },
+      { icon: 'fa-running', label: '活动', key: 'activity' },
+      { icon: 'fa-map-marker-alt', label: '位置', key: 'location' },
+      { icon: 'fa-smile', label: '心情', key: 'mood' },
+      { icon: 'fa-arrow-right', label: '下一步', key: 'next' }
+    ];
+    var html = '<div class="mp-card"><div class="mp-card-title"><i class="fas fa-user-circle"></i> 当前状态</div>';
+    var hasData = false;
+    rows.forEach(function(r){
+      var item = data[r.key];
+      if (item && item.v) {
+        hasData = true;
+        html += '<div class="mp-status-row">' +
+          '<i class="fas ' + escMemHtml(r.icon) + '" style="color:#4a9eff;width:16px;text-align:center"></i>' +
+          '<span class="mp-label">' + escMemHtml(r.label) + '</span>' +
+          '<span class="mp-value">' + escMemHtml(item.v) + '</span>' +
+          '<span class="mp-time">' + formatMemTime(item.t) + '</span>' +
+          '</div>';
       }
+    });
+    html += '</div>';
+    return hasData ? html : '';
+  }
+
+  // Module 2: Health
+  function renderHealth(data) {
+    if (!data) return '';
+    var ai = data.healthAi;
+    var user = data.healthUser;
+    if ((!ai || !ai.v) && (!user || !user.v)) return '';
+    var html = '<div class="mp-card mp-health-card"><div class="mp-card-title"><i class="fas fa-heartbeat"></i> 健康状况</div>';
+    if (ai && ai.v) {
+      html += '<div class="mp-health-item"><div class="mp-health-label"><i class="fas fa-robot"></i> AI记录</div>' +
+        '<div>' + escMemHtml(ai.v) + '</div><div class="mp-time" style="font-size:11px;color:#a0aec0">' + formatMemTime(ai.t) + '</div></div>';
     }
-
-    return panel
-  } catch(e) {
-    console.warn('[MemoryPanel] 加载失败:', e)
-    return createEmptyPanel()
-  }
-}
-
-async function saveMemoryPanel(charId, panel) {
-  panel.lastUpdated = Date.now()
-  try {
-    await db.config.put({ key: getMemoryPanelKey(charId), value: panel })
-  } catch(e) {
-    console.warn('[MemoryPanel] 保存失败:', e)
-  }
-}
-
-function createEmptyPanel() {
-  return {
-    items: [],       // 记忆条目 { id, date, time, content, tags:[] }
-    promises: [],    // 约定 { id, title, date, status:'active'|'done'|'pending' }
-    belongings: [],  // 随身物品 { id, name, source, type:'keepsake'|'borrowed'|'daily' }
-    importantDates: [], // 重要日期 { id, name, date }
-    togetherDate: '',   // 在一起日期 'YYYY-MM-DD'
-    health: '',     // 当前身体状态
-    mood: '',       // 当前情绪
-    memories: [],   // 来自db.memories的记忆（只读，不存入config）
-    lastUpdated: 0
-  }
-}
-
-// ===== 生成记忆面板HTML =====
-function buildMemoryPanelHTML(panel) {
-  const now = new Date()
-  const today = formatDate(now)
-  const yesterday = formatDate(new Date(now - 86400000))
-  const dayBefore = formatDate(new Date(now - 172800000))
-
-  // 按日期分组记忆条目
-  const grouped = { before: [], yesterday: [], today: [], future: [] }
-  const todayTime = new Date(today).getTime()
-
-  panel.items.forEach(item => {
-    if (!item.date) return
-    const itemTime = new Date(item.date).getTime()
-    if (item.date === today) grouped.today.push(item)
-    else if (item.date === yesterday) grouped.yesterday.push(item)
-    else if (itemTime < todayTime) grouped.before.push(item)
-    else grouped.future.push(item)
-  })
-
-  let html = ''
-
-  // 当前状态
-  html += '<div class="mem-status-section">'
-  html += '<div class="mem-status-card">'
-  html += '<div class="mem-status-row">'
-  html += '<div class="mem-status-icon health"><i class="fa-solid fa-heart-pulse"></i></div>'
-  html += '<span class="mem-status-label">身体</span>'
-  html += '<span class="mem-status-value">' + (panel.health || '良好') + '</span>'
-  html += '</div>'
-  html += '<div class="mem-status-row">'
-  html += '<div class="mem-status-icon mood"><i class="fa-solid fa-face-smile"></i></div>'
-  html += '<span class="mem-status-label">情绪</span>'
-  html += '<span class="mem-status-value">' + (panel.mood || '平静') + '</span>'
-  html += '</div>'
-  html += '</div></div>'
-
-  // 前天
-  if (grouped.before.length) {
-    html += buildDateDivider(dayBefore, '前天')
-    grouped.before.forEach(item => { html += buildMemoryItem(item) })
-  }
-
-  // 昨天
-  if (grouped.yesterday.length) {
-    html += buildDateDivider(yesterday, '昨天')
-    grouped.yesterday.forEach(item => { html += buildMemoryItem(item) })
-  }
-
-  // 今天
-  if (grouped.today.length) {
-    html += buildDateDivider(today, '今天')
-    grouped.today.forEach(item => { html += buildMemoryItem(item) })
-  }
-
-  // 将要做的事
-  if (grouped.future.length) {
-    html += '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">将要做的事</span><span class="mem-date-line"></span></div>'
-    grouped.future.forEach(item => { html += buildMemoryItem(item) })
-  }
-
-  // 约定卡片
-  if (panel.promises.length) {
-    html += '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">约定</span><span class="mem-date-line"></span></div>'
-    panel.promises.forEach(p => { html += buildPromiseCard(p) })
-  }
-
-  // 随身物品
-  if (panel.belongings.length) {
-    html += '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">随身物品</span><span class="mem-date-line"></span></div>'
-    html += '<div class="mem-items-grid">'
-    panel.belongings.forEach(b => { html += buildBelongingCard(b) })
-    html += '</div>'
-  }
-
-  // 重要日期
-  if (panel.importantDates.length) {
-    html += '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">重要日期</span><span class="mem-date-line"></span></div>'
-    html += '<div class="mem-dates-list">'
-    panel.importantDates.forEach(d => { html += buildImportantDateCard(d) })
-    html += '</div>'
-  }
-
-  // 在一起天数
-  if (panel.togetherDate) {
-    html += buildTogetherCard(panel.togetherDate)
-  }
-
-  // 记忆库（来自db.memories）
-  if (panel.memories && panel.memories.length) {
-    html += '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">记忆库</span><span class="mem-date-line"></span></div>'
-    panel.memories.slice(0, 20).forEach(m => {
-      const sourceLabels = { wechat: '微信', x: 'X', sms: '短信', moments: '朋友圈', offline: '线下', manual: '手动', offlineMeet: '见面' }
-      const sourceLabel = sourceLabels[m.sourceType] || '微信'
-      const layerLabel = { 1: '第一层', 2: '第二层', 3: '第三层', 4: '第四层' }[m.injectionLayer] || '第二层'
-      const isLongTerm = !!m.isLongTerm
-      const decay = typeof m.decayPercent === 'number' ? m.decayPercent : 80
-      const barColor = decay > 60 ? '#70c880' : (decay > 30 ? '#e8c070' : '#e88070')
-      const dateStr = formatTimestamp(m.createdAt)
-      const recallText = m.lastRecalledAt ? formatTimestamp(m.lastRecalledAt) + '想起' : '从未回忆'
-      html += '<div class="mem-item mem-memory-item" data-memory-id="' + m.id + '">' +
-        '<div class="mem-item-header">' +
-          '<span class="mem-item-time">' + dateStr + '</span>' +
-          '<span class="mem-item-tag mem-tag-' + (m.sourceType || 'wechat') + '">' + sourceLabel + '</span>' +
-          '<span class="mem-item-tag mem-tag-layer">' + layerLabel + '</span>' +
-          (isLongTerm ? '<span class="mem-item-tag mem-tag-longterm"><i class="fa-solid fa-lock"></i> 长期</span>' : '') +
-        '</div>' +
-        '<div class="mem-decay-bar">' +
-          '<div class="mem-decay-fill" style="width:' + decay + '%;background:' + barColor + '"></div>' +
-          '<span class="mem-decay-text">' + decay + '%</span>' +
-        '</div>' +
-        '<div class="mem-item-content">' +
-          escMemHtml(m.title ? (m.title + '：' + m.content) : m.content) +
-        '</div>' +
-        '<div class="mem-item-meta">' +
-          '<span>' + recallText + '</span>' +
-          (m.keywords && m.keywords.length ? '<span>关键词：' + m.keywords.slice(0, 3).join('、') + '</span>' : '') +
-        '</div>' +
-        '</div>'
-    })
-  }
-
-  // 空状态
-  if (!panel.items.length && !panel.promises.length && !panel.belongings.length && !(panel.memories && panel.memories.length)) {
-    html += '<div class="mem-empty"><div class="mem-empty-icon"><i class="fa-solid fa-brain"></i></div><div class="mem-empty-text">暂无记忆，点击下方按钮添加</div></div>'
-  }
-
-  return html
-}
-
-function formatDate(date) {
-  const d = new Date(date)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return y + '-' + m + '-' + day
-}
-
-function formatDateDisplay(dateStr) {
-  if (!dateStr) return ''
-  const parts = dateStr.split('-')
-  return parseInt(parts[1]) + '月' + parseInt(parts[2]) + '日'
-}
-
-function formatTimestamp(ts) {
-  if (!ts) return ''
-  const d = new Date(Number(ts))
-  if (isNaN(d.getTime())) return ''
-  const m = d.getMonth() + 1
-  const day = d.getDate()
-  const h = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return m + '/' + day + ' ' + h + ':' + min
-}
-
-function buildDateDivider(dateStr, label) {
-  const display = label ? (label + '（' + formatDateDisplay(dateStr) + '）') : formatDateDisplay(dateStr)
-  return '<div class="mem-date-divider"><span class="mem-date-line"></span><span class="mem-date-text">' + display + '</span><span class="mem-date-line"></span></div>'
-}
-
-function buildMemoryItem(item) {
-  const tagHTML = (item.tags || []).map(tag => {
-    return '<span class="mem-item-tag mem-tag-' + tag + '">' + getTagLabel(tag) + '</span>'
-  }).join('')
-
-  return '<div class="mem-item" data-id="' + item.id + '">' +
-    '<span class="mem-item-time">' + (item.time || '') + '</span>' +
-    '<span class="mem-item-content">' + escMemHtml(item.content) + tagHTML + '</span>' +
-    '</div>'
-}
-
-function getTagLabel(tag) {
-  const labels = {
-    'injury': '受伤',
-    'recovering': '恢复中',
-    'healed': '基本康复',
-    'promise': '约定',
-    'done': '已完成',
-    'emotion': '情绪',
-    'item': '物品',
-    'keepsake': '信物'
-  }
-  return labels[tag] || tag
-}
-
-function buildPromiseCard(p) {
-  const now = new Date()
-  const promiseDate = new Date(p.date)
-  const diffDays = Math.ceil((promiseDate - now) / 86400000)
-  const countdownText = diffDays > 0 ? ('倒计时' + diffDays + '天') : (diffDays === 0 ? '今天' : '已过' + Math.abs(diffDays) + '天')
-  const statusClass = p.status === 'done' ? 'done' : (p.status === 'pending' ? 'pending' : 'active')
-
-  return '<div class="mem-promise-card" data-id="' + p.id + '">' +
-    '<div class="mem-promise-title">' + escMemHtml(p.title) + '</div>' +
-    '<div class="mem-promise-meta">' +
-    '<span>' + formatDateDisplay(p.date) + '</span>' +
-    (p.status !== 'done' ? '<span class="mem-promise-countdown">' + countdownText + '</span>' : '') +
-    '<span class="mem-promise-status ' + statusClass + '">' + (p.status === 'done' ? '已完成' : (p.status === 'pending' ? '待定' : '进行中')) + '</span>' +
-    '</div></div>'
-}
-
-function buildBelongingCard(b) {
-  const iconClass = b.type === 'keepsake' ? 'keepsake' : (b.type === 'borrowed' ? 'borrowed' : 'daily')
-  const icon = b.type === 'keepsake' ? 'fa-gem' : (b.type === 'borrowed' ? 'fa-hand-holding' : 'fa-suitcase')
-
-  return '<div class="mem-item-card" data-id="' + b.id + '">' +
-    '<div class="mem-item-icon ' + iconClass + '"><i class="fa-solid ' + icon + '"></i></div>' +
-    '<div class="mem-item-info">' +
-    '<div class="mem-item-name">' + escMemHtml(b.name) + '</div>' +
-    '<div class="mem-item-source">' + escMemHtml(b.source || '') + '</div>' +
-    '</div></div>'
-}
-
-function buildImportantDateCard(d) {
-  const now = new Date()
-  const targetDate = new Date(d.date)
-  const thisYear = new Date(now.getFullYear(), targetDate.getMonth(), targetDate.getDate())
-  let nextDate = thisYear
-  if (thisYear < now) {
-    nextDate = new Date(now.getFullYear() + 1, targetDate.getMonth(), targetDate.getDate())
-  }
-  const diffDays = Math.ceil((nextDate - now) / 86400000)
-
-  return '<div class="mem-date-item" data-id="' + d.id + '">' +
-    '<div class="mem-date-info">' +
-    '<div class="mem-date-icon"><i class="fa-solid fa-cake-candles"></i></div>' +
-    '<span class="mem-date-name">' + escMemHtml(d.name) + '：' + formatDateDisplay(d.date) + '</span>' +
-    '</div>' +
-    '<span class="mem-date-countdown">倒计时' + diffDays + '天</span>' +
-    '</div>'
-}
-
-function buildTogetherCard(dateStr) {
-  const startDate = new Date(dateStr)
-  const now = new Date()
-  const diffDays = Math.floor((now - startDate) / 86400000)
-
-  return '<div class="mem-together-card">' +
-    '<div class="mem-together-days">' + diffDays + '</div>' +
-    '<div class="mem-together-label">在一起的天数</div>' +
-    '<div class="mem-together-since">自' + formatDateDisplay(dateStr) + '起</div>' +
-    '</div>'
-}
-
-function escMemHtml(str) {
-  return String(str == null ? '' : str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-// ===== 打开面板 =====
-async function openMemoryPanel(charId, charName) {
-  // 移除已有面板
-  const existing = document.getElementById('mem-panel-overlay')
-  if (existing) existing.remove()
-
-  const panel = await loadMemoryPanel(charId)
-
-  // 存储上下文信息（用于手动添加记忆）
-  try {
-    const ownerUid = await db.config.get('currentUserId')
-    panel._ownerUid = ownerUid?.value || 0
-  } catch(e) { panel._ownerUid = 0 }
-  panel._charId = charId
-
-  const overlay = document.createElement('div')
-  overlay.id = 'mem-panel-overlay'
-  overlay.className = 'mem-panel-overlay'
-
-  overlay.innerHTML =
-    '<div class="mem-panel">' +
-      '<div class="mem-panel-header">' +
-        '<span class="mem-panel-title">' + escMemHtml(charName) + ' 的记忆</span>' +
-        '<button class="mem-panel-close" id="mem-panel-close"><i class="fa-solid fa-xmark"></i></button>' +
-      '</div>' +
-      '<div class="mem-filter-bar">' +
-        '<input class="mem-filter-input" id="mem-filter-search" placeholder="搜索记忆...">' +
-        '<div class="mem-filter-pills" id="mem-filter-pills">' +
-          '<span class="mem-filter-pill active" data-filter="all">全部</span>' +
-          '<span class="mem-filter-pill" data-filter="wechat">微信</span>' +
-          '<span class="mem-filter-pill" data-filter="x">X</span>' +
-          '<span class="mem-filter-pill" data-filter="sms">短信</span>' +
-          '<span class="mem-filter-pill" data-filter="moments">朋友圈</span>' +
-          '<span class="mem-filter-pill" data-filter="offlineMeet">线下</span>' +
-          '<span class="mem-filter-pill" data-filter="manual">手动</span>' +
-        '</div>' +
-      '</div>' +
-      '<div class="mem-panel-body" id="mem-panel-body">' +
-        buildMemoryPanelHTML(panel) +
-      '</div>' +
-      '<div class="mem-panel-footer">' +
-        '<button class="mem-btn mem-btn-primary" id="mem-btn-add"><i class="fa-solid fa-plus"></i> 添加记忆</button>' +
-        '<button class="mem-btn mem-btn-ghost" id="mem-btn-settings"><i class="fa-solid fa-gear"></i> 设置</button>' +
-      '</div>' +
-    '</div>'
-
-  document.body.appendChild(overlay)
-
-  // 动画入场
-  requestAnimationFrame(() => {
-    overlay.classList.add('open')
-  })
-
-  // 筛选功能
-  function filterMemories() {
-    const searchTerm = (overlay.querySelector('#mem-filter-search').value || '').toLowerCase()
-    const activeFilter = overlay.querySelector('.mem-filter-pill.active')?.dataset.filter || 'all'
-    const items = overlay.querySelectorAll('.mem-memory-item')
-    items.forEach(item => {
-      const memoryId = item.dataset.memoryId
-      const mem = (panel.memories || []).find(m => String(m.id) === String(memoryId))
-      if (!mem) return
-      let show = true
-      // 类型筛选
-      if (activeFilter !== 'all' && mem.sourceType !== activeFilter) show = false
-      // 搜索筛选
-      if (searchTerm && show) {
-        const hay = [mem.title, mem.content, (mem.keywords || []).join(' ')].join(' ').toLowerCase()
-        if (!hay.includes(searchTerm)) show = false
-      }
-      item.style.display = show ? '' : 'none'
-    })
-  }
-
-  // 筛选pill点击
-  const pillContainer = overlay.querySelector('#mem-filter-pills')
-  if (pillContainer) {
-    pillContainer.addEventListener('click', (e) => {
-      const pill = e.target.closest('.mem-filter-pill')
-      if (!pill) return
-      pillContainer.querySelectorAll('.mem-filter-pill').forEach(p => p.classList.remove('active'))
-      pill.classList.add('active')
-      filterMemories()
-    })
-  }
-
-  // 搜索输入
-  const searchInput = overlay.querySelector('#mem-filter-search')
-  if (searchInput) {
-    searchInput.addEventListener('input', filterMemories)
-  }
-
-  // 关闭按钮
-  overlay.querySelector('#mem-panel-close').addEventListener('click', () => {
-    overlay.classList.remove('open')
-    setTimeout(() => overlay.remove(), 300)
-  })
-
-  // 点击遮罩关闭
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      overlay.classList.remove('open')
-      setTimeout(() => overlay.remove(), 300)
+    if (user && user.v) {
+      html += '<div class="mp-health-item"><div class="mp-health-label"><i class="fas fa-user"></i> 用户告知</div>' +
+        '<div>' + escMemHtml(user.v) + '</div><div class="mp-time" style="font-size:11px;color:#a0aec0">' + formatMemTime(user.t) + '</div></div>';
     }
-  })
-
-  // 添加记忆按钮
-  overlay.querySelector('#mem-btn-add').addEventListener('click', () => {
-    showAddMemoryModal(charId, panel, overlay)
-  })
-
-  // 设置按钮
-  overlay.querySelector('#mem-btn-settings').addEventListener('click', () => {
-    showMemorySettingsModal(charId, panel, overlay)
-  })
-
-  // 记忆条目点击编辑
-  overlay.querySelectorAll('.mem-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const itemId = el.dataset.id
-      const item = panel.items.find(i => i.id === itemId)
-      if (item) showEditMemoryItem(charId, panel, item, overlay)
-    })
-  })
-
-  // 约定卡片点击编辑
-  overlay.querySelectorAll('.mem-promise-card').forEach(el => {
-    el.addEventListener('click', () => {
-      const promiseId = el.dataset.id
-      const promise = panel.promises.find(p => p.id === promiseId)
-      if (promise) showEditPromise(charId, panel, promise, overlay)
-    })
-  })
-
-  // 物品卡片点击编辑
-  overlay.querySelectorAll('.mem-item-card').forEach(el => {
-    el.addEventListener('click', () => {
-      const itemId = el.dataset.id
-      const item = panel.belongings.find(b => b.id === itemId)
-      if (item) showEditBelonging(charId, panel, item, overlay)
-    })
-  })
-
-  // 重要日期点击编辑
-  overlay.querySelectorAll('.mem-date-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const dateId = el.dataset.id
-      const date = panel.importantDates.find(d => d.id === dateId)
-      if (date) showEditImportantDate(charId, panel, date, overlay)
-    })
-  })
-}
-
-// ===== 添加记忆弹窗 =====
-function showAddMemoryModal(charId, panel, parentOverlay) {
-  const modal = document.createElement('div')
-  modal.className = 'mem-add-modal'
-  modal.innerHTML =
-    '<div class="mem-add-card">' +
-      '<div class="mem-add-title">添加记忆</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">类型</label>' +
-        '<select class="mem-add-select" id="mem-add-type">' +
-          '<option value="memory">记忆（存入记忆库）</option>' +
-          '<option value="item">记忆条目</option>' +
-          '<option value="promise">约定</option>' +
-          '<option value="belonging">随身物品</option>' +
-          '<option value="date">重要日期</option>' +
-        '</select>' +
-      '</div>' +
-      '<div class="mem-add-field" id="mem-add-date-field">' +
-        '<label class="mem-add-label">日期</label>' +
-        '<input type="date" class="mem-edit-input" id="mem-add-date" value="' + formatDate(new Date()) + '">' +
-      '</div>' +
-      '<div class="mem-add-field" id="mem-add-time-field">' +
-        '<label class="mem-add-label">时间</label>' +
-        '<input type="time" class="mem-edit-input" id="mem-add-time">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">内容</label>' +
-        '<textarea class="mem-add-textarea" id="mem-add-content" placeholder="记录发生了什么..."></textarea>' +
-      '</div>' +
-      '<div class="mem-add-field" id="mem-add-keywords-field" style="display:none">' +
-        '<label class="mem-add-label">关键词（逗号分隔）</label>' +
-        '<input class="mem-edit-input" id="mem-add-keywords" placeholder="关键词1,关键词2">' +
-      '</div>' +
-      '<div class="mem-add-field" id="mem-add-tags-field">' +
-        '<label class="mem-add-label">标签</label>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-          '<label><input type="checkbox" value="injury"> 受伤</label>' +
-          '<label><input type="checkbox" value="recovering"> 恢复中</label>' +
-          '<label><input type="checkbox" value="promise"> 约定</label>' +
-          '<label><input type="checkbox" value="emotion"> 情绪</label>' +
-          '<label><input type="checkbox" value="keepsake"> 信物</label>' +
-        '</div>' +
-      '</div>' +
-      '<div class="mem-add-actions">' +
-        '<button class="mem-btn mem-btn-ghost mem-edit-cancel" id="mem-add-cancel">取消</button>' +
-        '<button class="mem-btn mem-btn-primary mem-edit-save" id="mem-add-save">保存</button>' +
-      '</div>' +
-    '</div>'
-
-  document.body.appendChild(modal)
-  requestAnimationFrame(() => modal.classList.add('open'))
-
-  // 关闭
-  modal.querySelector('#mem-add-cancel').addEventListener('click', () => {
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('open')
-      setTimeout(() => modal.remove(), 200)
-    }
-  })
-
-  // 类型切换时显示/隐藏字段
-  modal.querySelector('#mem-add-type').addEventListener('change', (e) => {
-    const type = e.target.value
-    modal.querySelector('#mem-add-date-field').style.display = (type === 'item' || type === 'date') ? '' : 'none'
-    modal.querySelector('#mem-add-time-field').style.display = type === 'item' ? '' : 'none'
-    modal.querySelector('#mem-add-tags-field').style.display = type === 'item' ? '' : 'none'
-    // 记忆类型显示关键词输入
-    const kwField = modal.querySelector('#mem-add-keywords-field')
-    if (kwField) kwField.style.display = type === 'memory' ? '' : 'none'
-  })
-
-  // 保存
-  modal.querySelector('#mem-add-save').addEventListener('click', async () => {
-    const type = modal.querySelector('#mem-add-type').value
-    const content = modal.querySelector('#mem-add-content').value.trim()
-    if (!content) return
-
-    if (type === 'memory') {
-      // 存入记忆库（db.memories）
-      const keywords = (modal.querySelector('#mem-add-keywords').value || '').split(/[,，]/).map(k => k.trim()).filter(Boolean)
-      const mem = {
-        ownerUid: panel._ownerUid || 0,
-        charId: charId,
-        chatId: panel._chatId || 0,
-        title: content.slice(0, 30),
-        content: content,
-        keywords: keywords,
-        valence: 0,
-        arousal: 0.3,
-        importance: 5,
-        sourceType: 'manual',
-        sourceAt: Date.now(),
-        decayPercent: 80,
-        isLongTerm: false,
-        injectionLayer: 2,
-        participants: [charId],
-        lastRecalledAt: null,
-        status: 'active',
-        embedding: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      }
-      if (db.memories) await db.memories.add(mem)
-      // 重新加载面板数据
-      const freshPanel = await loadMemoryPanel(charId)
-      Object.assign(panel, freshPanel)
-    } else if (type === 'item') {
-      const date = modal.querySelector('#mem-add-date').value
-      const time = modal.querySelector('#mem-add-time').value
-      const tags = []
-      modal.querySelectorAll('#mem-add-tags-field input:checked').forEach(cb => tags.push(cb.value))
-      panel.items.push({ id: 'mem_' + Date.now(), date, time, content, tags })
-    } else if (type === 'promise') {
-      panel.promises.push({ id: 'prom_' + Date.now(), title: content, date: modal.querySelector('#mem-add-date').value, status: 'active' })
-    } else if (type === 'belonging') {
-      panel.belongings.push({ id: 'bel_' + Date.now(), name: content, source: '', type: 'daily' })
-    } else if (type === 'date') {
-      panel.importantDates.push({ id: 'date_' + Date.now(), name: content, date: modal.querySelector('#mem-add-date').value })
-    }
-
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-}
-
-// ===== 编辑记忆条目 =====
-function showEditMemoryItem(charId, panel, item, parentOverlay) {
-  const modal = document.createElement('div')
-  modal.className = 'mem-add-modal'
-  modal.innerHTML =
-    '<div class="mem-add-card">' +
-      '<div class="mem-add-title">编辑记忆</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">日期</label>' +
-        '<input type="date" class="mem-edit-input" id="mem-edit-date" value="' + (item.date || '') + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">时间</label>' +
-        '<input type="time" class="mem-edit-input" id="mem-edit-time" value="' + (item.time || '') + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">内容</label>' +
-        '<textarea class="mem-add-textarea" id="mem-edit-content">' + escMemHtml(item.content) + '</textarea>' +
-      '</div>' +
-      '<div class="mem-add-actions">' +
-        '<button class="mem-btn mem-btn-ghost" id="mem-edit-delete" style="color:#e88070">删除</button>' +
-        '<button class="mem-btn mem-btn-ghost mem-edit-cancel" id="mem-edit-cancel">取消</button>' +
-        '<button class="mem-btn mem-btn-primary mem-edit-save" id="mem-edit-save">保存</button>' +
-      '</div>' +
-    '</div>'
-
-  document.body.appendChild(modal)
-  requestAnimationFrame(() => modal.classList.add('open'))
-
-  modal.querySelector('#mem-edit-cancel').addEventListener('click', () => {
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('open')
-      setTimeout(() => modal.remove(), 200)
-    }
-  })
-
-  // 删除
-  modal.querySelector('#mem-edit-delete').addEventListener('click', async () => {
-    panel.items = panel.items.filter(i => i.id !== item.id)
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  // 保存
-  modal.querySelector('#mem-edit-save').addEventListener('click', async () => {
-    item.date = modal.querySelector('#mem-edit-date').value
-    item.time = modal.querySelector('#mem-edit-time').value
-    item.content = modal.querySelector('#mem-edit-content').value.trim()
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-}
-
-// ===== 编辑约定 =====
-function showEditPromise(charId, panel, promise, parentOverlay) {
-  const modal = document.createElement('div')
-  modal.className = 'mem-add-modal'
-  modal.innerHTML =
-    '<div class="mem-add-card">' +
-      '<div class="mem-add-title">编辑约定</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">约定内容</label>' +
-        '<input type="text" class="mem-edit-input" id="mem-edit-promise-title" value="' + escMemHtml(promise.title) + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">日期</label>' +
-        '<input type="date" class="mem-edit-input" id="mem-edit-promise-date" value="' + (promise.date || '') + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">状态</label>' +
-        '<select class="mem-add-select" id="mem-edit-promise-status">' +
-          '<option value="active"' + (promise.status === 'active' ? ' selected' : '') + '>进行中</option>' +
-          '<option value="done"' + (promise.status === 'done' ? ' selected' : '') + '>已完成</option>' +
-          '<option value="pending"' + (promise.status === 'pending' ? ' selected' : '') + '>待定</option>' +
-        '</select>' +
-      '</div>' +
-      '<div class="mem-add-actions">' +
-        '<button class="mem-btn mem-btn-ghost" id="mem-promise-delete" style="color:#e88070">删除</button>' +
-        '<button class="mem-btn mem-btn-ghost mem-edit-cancel" id="mem-promise-cancel">取消</button>' +
-        '<button class="mem-btn mem-btn-primary mem-edit-save" id="mem-promise-save">保存</button>' +
-      '</div>' +
-    '</div>'
-
-  document.body.appendChild(modal)
-  requestAnimationFrame(() => modal.classList.add('open'))
-
-  modal.querySelector('#mem-promise-cancel').addEventListener('click', () => {
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('open')
-      setTimeout(() => modal.remove(), 200)
-    }
-  })
-
-  modal.querySelector('#mem-promise-delete').addEventListener('click', async () => {
-    panel.promises = panel.promises.filter(p => p.id !== promise.id)
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.querySelector('#mem-promise-save').addEventListener('click', async () => {
-    promise.title = modal.querySelector('#mem-edit-promise-title').value.trim()
-    promise.date = modal.querySelector('#mem-edit-promise-date').value
-    promise.status = modal.querySelector('#mem-edit-promise-status').value
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-}
-
-// ===== 编辑物品 =====
-function showEditBelonging(charId, panel, belonging, parentOverlay) {
-  const modal = document.createElement('div')
-  modal.className = 'mem-add-modal'
-  modal.innerHTML =
-    '<div class="mem-add-card">' +
-      '<div class="mem-add-title">编辑物品</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">物品名称</label>' +
-        '<input type="text" class="mem-edit-input" id="mem-edit-bel-name" value="' + escMemHtml(belonging.name) + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">来源（谁送的/什么时候）</label>' +
-        '<input type="text" class="mem-edit-input" id="mem-edit-bel-source" value="' + escMemHtml(belonging.source || '') + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">类型</label>' +
-        '<select class="mem-add-select" id="mem-edit-bel-type">' +
-          '<option value="keepsake"' + (belonging.type === 'keepsake' ? ' selected' : '') + '>信物（有情感意义）</option>' +
-          '<option value="borrowed"' + (belonging.type === 'borrowed' ? ' selected' : '') + '>借物（需要归还）</option>' +
-          '<option value="daily"' + (belonging.type === 'daily' ? ' selected' : '') + '>日常物品</option>' +
-        '</select>' +
-      '</div>' +
-      '<div class="mem-add-actions">' +
-        '<button class="mem-btn mem-btn-ghost" id="mem-bel-delete" style="color:#e88070">删除</button>' +
-        '<button class="mem-btn mem-btn-ghost mem-edit-cancel" id="mem-bel-cancel">取消</button>' +
-        '<button class="mem-btn mem-btn-primary mem-edit-save" id="mem-bel-save">保存</button>' +
-      '</div>' +
-    '</div>'
-
-  document.body.appendChild(modal)
-  requestAnimationFrame(() => modal.classList.add('open'))
-
-  modal.querySelector('#mem-bel-cancel').addEventListener('click', () => {
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('open')
-      setTimeout(() => modal.remove(), 200)
-    }
-  })
-
-  modal.querySelector('#mem-bel-delete').addEventListener('click', async () => {
-    panel.belongings = panel.belongings.filter(b => b.id !== belonging.id)
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.querySelector('#mem-bel-save').addEventListener('click', async () => {
-    belonging.name = modal.querySelector('#mem-edit-bel-name').value.trim()
-    belonging.source = modal.querySelector('#mem-edit-bel-source').value.trim()
-    belonging.type = modal.querySelector('#mem-edit-bel-type').value
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-}
-
-// ===== 编辑重要日期 =====
-function showEditImportantDate(charId, panel, dateItem, parentOverlay) {
-  const modal = document.createElement('div')
-  modal.className = 'mem-add-modal'
-  modal.innerHTML =
-    '<div class="mem-add-card">' +
-      '<div class="mem-add-title">编辑重要日期</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">名称</label>' +
-        '<input type="text" class="mem-edit-input" id="mem-edit-date-name" value="' + escMemHtml(dateItem.name) + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">日期</label>' +
-        '<input type="date" class="mem-edit-input" id="mem-edit-date-date" value="' + (dateItem.date || '') + '">' +
-      '</div>' +
-      '<div class="mem-add-actions">' +
-        '<button class="mem-btn mem-btn-ghost" id="mem-date-delete" style="color:#e88070">删除</button>' +
-        '<button class="mem-btn mem-btn-ghost mem-edit-cancel" id="mem-date-cancel">取消</button>' +
-        '<button class="mem-btn mem-btn-primary mem-edit-save" id="mem-date-save">保存</button>' +
-      '</div>' +
-    '</div>'
-
-  document.body.appendChild(modal)
-  requestAnimationFrame(() => modal.classList.add('open'))
-
-  modal.querySelector('#mem-date-cancel').addEventListener('click', () => {
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('open')
-      setTimeout(() => modal.remove(), 200)
-    }
-  })
-
-  modal.querySelector('#mem-date-delete').addEventListener('click', async () => {
-    panel.importantDates = panel.importantDates.filter(d => d.id !== dateItem.id)
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.querySelector('#mem-date-save').addEventListener('click', async () => {
-    dateItem.name = modal.querySelector('#mem-edit-date-name').value.trim()
-    dateItem.date = modal.querySelector('#mem-edit-date-date').value
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-}
-
-// ===== 设置弹窗（在一起日期、状态等） =====
-function showMemorySettingsModal(charId, panel, parentOverlay) {
-  const modal = document.createElement('div')
-  modal.className = 'mem-add-modal'
-  modal.innerHTML =
-    '<div class="mem-add-card">' +
-      '<div class="mem-add-title">记忆设置</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">在一起日期</label>' +
-        '<input type="date" class="mem-edit-input" id="mem-set-together" value="' + (panel.togetherDate || '') + '">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">当前身体状态</label>' +
-        '<input type="text" class="mem-edit-input" id="mem-set-health" value="' + escMemHtml(panel.health || '') + '" placeholder="如：膝盖基本好了">' +
-      '</div>' +
-      '<div class="mem-add-field">' +
-        '<label class="mem-add-label">当前情绪</label>' +
-        '<input type="text" class="mem-edit-input" id="mem-set-mood" value="' + escMemHtml(panel.mood || '') + '" placeholder="如：心情不错">' +
-      '</div>' +
-      '<div class="mem-add-actions">' +
-        '<button class="mem-btn mem-btn-ghost mem-edit-cancel" id="mem-set-cancel">取消</button>' +
-        '<button class="mem-btn mem-btn-primary mem-edit-save" id="mem-set-save">保存</button>' +
-      '</div>' +
-    '</div>'
-
-  document.body.appendChild(modal)
-  requestAnimationFrame(() => modal.classList.add('open'))
-
-  modal.querySelector('#mem-set-cancel').addEventListener('click', () => {
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('open')
-      setTimeout(() => modal.remove(), 200)
-    }
-  })
-
-  modal.querySelector('#mem-set-save').addEventListener('click', async () => {
-    panel.togetherDate = modal.querySelector('#mem-set-together').value
-    panel.health = modal.querySelector('#mem-set-health').value.trim()
-    panel.mood = modal.querySelector('#mem-set-mood').value.trim()
-    await saveMemoryPanel(charId, panel)
-    refreshMemoryPanel(panel, parentOverlay)
-    modal.classList.remove('open')
-    setTimeout(() => modal.remove(), 200)
-  })
-}
-
-// ===== 刷新面板内容 =====
-function refreshMemoryPanel(panel, overlay) {
-  const body = overlay.querySelector('#mem-panel-body')
-  if (body) {
-    body.innerHTML = buildMemoryPanelHTML(panel)
-    // 重新绑定点击事件
-    body.querySelectorAll('.mem-item').forEach(el => {
-      el.addEventListener('click', async () => {
-        const charId = parseInt(overlay.querySelector('.mem-panel')?.dataset?.charId)
-        if (!charId) return
-        const freshPanel = await loadMemoryPanel(charId)
-        const item = freshPanel.items.find(i => i.id === el.dataset.id)
-        if (item) showEditMemoryItem(charId, freshPanel, item, overlay)
-      })
-    })
+    html += '</div>';
+    return html;
   }
-}
 
-// ===== 暴露到全局 =====
-window.openMemoryPanel = openMemoryPanel
-window.loadMemoryPanel = loadMemoryPanel
-window.saveMemoryPanel = saveMemoryPanel
+  // Module 3: Schedule
+  function renderSchedule(data) {
+    if (!data) return '';
+    var sections = [];
+    if (data.schedulePast && data.schedulePast.length) {
+      data.schedulePast.forEach(function(day){
+        var s = '<div class="mp-schedule-section"><div class="mp-schedule-date">' + escMemHtml(day.date) + '</div>';
+        (day.events||[]).forEach(function(e){
+          s += '<div class="mp-schedule-event"><span class="mp-event-time">' + escMemHtml(e.time) + '</span><span>' + escMemHtml(e.event) + '</span></div>';
+        });
+        s += '</div>';
+        sections.push(s);
+      });
+    }
+    if (data.scheduleToday && data.scheduleToday.length) {
+      var s = '<div class="mp-schedule-section"><div class="mp-schedule-date"><i class="fas fa-sun"></i> 今天</div>';
+      data.scheduleToday.forEach(function(e){
+        s += '<div class="mp-schedule-event"><span class="mp-event-time">' + escMemHtml(e.time) + '</span><span>' + escMemHtml(e.event) + '</span></div>';
+      });
+      s += '</div>';
+      sections.push(s);
+    }
+    if (data.scheduleTomorrow && data.scheduleTomorrow.length) {
+      var s = '<div class="mp-schedule-section"><div class="mp-schedule-date"><i class="fas fa-calendar-day"></i> 明天</div>';
+      data.scheduleTomorrow.forEach(function(e){
+        s += '<div class="mp-schedule-event"><span class="mp-event-time">' + escMemHtml(e.time) + '</span><span>' + escMemHtml(e.event) + '</span></div>';
+      });
+      s += '</div>';
+      sections.push(s);
+    }
+    if (data.agreements && data.agreements.length) {
+      var s = '<div class="mp-schedule-section"><div class="mp-schedule-date"><i class="fas fa-handshake"></i> 约定</div>';
+      data.agreements.forEach(function(a){
+        s += '<div class="mp-agreement-item"><span>' + escMemHtml(a.event) + '</span>' +
+          '<span class="mp-agreement-status">' + escMemHtml(a.status || '已约定') + '</span></div>';
+      });
+      s += '</div>';
+      sections.push(s);
+    }
+    if (!sections.length) return '';
+    return '<div class="mp-card mp-schedule-card"><div class="mp-card-title"><i class="fas fa-calendar-alt"></i> 日程安排</div>' + sections.join('') + '</div>';
+  }
+
+  // Module 4: Memory items (agreements as memory entries)
+  function renderMemory(data) {
+    if (!data) return '';
+    var items = [];
+    if (data.wearing && data.wearing.v) items.push({ icon: 'fa-tshirt', text: '穿着: ' + data.wearing.v, time: data.wearing.t });
+    if (data.activity && data.activity.v) items.push({ icon: 'fa-running', text: '活动: ' + data.activity.v, time: data.activity.t });
+    if (data.location && data.location.v) items.push({ icon: 'fa-map-marker-alt', text: '位置: ' + data.location.v, time: data.location.t });
+    if (data.mood && data.mood.v) items.push({ icon: 'fa-smile', text: '心情: ' + data.mood.v, time: data.mood.t });
+    if (data.healthAi && data.healthAi.v) items.push({ icon: 'fa-heartbeat', text: '健康(AI): ' + data.healthAi.v, time: data.healthAi.t });
+    if (data.healthUser && data.healthUser.v) items.push({ icon: 'fa-notes-medical', text: '健康(用户): ' + data.healthUser.v, time: data.healthUser.t });
+    if (!items.length) return '';
+    items.sort(function(a,b){ return (b.time||0)-(a.time||0); });
+    var html = '<div class="mp-card"><div class="mp-card-title"><i class="fas fa-brain"></i> 记忆详情</div>';
+    items.forEach(function(it){
+      html += '<div class="mp-mem-item"><i class="fas ' + escMemHtml(it.icon) + ' mp-mem-icon"></i>' +
+        '<div class="mp-mem-content"><div>' + escMemHtml(it.text) + '</div>' +
+        '<div class="mp-mem-meta">' + formatMemTime(it.time) + '</div></div></div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  // Module 5: Footer
+  function renderFooter(data) {
+    var updated = data && data.updatedAt ? formatMemTime(data.updatedAt) : '无数据';
+    return '<div class="mp-footer"><span class="mp-updated"><i class="fas fa-clock"></i> 更新于 ' + escMemHtml(updated) + '</span>' +
+      '<button class="mp-btn" id="mp-close-btn-bottom"><i class="fas fa-check"></i> 知道了</button></div>';
+  }
+
+  function buildPanel(data) {
+    var html = '<div class="mp-panel">' +
+      '<div class="mp-header"><h2><i class="fas fa-brain"></i> 记忆面板</h2>' +
+      '<button class="mp-close-btn" id="mp-close-x">&times;</button></div>' +
+      '<div class="mp-body">' +
+      renderStatus(data) +
+      renderHealth(data) +
+      renderSchedule(data) +
+      renderMemory(data) +
+      '</div>' +
+      renderFooter(data) +
+      '</div>';
+    return html;
+  }
+
+  function closeMemoryPanel() {
+    var ov = document.querySelector('.mp-overlay');
+    if (ov) { ov.remove(); }
+  }
+
+  async function openMemoryPanel() {
+    closeMemoryPanel();
+    var data = await loadData();
+    var overlay = document.createElement('div');
+    overlay.className = 'mp-overlay';
+    overlay.innerHTML = buildPanel(data);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function(e){
+      if (e.target === overlay) closeMemoryPanel();
+    });
+    var xBtn = overlay.querySelector('#mp-close-x');
+    if (xBtn) xBtn.addEventListener('click', closeMemoryPanel);
+    var bBtn = overlay.querySelector('#mp-close-btn-bottom');
+    if (bBtn) bBtn.addEventListener('click', closeMemoryPanel);
+  }
+
+  window.openMemoryPanel = openMemoryPanel;
+  window.closeMemoryPanel = closeMemoryPanel;
+})();
