@@ -750,8 +750,7 @@ function buildXPostCard(post) {
       '</div>' +
       (isAnon && post.authorId && post.authorId.indexOf('npc_') !== 0 ?
         '<button class="x-reveal-anon" data-post-id="' + post.id + '" style="margin-top:8px;padding:4px 12px;border-radius:999px;border:1px solid var(--x-border-strong);background:transparent;color:var(--x-accent);font-size:12px;cursor:pointer;">解除匿名</button>' : '') +
-      (post.isNpc || (post.authorId && post.authorId.indexOf('npc_') === 0) ?
-        '<button class="x-post-delete-ai" data-post-id="' + post.id + '" style="margin-top:6px;padding:4px 12px;border-radius:999px;border:1px solid #e74c3c;background:transparent;color:#e74c3c;font-size:12px;cursor:pointer;">🗑 删除</button>' : '') +
+      // 长按删除：不显示按钮，长按帖子弹出删除菜单
     '</div>' +
   '</div>'
 }
@@ -774,7 +773,7 @@ function bindPostCardEvents(container, user) {
   // 帖子点击进入详情
   container.querySelectorAll('.x-post').forEach(function(card) {
     card.addEventListener('click', function(e) {
-      if (e.target.closest('.x-post-action') || e.target.closest('.x-reveal-anon') || e.target.closest('.x-post-avatar') || e.target.closest('.x-post-delete-ai')) return
+      if (e.target.closest('.x-post-action') || e.target.closest('.x-reveal-anon') || e.target.closest('.x-post-avatar')) return
       showXPostDetail(card.dataset.postId, user)
     })
   })
@@ -805,6 +804,29 @@ function bindPostCardEvents(container, user) {
   })
 
   // 删除AI帖子
+  // 长按帖子卡片弹出删除菜单
+  var _longPressTimer = null
+  container.querySelectorAll('.x-post').forEach(function(postEl) {
+    var postId = postEl.dataset.postId
+    if (!postId) return
+    var posts = xLoadPosts()
+    var post = posts.find(function(p) { return p.id === postId })
+    if (!post || (!post.isNpc && !(post.authorId && post.authorId.indexOf('npc_') === 0))) return
+    postEl.addEventListener('touchstart', function() {
+      _longPressTimer = setTimeout(function() {
+        if (confirm('确定删除这条帖子吗？')) {
+          var allPosts = xLoadPosts().filter(function(p) { return p.id !== postId })
+          xSavePosts(allPosts)
+          localStorage.removeItem('x_comments_' + postId)
+          window.toast && window.toast('已删除')
+          if (typeof renderXHomeTab === 'function') renderXHomeTab()
+        }
+      }, 600)
+    })
+    postEl.addEventListener('touchend', function() { clearTimeout(_longPressTimer) })
+    postEl.addEventListener('touchmove', function() { clearTimeout(_longPressTimer) })
+  })
+  // 保留旧的删除按钮事件（兼容）
   container.querySelectorAll('.x-post-delete-ai').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation()

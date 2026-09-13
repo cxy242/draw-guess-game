@@ -1607,21 +1607,33 @@ ${lines}`
           if (!m) return
           var action = btn.dataset.action
           if (action === 'viewOriginal') {
-            // 先用chatId精确匹配，找不到就用charId模糊匹配
-            var runs = await db.memoryRuns.where('chatId').equals(String(m.chatId || '')).toArray()
-            var matchingRun = runs.find(function(r) { return r.originalText })
-            if (!matchingRun) {
-              var allRuns = await db.memoryRuns.where('charId').equals(m.charId || 0).toArray()
-              matchingRun = allRuns.find(function(r) { return r.originalText })
-            }
+            // 精确匹配：用记忆的sourceMsgStartId/sourceMsgEndId匹配memoryRuns的fromMsgId/toMsgId
+            var allRuns = await db.memoryRuns.toArray()
+            var matchingRun = allRuns.find(function(r) {
+              if (!r.originalText) return false
+              // 精确匹配：记忆的sourceMsg在run的范围内
+              if (m.sourceMsgStartId && r.fromMsgId && r.toMsgId) {
+                return m.sourceMsgStartId >= r.fromMsgId && m.sourceMsgEndId <= r.toMsgId
+              }
+              // 退而求其次：chatId匹配
+              return String(r.chatId) === String(m.chatId || '')
+            })
             if (matchingRun && matchingRun.originalText) { showOriginalTextModal(matchingRun) }
             else { window.toast && window.toast('暂无原始记录') }
             return
           }
           if (action === 'resummarize') {
-            var runs2 = await db.memoryRuns.where('chatId').equals(String(m.chatId || '')).toArray()
-            var run2 = runs2.find(function(r) { return r.originalText })
+            // 精确匹配：找对应原始总结记录
+            var allRuns2 = await db.memoryRuns.toArray()
+            var run2 = allRuns2.find(function(r) {
+              if (!r.originalText) return false
+              if (m.sourceMsgStartId && r.fromMsgId && r.toMsgId) {
+                return m.sourceMsgStartId >= r.fromMsgId && m.sourceMsgEndId <= r.toMsgId
+              }
+              return String(r.chatId) === String(m.chatId || '')
+            })
             if (!run2) { window.toast && window.toast('暂无原始记录，无法重新总结'); return }
+            if (run2.status === 'success') { window.toast && window.toast('该记忆已成功总结，无需重新总结'); return }
             btn.disabled = true
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'
             try {
