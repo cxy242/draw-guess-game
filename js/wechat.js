@@ -3652,6 +3652,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         var _raw = await window.callAI([{ role: 'user', content: _msgs }], { system: _sysPrompt, responseFormat: 'json_object', charAntiDrift: true })
         var _data = typeof _raw === 'string' ? JSON.parse(_raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : _raw
         if (_data) {
+          window.toast && window.toast('[MemoryPanel] API返回: ' + JSON.stringify(_data).slice(0, 100))
           var _now = Date.now()
           var _panel = _existingMemPanel || {}
           if (_data.mem_wearing) _panel.wearing = { v: _data.mem_wearing, t: _now }

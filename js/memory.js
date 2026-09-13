@@ -1529,6 +1529,7 @@ ${lines}`
         </div>
         ${(m.keywords && m.keywords.length) ? '<div class="memory-keywords">' + m.keywords.map(function(k) { return '<span class="memory-keyword-tag">' + esc(k) + '</span>' }).join('') + '</div>' : ''}
         <div class="memory-actions">
+          <button class="btn-ghost btn-sm" data-action="viewOriginal">查看原文</button>
           <button class="btn-ghost btn-sm" data-action="edit">编辑</button>
           <button class="btn-ghost btn-sm" data-action="recall">回忆</button>
           <button class="btn-ghost btn-sm" data-action="toggle">${m.status === 'archived' ? '恢复' : '归档'}</button>
@@ -1602,6 +1603,13 @@ ${lines}`
           var m = await db.memories.get(id)
           if (!m) return
           var action = btn.dataset.action
+          if (action === 'viewOriginal') {
+            var runs = await db.memoryRuns.where('chatId').equals(String(m.chatId || '')).toArray()
+            var matchingRun = runs.find(function(r) { return r.originalText })
+            if (matchingRun && matchingRun.originalText) { showOriginalTextModal(matchingRun) }
+            else { window.toast && window.toast('暂无原始记录') }
+            return
+          }
           if (action === 'edit') return openEditor(m, page)
           if (action === 'recall') {
             // 回忆：将衰减恢复到80%，更新上次回忆时间
