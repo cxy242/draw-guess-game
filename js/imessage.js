@@ -588,8 +588,9 @@ function startAnonSmsScheduler(user) {
 
 // 核心：AI角色匿名发短信（支持一次发多条）
 async function sendAnonymousCharSMS(user) {
-  if (!window.callAI) return
-  if (!user) return
+  console.log("[AnonSMS] sendAnonymousCharSMS called", { user: user, hasCallAI: !!window.callAI })
+  if (!window.callAI) { console.warn("[AnonSMS] callAI not available"); return }
+  if (!user) { console.warn("[AnonSMS] no user"); return }
 
   // 随机选一个AI角色
   var chars = []
@@ -747,7 +748,7 @@ var _smsCheckTimer = setInterval(function() {
   var elapsed = Date.now() - _smsSessionStart
   if (elapsed > 25 * 60 * 1000 && !_smsSessionTriggered) {
     _smsSessionTriggered = true
-    console.log('[AnonSMS] 25分钟触发条件达成')
+    console.log("[AnonSMS] 25分钟触发条件达成", { hasSendFn: !!window.sendAnonymousCharSMS, hasCallAI: !!window.callAI, userPhones: _smsUserPhones.length })
     window.toast && window.toast('收到一条匿名短信')
     var delay = (30 + Math.random() * 60) * 1000
     setTimeout(function() {
