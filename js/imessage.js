@@ -627,7 +627,7 @@ async function sendAnonymousCharSMS(user) {
     var anonPhone = genAnonPhone()
     var anonName = genAnonName()
     var now = Date.now()
-    var ownerPhone = user.phone || (user.identity && user.identity.phone) || _smsActivePhone || 'user_default'
+    var ownerPhone = _smsActivePhone || user.phone || (user.identity && user.identity.phone) || 'user_default'
 
     // 查找或创建对话
     var conv = await db.smsConversations
@@ -680,6 +680,9 @@ async function sendAnonymousCharSMS(user) {
     })
 
     console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone + ' (' + messages.length + '条)')
+    // 刷新短信列表（如果当前在短信页面）
+    var smsPage = document.querySelector('.imessage-page')
+    if (smsPage) loadSmsConversations(smsPage)
   } catch(e) {
     console.error('[AnonSMS] 发送失败:', e)
   }
