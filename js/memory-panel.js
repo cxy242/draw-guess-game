@@ -1,191 +1,341 @@
-// Memory Panel - 5 modules: status, health, schedule, memory, footer
+/* memory-panel.js - Memory Panel Module */
 (function(){
-  'use strict';
+  "use strict";
 
-  function escMemHtml(s) {
-    if (!s) return '';
-    var d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
+  function escMemHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
-  function formatMemTime(ts) {
-    if (!ts) return '';
-    var d = new Date(ts);
-    var pad = function(n){ return n<10?'0'+n:n; };
-    return (d.getMonth()+1)+'/'+d.getDate()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
-  }
-
-  async function loadData() {
+  async function loadData(charId) {
     try {
-      if (!window.db || !window.db.config) return null;
-      var chars = [];
-      try { chars = await window.db.characters.toArray(); } catch(e){}
-      var cid = (window.currentCharId) || (chars[0] && chars[0].id) || 'default';
-      var rec = await window.db.config.get('memoryPanel_' + cid);
-      return rec ? rec : null;
-    } catch(e) {
-      console.warn('[MemoryPanel] load error', e);
-      return null;
+      const val = await db.config.get('memoryPanel_' + charId);
+      return val || {};
+    } catch (e) {
+      return {};
     }
   }
 
-  // Module 1: Status (wearing, activity, location, mood, next)
   function renderStatus(data) {
-    if (!data) return '';
-    var rows = [
-      { icon: 'fa-tshirt', label: '穿着', key: 'wearing' },
-      { icon: 'fa-running', label: '活动', key: 'activity' },
-      { icon: 'fa-map-marker-alt', label: '位置', key: 'location' },
-      { icon: 'fa-smile', label: '心情', key: 'mood' },
-      { icon: 'fa-arrow-right', label: '下一步', key: 'next' }
+    const d = data || {};
+    const items = [
+      { icon: 'fa-shirt', label: '穿着', value: d.wearing || '未记录' },
+      { icon: 'fa-person-running', label: '活动', value: d.activity || '未记录' },
+      { icon: 'fa-location-dot', label: '位置', value: d.location || '未记录' },
+      { icon: 'fa-face-smile', label: '心情', value: d.mood || '未记录' },
+      { icon: 'fa-arrow-right', label: '下一步', value: d.next || '未记录' }
     ];
-    var html = '<div class="mp-card"><div class="mp-card-title"><i class="fas fa-user-circle"></i> 当前状态</div>';
-    var hasData = false;
-    rows.forEach(function(r){
-      var item = data[r.key];
-      if (item && item.v) {
-        hasData = true;
-        html += '<div class="mp-status-row">' +
-          '<i class="fas ' + escMemHtml(r.icon) + '" style="color:#4a9eff;width:16px;text-align:center"></i>' +
-          '<span class="mp-label">' + escMemHtml(r.label) + '</span>' +
-          '<span class="mp-value">' + escMemHtml(item.v) + '</span>' +
-          '<span class="mp-time">' + formatMemTime(item.t) + '</span>' +
-          '</div>';
-      }
-    });
-    html += '</div>';
-    return hasData ? html : '';
+    return '<div class="mp-status">' +
+      items.map(it =>
+        '<div class="mp-status-item">' +
+          '<i class="fa-solid ' + escMemHtml(it.icon) + ' mp-status-icon"></i>' +
+          '<span class="mp-status-label">' + escMemHtml(it.label) + '</span>' +
+          '<span class="mp-status-value">' + escMemHtml(it.value) + '</span>' +
+        '</div>'
+      ).join('') +
+    '</div>';
   }
 
-  // Module 2: Health
   function renderHealth(data) {
-    if (!data) return '';
-    var ai = data.healthAi;
-    var user = data.healthUser;
-    if ((!ai || !ai.v) && (!user || !user.v)) return '';
-    var html = '<div class="mp-card mp-health-card"><div class="mp-card-title"><i class="fas fa-heartbeat"></i> 健康状况</div>';
-    if (ai && ai.v) {
-      html += '<div class="mp-health-item"><div class="mp-health-label"><i class="fas fa-robot"></i> AI记录</div>' +
-        '<div>' + escMemHtml(ai.v) + '</div><div class="mp-time" style="font-size:11px;color:#a0aec0">' + formatMemTime(ai.t) + '</div></div>';
-    }
-    if (user && user.v) {
-      html += '<div class="mp-health-item"><div class="mp-health-label"><i class="fas fa-user"></i> 用户告知</div>' +
-        '<div>' + escMemHtml(user.v) + '</div><div class="mp-time" style="font-size:11px;color:#a0aec0">' + formatMemTime(user.t) + '</div></div>';
-    }
-    html += '</div>';
-    return html;
-  }
-
-  // Module 3: Schedule
-  function renderSchedule(data) {
-    if (!data) return '';
-    var sections = [];
-    if (data.schedulePast && data.schedulePast.length) {
-      data.schedulePast.forEach(function(day){
-        var s = '<div class="mp-schedule-section"><div class="mp-schedule-date">' + escMemHtml(day.date) + '</div>';
-        (day.events||[]).forEach(function(e){
-          s += '<div class="mp-schedule-event"><span class="mp-event-time">' + escMemHtml(e.time) + '</span><span>' + escMemHtml(e.event) + '</span></div>';
-        });
-        s += '</div>';
-        sections.push(s);
-      });
-    }
-    if (data.scheduleToday && data.scheduleToday.length) {
-      var s = '<div class="mp-schedule-section"><div class="mp-schedule-date"><i class="fas fa-sun"></i> 今天</div>';
-      data.scheduleToday.forEach(function(e){
-        s += '<div class="mp-schedule-event"><span class="mp-event-time">' + escMemHtml(e.time) + '</span><span>' + escMemHtml(e.event) + '</span></div>';
-      });
-      s += '</div>';
-      sections.push(s);
-    }
-    if (data.scheduleTomorrow && data.scheduleTomorrow.length) {
-      var s = '<div class="mp-schedule-section"><div class="mp-schedule-date"><i class="fas fa-calendar-day"></i> 明天</div>';
-      data.scheduleTomorrow.forEach(function(e){
-        s += '<div class="mp-schedule-event"><span class="mp-event-time">' + escMemHtml(e.time) + '</span><span>' + escMemHtml(e.event) + '</span></div>';
-      });
-      s += '</div>';
-      sections.push(s);
-    }
-    if (data.agreements && data.agreements.length) {
-      var s = '<div class="mp-schedule-section"><div class="mp-schedule-date"><i class="fas fa-handshake"></i> 约定</div>';
-      data.agreements.forEach(function(a){
-        s += '<div class="mp-agreement-item"><span>' + escMemHtml(a.event) + '</span>' +
-          '<span class="mp-agreement-status">' + escMemHtml(a.status || '已约定') + '</span></div>';
-      });
-      s += '</div>';
-      sections.push(s);
-    }
-    if (!sections.length) return '';
-    return '<div class="mp-card mp-schedule-card"><div class="mp-card-title"><i class="fas fa-calendar-alt"></i> 日程安排</div>' + sections.join('') + '</div>';
-  }
-
-  // Module 4: Memory items (agreements as memory entries)
-  function renderMemory(data) {
-    if (!data) return '';
-    var items = [];
-    if (data.wearing && data.wearing.v) items.push({ icon: 'fa-tshirt', text: '穿着: ' + data.wearing.v, time: data.wearing.t });
-    if (data.activity && data.activity.v) items.push({ icon: 'fa-running', text: '活动: ' + data.activity.v, time: data.activity.t });
-    if (data.location && data.location.v) items.push({ icon: 'fa-map-marker-alt', text: '位置: ' + data.location.v, time: data.location.t });
-    if (data.mood && data.mood.v) items.push({ icon: 'fa-smile', text: '心情: ' + data.mood.v, time: data.mood.t });
-    if (data.healthAi && data.healthAi.v) items.push({ icon: 'fa-heartbeat', text: '健康(AI): ' + data.healthAi.v, time: data.healthAi.t });
-    if (data.healthUser && data.healthUser.v) items.push({ icon: 'fa-notes-medical', text: '健康(用户): ' + data.healthUser.v, time: data.healthUser.t });
-    if (!items.length) return '';
-    items.sort(function(a,b){ return (b.time||0)-(a.time||0); });
-    var html = '<div class="mp-card"><div class="mp-card-title"><i class="fas fa-brain"></i> 记忆详情</div>';
-    items.forEach(function(it){
-      html += '<div class="mp-mem-item"><i class="fas ' + escMemHtml(it.icon) + ' mp-mem-icon"></i>' +
-        '<div class="mp-mem-content"><div>' + escMemHtml(it.text) + '</div>' +
-        '<div class="mp-mem-meta">' + formatMemTime(it.time) + '</div></div></div>';
-    });
-    html += '</div>';
-    return html;
-  }
-
-  // Module 5: Footer
-  function renderFooter(data) {
-    var updated = data && data.updatedAt ? formatMemTime(data.updatedAt) : '无数据';
-    return '<div class="mp-footer"><span class="mp-updated"><i class="fas fa-clock"></i> 更新于 ' + escMemHtml(updated) + '</span>' +
-      '<button class="mp-btn" id="mp-close-btn-bottom"><i class="fas fa-check"></i> 知道了</button></div>';
-  }
-
-  function buildPanel(data) {
-    var html = '<div class="mp-panel">' +
-      '<div class="mp-header"><h2><i class="fas fa-brain"></i> 记忆面板</h2>' +
-      '<button class="mp-close-btn" id="mp-close-x">&times;</button></div>' +
-      '<div class="mp-body">' +
-      renderStatus(data) +
-      renderHealth(data) +
-      renderSchedule(data) +
-      renderMemory(data) +
+    const d = data || {};
+    const aiText = d.aiHealth || '暂无健康信息';
+    const recovery = d.recovery || 0;
+    const userHealth = d.userHealth || '未记录';
+    return '<div class="mp-health">' +
+      '<div class="mp-health-section">' +
+        '<div class="mp-health-title"><i class="fa-solid fa-heart-pulse"></i> AI 健康状态</div>' +
+        '<div class="mp-health-text">' + escMemHtml(aiText) + '</div>' +
+        '<div class="mp-recovery-bar-wrap">' +
+          '<div class="mp-recovery-bar" style="width:' + Math.min(100, Math.max(0, recovery)) + '%"></div>' +
+        '</div>' +
+        '<div class="mp-recovery-label">恢复进度: ' + recovery + '%</div>' +
       '</div>' +
-      renderFooter(data) +
+      '<div class="mp-health-section">' +
+        '<div class="mp-health-title"><i class="fa-solid fa-user"></i> 用户健康</div>' +
+        '<div class="mp-health-text">' + escMemHtml(userHealth) + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderSchedule(data) {
+    const d = data || {};
+    const past = d.schedulePast || [];
+    const today = d.scheduleToday || [];
+    const tomorrow = d.scheduleTomorrow || [];
+    const agreements = d.agreements || [];
+
+    function renderTimeline(items) {
+      if (!items.length) return '<div class="mp-empty">暂无安排</div>';
+      return items.map(it =>
+        '<div class="mp-timeline-item">' +
+          '<div class="mp-timeline-dot"></div>' +
+          '<div class="mp-timeline-content">' +
+            '<div class="mp-timeline-time">' + escMemHtml(it.time || '') + '</div>' +
+            '<div class="mp-timeline-text">' + escMemHtml(it.text || it.content || '') + '</div>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    return '<div class="mp-schedule">' +
+      '<div class="mp-tabs" data-tabs="schedule">' +
+        '<button class="mp-tab active" data-tab="past">近三天</button>' +
+        '<button class="mp-tab" data-tab="today">今天</button>' +
+        '<button class="mp-tab" data-tab="tomorrow">明天</button>' +
+        '<button class="mp-tab" data-tab="agreements">约定</button>' +
+      '</div>' +
+      '<div class="mp-tab-content" data-tab-content="past">' + renderTimeline(past) + '</div>' +
+      '<div class="mp-tab-content" data-tab-content="today" style="display:none">' + renderTimeline(today) + '</div>' +
+      '<div class="mp-tab-content" data-tab-content="tomorrow" style="display:none">' + renderTimeline(tomorrow) + '</div>' +
+      '<div class="mp-tab-content" data-tab-content="agreements" style="display:none">' + renderTimeline(agreements) + '</div>' +
+    '</div>';
+  }
+
+  async function renderMemoryList(charId) {
+    let memories = [];
+    try {
+      const all = await db.memories.where('charId').equals(charId).toArray();
+      memories = all || [];
+    } catch (e) {
+      try {
+        const all = await db.memories.toArray();
+        memories = (all || []).filter(m => m.charId === charId);
+      } catch (e2) {
+        memories = [];
+      }
+    }
+
+    const recalledKey = 'memRecalled_' + charId;
+    let recalled = [];
+    try { recalled = JSON.parse(localStorage.getItem(recalledKey) || '[]'); } catch(e) { recalled = []; }
+
+    const cards = memories.map(m => {
+      const id = m.id || m._id || '';
+      const title = escMemHtml(m.title || '无标题');
+      const content = escMemHtml((m.content || '').substring(0, 50) + ((m.content || '').length > 50 ? '...' : ''));
+      const sourceType = escMemHtml(m.sourceType || 'unknown');
+      const time = escMemHtml(m.time || m.createdAt || '');
+      const isRecalled = recalled.indexOf(id) !== -1;
+
+      return '<div class="mp-memory-card" data-mem-id="' + escMemHtml(String(id)) + '">' +
+        '<div class="mp-memory-header">' +
+          '<span class="mp-memory-title">' + title + '</span>' +
+          '<span class="mp-memory-badge">' + sourceType + '</span>' +
+        '</div>' +
+        '<div class="mp-memory-content">' + content + '</div>' +
+        '<div class="mp-memory-time">' + time + '</div>' +
+        '<div class="mp-memory-actions">' +
+          '<button class="mp-btn mp-btn-recall' + (isRecalled ? ' active' : '') + '" data-action="recall" data-id="' + escMemHtml(String(id)) + '">' +
+            '<i class="fa-solid fa-lightbulb"></i> 想起' +
+          '</button>' +
+          '<button class="mp-btn mp-btn-view" data-action="view" data-id="' + escMemHtml(String(id)) + '">' +
+            '<i class="fa-solid fa-eye"></i> 查看原文' +
+          '</button>' +
+          '<button class="mp-btn mp-btn-resummarize" data-action="resummarize" data-id="' + escMemHtml(String(id)) + '">' +
+            '<i class="fa-solid fa-rotate"></i> 重新总结' +
+          '</button>' +
+        '</div>' +
       '</div>';
-    return html;
+    }).join('');
+
+    return '<div class="mp-memory-list">' +
+      '<div class="mp-memory-search">' +
+        '<i class="fa-solid fa-magnifying-glass mp-search-icon"></i>' +
+        '<input type="text" class="mp-search-input" placeholder="搜索记忆..." />' +
+      '</div>' +
+      '<div class="mp-memory-cards">' + (cards || '<div class="mp-empty">暂无记忆</div>') + '</div>' +
+    '</div>';
   }
 
-  function closeMemoryPanel() {
-    var ov = document.querySelector('.mp-overlay');
-    if (ov) { ov.remove(); }
+  function renderFooter() {
+    return '<div class="mp-footer">' +
+      '<button class="mp-btn mp-btn-add"><i class="fa-solid fa-plus"></i> 添加记忆</button>' +
+      '<button class="mp-btn mp-btn-settings"><i class="fa-solid fa-gear"></i> 设置</button>' +
+    '</div>';
   }
 
-  async function openMemoryPanel() {
-    closeMemoryPanel();
-    var data = await loadData();
-    var overlay = document.createElement('div');
-    overlay.className = 'mp-overlay';
-    overlay.innerHTML = buildPanel(data);
+  function buildPanel(charId, charName, data, memoryListHtml) {
+    return '<div class="mp-overlay">' +
+      '<div class="mp-panel">' +
+        '<div class="mp-header">' +
+          '<div class="mp-header-title">' +
+            '<i class="fa-solid fa-brain"></i> ' + escMemHtml(charName) + ' 的记忆面板' +
+          '</div>' +
+          '<button class="mp-close">&times;</button>' +
+        '</div>' +
+        '<div class="mp-body">' +
+          renderStatus(data) +
+          renderHealth(data) +
+          renderSchedule(data) +
+          memoryListHtml +
+        '</div>' +
+        renderFooter() +
+      '</div>' +
+    '</div>';
+  }
+
+  function bindEvents(panel, charId) {
+    // Close
+    var closeBtn = panel.querySelector('.mp-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        var overlay = panel.querySelector('.mp-overlay') || panel;
+        overlay.remove();
+      });
+    }
+    // Overlay click to close
+    var overlay = panel.querySelector('.mp-overlay');
+    if (overlay) {
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
+    // Schedule tabs
+    var tabButtons = panel.querySelectorAll('[data-tabs="schedule"] .mp-tab');
+    tabButtons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        tabButtons.forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var tabId = btn.getAttribute('data-tab');
+        var contents = panel.querySelectorAll('.mp-tab-content');
+        contents.forEach(function(c) {
+          c.style.display = c.getAttribute('data-tab-content') === tabId ? '' : 'none';
+        });
+      });
+    });
+
+    // Search
+    var searchInput = panel.querySelector('.mp-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        var q = searchInput.value.toLowerCase();
+        var cards = panel.querySelectorAll('.mp-memory-card');
+        cards.forEach(function(card) {
+          var text = card.textContent.toLowerCase();
+          card.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+        });
+      });
+    }
+
+    // Recall toggle
+    panel.querySelectorAll('[data-action="recall"]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.getAttribute('data-id');
+        var recalledKey = 'memRecalled_' + charId;
+        var recalled = [];
+        try { recalled = JSON.parse(localStorage.getItem(recalledKey) || '[]'); } catch(e) { recalled = []; }
+        var idx = recalled.indexOf(id);
+        if (idx !== -1) {
+          recalled.splice(idx, 1);
+          btn.classList.remove('active');
+        } else {
+          recalled.push(id);
+          btn.classList.add('active');
+        }
+        localStorage.setItem(recalledKey, JSON.stringify(recalled));
+      });
+    });
+
+    // View original
+    panel.querySelectorAll('[data-action="view"]').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var memId = btn.getAttribute('data-id');
+        var originalText = '';
+        try {
+          const run = await db.memoryRuns.where('memoryId').equals(memId).first();
+          if (run && run.originalText) {
+            originalText = run.originalText;
+          }
+        } catch(e) {}
+        if (!originalText) {
+          try {
+            const runs = await db.memoryRuns.toArray();
+            const found = (runs || []).find(r => r.memoryId === memId || String(r.id) === String(memId));
+            if (found) originalText = found.originalText || found.text || '';
+          } catch(e2) {}
+        }
+        if (!originalText) originalText = '未找到原文';
+
+        var popup = document.createElement('div');
+        popup.className = 'mp-popup-overlay';
+        popup.innerHTML = '<div class="mp-popup">' +
+          '<div class="mp-popup-header">' +
+            '<span>原文内容</span>' +
+            '<button class="mp-popup-close">&times;</button>' +
+          '</div>' +
+          '<div class="mp-popup-body">' + escMemHtml(originalText) + '</div>' +
+        '</div>';
+        document.body.appendChild(popup);
+        popup.querySelector('.mp-popup-close').addEventListener('click', function() { popup.remove(); });
+        popup.addEventListener('click', function(e) { if (e.target === popup) popup.remove(); });
+      });
+    });
+
+    // Re-summarize
+    panel.querySelectorAll('[data-action="resummarize"]').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var memId = btn.getAttribute('data-id');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 处理中...';
+        try {
+          let mem = null;
+          try { mem = await db.memories.get(memId); } catch(e) {}
+          if (!mem) {
+            const all = await db.memories.toArray();
+            mem = (all || []).find(m => String(m.id) === String(memId) || String(m._id) === String(memId));
+          }
+          if (mem && typeof window.callAI === 'function') {
+            const result = await window.callAI({
+              task: 'resummarize',
+              memoryId: memId,
+              content: mem.content || mem.originalText || '',
+              title: mem.title || ''
+            });
+            if (result) {
+              btn.innerHTML = '<i class="fa-solid fa-check"></i> 完成';
+            } else {
+              btn.innerHTML = '<i class="fa-solid fa-rotate"></i> 重新总结';
+            }
+          } else {
+            btn.innerHTML = '<i class="fa-solid fa-rotate"></i> 重新总结';
+            if (!mem) console.warn('Memory not found:', memId);
+            if (typeof window.callAI !== 'function') console.warn('window.callAI not available');
+          }
+        } catch(e) {
+          console.error('Re-summarize error:', e);
+          btn.innerHTML = '<i class="fa-solid fa-rotate"></i> 重新总结';
+        }
+        btn.disabled = false;
+      });
+    });
+  }
+
+  window.openMemoryPanel = async function(charId, charName) {
+    if (!charId) {
+      console.warn('openMemoryPanel: charId is required');
+      return;
+    }
+    charName = charName || 'AI';
+
+    // Remove existing panel if any
+    var existing = document.querySelector('.mp-overlay');
+    if (existing) existing.remove();
+
+    const data = await loadData(charId);
+    const memoryListHtml = await renderMemoryList(charId);
+    const html = buildPanel(charId, charName, data, memoryListHtml);
+
+    var container = document.createElement('div');
+    container.innerHTML = html;
+    var overlay = container.firstElementChild;
     document.body.appendChild(overlay);
 
-    overlay.addEventListener('click', function(e){
-      if (e.target === overlay) closeMemoryPanel();
-    });
-    var xBtn = overlay.querySelector('#mp-close-x');
-    if (xBtn) xBtn.addEventListener('click', closeMemoryPanel);
-    var bBtn = overlay.querySelector('#mp-close-btn-bottom');
-    if (bBtn) bBtn.addEventListener('click', closeMemoryPanel);
-  }
-
-  window.openMemoryPanel = openMemoryPanel;
-  window.closeMemoryPanel = closeMemoryPanel;
+    bindEvents(overlay, charId);
+  };
 })();
