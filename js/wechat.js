@@ -3626,7 +3626,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         var _memories = []
         try { _memories = await db.memories.where('participants').equals(char.id).toArray() } catch(e) {}
         var _memContext = _memories.map(function(m) { return m.title + ': ' + (m.content || '').slice(0, 100) }).join('\n')
-        var _sysPrompt = '你是' + (char.nick || char.name) + '。根据最近聊天记录和记忆，生成当前状态信息。返回JSON：{"mem_wearing":"穿着","mem_activity":"在做什么","mem_location":"在哪里","mem_mood":"心情","mem_next":"下一步打算","mem_health_ai":"身体状况","mem_health_user":"用户身体状况"}。简洁，每项15字以内。'
+        var _sysPrompt = '你是' + (char.nick || char.name) + '。根据最近聊天记录和记忆，生成完整状态面板。返回JSON：{"mem_wearing":"穿着","mem_activity":"在做什么","mem_location":"在哪里","mem_mood":"心情","mem_next":"下一步打算","mem_health_ai":"身体状况，受伤标注时间和恢复天数","mem_health_user":"用户身体状况","mem_schedule_past":[{"date":"日期","events":[{"time":"时间","event":"事件"}]}],"mem_schedule_today":[{"time":"时间","event":"事件"}],"mem_schedule_tomorrow":[{"time":"时间","event":"事件"}],"mem_agreements":[{"event":"约定","time":"时间","status":"状态"}]}。日程根据聊天推断，无则空数组。每项简洁。'
         var _msgs = _recentMsgs.slice(-20).map(function(m) { return m.role + ': ' + m.content.slice(0, 200) }).join('\n')
         if (_memContext) _msgs += '\n\n记忆库：\n' + _memContext
         var _raw = await window.callAI([{ role: 'user', content: _msgs }], { system: _sysPrompt, responseFormat: 'json_object', charAntiDrift: true })
@@ -3641,6 +3641,10 @@ async function openPrivateChat(wechatPage, charId, chatId) {
           if (_data.mem_next) _panel.next = { v: _data.mem_next, t: _now }
           if (_data.mem_health_ai) _panel.healthAi = { v: _data.mem_health_ai, t: _now }
           if (_data.mem_health_user) _panel.healthUser = { v: _data.mem_health_user, t: _now }
+          if (_data.mem_schedule_past) _panel.schedulePast = _data.mem_schedule_past
+          if (_data.mem_schedule_today) _panel.scheduleToday = _data.mem_schedule_today
+          if (_data.mem_schedule_tomorrow) _panel.scheduleTomorrow = _data.mem_schedule_tomorrow
+          if (_data.mem_agreements) _panel.agreements = _data.mem_agreements
           _panel.updatedAt = _now
           localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
           // 同时存到 db.config，让 memory-panel.js 能读到
@@ -3691,7 +3695,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         var _memories = []
         try { _memories = await db.memories.where('participants').equals(char.id).toArray() } catch(e) {}
         var _memContext = _memories.map(function(m) { return m.title + ': ' + (m.content || '').slice(0, 100) }).join('\n')
-        var _sysPrompt = '你是' + (char.nick || char.name) + '。根据最近聊天记录和记忆，生成当前状态信息。返回JSON：{"mem_wearing":"穿着","mem_activity":"在做什么","mem_location":"在哪里","mem_mood":"心情","mem_next":"下一步打算","mem_health_ai":"身体状况","mem_health_user":"用户身体状况"}。简洁，每项15字以内。'
+        var _sysPrompt = '你是' + (char.nick || char.name) + '。根据最近聊天记录和记忆，生成完整状态面板。返回JSON：{"mem_wearing":"穿着","mem_activity":"在做什么","mem_location":"在哪里","mem_mood":"心情","mem_next":"下一步打算","mem_health_ai":"身体状况，受伤标注时间和恢复天数","mem_health_user":"用户身体状况","mem_schedule_past":[{"date":"日期","events":[{"time":"时间","event":"事件"}]}],"mem_schedule_today":[{"time":"时间","event":"事件"}],"mem_schedule_tomorrow":[{"time":"时间","event":"事件"}],"mem_agreements":[{"event":"约定","time":"时间","status":"状态"}]}。日程根据聊天推断，无则空数组。每项简洁。'
         var _msgs = _recentMsgs.slice(-20).map(function(m) { return m.role + ': ' + m.content.slice(0, 200) }).join('\n')
         if (_memContext) _msgs += '\n\n记忆库：\n' + _memContext
         var _raw = await window.callAI([{ role: 'user', content: _msgs }], { system: _sysPrompt, responseFormat: 'json_object', charAntiDrift: true })
@@ -3706,6 +3710,10 @@ async function openPrivateChat(wechatPage, charId, chatId) {
           if (_data.mem_next) _panel.next = { v: _data.mem_next, t: _now }
           if (_data.mem_health_ai) _panel.healthAi = { v: _data.mem_health_ai, t: _now }
           if (_data.mem_health_user) _panel.healthUser = { v: _data.mem_health_user, t: _now }
+          if (_data.mem_schedule_past) _panel.schedulePast = _data.mem_schedule_past
+          if (_data.mem_schedule_today) _panel.scheduleToday = _data.mem_schedule_today
+          if (_data.mem_schedule_tomorrow) _panel.scheduleTomorrow = _data.mem_schedule_tomorrow
+          if (_data.mem_agreements) _panel.agreements = _data.mem_agreements
           _panel.updatedAt = _now
           localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
           // 同时存到 db.config，让 memory-panel.js 能读到
