@@ -1945,7 +1945,7 @@ ${lines}`
 
     var prompt = '请总结以下对话，提取关键记忆信息。\n\n对话内容：\n' + run.originalText + '\n\n' +
       '返回JSON格式：\n' +
-      '{"memories":[{"title":"标题(10字以内)","content":"内容(50字以内)","keywords":["关键词"],"importance":5,"valence":0,"arousal":0.3}]}'
+      '{"memories":[{"title":"标题","content":"内容","keywords":["关键词"],"importance":5,"valence":0,"arousal":0.3}]}'
 
     var lastError = null
     var parsed = null
