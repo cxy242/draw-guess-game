@@ -1528,9 +1528,11 @@ ${lines}`
           <span>上次回忆 ${esc(recallText)}</span>
         </div>
         ${(m.keywords && m.keywords.length) ? '<div class="memory-keywords">' + m.keywords.map(function(k) { return '<span class="memory-keyword-tag">' + esc(k) + '</span>' }).join('') + '</div>' : ''}
+        <div class="memory-source-actions">
+          <button class="memory-link-btn" data-action="viewOriginal"><i class="fa-solid fa-file-lines"></i> 查看原文</button>
+          <button class="memory-link-btn" data-action="resummarize"><i class="fa-solid fa-rotate-right"></i> 重新总结</button>
+        </div>
         <div class="memory-actions">
-          <button class="btn-ghost btn-sm" data-action="viewOriginal">查看原文</button>
-          <button class="btn-ghost btn-sm" data-action="resummarize">重新总结</button>
           <button class="btn-ghost btn-sm" data-action="edit">编辑</button>
           <button class="btn-ghost btn-sm" data-action="recall">回忆</button>
           <button class="btn-ghost btn-sm" data-action="toggle">${m.status === 'archived' ? '恢复' : '归档'}</button>
@@ -1605,8 +1607,13 @@ ${lines}`
           if (!m) return
           var action = btn.dataset.action
           if (action === 'viewOriginal') {
+            // 先用chatId精确匹配，找不到就用charId模糊匹配
             var runs = await db.memoryRuns.where('chatId').equals(String(m.chatId || '')).toArray()
             var matchingRun = runs.find(function(r) { return r.originalText })
+            if (!matchingRun) {
+              var allRuns = await db.memoryRuns.where('charId').equals(m.charId || 0).toArray()
+              matchingRun = allRuns.find(function(r) { return r.originalText })
+            }
             if (matchingRun && matchingRun.originalText) { showOriginalTextModal(matchingRun) }
             else { window.toast && window.toast('暂无原始记录') }
             return

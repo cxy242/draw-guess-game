@@ -375,6 +375,27 @@ async function createPetBall() {
   _petState.visible = true;
 
   setTimeout(renderPopupModels, 500);
+
+  // === MutationObserver: 防止桌宠被意外移除 ===
+  var appEl = document.getElementById('app');
+  if (appEl) {
+    var petObserver = new MutationObserver(function(mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var removed = mutations[i].removedNodes;
+        for (var j = 0; j < removed.length; j++) {
+          if (removed[j] === wrap) {
+            // 宠物被移除了，重新放回去
+            petObserver.disconnect();
+            appEl.appendChild(wrap);
+            // 重新观察
+            petObserver.observe(appEl, { childList: true });
+            return;
+          }
+        }
+      }
+    });
+    petObserver.observe(appEl, { childList: true });
+  }
 }
 
 // === 绑定事件 ===

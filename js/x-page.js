@@ -750,6 +750,8 @@ function buildXPostCard(post) {
       '</div>' +
       (isAnon && post.authorId && post.authorId.indexOf('npc_') !== 0 ?
         '<button class="x-reveal-anon" data-post-id="' + post.id + '" style="margin-top:8px;padding:4px 12px;border-radius:999px;border:1px solid var(--x-border-strong);background:transparent;color:var(--x-accent);font-size:12px;cursor:pointer;">解除匿名</button>' : '') +
+      (post.isNpc || (post.authorId && post.authorId.indexOf('npc_') === 0) ?
+        '<button class="x-post-delete-ai" data-post-id="' + post.id + '" style="margin-top:6px;padding:4px 12px;border-radius:999px;border:1px solid #e74c3c;background:transparent;color:#e74c3c;font-size:12px;cursor:pointer;">🗑 删除</button>' : '') +
     '</div>' +
   '</div>'
 }
@@ -772,7 +774,7 @@ function bindPostCardEvents(container, user) {
   // 帖子点击进入详情
   container.querySelectorAll('.x-post').forEach(function(card) {
     card.addEventListener('click', function(e) {
-      if (e.target.closest('.x-post-action') || e.target.closest('.x-reveal-anon') || e.target.closest('.x-post-avatar')) return
+      if (e.target.closest('.x-post-action') || e.target.closest('.x-reveal-anon') || e.target.closest('.x-post-avatar') || e.target.closest('.x-post-delete-ai')) return
       showXPostDetail(card.dataset.postId, user)
     })
   })
@@ -799,6 +801,23 @@ function bindPostCardEvents(container, user) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation()
       revealAnonymous(btn.dataset.postId, user)
+    })
+  })
+
+  // 删除AI帖子
+  container.querySelectorAll('.x-post-delete-ai').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation()
+      if (!confirm('确定删除这条AI帖子？')) return
+      var postId = btn.dataset.postId
+      var posts = xLoadPosts()
+      posts = posts.filter(function(p) { return p.id !== postId })
+      xSavePosts(posts)
+      // 同时清理该帖子的评论
+      try { localStorage.removeItem(X_COMMENTS_PREFIX + postId) } catch(_) {}
+      // 刷新当前页面
+      var page = document.getElementById('x-page')
+      if (page) renderXHomeTab(page, user)
     })
   })
 }
@@ -1321,10 +1340,12 @@ async function generateAIComments(post, user) {
   var charList = ''
   try {
     var chars = await db.characters.where('type').equals('char').toArray()
-    charList = chars.slice(0, 5).map(function(c) { return c.name + '(' + (c.signature || c.identity?.bio || '').slice(0, 20) + ')' }).join('、')
+    charList = chars.slice(0, 5).map(function(c) { return c.name + '（自建AI角色人设：' + (c.description || c.identity?.bio || c.signature || '') + '）' }).join('、')
   } catch(e) {}
 
   var npcSample = X_NPC_TYPES.slice(0, 5).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')' }).join('\n')
+
+  var isAnon = post.isAnonymous || (post.authorId && post.authorId.indexOf('anon_') === 0)
 
   var prompt = '你是一个社交媒体评论生成器。根据以下帖子内容，生成评论互动。\n\n' +
     '帖子内容："' + post.content.slice(0, 200) + '"\n\n' +
@@ -1332,13 +1353,15 @@ async function generateAIComments(post, user) {
     '可用自建AI角色（可选1个参与评论）：' + (charList || '无') + '\n\n' +
     '要求：\n' +
     '1. 先生成5条一级评论，每条来自不同NPC人设，风格完全不同\n' +
-    '2. 发帖人（' + (post.authorName || '楼主') + '）选择性回复其中2-3条感兴趣的评论（不是每条都回）\n' +
+    (isAnon ? '' : '2. 发帖人（' + (post.authorName || '楼主') + '）选择性回复其中2-3条感兴趣的评论（不是每条都回）\n') +
     '3. 被发帖人回复的NPC可以再回复发帖人，形成对话（NPC回发帖人）\n' +
     '4. 没被发帖人回复的NPC之间可以互评（路人A回复路人B的评论）\n' +
     '5. 互评后，原评论人可以再回复（形成3层对话链）\n' +
     '6. 评论真实自然，像真人网友，不要太长\n\n' +
     '返回JSON格式：\n' +
-    '{"comments":[{"name":"NPC名","content":"评论内容","npcType":5,"isNpc":true}],"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"发帖人回复"}],"replies2":[{"replyToCommentIndex":0,"replyToReplyIndex":-1,"name":"NPC名","content":"NPC回发帖人或路人互评"}]}'
+    '{"comments":[{"name":"NPC名","content":"评论内容","npcType":5,"isNpc":true}]' +
+    (isAnon ? '' : ',"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"发帖人回复"}]') +
+    ',"replies2":[{"replyToCommentIndex":0,"replyToReplyIndex":-1,"name":"NPC名","content":"NPC回发帖人或路人互评"}]}'
 
   try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
@@ -1346,13 +1369,25 @@ async function generateAIComments(post, user) {
 
     var comments = xLoadComments(post.id)
 
-    // XX老婆奴评论
-    comments.push({
-      id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name,
-      authorHandle: '@xx_love', authorAvatar: null, isSystem: true,
-      content: ['你们懂什么！楼主说得对！','别听他们的，我挺你！','又来指指点点，楼主爱怎样怎样','我老婆看到这帖子都说楼主没错'][Math.floor(Math.random()*4)],
-      stats: generateCommentStats(), createdAt: new Date().toISOString(), replies: []
-    })
+    // XX老婆奴评论 - AI生成
+    try {
+      var xxPrompt = '你是XX，人设：' + X_XX_CHARACTER.bio + '\n\n帖子内容："' + post.content.slice(0, 200) + '"\n\n请以XX的身份对这条帖子发表一条评论。要符合人设，引用帖子内容，语气自然，不要太长。直接返回评论文字，不要JSON。'
+      var xxContent = await window.callAI([{ role: 'user', content: xxPrompt }])
+      var xxText = typeof xxContent === 'string' ? xxContent.trim().replace(/^["'"「]|["'"」]$/g, '') : ''
+      comments.push({
+        id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name,
+        authorHandle: '@xx_love', authorAvatar: null, isSystem: true,
+        content: xxText || '我老婆说得对！',
+        stats: generateCommentStats(), createdAt: new Date().toISOString(), replies: []
+      })
+    } catch(xxErr) {
+      comments.push({
+        id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name,
+        authorHandle: '@xx_love', authorAvatar: null, isSystem: true,
+        content: '我老婆说得对！',
+        stats: generateCommentStats(), createdAt: new Date().toISOString(), replies: []
+      })
+    }
 
     // 添加一级评论
     if (data.comments) {
@@ -1374,8 +1409,8 @@ async function generateAIComments(post, user) {
       })
     }
 
-    // 添加发帖AI的回复（二级）
-    if (data.replies) {
+    // 添加发帖AI的回复（二级）- 匿名帖子不生成发帖人回复
+    if (!isAnon && data.replies) {
       data.replies.forEach(function(r) {
         var targetComment = data.comments[r.replyToIndex]
         if (!targetComment) return
