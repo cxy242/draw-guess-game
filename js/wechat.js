@@ -3606,6 +3606,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
     await waitNextFrame()
     if (!isPrivateChatPageCurrent(chatPage, chat.id)) return
     // 自动生成记忆面板（首次打开聊天时调用API）
+    try {
     var _memPanelKey = 'memPanel_' + char.id
     var _existingMemPanel = null
     try { _existingMemPanel = JSON.parse(localStorage.getItem(_memPanelKey) || 'null') } catch(e) {}
@@ -3705,6 +3706,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         _memBanner.onclick = function() { _memBanner.remove() }
       }
     }
+    } catch(_memGenErr) { console.error('[MemoryPanel] 自动生成外层错误:', _memGenErr) }
   })().catch(error => {
     logWechatChatOpenIssue('postOpenPrivateChat', error, stageMeta)
   })
