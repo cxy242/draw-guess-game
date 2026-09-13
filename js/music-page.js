@@ -3,7 +3,7 @@
   var MUSIC_URL = '/music/?token=166566a37e5c012a3f9579c815231cef423058f2911fbda9dadfbb86c5d93f4e';
   var COOKIE_API = '/api/music-cookie';
 
-  window.openMusicPage = function() {
+  window.showMusicPage = function() {
     var page = document.createElement('div');
     page.id = 'music-page';
     page.className = 'full-page';
