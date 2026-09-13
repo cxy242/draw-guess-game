@@ -3613,6 +3613,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
     try { _existingMemPanel = JSON.parse(localStorage.getItem(_memPanelKey) || 'null') } catch(e) {}
     // 如果没有缓存或缓存超过30分钟，重新生成
     var _needGen = !_existingMemPanel || !_existingMemPanel.updatedAt || (Date.now() - _existingMemPanel.updatedAt > 30 * 60 * 1000)
+    console.log('[MemoryPanel] 自动生成检查:', { needGen: _needGen, hasCallAI: !!window.callAI, existing: _existingMemPanel })
     if (_needGen && window.callAI) {
       var _memBanner = document.createElement('div')
       _memBanner.className = 'mem-gen-banner'
