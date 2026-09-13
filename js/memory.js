@@ -1893,7 +1893,7 @@ ${lines}`
     var isOffline = m.sourceType === 'offlineMeet'
     var prompt = ''
     if (isOffline) {
-      prompt = ''\u8bf7\u6839\u636e\u4ee5\u4e0b\u7ebf\u4e0b\u89c1\u9762\u8bb0\u5f55\uff0c\u63d0\u53d61\u6761\u8bb0\u5fc6\u3002\n\n' +
+      prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u7ebf\u4e0b\u89c1\u9762\u8bb0\u5f55\uff0c\u63d0\u53d61\u6761\u8bb0\u5fc6\u3002\n\n' +
         '\u89c1\u9762\u5185\u5bb9\uff1a\n' + matchingRun.originalText.slice(0, 3000) + '\n\n' +
         '\u8981\u6c42\uff1a\n' +
         '1. \u4f7f\u7528\u7b2c\u4e09\u4eba\u79f0\u53d9\u8ff0\u3002\n' +
