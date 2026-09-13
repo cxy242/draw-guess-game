@@ -24,7 +24,7 @@ var _BUILTIN_PLOT_FIRST_LORE = `# 长文本叙事核心规则
 
 `
 
-(function() {
+;(function() {
   const MISS_YOU_HISTORY_DEFAULT = 100
   const MISS_YOU_HISTORY_MIN = 1
   const MISS_YOU_HISTORY_MAX = 1000
