@@ -312,7 +312,8 @@ async function postMoment(opts) {
       checkAndFlushBatchMemory('moments', charId);
     }
 
-    console.log('[AutoMoments] 已发布:', char.name, data.text.slice(0, 30));
+    console.log('[AutoMoments] 已发布:', char.name, data.text.slice(0, 30))
+    window.toast && window.toast('[朋友圈] 已发布: ' + char.name);
     refreshMomentsPage();
     return moment;
   } catch (e) {

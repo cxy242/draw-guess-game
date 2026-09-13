@@ -457,7 +457,7 @@
 3. 禁止使用强烈情绪词汇，例如“极度愤怒”“痛彻心扉”“欣喜若狂”等。
 4. 不要价值升华，不要写感悟，不要总结人生意义。
 5. 禁止加入聊天记录中没有出现的信息。
-6. 标题应尽量简短；内容应控制在150字以内，适合未来${charName}回复时参考。
+6. 标题应尽量简短；内容应控制在，适合未来${charName}回复时参考。
 
 请返回合法 JSON，不要输出 Markdown，不要输出 JSON 以外的文字。
 
@@ -466,7 +466,7 @@ JSON 格式：
   "memories": [
     {
       "title": "简短标题",
-      "content": "第三人称、客观平实的记忆内容，150字以内",
+      "content": "第三人称、客观平实的记忆内容，",
       "keywords": ["关键词1", "关键词2"],
       "valence": 0,
       "arousal": 0.3,
@@ -477,7 +477,7 @@ JSON 格式：
 
 字段说明：
 - title：尽量简短，用于快速识别这条记忆。
-- content：第三人称客观陈述，150字以内，禁止夸张、抒情、升华。
+- content：第三人称客观陈述，，禁止夸张、抒情、升华。
 - keywords：用于后续检索的关键词。
 - valence：情感效价，-1 到 1。负数表示负向，0 表示中性，正数表示正向。
 - arousal：唤醒度，0 到 1。越接近平静越低，越涉及冲突、紧张、强烈偏好越高。
@@ -621,7 +621,7 @@ ${lines}`
     var parsed = null
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'), max_tokens: 2000 })
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'),  })
         parsed = extractJson(raw)
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'
@@ -761,7 +761,7 @@ ${lines}`
     var parsed = null
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'), max_tokens: 2000 })
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'),  })
         parsed = extractJson(raw)
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'
@@ -1015,7 +1015,7 @@ ${lines}`
       <div class="sheet-title">${isNew ? '新增记忆' : '编辑记忆'}</div>
       <div class="memory-edit-form">
         <input class="input-field" id="mem-edit-title" placeholder="标题" value="${esc(m.title)}">
-        <textarea class="input-field" id="mem-edit-content" placeholder="内容，150字以内">${esc(m.content)}</textarea>
+        <textarea class="input-field" id="mem-edit-content" placeholder="内容，">${esc(m.content)}</textarea>
         <input class="input-field" id="mem-edit-keywords" placeholder="关键词，用逗号分隔" value="${esc((m.keywords || []).join(','))}">
 
         <div class="memory-edit-field">
@@ -1911,7 +1911,7 @@ ${lines}`
       prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53d61\u6761\u5173\u952e\u8bb0\u5fc6\u3002\n\n' +
         '\u804a\u5929\u5185\u5bb9\uff1a\n' + matchingRun.originalText.slice(0, 3000) + '\n\n' +
         '\u8fd4\u56deJSON\u683c\u5f0f\uff1a\n' +
-        '{"memories":[{"title":"\u6807\u9898(10\u5b57\u4ee5\u5185)","content":"\u5185\u5bb9(50\u5b57\u4ee5\u5185)","keywords":["\u5173\u952e\u8bcd"],"importance":5,"valence":0,"arousal":0.3}]}'
+        '{"memories":[{"title":"\u6807\u9898","content":"\u5185\u5bb9","keywords":["\u5173\u952e\u8bcd"],"importance":5,"valence":0,"arousal":0.3}]}'
     }
 
     var parsed = null

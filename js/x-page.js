@@ -672,6 +672,7 @@ function buildXBottomBar() {
 function renderXHomeTab(page, user) {
   var panel = page.querySelector('#x-tab-home')
   var posts = xLoadPosts()
+  window.toast && window.toast('[X] 加载帖子: ' + posts.length + ' 条')
   // 按时间倒序
   posts.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt) })
 
@@ -684,7 +685,9 @@ function renderXHomeTab(page, user) {
     return
   }
 
-  panel.innerHTML = posts.map(function(post) { return buildXPostCard(post) }).join('')
+  var _html = posts.map(function(post) { return buildXPostCard(post) }).join('')
+  window.toast && window.toast('[X] 渲染HTML: ' + _html.length + ' 字符')
+  panel.innerHTML = _html
   bindPostCardEvents(panel, user)
 }
 
@@ -2124,8 +2127,10 @@ async function generate5PostsForChar(char) {
       })
       xSavePosts(allPosts)
     }
+    showToastLong('补回完成，已保存 ' + newPosts.length + ' 条帖子', 3000)
   } catch(e) {
     console.error('[X] 一键生成帖子失败:', e)
+    showToastLong('补回失败：' + e.message, 3000)
   }
 }
 
