@@ -270,7 +270,7 @@ async function postMoment(opts) {
     }
 
     /* 构造 moment 并持久化（格式匹配 buildMomentCardHTML） */
-    var ownerUid = await getCfg('currentUserId');
+    var ownerUid = (window._wechatUid || await getCfg('currentUserId'));
     var moment = {
       charId:    charId,
       ownerUid:  ownerUid || String(charId),
@@ -364,7 +364,7 @@ function buildPrompt(char, mode, commentsOn, relations, isManual) {
 
 async function getRecentChat(charId, charName) {
   try {
-    var uid = await getCfg('currentUserId');
+    var uid = (window._wechatUid || await getCfg('currentUserId'));
     if (!uid) return '';
     var chat = await window.db.chats.where({ charId: charId, ownerUid: uid }).first();
     if (!chat) return '';
