@@ -6483,6 +6483,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           if (memPanelData.healthUser) _existing.healthUser = { v: memPanelData.healthUser, t: _now }
           _existing.updatedAt = _now
           localStorage.setItem('memPanel_' + charId, JSON.stringify(_existing))
+          if (window.db && db.config) db.config.put({ key: 'memoryPanel_' + charId, value: _existing }).catch(function(){})
         } catch(e) {}
       }
     } catch (e) {

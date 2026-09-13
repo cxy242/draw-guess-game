@@ -679,7 +679,7 @@ async function sendAnonymousCharSMS(user) {
       avatar: SMS_DEFAULT_AVATAR
     })
 
-    console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone + ' (' + messages.length + '条)')
+    console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone + ' (' + messages.length + '条) ownerPhone=' + ownerPhone + ' _smsActivePhone=' + _smsActivePhone)
     // 刷新短信列表（如果当前在短信页面）
     var smsPage = document.querySelector('.imessage-page')
     if (smsPage) loadSmsConversations(smsPage)

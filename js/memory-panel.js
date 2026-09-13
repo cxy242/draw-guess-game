@@ -36,11 +36,11 @@
   function renderStatus(data) {
     const d = data || {};
     const items = [
-      { icon: 'fa-shirt', label: '穿着', value: d.wearing || '未记录' },
-      { icon: 'fa-person-running', label: '活动', value: d.activity || '未记录' },
-      { icon: 'fa-location-dot', label: '位置', value: d.location || '未记录' },
-      { icon: 'fa-face-smile', label: '心情', value: d.mood || '未记录' },
-      { icon: 'fa-arrow-right', label: '下一步', value: d.next || '未记录' }
+      { icon: 'fa-shirt', label: '穿着', value: (d.wearing && d.wearing.v) ? d.wearing.v : '未记录' },
+      { icon: 'fa-person-running', label: '活动', value: (d.activity && d.activity.v) ? d.activity.v : '未记录' },
+      { icon: 'fa-location-dot', label: '位置', value: (d.location && d.location.v) ? d.location.v : '未记录' },
+      { icon: 'fa-face-smile', label: '心情', value: (d.mood && d.mood.v) ? d.mood.v : '未记录' },
+      { icon: 'fa-arrow-right', label: '下一步', value: (d.next && d.next.v) ? d.next.v : '未记录' }
     ];
     return '<div class="mp-status">' +
       '<div class="mp-card-title"><i class="fa-solid fa-circle-info"></i> 当前状态</div>' +
@@ -56,9 +56,9 @@
 
   function renderHealth(data) {
     const d = data || {};
-    const aiText = d.aiHealth || '暂无健康信息';
+    const aiText = (d.healthAi && d.healthAi.v) ? d.healthAi.v : '暂无健康信息';
     const recovery = d.recovery || 0;
-    const userHealth = d.userHealth || '未记录';
+    const userHealth = (d.healthUser && d.healthUser.v) ? d.healthUser.v : '未记录';
     return '<div class="mp-health">' +
       '<div class="mp-card-title"><i class="fa-solid fa-heart-pulse"></i> 健康状态</div>' +
       '<div class="mp-health-section">' +
