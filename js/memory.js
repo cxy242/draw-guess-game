@@ -546,7 +546,7 @@ ${lines}`
 
   function normalizeMemory(raw, meta) {
     var title = String(raw?.title || '').trim().slice(0, 30) || '未命名记忆'
-    var content = String(raw?.content || '').trim().slice(0, 150)
+    var content = String(raw?.content || '').trim()
     if (!content) return null
     var now = isValidTimestamp(meta.createdAt) ? Number(meta.createdAt) : Date.now()
     return {
