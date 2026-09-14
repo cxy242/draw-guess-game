@@ -1632,11 +1632,11 @@ ${lines}`
               return String(r.chatId) === String(m.chatId || '')
             })
             if (!run2) { window.toast && window.toast('暂无原始记录，无法重新总结'); return }
-            if (run2.status === 'success') { window.toast && window.toast('该记忆已成功总结，无需重新总结'); return }
+            // 允许重新总结成功记忆
             btn.disabled = true
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'
             try {
-              await retrySummary(run2.id)
+              await retrySummary(run2.id, m.id)
               window.toast && window.toast('重新总结成功')
               await renderMemoryPage(page)
             } catch(e) { window.toast && window.toast('重新总结失败'); btn.disabled = false; btn.textContent = '重新总结' }
@@ -1936,15 +1936,30 @@ ${lines}`
     window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u6210\u529f')
     return { ok: true }
   }  // 重新总结（从失败记录的原文重新调用API）
-  async function retrySummary(runId) {
+  async function retrySummary(runId, overwriteMemoryId) {
     var run = await db.memoryRuns.get(runId)
     if (!run || !run.originalText) { window.toast && window.toast('找不到原始记录'); return { ok: false } }
 
     window.toast && window.toast('正在重新总结...')
 
-    var prompt = '请总结以下对话，提取关键记忆信息。\n\n对话内容：\n' + run.originalText + '\n\n' +
-      '返回JSON格式：\n' +
-      '{"memories":[{"title":"标题","content":"内容","keywords":["关键词"],"importance":5,"valence":0,"arousal":0.3}]}'
+    var isOffline = run.sourceType === 'offlineMeet'
+    var prompt
+    if (isOffline) {
+      prompt = '你是一个线下见面记忆整理器。请根据见面记录，提取1条记忆。\n\n' +
+        '内容必须按5板块结构化：\n' +
+        '【当前状态】时间、地点、氛围、各角色状态\n' +
+        '【认知与变动】新认知、关系变化\n' +
+        '【物品与伏笔】重要物品、暗示的未来事件\n' +
+        '【未完成的悬念】未完成的承诺、未解决的问题\n' +
+        '【剧情总结】3-5句话概括核心事件\n' +
+        '禁止强烈情绪词汇。只生成1条记忆。\n\n' +
+        '见面记录：\n' + run.originalText + '\n\n' +
+        '返回JSON：{"memories":[{"title":"标题","content":"【当前状态】...\n【认知与变动】...\n【物品与伏笔】...\n【未完成的悬念】...\n【剧情总结】...","keywords":["关键词"],"importance":5,"valence":0,"arousal":0.3}]}'
+    } else {
+      prompt = '请总结以下对话，提取关键记忆信息。\n\n对话内容：\n' + run.originalText + '\n\n' +
+        '返回JSON格式：\n' +
+        '{"memories":[{"title":"标题","content":"内容","keywords":["关键词"],"importance":5,"valence":0,"arousal":0.3}]}'
+    }
 
     var lastError = null
     var parsed = null
@@ -1980,13 +1995,25 @@ ${lines}`
       row.sourceType = run.sourceType || 'wechat'
       rows.push(row)
     }
-    if (rows.length) await db.memories.bulkAdd(rows)
-
-    // 更新原来的失败记录为成功
-    await db.memoryRuns.update(runId, { status: 'success', memoryCount: rows.length, failReason: null, updatedAt: Date.now() })
-
-    window.toast && window.toast('重新总结成功，生成 ' + rows.length + ' 条记忆')
-    return { ok: true, memoryCount: rows.length }
+    var newMem = parsed.memories[0]
+    var row = normalizeMemory(newMem, {
+      ownerUid: run.ownerUid, charId: run.charId, chatId: run.chatId,
+      fromMsgId: run.fromMsgId, toMsgId: run.toMsgId, sourceAt: run.sourceAt
+    })
+    if (!row) { window.toast && window.toast('总结内容为空'); return { ok: false } }
+    row.sourceType = run.sourceType || 'wechat'
+    if (overwriteMemoryId) {
+      await db.memories.update(overwriteMemoryId, {
+        title: row.title, content: row.content, keywords: row.keywords,
+        importance: row.importance, valence: row.valence, arousal: row.arousal,
+        updatedAt: Date.now()
+      })
+    } else {
+      await db.memories.add(row)
+    }
+    await db.memoryRuns.update(runId, { status: 'success', memoryCount: 1, failReason: null, updatedAt: Date.now() })
+    window.toast && window.toast('重新总结成功')
+    return { ok: true, memoryCount: 1 }
   }
 
   window.WanWanMemory = {
