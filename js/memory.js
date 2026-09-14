@@ -875,7 +875,6 @@ ${lines}`
     var now = Date.now()
     await Promise.all(selected.map(function(x) {
       return db.memories.update(x.memory.id, {
-        lastAccessedAt: now,
         accessCount: (parseInt(x.memory.accessCount || 0, 10) || 0) + 1,
         status: x.memory.status === 'sleeping' ? 'active' : x.memory.status
       })
