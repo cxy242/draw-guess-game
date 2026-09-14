@@ -226,6 +226,52 @@ function stopScheduler() {
 /* ══════════════════════════════════════════════════
    核心：生成并发布朋友圈
    ══════════════════════════════════════════════════ */
+
+/* 补回：一次API生成N条朋友圈（省API！） */
+async function catchUpMoments(count) {
+  if (!window.callAI) return 0;
+  var charIds = await getCfg(AM.chars) || [];
+  if (!charIds.length) return 0;
+  var mode = await getCfg(AM.mode) || 'daily';
+  var chars = [];
+  for (var ci = 0; ci < charIds.length; ci++) {
+    var c = await window.db.characters.get(charIds[ci]);
+    if (c) chars.push(c);
+  }
+  if (!chars.length) return 0;
+  var picked = [];
+  for (var i = 0; i < count; i++) picked.push(chars[Math.floor(Math.random() * chars.length)]);
+  var charDescs = picked.map(function(c, i) { return (i+1) + '. ' + c.name; }).join(', ');
+  var modeDesc = mode === 'daily' ? '80%日常+20%提到用户' : '50%日常+50%提到用户';
+  var prompt = '为以下' + count + '个角色各生成1条朋友圈。角色：' + charDescs + '。方向：' + modeDesc + '。每条1-3句不超过80字，口语化自然。每条配3-5条评论。返回JSON：{posts:[{text:文案,likes:[人],comments:[{from:人,to:null,text:评论}]}]}';
+  try {
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
+    var data = parseJSON(raw);
+    if (!data || !Array.isArray(data.posts)) return 0;
+    var ok = 0;
+    var ownerUid = await getCfg('currentUserId');
+    for (var pi = 0; pi < data.posts.length; pi++) {
+      var p = data.posts[pi];
+      if (!p || !p.text) continue;
+      var char = picked[pi] || picked[0];
+      var moment = {
+        charId: char.id, ownerUid: ownerUid || String(char.id),
+        content: p.text, images: [],
+        likes: Array.isArray(p.likes) ? p.likes.map(function(n, li) { return { uid: 'npc_' + li, name: n, createdAt: Date.now() }; }) : [],
+        comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
+          return { id: 'cmt_' + Date.now() + '_' + ci + '_' + pi, uid: c.from === char.name ? 'char_' + char.id : 'npc_' + ci, name: c.from, replyToId: c.to ? 'cmt_prev' : '', replyToName: c.to || '', text: c.text, createdAt: Date.now() + ci * 1000 };
+        }),
+        createdAt: Date.now() - (count - pi) * 60000
+      };
+      await window.db.moments.put(moment);
+      ok++;
+      console.log('[Moments] 补回成功:', char.name, p.text.slice(0, 20));
+    }
+    refreshMomentsPage();
+    return ok;
+  } catch(e) { console.warn('[Moments] catchUpMoments失败:', e); return 0; }
+}
+
 async function postMoment(opts) {
   opts = opts || {};
   var charIds = await getCfg(AM.chars) || [];

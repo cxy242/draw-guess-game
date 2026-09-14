@@ -2079,6 +2079,7 @@ async function generate5PostsForChar(char) {
     var allPosts = xLoadPosts()
     if (data.posts) {
       data.posts.forEach(function(p, i) {
+      if (!p || !p.content) return // 跳过空帖子
         var postId = xGenId()
         allPosts.push({
           id: postId,
@@ -2622,6 +2623,7 @@ async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
     var allPosts = xLoadPosts()
     var newPosts = []
     data.posts.forEach(function(p, i) {
+      if (!p || !p.content) return // 跳过空帖子
       var char = pickedChars[i] || pickedChars[0]
       var postId = xGenId()
       var post = {
