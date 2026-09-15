@@ -1,4 +1,6 @@
-// tarot-page.js — 月月机 塔罗占卜 (full rewrite)
+// tarot-page.js — 月月机 塔罗占卜 (complete rewrite)
+// Phases: question -> shuffle -> select(fan) -> reveal -> reading
+// Features: CSS animations, AI character integration, memory saving
 ;(function() {
 'use strict'
 
@@ -96,7 +98,6 @@ rev:'逆位暗示某件事情还没有真正完成。你离终点很近，但还
 sym:'裸身舞者被椭圆形月桂花环包围，手持两根权杖，四角有人、鹰、牛、狮。',astro:'土星'}
 ];
 
-/* Minor Arcana — Wands(权杖) / Cups(圣杯) / Swords(宝剑) / Pentacles(星币) */
 var SUIT_DEFS = {
 W:{zh:'权杖',en:'Wands',element:'火',theme:'意志 / 行动 / 创造',
   numUp:['新火种的点燃','创造力的二元对舞','行动前的准备','稳固的基业','竞争与冲突','胜利的旅途','捍卫立场','迅速的行动','坚韧的守望','重担与压力'],
@@ -136,10 +137,9 @@ P:{zh:'星币',en:'Pentacles',element:'土',theme:'物质 / 身体 / 资源',
   ]}
 };
 
-/* Build ALL_CARDS */
 var ALL_CARDS = [];
 MAJOR.forEach(function(c){
-  ALL_CARDS.push({id:c.id,zh:c.zh,en:c.en,k_up:c.k_up,k_rev:c.rev?c.k_rev:'',up:c.up,rev:c.rev,sym:c.sym||'',astro:c.astro||'',type:'major'});
+  ALL_CARDS.push({id:c.id,zh:c.zh,en:c.en,k_up:c.k_up,k_rev:c.k_rev,up:c.up,rev:c.rev,sym:c.sym||'',astro:c.astro||'',type:'major'});
 });
 var suitKeys = ['W','C','S','P'];
 var NUM_CN = ['A','二','三','四','五','六','七','八','九','十'];
@@ -149,8 +149,8 @@ suitKeys.forEach(function(sk){
   for(var i=0;i<10;i++){
     ALL_CARDS.push({
       id:sk+(i+1), zh:sd.zh+NUM_CN[i], en:sd.en+' '+NUM_EN[i],
-      k_up:sd.element+'元素 · '+sd.theme,
-      k_rev:sd.element+'元素逆位 · '+sd.theme+'受阻',
+      k_up:sd.element+'元素: '+sd.theme,
+      k_rev:sd.element+'元素逆位: '+sd.theme+'受阻',
       up:sd.numUp[i], rev:sd.numRev[i],
       sym:sd.element+'元素象征', astro:'', type:'minor'
     });
@@ -159,7 +159,7 @@ suitKeys.forEach(function(sk){
   sd.court.forEach(function(ci,j){
     ALL_CARDS.push({
       id:sk+(j+11), zh:sd.zh+ci.zh, en:sd.en+' '+ci.en,
-      k_up:sd.element+' · '+ci.up.split('，')[0],
+      k_up:sd.element+' : '+ci.up.split('\uFF0C')[0],
       k_rev:sd.element+'逆位',
       up:ci.up, rev:ci.rev,
       sym:sd.element+'元素宫廷牌', astro:'', type:'minor'
@@ -198,7 +198,7 @@ function buildReadingMessages(selCards, positions, question){
     var pos = positions[i] || '';
     var dir = sel.reversed ? '逆位' : '正位';
     var card = sel.card;
-    return (i+1)+'. 【'+pos+'】'+card.zh+'（'+card.en+'）— '+dir+'\n'+
+    return (i+1)+'. 【'+pos+'】'+card.zh+'\uFF08'+card.en+'\uFF09\u2014 '+dir+'\n'+
       '   关键词：'+(sel.reversed ? card.k_rev : card.k_up)+'\n'+
       '   含义：'+(sel.reversed ? card.rev : card.up)+'\n'+
       (card.sym ? '   象征：'+card.sym+'\n' : '')+
@@ -207,7 +207,7 @@ function buildReadingMessages(selCards, positions, question){
 
   var userMsg = '问题：'+(question || '想了解当前的状况和方向')+'\n\n'+
     '牌阵中有'+selCards.length+'张牌：\n\n'+cardDesc+'\n\n'+
-    '请按照你的解读结构（牌阵总览→逐位解读→综合信息→启示与建议）进行详细解读。';
+    '请按照你的解读结构（牌阵总览\u2192逐位解读\u2192综合信息\u2192启示与建议）进行详细解读。';
 
   return [
     {role:'system',content:READER_SYSTEM},
@@ -229,24 +229,21 @@ function mdToHtml(md){
       if(inList){ html += '</ul>'; inList = false; }
       return;
     }
-    // Headings
     var hMatch = trimmed.match(/^#{1,3}\s+(.+)/);
     if(hMatch){
       if(inList){ html += '</ul>'; inList = false; }
       html += '<h3>'+esc(hMatch[1])+'</h3>';
       return;
     }
-    // Bold
     var processed = esc(trimmed);
     processed = processed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     processed = processed.replace(/__(.+?)__/g, '<strong>$1</strong>');
-    // Lists
-    if(/^[•\-\*]\s+/.test(trimmed)){
+    if(/^[\u2022\-\*]\s+/.test(trimmed)){
       if(!inList){ html += '<ul>'; inList = true; }
-      html += '<li>'+processed.replace(/^[•\-\*]\s+/,'')+'</li>';
+      html += '<li>'+processed.replace(/^[\u2022\-\*]\s+/,'')+'</li>';
       return;
     }
-    if(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/.test(trimmed)){
+    if(/^[\u2460\u2461\u2462\u2463\u2464\u2465\u2466\u2467\u2468\u2469]\s*/.test(trimmed)){
       if(!inList){ html += '<ul>'; inList = true; }
       html += '<li>'+processed+'</li>';
       return;
@@ -270,7 +267,13 @@ var state = {
   selected: [],
   readingText: '',
   readingDone: false,
-  abortCtrl: null
+  abortCtrl: null,
+  charId: null,
+  charName: '',
+  charAvatar: '',
+  charDescription: '',
+  aiReadingText: '',
+  aiReadingDone: false
 };
 
 /* ===================================================================
@@ -291,19 +294,75 @@ function fmtDate(ts){
   var d=new Date(ts);
   return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
-
-/* ===================================================================
-   ORNAMENT HTML
-   =================================================================== */
 function ornament(){
   return '<div class="tarot-ornament"><div class="tarot-ornament-diamond"></div></div>';
 }
 
 /* ===================================================================
+   CHARACTER INTEGRATION
+   =================================================================== */
+var _characters = [];
+
+async function loadCharacters(){
+  if(_characters.length) return _characters;
+  try{
+    if(window.db && window.db.characters){
+      _characters = await window.db.characters.where('type').equals('char').toArray();
+    }
+  }catch(e){ console.warn('[tarot] load characters:', e); }
+  return _characters;
+}
+
+function buildCharacterSelectorHTML(chars){
+  if(!chars || !chars.length) return '';
+  var avatars = chars.map(function(c){
+    var avatarSrc = c.avatar || '';
+    var name = c.name || '';
+    return '<div class="tarot-char-avatar-wrap" data-cid="'+c.id+'" data-cname="'+esc(name)+'">'+
+      '<img class="tarot-char-avatar" src="'+esc(avatarSrc)+'" alt="'+esc(name)+'" onerror="this.style.display=\'none\'">'+
+      '<div class="tarot-char-avatar-name">'+esc(name)+'</div>'+
+    '</div>';
+  }).join('');
+  return '<div class="tarot-char-section">'+
+    '<div class="tarot-char-heading">AI 视角 (可选)</div>'+
+    '<div class="tarot-char-row">'+avatars+'</div>'+
+    '<div class="tarot-char-name" id="tcn-name"></div>'+
+  '</div>';
+}
+
+function bindCharacterSelector(screen){
+  screen.querySelectorAll('.tarot-char-avatar-wrap').forEach(function(wrap){
+    wrap.addEventListener('click', function(){
+      var wasSelected = wrap.querySelector('.tarot-char-avatar').classList.contains('tarot-char-selected');
+      // Deselect all
+      screen.querySelectorAll('.tarot-char-avatar').forEach(function(a){a.classList.remove('tarot-char-selected')});
+      var nameEl = screen.querySelector('#tcn-name');
+      if(wasSelected){
+        state.charId = null;
+        state.charName = '';
+        state.charAvatar = '';
+        state.charDescription = '';
+        if(nameEl) nameEl.textContent = '';
+      } else {
+        var avatar = wrap.querySelector('.tarot-char-avatar');
+        avatar.classList.add('tarot-char-selected');
+        state.charId = wrap.dataset.cid;
+        state.charName = wrap.dataset.cname;
+        state.charAvatar = avatar.src;
+        var ch = _characters.find(function(x){return String(x.id)===String(state.charId)});
+        state.charDescription = ch ? (ch.description || ch.identity && ch.identity.bio || ch.signature || '') : '';
+        if(nameEl) nameEl.textContent = '\u4E0E '+state.charName+' \u76F8\u5173';
+      }
+    });
+  });
+}
+
+/* ===================================================================
    PHASE: QUESTION
    =================================================================== */
-function renderQuestion(root){
+async function renderQuestion(root){
   state.phase = 'question';
+  state.charId = null; state.charName = ''; state.charAvatar = ''; state.charDescription = '';
   var hist = getHistory().slice(0,5);
   var histHTML = '';
   if(hist.length===0){
@@ -324,6 +383,10 @@ function renderQuestion(root){
     }).join('');
   }
 
+  // Load characters
+  var chars = await loadCharacters();
+  var charHTML = buildCharacterSelectorHTML(chars);
+
   var html = '<div class="tarot-phase tarot-active">'+
     '<div class="tarot-question-phase">'+
       '<div class="tarot-panel tarot-question-panel">'+
@@ -331,6 +394,7 @@ function renderQuestion(root){
         '<div class="tarot-main-title">以心问卜</div>'+
         ornament()+
         '<textarea class="tarot-textarea" id="tq-input" rows="3" placeholder="在心中默念你的问题"></textarea>'+
+        charHTML+
         '<div class="tarot-mode-group">'+
           '<div class="tarot-mode-option tarot-selected" data-mode="auto">依问择阵</div>'+
           '<div class="tarot-mode-option" data-mode="manual">自行选阵</div>'+
@@ -349,8 +413,12 @@ function renderQuestion(root){
 
   root.querySelector('.tarot-phases').innerHTML = html;
 
-  // Bind events
   var screen = root.querySelector('.tarot-phase');
+
+  // Bind character selector
+  bindCharacterSelector(screen);
+
+  // Bind mode options
   screen.querySelectorAll('.tarot-mode-option').forEach(function(opt){
     opt.addEventListener('click',function(){
       screen.querySelectorAll('.tarot-mode-option').forEach(function(o){o.classList.remove('tarot-selected')});
@@ -366,7 +434,8 @@ function renderQuestion(root){
       state.selected = [];
       state.readingText = '';
       state.readingDone = false;
-      // AI picks spread based on question
+      state.aiReadingText = '';
+      state.aiReadingDone = false;
       autoPickSpread(root);
     } else {
       renderSpread(root);
@@ -386,6 +455,10 @@ function renderQuestion(root){
         });
         state.readingText = h.reading||'';
         state.readingDone = true;
+        state.charId = h.charId || null;
+        state.charName = h.charName || '';
+        state.aiReadingText = h.aiReading || '';
+        state.aiReadingDone = !!h.aiReading;
         renderReading(root);
       }
     });
@@ -395,17 +468,16 @@ function renderQuestion(root){
 /* ===================================================================
    AUTO PICK SPREAD
    =================================================================== */
-async function autoPickSpread(root){
-  // Simple heuristic: if question is short/simple → single, else → three, long → celtic
+function autoPickSpread(root){
   var q = state.question;
   if(!q || q.length < 8){ state.spread = 0; }
   else if(q.length < 30){ state.spread = 1; }
   else { state.spread = 2; }
-  renderSelect(root);
+  renderShuffle(root);
 }
 
 /* ===================================================================
-   PHASE: SPREAD SELECTION
+   PHASE: SPREAD SELECTION (manual mode)
    =================================================================== */
 function renderSpread(root){
   state.phase = 'spread';
@@ -443,7 +515,9 @@ function renderSpread(root){
       state.selected = [];
       state.readingText = '';
       state.readingDone = false;
-      renderSelect(root);
+      state.aiReadingText = '';
+      state.aiReadingDone = false;
+      renderShuffle(root);
     });
   });
 
@@ -453,41 +527,232 @@ function renderSpread(root){
 }
 
 /* ===================================================================
-   PHASE: SELECT CARDS
+   PHASE: SHUFFLE — cards scatter and reform
    =================================================================== */
-function renderSelect(root){
+function renderShuffle(root){
+  state.phase = 'shuffle';
+  var sp = SPREADS[state.spread];
+  var cardCount = 21;
+
+  var cardsHTML = '';
+  for(var i=0;i<cardCount;i++){
+    cardsHTML += '<div class="tarot-deck-card" data-idx="'+i+'"></div>';
+  }
+
+  var html = '<div class="tarot-phase tarot-active">'+
+    '<div class="tarot-shuffle-stage" id="tsh-stage">'+cardsHTML+'</div>'+
+    '<div class="tarot-shuffle-hint">命运正在洗牌...</div>'+
+  '</div>';
+
+  root.querySelector('.tarot-phases').innerHTML = html;
+  var screen = root.querySelector('.tarot-phase');
+  var cards = screen.querySelectorAll('.tarot-deck-card');
+
+  // Phase 1: Stack at center
+  cards.forEach(function(card, i){
+    card.style.transform = 'translate(0, '+(-i*0.5)+'px) rotate(0deg)';
+    card.style.opacity = '1';
+    card.style.zIndex = i;
+  });
+
+  // Phase 2: Fan out after a brief pause
+  setTimeout(function(){
+    cards.forEach(function(card, i){
+      card.classList.add('tarot-deck-fan');
+      var totalCards = cards.length;
+      var angleSpread = 60;
+      var angle = -angleSpread/2 + (angleSpread/(totalCards-1))*i;
+      var radius = 120;
+      var rad = (angle - 90) * Math.PI / 180;
+      var x = Math.cos(rad) * radius;
+      var y = Math.sin(rad) * radius + radius;
+      card.style.transform = 'translate('+x+'px, '+y+'px) rotate('+angle+'deg)';
+    });
+  }, 400);
+
+  // Phase 3: Scatter (shuffle effect)
+  setTimeout(function(){
+    cards.forEach(function(card){
+      card.classList.remove('tarot-deck-fan');
+      card.classList.add('tarot-deck-scatter');
+      var rx = (Math.random()-0.5)*280;
+      var ry = (Math.random()-0.5)*200;
+      var rr = (Math.random()-0.5)*120;
+      card.style.transform = 'translate('+rx+'px, '+ry+'px) rotate('+rr+'deg)';
+      card.style.opacity = '0.7';
+    });
+  }, 1800);
+
+  // Phase 4: Reform into fan
+  setTimeout(function(){
+    cards.forEach(function(card, i){
+      card.classList.remove('tarot-deck-scatter');
+      card.classList.add('tarot-deck-reform');
+      var totalCards = cards.length;
+      var angleSpread = 60;
+      var angle = -angleSpread/2 + (angleSpread/(totalCards-1))*i;
+      var radius = 120;
+      var rad = (angle - 90) * Math.PI / 180;
+      var x = Math.cos(rad) * radius;
+      var y = Math.sin(rad) * radius + radius;
+      card.style.transform = 'translate('+x+'px, '+y+'px) rotate('+angle+'deg)';
+      card.style.opacity = '1';
+    });
+  }, 2800);
+
+  // Phase 5: Transition to select phase
+  setTimeout(function(){
+    renderFanSelect(root);
+  }, 3800);
+}
+
+/* ===================================================================
+   PHASE: FAN SELECT — cards in arc, tap to flip
+   =================================================================== */
+function renderFanSelect(root){
   state.phase = 'select';
   var sp = SPREADS[state.spread];
   var need = sp.count;
-  // Show enough face-down cards (min 21 or need*3)
   var showCount = Math.max(need*3, 21);
   var deck = state.deck.slice(0, showCount);
 
-  var gridHTML = deck.map(function(c,i){
-    return '<div class="tarot-card-slot" data-idx="'+i+'">'+
-      '<div class="tarot-card-inner">'+
-        '<div class="tarot-card-back"></div>'+
-        '<div class="tarot-card-front">'+
-          '<div class="tarot-card-front-cn">'+esc(c.zh)+'</div>'+
-          '<div class="tarot-card-front-en">'+esc(c.en)+'</div>'+
-          '<div class="tarot-card-front-dir"></div>'+
+  var fanCardsHTML = deck.map(function(c,i){
+    return '<div class="tarot-fan-card" data-idx="'+i+'">'+
+      '<div class="tarot-fan-card-inner">'+
+        '<div class="tarot-fan-back"></div>'+
+        '<div class="tarot-fan-front">'+
+          '<div class="tarot-fan-front-cn">'+esc(c.zh)+'</div>'+
+          '<div class="tarot-fan-front-en">'+esc(c.en)+'</div>'+
+          '<div class="tarot-fan-front-dir"></div>'+
         '</div>'+
       '</div>'+
     '</div>';
   }).join('');
 
   var html = '<div class="tarot-phase tarot-active">'+
-    '<div class="tarot-select-header">'+
+    '<div class="tarot-fan-header">'+
       '<div class="tarot-eyebrow">DRAW THE CARDS</div>'+
-      '<div class="tarot-select-title">'+esc(sp.name)+'</div>'+
-      '<div class="tarot-select-progress" id="tsel-prog">已选 0 / '+need+'</div>'+
+      '<div class="tarot-fan-title">'+esc(sp.name)+'</div>'+
+      '<div class="tarot-fan-progress" id="tfan-prog">已选 0 / '+need+'</div>'+
     '</div>'+
-    '<div class="tarot-card-grid" id="tsel-grid">'+gridHTML+'</div>'+
+    '<div class="tarot-fan-container" id="tfan-container">'+fanCardsHTML+'</div>'+
     '<div class="tarot-ritual-bar">'+
       '<div class="tarot-ritual-hint">点击牌面抽取 '+need+' 张牌</div>'+
       '<div class="tarot-ritual-actions">'+
-        '<button class="tarot-ritual-btn" id="tsel-back">返回</button>'+
-        '<button class="tarot-ritual-btn" id="tsel-view" disabled>查看解读</button>'+
+        '<button class="tarot-ritual-btn" id="tfan-back">返回</button>'+
+        '<button class="tarot-ritual-btn" id="tfan-view" disabled>查看解读</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+
+  root.querySelector('.tarot-phases').innerHTML = html;
+  var screen = root.querySelector('.tarot-phase');
+  var cards = screen.querySelectorAll('.tarot-fan-card');
+  var container = screen.querySelector('#tfan-container');
+
+  // Position cards in a fan arc
+  var total = cards.length;
+  var angleSpread = Math.min(70, total * 3.5);
+  cards.forEach(function(card, i){
+    var angle = -angleSpread/2 + (angleSpread/(total-1))*i;
+    var radius = 200;
+    var rad = (angle - 90) * Math.PI / 180;
+    var x = Math.cos(rad) * radius;
+    var y = Math.sin(rad) * radius + radius;
+    card.style.transform = 'rotate('+angle+'deg) translateY('+(-radius)+'px)';
+    card.style.zIndex = i;
+  });
+
+  // Bind card clicks
+  cards.forEach(function(card){
+    card.addEventListener('click', function(){
+      if(state.selected.length >= need) return;
+      if(card.classList.contains('tarot-fan-picked')) return;
+
+      var idx = Number(card.dataset.idx);
+      var c = state.deck[idx];
+      var reversed = Math.random() < 0.35;
+
+      // Lift up, then flip
+      card.classList.add('tarot-fan-picked', 'tarot-fan-flipped');
+
+      // Set orientation
+      var dir = card.querySelector('.tarot-fan-front-dir');
+      var front = card.querySelector('.tarot-fan-front');
+      if(reversed){
+        dir.className = 'tarot-fan-front-dir tarot-rev';
+        dir.textContent = '\u9006\u4F4D';
+        front.classList.add('tarot-reversed-content');
+      } else {
+        dir.className = 'tarot-fan-front-dir tarot-up';
+        dir.textContent = '\u6B63\u4F4D';
+      }
+
+      var sp = SPREADS[state.spread];
+      state.selected.push({
+        card: c,
+        reversed: reversed,
+        position: sp.positions[state.selected.length] || ''
+      });
+
+      screen.querySelector('#tfan-prog').textContent = '\u5DF2\u9009 '+state.selected.length+' / '+need;
+
+      if(state.selected.length >= need){
+        cards.forEach(function(s){
+          if(!s.classList.contains('tarot-fan-flipped')){
+            s.classList.add('tarot-fan-picked');
+          }
+        });
+        screen.querySelector('#tfan-view').disabled = false;
+      }
+    });
+  });
+
+  screen.querySelector('#tfan-back').addEventListener('click', function(){
+    renderQuestion(root);
+  });
+
+  screen.querySelector('#tfan-view').addEventListener('click', function(){
+    renderReveal(root);
+  });
+}
+
+/* ===================================================================
+   PHASE: REVEAL — selected cards fly to row
+   =================================================================== */
+function renderReveal(root){
+  state.phase = 'reveal';
+  var sp = SPREADS[state.spread];
+
+  var revealCardsHTML = state.selected.map(function(sel, i){
+    var dir = sel.reversed ? '\u9006\u4F4D' : '\u6B63\u4F4D';
+    var dirClass = sel.reversed ? 'tarot-rev' : 'tarot-up';
+    var revClass = sel.reversed ? 'tarot-rev-visual' : '';
+    var posLabel = sel.position || sp.positions[i] || '';
+    return '<div class="tarot-reveal-card" data-ci="'+i+'">'+
+      '<div class="tarot-reveal-card-pos">'+esc(posLabel)+'</div>'+
+      '<div class="tarot-reveal-card-visual tarot-reveal-glow '+revClass+'">'+
+        '<div class="tarot-reveal-card-cn">'+esc(sel.card.zh)+'</div>'+
+        '<div class="tarot-reveal-card-en">'+esc(sel.card.en)+'</div>'+
+        '<div class="tarot-reveal-card-dir '+dirClass+'">'+dir+'</div>'+
+      '</div>'+
+      '<div class="tarot-reveal-card-label">'+
+        esc(sel.card.zh)+' <span class="tarot-reveal-orient-'+dirClass+'">'+dir+'</span>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  var html = '<div class="tarot-phase tarot-active">'+
+    '<div class="tarot-reveal-stage">'+
+      '<div class="tarot-reveal-header">'+
+        '<div class="tarot-eyebrow">THE CARDS REVEALED</div>'+
+        '<div class="tarot-reveal-title">'+esc(sp.name)+'</div>'+
+        ornament()+
+      '</div>'+
+      '<div class="tarot-reveal-row" id="trev-row">'+revealCardsHTML+'</div>'+
+      '<div class="tarot-reveal-actions">'+
+        '<button class="tarot-btn" id="trev-reading">查看解读</button>'+
+        '<button class="tarot-btn tarot-btn-ghost" id="trev-back">重新抽牌</button>'+
       '</div>'+
     '</div>'+
   '</div>';
@@ -495,62 +760,27 @@ function renderSelect(root){
   root.querySelector('.tarot-phases').innerHTML = html;
   var screen = root.querySelector('.tarot-phase');
 
-  // Bind card clicks
-  var slots = screen.querySelectorAll('.tarot-card-slot');
-  slots.forEach(function(slot){
-    slot.addEventListener('click',function(){
-      if(state.selected.length >= need) return;
-      if(slot.classList.contains('tarot-picked')) return;
-
-      var idx = Number(slot.dataset.idx);
-      var card = state.deck[idx];
-      var reversed = Math.random() < 0.35;
-
-      // Flip animation
-      slot.classList.add('tarot-flipped','tarot-picked');
-
-      // Set orientation
-      var dir = slot.querySelector('.tarot-card-front-dir');
-      if(reversed){
-        dir.className = 'tarot-card-front-dir tarot-rev';
-        dir.textContent = '逆位';
-        slot.querySelector('.tarot-card-front-cn').style.transform = 'rotate(180deg)';
-        slot.querySelector('.tarot-card-front-en').style.transform = 'rotate(180deg)';
-      } else {
-        dir.className = 'tarot-card-front-dir tarot-up';
-        dir.textContent = '正位';
-      }
-
-      var sp = SPREADS[state.spread];
-      state.selected.push({
-        card: card,
-        reversed: reversed,
-        position: sp.positions[state.selected.length] || ''
-      });
-
-      screen.querySelector('#tsel-prog').textContent = '已选 '+state.selected.length+' / '+need;
-
-      if(state.selected.length >= need){
-        // Disable remaining
-        slots.forEach(function(s){
-          if(!s.classList.contains('tarot-flipped')) s.classList.add('tarot-picked');
-        });
-        screen.querySelector('#tsel-view').disabled = false;
-      }
-    });
+  // Stagger cards appearing
+  var revealCards = screen.querySelectorAll('.tarot-reveal-card');
+  revealCards.forEach(function(card, i){
+    setTimeout(function(){
+      card.classList.add('tarot-reveal-in');
+    }, 100 + i * 150);
   });
 
-  screen.querySelector('#tsel-back').addEventListener('click',function(){
-    renderQuestion(root);
-  });
-
-  screen.querySelector('#tsel-view').addEventListener('click',function(){
+  screen.querySelector('#trev-reading').addEventListener('click', function(){
     renderReading(root);
+  });
+
+  screen.querySelector('#trev-back').addEventListener('click', function(){
+    state.deck = shuffle(ALL_CARDS);
+    state.selected = [];
+    renderShuffle(root);
   });
 }
 
 /* ===================================================================
-   PHASE: READING
+   PHASE: READING — streaming AI interpretation
    =================================================================== */
 function renderReading(root){
   state.phase = 'reading';
@@ -567,15 +797,30 @@ function renderReading(root){
   var bodyContent = state.readingDone ? mdToHtml(state.readingText) :
     '<div class="tarot-reading-loading">正在连接星轨...<span class="tarot-cursor"></span></div>';
 
+  // AI perspective section
+  var aiSectionHTML = '';
+  if(state.charId && state.charName){
+    var aiBody = state.aiReadingDone ? mdToHtml(state.aiReadingText) :
+      '<div class="tarot-reading-loading">'+esc(state.charName)+'正在思考...<span class="tarot-cursor"></span></div>';
+    var avatarSrc = state.charAvatar || '';
+    aiSectionHTML = '<div class="tarot-ai-section" id="tai-section">'+
+      '<div class="tarot-ai-heading">AI PERSPECTIVE</div>'+
+      '<div class="tarot-ai-avatar-row"><img class="tarot-ai-avatar-img" src="'+esc(avatarSrc)+'" alt="'+esc(state.charName)+'" onerror="this.style.display=\'none\'"></div>'+
+      '<div class="tarot-ai-char-name">'+esc(state.charName)+'的视角</div>'+
+      '<div class="tarot-ai-body" id="tai-body">'+aiBody+'</div>'+
+    '</div>';
+  }
+
   var html = '<div class="tarot-reading-overlay tarot-active">'+
     '<div class="tarot-reading-scroll">'+
       '<div class="tarot-reading-panel">'+
         '<div class="tarot-eyebrow">THE READING</div>'+
         '<div class="tarot-main-title">牌阵解读</div>'+
         ornament()+
-        '<div class="tarot-reading-question">\u201c'+esc(question)+'\u201d</div>'+
+        '<div class="tarot-reading-question">\u201C'+esc(question)+'\u201D</div>'+
         '<div class="tarot-chips-row">'+chipsHTML+'</div>'+
         '<div class="tarot-reading-body" id="tr-body">'+bodyContent+'</div>'+
+        aiSectionHTML+
         '<div class="tarot-reading-actions">'+
           '<button class="tarot-btn" id="tr-retry">再问一次</button>'+
           '<button class="tarot-btn" id="tr-copy">誊抄</button>'+
@@ -585,17 +830,14 @@ function renderReading(root){
     '</div>'+
   '</div>';
 
-  // Remove old reading overlay if any
   var old = root.querySelector('.tarot-reading-overlay');
   if(old) old.remove();
-
   root.insertAdjacentHTML('beforeend', html);
 
-  // Bind chip clicks
+  // Bind chip clicks for card detail
   root.querySelectorAll('.tarot-chip').forEach(function(chip){
     chip.addEventListener('click',function(){
-      var ci = Number(chip.dataset.ci);
-      showCardDetail(root, ci);
+      showCardDetail(root, Number(chip.dataset.ci));
     });
   });
 
@@ -607,12 +849,16 @@ function renderReading(root){
     state.selected = [];
     state.readingText = '';
     state.readingDone = false;
-    renderSelect(root);
+    state.aiReadingText = '';
+    state.aiReadingDone = false;
+    renderFanSelect(root);
   });
 
   root.querySelector('#tr-copy').addEventListener('click',function(){
-    if(navigator.clipboard && state.readingText){
-      navigator.clipboard.writeText(state.readingText).then(function(){
+    var fullText = state.readingText;
+    if(state.aiReadingText) fullText += '\n\n--- '+state.charName+'的视角 ---\n'+state.aiReadingText;
+    if(navigator.clipboard && fullText){
+      navigator.clipboard.writeText(fullText).then(function(){
         showToast(root, '已誊抄至剪贴板');
       });
     }
@@ -621,7 +867,7 @@ function renderReading(root){
   root.querySelector('#tr-new').addEventListener('click',function(){
     var ol = root.querySelector('.tarot-reading-overlay');
     if(ol) ol.remove();
-    state = {phase:'question',mode:state.mode,spread:null,question:'',deck:[],selected:[],readingText:'',readingDone:false,abortCtrl:null};
+    state = {phase:'question',mode:state.mode,spread:null,question:'',deck:[],selected:[],readingText:'',readingDone:false,abortCtrl:null,charId:null,charName:'',charAvatar:'',charDescription:'',aiReadingText:'',aiReadingDone:false};
     renderQuestion(root);
   });
 
@@ -639,7 +885,7 @@ function showCardDetail(root, ci){
   if(!sel) return;
   var sp = SPREADS[state.spread];
   var pos = sel.position || sp.positions[ci] || '';
-  var dir = sel.reversed ? '逆位' : '正位';
+  var dir = sel.reversed ? '\u9006\u4F4D' : '\u6B63\u4F4D';
   var dirClass = sel.reversed ? 'tarot-rev' : 'tarot-up';
   var keywords = sel.reversed ? sel.card.k_rev : sel.card.k_up;
   var meaning = sel.reversed ? sel.card.rev : sel.card.up;
@@ -664,8 +910,6 @@ function showCardDetail(root, ci){
     '</div>'+
   '</div>';
 
-  var old = root.querySelector('.t-detail');
-  // Remove old
   root.querySelectorAll('.tarot-detail-overlay').forEach(function(o){o.remove()});
   root.insertAdjacentHTML('beforeend', html);
 
@@ -736,7 +980,6 @@ async function fetchReading(root){
     var buffer = '';
     state.readingText = '';
 
-    // Show streaming cursor
     bodyEl.innerHTML = '<span class="tarot-cursor"></span>';
 
     while(true){
@@ -756,7 +999,6 @@ async function fetchReading(root){
           if(delta && delta.content){
             state.readingText += delta.content;
             bodyEl.innerHTML = mdToHtml(state.readingText)+'<span class="tarot-cursor"></span>';
-            // Auto-scroll
             var scrollEl = root.querySelector('.tarot-reading-scroll');
             if(scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
           }
@@ -764,12 +1006,10 @@ async function fetchReading(root){
       }
     }
 
-    // Final render
     bodyEl.innerHTML = mdToHtml(state.readingText);
     state.readingDone = true;
 
-    // Auto-save to history
-    var sp = SPREADS[state.spread];
+    // Save to history
     saveHistory({
       ts:Date.now(),
       question:state.question,
@@ -778,8 +1018,16 @@ async function fetchReading(root){
       cards:state.selected.map(function(sel){
         return {zh:sel.card.zh,en:sel.card.en,up:sel.card.up||'',rev:sel.card.rev||'',k_up:sel.card.k_up||'',k_rev:sel.card.k_rev||'',sym:sel.card.sym||'',astro:sel.card.astro||'',reversed:sel.reversed,position:sel.position};
       }),
-      reading:state.readingText
+      reading:state.readingText,
+      charId:state.charId,
+      charName:state.charName,
+      aiReading:''
     });
+
+    // Now fetch AI character perspective if selected
+    if(state.charId && state.charName){
+      fetchCharacterReading(root);
+    }
 
   } catch(e){
     if(e.name === 'AbortError') return;
@@ -789,10 +1037,189 @@ async function fetchReading(root){
 }
 
 /* ===================================================================
-   ENTRY POINT
+   AI CHARACTER PERSPECTIVE READING
    =================================================================== */
+async function fetchCharacterReading(root){
+  var aiBodyEl = root.querySelector('#tai-body');
+  if(!aiBodyEl) return;
 
-// ===== API Settings Panel =====
+  try {
+    var cfg = await window.loadGameApiConfig();
+    if(!cfg.url || !cfg.key || !cfg.model){
+      aiBodyEl.innerHTML = '<div style="color:var(--t-wine)">无法获取角色解读</div>';
+      return;
+    }
+
+    var sp = SPREADS[state.spread];
+    var charDesc = state.charDescription || state.charName;
+
+    // Build card summary for the character
+    var cardSummary = state.selected.map(function(sel, i){
+      var pos = sel.position || sp.positions[i] || '';
+      var dir = sel.reversed ? '\u9006\u4F4D' : '\u6B63\u4F4D';
+      return (i+1)+'. '+pos+': '+sel.card.zh+'('+dir+')';
+    }).join('\n');
+
+    var systemPrompt = '\u4F60\u662F' + state.charName + '\u3002\n\n' +
+      '\u4F60\u7684\u7B80\u4ECB\uFF1A' + charDesc + '\n\n' +
+      '\u73B0\u5728\uFF0C\u6709\u4EBA\u8FDB\u884C\u4E86\u4E00\u6B21\u5854\u7F57\u5360\u535C\u3002\u8BF7\u4F60\u4EE5\u81EA\u5DF1\u7684\u89C6\u89D2\u548C\u6027\u683C\uFF0C\u5BF9\u8FD9\u4E9B\u724C\u8FDB\u884C\u89E3\u8BFB\u3002\n\n' +
+      '\u8981\u6C42\uFF1A\n' +
+      '1. \u4EE5\u4F60\u7684\u8BED\u6C14\u548C\u98CE\u683C\u8FDB\u884C\u89E3\u8BFB\n' +
+      '2. \u7ED3\u5408\u4F60\u7684\u7ECF\u5386\u548C\u4E27\u89C2\u70B9\u6765\u770B\u5F85\u8FD9\u4E9B\u724C\n' +
+      '3. \u7ED9\u51FA\u4F60\u81EA\u5DF1\u7684\u770B\u6CD5\u548C\u5EFA\u8BAE\n' +
+      '4. \u4F7F\u7528\u4E2D\u6587\u56DE\u7B54\uFF0C\u9002\u5EA6\u4F7F\u7528\u5C0F\u6807\u9898\u5206\u6BB5\n' +
+      '5. \u5728\u6BCF\u4E2A\u5C0F\u6807\u9898\u524D\u52A0\u4E0A ## \u6807\u8BB0';
+
+    var userMsg = '\u8FD9\u662F\u5360\u535C\u7684\u95EE\u9898\uFF1A' + (state.question || '\u6BCF\u65E5\u6307\u5F15') + '\n\n' +
+      '\u724C\u9635\uFF1A\n' + cardSummary + '\n\n' +
+      '\u4E3B\u8981\u89E3\u8BFB\uFF1A\n' + state.readingText.slice(0, 800) + '\n\n' +
+      '\u8BF7\u4F60\u4EE5\u81EA\u5DF1\u7684\u89C6\u89D2\u89E3\u8BFB\u8FD9\u4E9B\u724C\u3002';
+
+    var messages = [
+      {role:'system', content:systemPrompt},
+      {role:'user', content:userMsg}
+    ];
+
+    var abortCtrl = new AbortController();
+    // Don't override main abortCtrl - create separate one for character reading
+
+    var response = await fetch(cfg.url+'/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},
+      body:JSON.stringify({
+        model:cfg.model,
+        messages:messages,
+        temperature:0.8,
+        max_tokens:1500,
+        stream:true
+      }),
+      signal:abortCtrl.signal
+    });
+
+    if(!response.ok){
+      throw new Error('Character API error: '+response.status);
+    }
+
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    state.aiReadingText = '';
+
+    aiBodyEl.innerHTML = '<span class="tarot-cursor"></span>';
+
+    while(true){
+      var result = await reader.read();
+      if(result.done) break;
+      buffer += decoder.decode(result.value, {stream:true});
+      var lines = buffer.split('\n');
+      buffer = lines.pop()||'';
+      for(var li=0;li<lines.length;li++){
+        var line = lines[li].trim();
+        if(!line || !line.startsWith('data:')) continue;
+        var data = line.slice(5).trim();
+        if(data==='[DONE]') continue;
+        try{
+          var chunk = JSON.parse(data);
+          var delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta;
+          if(delta && delta.content){
+            state.aiReadingText += delta.content;
+            aiBodyEl.innerHTML = mdToHtml(state.aiReadingText)+'<span class="tarot-cursor"></span>';
+            var scrollEl = root.querySelector('.tarot-reading-scroll');
+            if(scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+          }
+        }catch(e){}
+      }
+    }
+
+    aiBodyEl.innerHTML = mdToHtml(state.aiReadingText);
+    state.aiReadingDone = true;
+
+    // Update history with AI reading
+    try{
+      var hist = getHistory();
+      if(hist.length > 0 && hist[0].ts){
+        hist[0].aiReading = state.aiReadingText;
+        localStorage.setItem('tarot_history', JSON.stringify(hist));
+      }
+    }catch(e){}
+
+    // Save to db.memories
+    saveTarotMemory();
+
+  } catch(e){
+    if(e.name === 'AbortError') return;
+    console.error('[tarot] character reading error:', e);
+    if(aiBodyEl) aiBodyEl.innerHTML = '<div style="color:var(--t-wine)">角色解读失败</div>';
+  }
+}
+
+/* ===================================================================
+   SAVE TO db.memories
+   =================================================================== */
+async function saveTarotMemory(){
+  try{
+    if(!window.db || !window.db.memories) return;
+    if(!state.charId) return;
+
+    var ownerUid = null;
+    try{
+      var users = await window.db.characters.where('type').equals('user').toArray();
+      if(users.length) ownerUid = String(users[0].id);
+    }catch(e){}
+
+    var sp = SPREADS[state.spread];
+    var cardNames = state.selected.map(function(sel){
+      var dir = sel.reversed ? '\u9006' : '';
+      return sel.card.zh + dir;
+    }).join('\u3001');
+
+    var title = '\u5854\u7F57\u5360\u535C: ' + (state.question || '\u6BCF\u65E5\u6307\u5F15').slice(0, 20);
+    var content = '[' + fmtDate(Date.now()) + '] \u8FDB\u884C\u4E86' + sp.name + '\u5360\u535C\u3002' +
+      '\u95EE\u9898\uFF1A' + (state.question || '\u6BCF\u65E5\u6307\u5F15') + '\u3002' +
+      '\u62BD\u5230\uFF1A' + cardNames + '\u3002' +
+      (state.aiReadingText ? state.charName + '\u7684\u89C6\u89D2\u89E3\u8BFB\u5DF2\u5B8C\u6210\u3002' : '');
+
+    var keywords = ['\u5854\u7F57', sp.name];
+    state.selected.forEach(function(sel){
+      if(keywords.length < 8) keywords.push(sel.card.zh);
+    });
+
+    await window.db.memories.add({
+      ownerUid: ownerUid || 'default',
+      charId: state.charId,
+      chatId: 'tarot_' + state.charId,
+      title: title,
+      content: content.slice(0, 140),
+      keywords: keywords.slice(0, 8),
+      valence: 0,
+      arousal: 0.3,
+      importance: 5,
+      embedding: null,
+      status: 'active',
+      sourceMsgStartId: null,
+      sourceMsgEndId: null,
+      sourceAt: Date.now(),
+      sourceType: 'tarot',
+      decayPercent: 80,
+      isLongTerm: false,
+      injectionLayer: 2,
+      participants: [],
+      lastRecalledAt: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lastAccessedAt: null,
+      accessCount: 0
+    });
+
+    console.log('[tarot] memory saved for char:', state.charId);
+  }catch(e){
+    console.warn('[tarot] save memory failed:', e);
+  }
+}
+
+/* ===================================================================
+   API SETTINGS
+   =================================================================== */
 function showTarotApiSettings(root) {
   var existing = root.querySelector('.tarot-settings-panel');
   if (existing) { existing.remove(); return; }
@@ -808,11 +1235,8 @@ function showTarotApiSettings(root) {
     '</div>';
 
   root.appendChild(panel);
-
-  // Check current status
   checkTarotApiStatus();
 
-  // Sync from main API
   panel.querySelector('#tarot-sync-main').addEventListener('click', async function() {
     try {
       var rows = await db.config.bulkGet(['apiBaseUrl', 'apiKey', 'apiModel']);
@@ -852,6 +1276,9 @@ function checkTarotApiStatus() {
   });
 }
 
+/* ===================================================================
+   ENTRY POINT
+   =================================================================== */
 window.showTarotPage = function(){
   var existing = document.getElementById('tarot-page');
   if(existing) existing.remove();
@@ -869,7 +1296,6 @@ window.showTarotPage = function(){
   });
   root.appendChild(closeBtn);
 
-  // Settings button (gear icon)
   var settingsBtn = document.createElement('button');
   settingsBtn.className = 'tarot-settings-btn';
   settingsBtn.innerHTML = '\u2699';
@@ -884,7 +1310,8 @@ window.showTarotPage = function(){
   var app = document.getElementById('app') || document.body;
   app.appendChild(root);
 
-  state = {phase:'question',mode:'auto',spread:null,question:'',deck:[],selected:[],readingText:'',readingDone:false,abortCtrl:null};
+  state = {phase:'question',mode:'auto',spread:null,question:'',deck:[],selected:[],readingText:'',readingDone:false,abortCtrl:null,charId:null,charName:'',charAvatar:'',charDescription:'',aiReadingText:'',aiReadingDone:false};
+  _characters = [];
   renderQuestion(root);
 };
 
