@@ -2701,9 +2701,10 @@ function renderSpicyInviteBubble(data, msg, isSelf) {
 // 一起听邀请卡片（嵌入聊天消息流）
 function renderMusicTogetherBubble(data, msg, isSelf) {
   if (window.MusicInvite && window.MusicInvite.render) {
-    return '<div data-music-together="' + wcEscHtml(msg.id || '') + '" class="msg-bubble bubble-other" style="padding:8px 0;max-width:260px;">' + window.MusicInvite.render(data) + '</div>'
+    return '<div data-music-together="' + wcEscHtml(msg.id || '') + '" style="padding:8px 0;">' + window.MusicInvite.render(data) + '</div>'
   }
-  return '<div style="padding:8px 0;"><div style="max-width:240px;border-radius:14px;background:rgba(242,237,237,0.95);border:1px solid rgba(196,173,177,0.4);padding:14px;font-family:system-ui,sans-serif;"><div style="font-size:13px;font-weight:600;color:#2d2b2e;">' + wcEscHtml(data.name || '歌曲') + '</div><div style="font-size:11px;color:rgba(141,107,114,0.7);margin-top:4px;">' + wcEscHtml(data.artist || '') + '</div></div></div>'
+  // 兜底
+  return '<div style="padding:8px 0;"><div style="max-width:300px;border-radius:14px;background:rgba(242,237,237,0.95);border:1px solid rgba(196,173,177,0.4);padding:14px;font-family:system-ui,sans-serif;"><div style="font-size:14px;font-weight:600;color:#2d2b2e;">' + wcEscHtml(data.name || '歌曲') + '</div><div style="font-size:12px;color:rgba(141,107,114,0.7);margin-top:4px;">' + wcEscHtml(data.artist || '') + '</div></div></div>'
 }
 
 // 文字气泡
@@ -3616,102 +3617,14 @@ async function openPrivateChat(wechatPage, charId, chatId) {
     }
     await waitNextFrame()
     if (!isPrivateChatPageCurrent(chatPage, chat.id)) return
-    // 自动生成记忆面板（首次打开聊天时调用API）
-    try {
-    var _memPanelKey = 'memPanel_' + char.id
-    var _existingMemPanel = null
-    try { _existingMemPanel = JSON.parse(localStorage.getItem(_memPanelKey) || 'null') } catch(e) {}
-    var _needGen = !_existingMemPanel || !_existingMemPanel.updatedAt || (Date.now() - _existingMemPanel.updatedAt > 24 * 60 * 60 * 1000)
-    console.log('[MemoryPanel] 自动生成检查:', { needGen: _needGen, hasCallAI: !!window.callAI, existing: _existingMemPanel })
-    if (_needGen && window.callAI) {
-      var _memBanner = document.createElement('div')
-      _memBanner.className = 'mem-gen-banner'
-      _memBanner.innerHTML = '<div class="mem-gen-spinner"></div><span>正在生成记忆面板...</span>'
-      chatPage.querySelector('.chat-messages')?.appendChild(_memBanner)
-      try {
-        var _recentMsgs = []
-        try {
-          var _rows = await db.messages.where('chatId').equals(chat.id).reverse().limit(100).toArray()
-          _recentMsgs = _rows.reverse().map(function(m) { return { role: m.role, content: m.content || '' } })
-        } catch(e) {}
-        var _memories = []
-        try { _memories = await db.memories.where('participants').equals(char.id).toArray() } catch(e) {}
-        var _memContext = _memories.map(function(m) { return m.title + ': ' + (m.content || '').slice(0, 100) }).join('\n')
-        var _sysPrompt = '你是' + (char.nick || char.name) + '。请根据以下聊天记录和记忆信息，生成完整的角色状态面板。\n\n' +
-        '每个字段都必须填写，不能为空。如果聊天记录中没有明确信息，请根据上下文合理推断。\n\n' +
-        '字段说明：\n' +
-        '1. mem_wearing：角色现在穿着什么。描述具体服装，如白色T恤配牛仔裤、穿着帆布鞋。如果聊天没提到，根据角色平时风格推断。\n' +
-        '2. mem_activity：角色现在在做什么。根据当前时间和聊天上下文推断，如在图书馆看书或在厨房做饭。\n' +
-        '3. mem_location：角色现在在哪里。从聊天上下文推断，如在家里的卧室或在学校教室。\n' +
-        '4. mem_mood：角色当前心情，用1-2句话自然表达。不要只写开心、难过这种词，要像嘿嘿今天心情超好的这样自然。\n' +
-        '5. mem_next：角色接下来打算做什么。根据聊天中提到的计划推断。\n' +
-        '6. mem_health_ai：角色的身体状况。如果受伤或生病，必须写明：哪个部位+什么时候开始的+预计恢复天数，如左脚扭伤3天前预计还需5天恢复。如果健康，写身体状况良好。\n' +
-        '7. mem_health_user：用户的身体状况。根据用户在聊天中提到的信息填写，如果没提到写暂无信息。\n' +
-        '8. mem_schedule_past：过去3天发生的事。每个事件必须有日期和时间。格式：[{date:\'9月12日\',events:[{time:\'下午3点\',event:\'和用户去咖啡厅\'}]}]。如果没有明确事件，返回空数组 []。\n' +
-        '9. mem_schedule_today：今天的日程安排，每项必须有时间。格式：[{time:\'上午10点\',event:\'上课\'}]。如果没有安排，返回空数组 []。\n' +
-        '10. mem_schedule_tomorrow：明天的计划，每项必须有时间。格式同上。如果没有计划，返回空数组 []。\n' +
-        '11. mem_agreements：与用户之间的约定或承诺。必须写明：约定内容+时间+当前状态。格式：[{event:\'周末一起吃饭\',time:\'周六晚上\',status:\'已约定\'}]。如果没有约定，返回空数组 []。\n\n' +
-        '关键规则：\n' +
-        '- 每个字段都不能为空字符串（数组可以为空[]）\n' +
-        '- 涉及时间的字段必须有具体日期和时间，不能只写今天或明天\n' +
-        '- 根据聊天记录和记忆推断，信息不足时用合理默认值\n' +
-        '- 仔细追踪健康状况变化，如果之前记录过受伤，检查是否已恢复\n\n' +
-        '返回JSON格式，不要输出其他内容：\n' +
-        '{"mem_wearing":"具体穿着描述","mem_activity":"当前在做什么","mem_location":"当前在哪里","mem_mood":"自然的心情描述","mem_next":"接下来打算做什么","mem_health_ai":"身体状况描述","mem_health_user":"用户身体状况","mem_schedule_past":[{"date":"X月X日","events":[{"time":"时间","event":"事件"}]}],"mem_schedule_today":[{"time":"时间","event":"事件"}],"mem_schedule_tomorrow":[{"time":"时间","event":"事件"}],"mem_agreements":[{"event":"约定内容","time":"时间","status":"状态"}]}'
-        var _msgs = _recentMsgs.slice(-20).map(function(m) { return m.role + ': ' + m.content.slice(0, 200) }).join('\n')
-        if (_memContext) _msgs += '\n\n记忆库：\n' + _memContext
-        var _raw = await window.callAI([{ role: 'user', content: _msgs }], { system: _sysPrompt, responseFormat: 'json_object', charAntiDrift: true })
-        var _data = typeof _raw === 'string' ? JSON.parse(_raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : _raw
-        if (_data) {
-          window.toast && window.toast('[MemoryPanel] API返回: ' + JSON.stringify(_data).slice(0, 100))
-          var _now = Date.now()
-          var _panel = _existingMemPanel || {}
-          if (_data.mem_wearing) _panel.wearing = { v: _data.mem_wearing, t: _now }
-          if (_data.mem_activity) _panel.activity = { v: _data.mem_activity, t: _now }
-          if (_data.mem_location) _panel.location = { v: _data.mem_location, t: _now }
-          if (_data.mem_mood) _panel.mood = { v: _data.mem_mood, t: _now }
-          if (_data.mem_next) _panel.next = { v: _data.mem_next, t: _now }
-          if (_data.mem_health_ai) _panel.healthAi = { v: _data.mem_health_ai, t: _now }
-          if (_data.mem_health_user) _panel.healthUser = { v: _data.mem_health_user, t: _now }
-          if (_data.mem_schedule_past) _panel.schedulePast = _data.mem_schedule_past
-          if (_data.mem_schedule_today) _panel.scheduleToday = _data.mem_schedule_today
-          if (_data.mem_schedule_tomorrow) _panel.scheduleTomorrow = _data.mem_schedule_tomorrow
-          if (_data.mem_agreements) _panel.agreements = _data.mem_agreements
-          _panel.updatedAt = _now
-          localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
-          // 同时存到 db.config，让 memory-panel.js 能读到
-          try {
-            var _mpData = JSON.parse(JSON.stringify(_panel))
-            _mpData.items = []
-            _mpData.promises = []
-            _mpData.belongings = []
-            _mpData.importantDates = []
-            _mpData.togetherDate = ''
-            _mpData.health = _panel.healthAi ? _panel.healthAi.v : ''
-            _mpData.mood = _panel.mood ? _panel.mood.v : ''
-            _mpData.memories = []
-            _mpData.lastUpdated = _now
-            await db.config.put({ key: 'memoryPanel_' + char.id, value: _mpData })
-          } catch(_dbErr) {}
-          _memBanner.innerHTML = '<span style="color:var(--c-accent,#00d4aa)">✓ 记忆面板已生成</span>'
-          setTimeout(function() { _memBanner.remove() }, 2000)
-        } else {
-          _memBanner.innerHTML = '<span style="color:var(--c-danger,#e53935)">生成失败，点击重试</span>'
-          _memBanner.onclick = function() { _memBanner.remove() }
-        }
-      } catch(e) {
-        console.warn('[MemoryPanel] 自动生成失败:', e)
-        _memBanner.innerHTML = '<span style="color:var(--c-danger,#e53935)">生成失败，点击重试</span>'
-        _memBanner.onclick = function() { _memBanner.remove() }
-      }
-    }
-
     await enhanceVisibleChat(chatPage, chat.id, char.id)
+
+    // 自动生成记忆面板（首次打开聊天时调用API）
     var _memPanelKey = 'memPanel_' + char.id
     var _existingMemPanel = null
     try { _existingMemPanel = JSON.parse(localStorage.getItem(_memPanelKey) || 'null') } catch(e) {}
     // 如果没有缓存或缓存超过30分钟，重新生成
-    var _needGen = !_existingMemPanel || !_existingMemPanel.updatedAt || (Date.now() - _existingMemPanel.updatedAt > 24 * 60 * 60 * 1000)
+    var _needGen = !_existingMemPanel || !_existingMemPanel.updatedAt || (Date.now() - _existingMemPanel.updatedAt > 30 * 60 * 1000)
     console.log('[MemoryPanel] 自动生成检查:', { needGen: _needGen, hasCallAI: !!window.callAI, existing: _existingMemPanel })
     if (_needGen && window.callAI) {
       var _memBanner = document.createElement('div')
@@ -3727,27 +3640,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         var _memories = []
         try { _memories = await db.memories.where('participants').equals(char.id).toArray() } catch(e) {}
         var _memContext = _memories.map(function(m) { return m.title + ': ' + (m.content || '').slice(0, 100) }).join('\n')
-        var _sysPrompt = '你是' + (char.nick || char.name) + '。请根据以下聊天记录和记忆信息，生成完整的角色状态面板。\n\n' +
-        '每个字段都必须填写，不能为空。如果聊天记录中没有明确信息，请根据上下文合理推断。\n\n' +
-        '字段说明：\n' +
-        '1. mem_wearing：角色现在穿着什么。描述具体服装，如白色T恤配牛仔裤、穿着帆布鞋。如果聊天没提到，根据角色平时风格推断。\n' +
-        '2. mem_activity：角色现在在做什么。根据当前时间和聊天上下文推断，如在图书馆看书或在厨房做饭。\n' +
-        '3. mem_location：角色现在在哪里。从聊天上下文推断，如在家里的卧室或在学校教室。\n' +
-        '4. mem_mood：角色当前心情，用1-2句话自然表达。不要只写开心、难过这种词，要像嘿嘿今天心情超好的这样自然。\n' +
-        '5. mem_next：角色接下来打算做什么。根据聊天中提到的计划推断。\n' +
-        '6. mem_health_ai：角色的身体状况。如果受伤或生病，必须写明：哪个部位+什么时候开始的+预计恢复天数，如左脚扭伤3天前预计还需5天恢复。如果健康，写身体状况良好。\n' +
-        '7. mem_health_user：用户的身体状况。根据用户在聊天中提到的信息填写，如果没提到写暂无信息。\n' +
-        '8. mem_schedule_past：过去3天发生的事。每个事件必须有日期和时间。格式：[{date:\'9月12日\',events:[{time:\'下午3点\',event:\'和用户去咖啡厅\'}]}]。如果没有明确事件，返回空数组 []。\n' +
-        '9. mem_schedule_today：今天的日程安排，每项必须有时间。格式：[{time:\'上午10点\',event:\'上课\'}]。如果没有安排，返回空数组 []。\n' +
-        '10. mem_schedule_tomorrow：明天的计划，每项必须有时间。格式同上。如果没有计划，返回空数组 []。\n' +
-        '11. mem_agreements：与用户之间的约定或承诺。必须写明：约定内容+时间+当前状态。格式：[{event:\'周末一起吃饭\',time:\'周六晚上\',status:\'已约定\'}]。如果没有约定，返回空数组 []。\n\n' +
-        '关键规则：\n' +
-        '- 每个字段都不能为空字符串（数组可以为空[]）\n' +
-        '- 涉及时间的字段必须有具体日期和时间，不能只写今天或明天\n' +
-        '- 根据聊天记录和记忆推断，信息不足时用合理默认值\n' +
-        '- 仔细追踪健康状况变化，如果之前记录过受伤，检查是否已恢复\n\n' +
-        '返回JSON格式，不要输出其他内容：\n' +
-        '{"mem_wearing":"具体穿着描述","mem_activity":"当前在做什么","mem_location":"当前在哪里","mem_mood":"自然的心情描述","mem_next":"接下来打算做什么","mem_health_ai":"身体状况描述","mem_health_user":"用户身体状况","mem_schedule_past":[{"date":"X月X日","events":[{"time":"时间","event":"事件"}]}],"mem_schedule_today":[{"time":"时间","event":"事件"}],"mem_schedule_tomorrow":[{"time":"时间","event":"事件"}],"mem_agreements":[{"event":"约定内容","time":"时间","status":"状态"}]}'
+        var _sysPrompt = '你是' + (char.nick || char.name) + '。根据最近聊天记录和记忆，生成当前状态信息。返回JSON：{"mem_wearing":"穿着","mem_activity":"在做什么","mem_location":"在哪里","mem_mood":"心情","mem_next":"下一步打算","mem_health_ai":"身体状况","mem_health_user":"用户身体状况"}。简洁，每项15字以内。'
         var _msgs = _recentMsgs.slice(-20).map(function(m) { return m.role + ': ' + m.content.slice(0, 200) }).join('\n')
         if (_memContext) _msgs += '\n\n记忆库：\n' + _memContext
         var _raw = await window.callAI([{ role: 'user', content: _msgs }], { system: _sysPrompt, responseFormat: 'json_object', charAntiDrift: true })
@@ -3762,26 +3655,8 @@ async function openPrivateChat(wechatPage, charId, chatId) {
           if (_data.mem_next) _panel.next = { v: _data.mem_next, t: _now }
           if (_data.mem_health_ai) _panel.healthAi = { v: _data.mem_health_ai, t: _now }
           if (_data.mem_health_user) _panel.healthUser = { v: _data.mem_health_user, t: _now }
-          if (_data.mem_schedule_past) _panel.schedulePast = _data.mem_schedule_past
-          if (_data.mem_schedule_today) _panel.scheduleToday = _data.mem_schedule_today
-          if (_data.mem_schedule_tomorrow) _panel.scheduleTomorrow = _data.mem_schedule_tomorrow
-          if (_data.mem_agreements) _panel.agreements = _data.mem_agreements
           _panel.updatedAt = _now
           localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
-          // 同时存到 db.config，让 memory-panel.js 能读到
-          try {
-            var _mpData = JSON.parse(JSON.stringify(_panel))
-            _mpData.items = []
-            _mpData.promises = []
-            _mpData.belongings = []
-            _mpData.importantDates = []
-            _mpData.togetherDate = ''
-            _mpData.health = _panel.healthAi ? _panel.healthAi.v : ''
-            _mpData.mood = _panel.mood ? _panel.mood.v : ''
-            _mpData.memories = []
-            _mpData.lastUpdated = _now
-            await db.config.put({ key: 'memoryPanel_' + char.id, value: _mpData })
-          } catch(_dbErr) {}
           _memBanner.innerHTML = '<span style="color:var(--c-accent,#00d4aa)">✓ 记忆面板已生成</span>'
           setTimeout(function() { _memBanner.remove() }, 2000)
         } else {
@@ -3794,7 +3669,6 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         _memBanner.onclick = function() { _memBanner.remove() }
       }
     }
-    } catch(_memGenErr) { console.error('[MemoryPanel] 自动生成外层错误:', _memGenErr) }
   })().catch(error => {
     logWechatChatOpenIssue('postOpenPrivateChat', error, stageMeta)
   })
@@ -6497,7 +6371,6 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           if (memPanelData.healthUser) _existing.healthUser = { v: memPanelData.healthUser, t: _now }
           _existing.updatedAt = _now
           localStorage.setItem('memPanel_' + charId, JSON.stringify(_existing))
-          if (window.db && db.config) db.config.put({ key: 'memoryPanel_' + charId, value: _existing }).catch(function(){})
         } catch(e) {}
       }
     } catch (e) {
@@ -8881,6 +8754,99 @@ function showVirtualLinkSheet(chatPage) {
   })
 
   setTimeout(() => sheet.querySelector('#virtual-link-url')?.focus(), 80)
+}
+
+// 一起听 - 搜索歌曲发送邀请卡片
+function showListenTogetherSheet(chatPage) {
+  const sheet = wcMakeSheet(`
+    <div class="sheet-title">一起听</div>
+    <div style="padding:0 16px 8px">
+      <input class="input-field" id="lt-search-input" type="text" autocomplete="off" placeholder="搜索歌曲、歌手">
+      <div id="lt-results" style="max-height:280px;overflow-y:auto;margin-top:8px;"></div>
+      <div id="lt-hint" style="font-size:12px;color:rgba(141,107,114,0.5);text-align:center;padding:12px 0;">搜索歌曲，选一首分享给TA</div>
+    </div>
+  `)
+
+  var searchTimer = null
+  var searchInput = sheet.querySelector('#lt-search-input')
+  var resultsEl = sheet.querySelector('#lt-results')
+  var hintEl = sheet.querySelector('#lt-hint')
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer)
+    var q = searchInput.value.trim()
+    if (!q) { resultsEl.innerHTML = ''; hintEl.style.display = ''; return }
+    hintEl.style.display = 'none'
+    searchTimer = setTimeout(async function() {
+      resultsEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(141,107,114,0.5);">搜索中...</div>'
+      try {
+        var res = await fetch('/music/search?q=' + encodeURIComponent(q) + '&limit=8')
+        var data = await res.json()
+        if (!data.ok || !data.songs || !data.songs.length) {
+          resultsEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(141,107,114,0.5);">未找到相关歌曲</div>'
+          return
+        }
+        resultsEl.innerHTML = data.songs.map(function(s) {
+          return '<div class="lt-result-item" data-song="' + wcEscHtml(JSON.stringify({songId:String(s.id),name:s.name,artist:Array.isArray(s.artist)?s.artist.join(', '):s.artist,album:s.album||'',cover:s.cover||''})) + '" style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid rgba(196,173,177,0.15);cursor:pointer;">' +
+            (s.cover ? '<img src="' + wcEscHtml(s.cover) + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;">' : '<div style="width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,rgba(141,107,114,0.2),rgba(196,173,177,0.3));display:flex;align-items:center;justify-content:center;color:rgba(141,107,114,0.5);font-size:16px;">&#9835;</div>') +
+            '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;color:#2d2b2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + wcEscHtml(s.name) + '</div><div style="font-size:11px;color:rgba(141,107,114,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + wcEscHtml(Array.isArray(s.artist) ? s.artist.join(', ') : s.artist) + '</div></div>' +
+            '<div style="font-size:11px;color:rgba(141,107,114,0.4);">分享</div>' +
+          '</div>'
+        }).join('')
+      } catch(e) {
+        resultsEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(217,106,94,0.7);">搜索失败，请重试</div>'
+      }
+    }, 400)
+  })
+
+  // 点击歌曲 → 发送一起听卡片
+  resultsEl.addEventListener('click', async function(e) {
+    var item = e.target.closest('.lt-result-item')
+    if (!item) return
+    var songJson = item.getAttribute('data-song')
+    if (!songJson) return
+    var song
+    try { song = JSON.parse(songJson) } catch(_) { return }
+
+    var chatId = chatPage?.dataset?.chatId ? parseInt(chatPage.dataset.chatId, 10) : null
+    if (!chatId) { window.toast('无法获取聊天ID'); return }
+
+    // 发送一起听卡片消息
+    var data = {
+      id: 'music_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name: song.name || '',
+      artist: song.artist || '',
+      album: song.album || '',
+      cover: song.cover || '',
+      songId: song.songId || '',
+      senderName: _wechatUser?.nick || _wechatUser?.name || '我',
+      status: 'waiting',
+      createdAt: Date.now()
+    }
+    try {
+      await sendUserMsg(chatPage, '__MUSIC_TOGETHER__' + JSON.stringify(data))
+      window.toast && window.toast('已发送一起听邀请')
+      closeSheet()
+    } catch(e) {
+      console.error('[MusicInvite] 发送失败:', e)
+      window.toast && window.toast('发送失败：' + (e.message || '未知错误'))
+    }
+  })
+
+  wcShowSheetNoConfirm(sheet)
+  setTimeout(function() { searchInput.focus() }, 80)
+
+  // 关闭函数
+  function closeSheet() {
+    if (sheet._wcOverlay) {
+      sheet._wcOverlay.classList.remove('show')
+      sheet.classList.remove('show')
+      setTimeout(function() {
+        sheet._wcOverlay.remove()
+        sheet.remove()
+      }, 200)
+    }
+  }
 }
 
 // 发送语音（模拟）

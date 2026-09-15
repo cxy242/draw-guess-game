@@ -281,3 +281,7 @@
 .model-row{display:flex;gap:8px;align-items:center}
 .model-row select.input-field{max-height:120px;overflow-y:auto;flex:1}
 .setting-section{overflow-y:auto;max-height:calc(100vh - 200px)}
+
+.game-card-tarot .game-card-icon {
+  background: linear-gradient(135deg, #6b5b7b, #8b6f8e);
+}
