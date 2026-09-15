@@ -315,7 +315,7 @@
 /* Fan container */
 .tarot-fan-container {
   position: relative;
-  width: 320px; height: 280px;
+  width: 350px; height: 320px;
   margin: 0 auto;
 }
 
@@ -925,7 +925,7 @@
 
 /* ===== Responsive ===== */
 @media (max-width: 380px) {
-  .tarot-fan-container { width: 280px; height: 250px; }
+  .tarot-fan-container { width: 300px; height: 280px; }
   .tarot-fan-card { width: 62px; height: 96px; margin-left: -31px; margin-top: -48px; }
   .tarot-panel { padding: 24px 16px; }
   .tarot-main-title { font-size: 24px; }

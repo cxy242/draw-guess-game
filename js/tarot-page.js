@@ -613,7 +613,7 @@ function renderFanSelect(root){
   state.phase = 'select';
   var sp = SPREADS[state.spread];
   var need = sp.count;
-  var showCount = Math.max(need*3, 21);
+  var showCount = Math.max(need*2, 14);
   var deck = state.deck.slice(0, showCount);
 
   var fanCardsHTML = deck.map(function(c,i){
@@ -652,22 +652,26 @@ function renderFanSelect(root){
 
   // Position cards in a fan arc
   var total = cards.length;
-  var angleSpread = Math.min(70, total * 3.5);
+  var angleSpread = Math.min(120, total * 6);
+  var radius = 220;
   cards.forEach(function(card, i){
     var angle = -angleSpread/2 + (angleSpread/(total-1))*i;
-    var radius = 200;
     var rad = (angle - 90) * Math.PI / 180;
     var x = Math.cos(rad) * radius;
     var y = Math.sin(rad) * radius + radius;
     card.style.transform = 'rotate('+angle+'deg) translateY('+(-radius)+'px)';
-    card.style.zIndex = i;
+    card.style.zIndex = i + 10;
   });
 
   // Bind card clicks
   cards.forEach(function(card){
-    card.addEventListener('click', function(){
+    card.addEventListener('click', function(e){
+      e.stopPropagation();
+      e.preventDefault();
       if(state.selected.length >= need) return;
       if(card.classList.contains('tarot-fan-picked')) return;
+      if(card._selecting) return;
+      card._selecting = true;
 
       var idx = Number(card.dataset.idx);
       var c = state.deck[idx];
