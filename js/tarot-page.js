@@ -381,7 +381,9 @@ function renderQuestion(root){
         state.question = h.question||'';
         state.spread = SPREADS.findIndex(function(s){return s.id===h.spreadId});
         if(state.spread<0) state.spread=0;
-        state.selected = h.cards||[];
+        state.selected = (h.cards||[]).map(function(c){
+          return {card:{zh:c.zh,en:c.en,up:c.up||'',rev:c.rev||'',k_up:c.k_up||'',k_rev:c.k_rev||'',sym:c.sym||'',astro:c.astro||''},reversed:c.reversed,position:c.position};
+        });
         state.readingText = h.reading||'';
         state.readingDone = true;
         renderReading(root);
@@ -774,7 +776,7 @@ async function fetchReading(root){
       spreadId:sp.id,
       spreadName:sp.name,
       cards:state.selected.map(function(sel){
-        return {zh:sel.card.zh,en:sel.card.en,reversed:sel.reversed,position:sel.position};
+        return {zh:sel.card.zh,en:sel.card.en,up:sel.card.up||'',rev:sel.card.rev||'',k_up:sel.card.k_up||'',k_rev:sel.card.k_rev||'',sym:sel.card.sym||'',astro:sel.card.astro||'',reversed:sel.reversed,position:sel.position};
       }),
       reading:state.readingText
     });
@@ -789,6 +791,67 @@ async function fetchReading(root){
 /* ===================================================================
    ENTRY POINT
    =================================================================== */
+
+// ===== API Settings Panel =====
+function showTarotApiSettings(root) {
+  var existing = root.querySelector('.tarot-settings-panel');
+  if (existing) { existing.remove(); return; }
+
+  var panel = document.createElement('div');
+  panel.className = 'tarot-settings-panel';
+  panel.innerHTML =
+    '<div class="tarot-settings-title">\u795E\u8C1E\u6765\u6E90\u8BBE\u7F6E</div>' +
+    '<div class="tarot-settings-status" id="tarot-api-status">\u68C0\u67E5\u4E2D...</div>' +
+    '<div class="tarot-settings-actions">' +
+      '<button class="tarot-ritual-btn" id="tarot-sync-main">\u540C\u6B65\u4E3BAPI\u914D\u7F6E</button>' +
+      '<button class="tarot-ritual-btn" id="tarot-settings-close">\u5173\u95ED</button>' +
+    '</div>';
+
+  root.appendChild(panel);
+
+  // Check current status
+  checkTarotApiStatus();
+
+  // Sync from main API
+  panel.querySelector('#tarot-sync-main').addEventListener('click', async function() {
+    try {
+      var rows = await db.config.bulkGet(['apiBaseUrl', 'apiKey', 'apiModel']);
+      var v = function(r) { return r ? r.value : null };
+      var url = v(rows[0]), key = v(rows[1]), model = v(rows[2]);
+      if (!url || !key || !model) {
+        window.toast && window.toast('\u4E3BAPI\u914D\u7F6E\u4E0D\u5B8C\u6574\uFF0C\u8BF7\u5148\u5728\u8BBE\u7F6E\u914D\u7F6E\u4E3BAPI');
+        return;
+      }
+      await Promise.all([
+        db.config.put({ key: 'gameApiBaseUrl', value: url }),
+        db.config.put({ key: 'gameApiKey', value: key }),
+        db.config.put({ key: 'gameApiModel', value: model })
+      ]);
+      window._gameApiConfigCache = null;
+      window.toast && window.toast('\u5DF2\u540C\u6B65\u4E3BAPI\u914D\u7F6E');
+      checkTarotApiStatus();
+    } catch(e) {
+      window.toast && window.toast('\u540C\u6B65\u5931\u8D25: ' + e.message);
+    }
+  });
+
+  panel.querySelector('#tarot-settings-close').addEventListener('click', function() {
+    panel.remove();
+  });
+}
+
+function checkTarotApiStatus() {
+  var el = document.getElementById('tarot-api-status');
+  if (!el || !window.loadGameApiConfig) { if(el) el.textContent = '\u65E0\u6CD5\u8BFB\u53D6\u914D\u7F6E'; return; }
+  window.loadGameApiConfig().then(function(cfg) {
+    if (cfg.url && cfg.key && cfg.model) {
+      el.innerHTML = '<span style="color:#7ab87a">\u2713</span> ' + esc(cfg.model);
+    } else {
+      el.innerHTML = '<span style="color:var(--t-wine)">\u2717</span> \u672A\u914D\u7F6E\u2014\u2014\u8BF7\u540C\u6B65\u4E3BAPI\u6216\u5728\u6E38\u620F\u5927\u53E5\u8BBE\u7F6E';
+    }
+  });
+}
+
 window.showTarotPage = function(){
   var existing = document.getElementById('tarot-page');
   if(existing) existing.remove();
@@ -805,6 +868,14 @@ window.showTarotPage = function(){
     root.remove();
   });
   root.appendChild(closeBtn);
+
+  // Settings button (gear icon)
+  var settingsBtn = document.createElement('button');
+  settingsBtn.className = 'tarot-settings-btn';
+  settingsBtn.innerHTML = '\u2699';
+  settingsBtn.title = 'API设置';
+  settingsBtn.addEventListener('click', function(){ showTarotApiSettings(root); });
+  root.appendChild(settingsBtn);
 
   var phases = document.createElement('div');
   phases.className = 'tarot-phases';

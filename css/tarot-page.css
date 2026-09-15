@@ -276,7 +276,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .tarot-card-slot.tarot-picked { pointer-events: none; }
-.tarot-card-slot.tarot-picked .tarot-card-inner { opacity: 0.3; }
+.tarot-card-slot.tarot-picked:not(.tarot-flipped) .tarot-card-inner { opacity: 0.3; }
 
 .tarot-card-inner {
   width: 100%; height: 100%; position: relative;
@@ -593,4 +593,76 @@
 }
 @media (min-width: 500px) {
   .tarot-card-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* ===== API Settings ===== */
+.tarot-settings-btn {
+  position: fixed;
+  top: 12px;
+  right: 48px;
+  z-index: 401;
+  width: 36px; height: 36px;
+  border: 1px solid var(--t-gold-faint);
+  border-radius: 50%;
+  background: rgba(13,10,24,0.6);
+  backdrop-filter: blur(8px);
+  color: var(--t-gold);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.3s, color 0.3s;
+}
+.tarot-settings-btn:hover {
+  border-color: var(--t-gold-dim);
+  color: var(--t-gold-bright);
+}
+
+.tarot-settings-panel {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 402;
+  width: min(280px, calc(100vw - 24px));
+  background: rgba(11,8,20,0.92);
+  border: 1px solid var(--t-gold-faint);
+  backdrop-filter: blur(20px);
+  padding: 20px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+}
+.tarot-settings-panel::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(212,176,115,0.06);
+  pointer-events: none;
+}
+.tarot-settings-title {
+  font-family: var(--t-font-display);
+  font-size: 11px;
+  letter-spacing: 0.46em;
+  color: var(--t-gold);
+  text-align: center;
+  margin-bottom: 16px;
+}
+.tarot-settings-status {
+  font-size: 13px;
+  color: var(--t-ivory-dim);
+  text-align: center;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.tarot-settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ===== Phases container ===== */
+.tarot-phases {
+  min-height: 100%;
+  position: relative;
+  z-index: 1;
+}
+.tarot-phases .tarot-phase {
+  pointer-events: auto;
 }
