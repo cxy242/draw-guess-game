@@ -8884,6 +8884,94 @@ function showVirtualLinkSheet(chatPage) {
 }
 
 // 发送语音（模拟）
+// 一起听 - 搜索歌曲发送邀请卡片
+function showListenTogetherSheet(chatPage) {
+  var sheet = wcMakeSheet(`
+    <div class="sheet-title">一起听</div>
+    <div style="padding:0 16px 8px">
+      <input class="input-field" id="lt-search-input" type="text" autocomplete="off" placeholder="搜索歌曲、歌手">
+      <div id="lt-results" style="max-height:280px;overflow-y:auto;margin-top:8px;"></div>
+      <div id="lt-hint" style="font-size:12px;color:rgba(141,107,114,0.5);text-align:center;padding:12px 0;">搜索歌曲，选一首分享给TA</div>
+    </div>
+  `)
+
+  var searchTimer = null
+  var searchInput = sheet.querySelector('#lt-search-input')
+  var resultsEl = sheet.querySelector('#lt-results')
+  var hintEl = sheet.querySelector('#lt-hint')
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer)
+    var q = searchInput.value.trim()
+    if (!q) { resultsEl.innerHTML = ''; hintEl.style.display = ''; return }
+    hintEl.style.display = 'none'
+    searchTimer = setTimeout(async function() {
+      resultsEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(141,107,114,0.5);">搜索中...</div>'
+      try {
+        var res = await fetch('/music/search?q=' + encodeURIComponent(q) + '&limit=8')
+        var data = await res.json()
+        if (!data.ok || !data.songs || !data.songs.length) {
+          resultsEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(141,107,114,0.5);">未找到相关歌曲</div>'
+          return
+        }
+        resultsEl.innerHTML = data.songs.map(function(s) {
+          return '<div class="lt-result-item" data-song="' + wcEscHtml(JSON.stringify({songId:String(s.id),name:s.name,artist:Array.isArray(s.artist)?s.artist.join(', '):s.artist,album:s.album||'',cover:s.cover||''})) + '" style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid rgba(196,173,177,0.15);cursor:pointer;">' +
+            (s.cover ? '<img src="' + wcEscHtml(s.cover) + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;">' : '<div style="width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,rgba(141,107,114,0.2),rgba(196,173,177,0.3));display:flex;align-items:center;justify-content:center;color:rgba(141,107,114,0.5);font-size:16px;">&#9835;</div>') +
+            '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;color:#2d2b2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + wcEscHtml(s.name) + '</div><div style="font-size:11px;color:rgba(141,107,114,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + wcEscHtml(Array.isArray(s.artist) ? s.artist.join(', ') : s.artist) + '</div></div>' +
+            '<div style="font-size:11px;color:rgba(141,107,114,0.4);">分享</div>' +
+          '</div>'
+        }).join('')
+      } catch(e) {
+        resultsEl.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(217,106,94,0.7);">搜索失败，请重试</div>'
+      }
+    }, 400)
+  })
+
+  resultsEl.addEventListener('click', async function(e) {
+    var item = e.target.closest('.lt-result-item')
+    if (!item) return
+    var songJson = item.getAttribute('data-song')
+    if (!songJson) return
+    var song
+    try { song = JSON.parse(songJson) } catch(_) { return }
+    var chatId = chatPage?.dataset?.chatId ? parseInt(chatPage.dataset.chatId, 10) : null
+    if (!chatId) { window.toast('无法获取聊天ID'); return }
+    var data = {
+      id: 'music_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name: song.name || '',
+      artist: song.artist || '',
+      album: song.album || '',
+      cover: song.cover || '',
+      songId: song.songId || '',
+      senderName: _wechatUser?.nick || _wechatUser?.name || '我',
+      status: 'waiting',
+      createdAt: Date.now()
+    }
+    try {
+      await sendUserMsg(chatPage, '__MUSIC_TOGETHER__' + JSON.stringify(data))
+      window.toast && window.toast('已发送一起听邀请')
+      closeSheet()
+    } catch(e) {
+      console.error('[MusicInvite] 发送失败:', e)
+      window.toast && window.toast('发送失败：' + (e.message || '未知错误'))
+    }
+  })
+
+  wcShowSheetNoConfirm(sheet)
+  setTimeout(function() { searchInput.focus() }, 80)
+
+  function closeSheet() {
+    if (sheet._wcOverlay) {
+      sheet._wcOverlay.classList.remove('show')
+      sheet.classList.remove('show')
+      setTimeout(function() {
+        sheet._wcOverlay.remove()
+        sheet.remove()
+      }, 200)
+    }
+  }
+}
+
 function showVoiceInputSheet(chatPage) {
   const sheet = wcMakeSheet(`
     <div class="sheet-handle"></div>
