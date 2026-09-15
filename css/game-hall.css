@@ -285,3 +285,14 @@
 .game-card-tarot .game-card-icon {
   background: linear-gradient(135deg, #6b5b7b, #8b6f8e);
 }
+
+/* 塔罗图标fallback - 如果FontAwesome没加载 */
+.game-card-tarot .game-card-icon::before {
+  content: '\2726'; /* ✦ 星形符号 */
+  font-size: 22px;
+  color: rgba(255,255,255,0.9);
+}
+.game-card-tarot .game-card-icon i {
+  position: relative;
+  z-index: 1;
+}

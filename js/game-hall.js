@@ -41,7 +41,7 @@
       id: 'tarot',
       title: '塔罗占卜',
       meta: '解读 · 陪伴',
-      icon: 'fa-solid fa-star',
+      icon: 'fa-solid fa-wand-magic-sparkles',
       tone: 'tarot'
     }
   ]
