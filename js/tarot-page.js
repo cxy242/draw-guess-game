@@ -1168,16 +1168,50 @@ async function saveTarotMemory(){
     }catch(e){}
 
     var sp = SPREADS[state.spread];
+    var cardLines = state.selected.map(function(sel, i){
+      var dir = sel.reversed ? '\u9006\u4F4D' : '\u6B63\u4F4D';
+      var pos = sel.position || sp.positions[i] || '';
+      return pos + '\uFF1A' + sel.card.zh + '(' + dir + ')\u2014\u2014' + (sel.reversed ? sel.card.rev : sel.card.up);
+    }).join('\n');
+
     var cardNames = state.selected.map(function(sel){
       var dir = sel.reversed ? '\u9006' : '';
       return sel.card.zh + dir;
     }).join('\u3001');
 
-    var title = '\u5854\u7F57\u5360\u535C: ' + (state.question || '\u6BCF\u65E5\u6307\u5F15').slice(0, 20);
-    var content = '[' + fmtDate(Date.now()) + '] \u8FDB\u884C\u4E86' + sp.name + '\u5360\u535C\u3002' +
-      '\u95EE\u9898\uFF1A' + (state.question || '\u6BCF\u65E5\u6307\u5F15') + '\u3002' +
-      '\u62BD\u5230\uFF1A' + cardNames + '\u3002' +
-      (state.aiReadingText ? state.charName + '\u7684\u89C6\u89D2\u89E3\u8BFB\u5DF2\u5B8C\u6210\u3002' : '');
+    // 用AI生成塔罗专属5板块格式记忆
+    var memPrompt = '\u4F60\u662F\u8BB0\u5FC6\u6574\u7406\u5668\u3002\u8BF7\u5C06\u4EE5\u4E0B\u5854\u7F57\u5360\u535C\u7ED3\u679C\u6574\u7406\u4E3A\u7ED3\u6784\u5316\u8BB0\u5FC6\u3002\n\n' +
+      '\u5360\u535C\u9635\uFF1A' + sp.name + '\n' +
+      '\u95EE\u9898\uFF1A' + (state.question || '\u6BCF\u65E5\u6307\u5F15') + '\n' +
+      '\u62BD\u724C\u7ED3\u679C\uFF1A\n' + cardLines + '\n' +
+      (state.readingText ? '\u5F15\u64CE\u89E3\u8BFB\u6458\u8981\uFF1A' + state.readingText.slice(0, 300) + '\n' : '') +
+      (state.aiReadingText ? (state.charName || '\u89D2\u8272') + '\u89C6\u89D2\u89E3\u8BFB\u6458\u8981\uFF1A' + state.aiReadingText.slice(0, 300) + '\n' : '') +
+      '\n\u8BF7\u6309\u4EE5\u4E0B5\u4E2A\u677F\u5757\u683C\u5F0F\u8F93\u51FA\uFF1A\n' +
+      '\u3010\u5360\u535C\u4FE1\u606F\u3011\u724C\u9635\u540D\u79F0\u3001\u95EE\u9898\u3001\u62BD\u5230\u7684\u724C\u548C\u65B9\u4F4D\n' +
+      '\u3010\u6838\u5FC3\u542F\u793A\u3011\u724C\u9762\u4F20\u8FBE\u7684\u6700\u91CD\u8981\u4FE1\u606F\uFF0C2-3\u53E5\n' +
+      '\u3010\u60C5\u611F\u5730\u56FE\u3011\u724C\u9762\u663E\u793A\u7684\u60C5\u611F\u72B6\u6001\u548C\u53D8\u5316\u8D8B\u52BF\n' +
+      '\u3010\u5F85\u89E3\u7B54\u9898\u3011\u724C\u9762\u63D0\u793A\u4F46\u672A\u5B8C\u5168\u89E3\u7B54\u7684\u95EE\u9898\n' +
+      '\u3010\u884C\u52A8\u5EFA\u8BAE\u3011\u57FA\u4E8E\u724C\u9762\u7684\u5177\u4F53\u5EFA\u8BAE\uFF0C1-2\u6761\n' +
+      '\n\u7B80\u6D01\u660E\u4E86\uFF0C\u6BCF\u677F\u57572-3\u53E5\u3002\u4E0D\u8981\u7528emoji\u3002';
+
+    var memContent = '';
+    try{
+      if(window.callAI){
+        memContent = await window.callAI([{role:'user',content:memPrompt}],{charAntiDrift:true});
+        if(typeof memContent === 'string') memContent = memContent.replace(/```[\s\S]*?```/g,'').trim();
+      }
+    }catch(e){ console.warn('[tarot] AI memory gen failed:', e); }
+
+    // fallback: 手动拼接
+    if(!memContent){
+      memContent = '\u3010\u5360\u535C\u4FE1\u606F\u3011' + sp.name + '\uFF0C\u95EE\u9898\uFF1A' + (state.question || '\u6BCF\u65E5\u6307\u5F15') + '\n' +
+        '\u3010\u6838\u5FC3\u542F\u793A\u3011' + cardNames + '\n' +
+        '\u3010\u60C5\u611F\u5730\u56FE\u3011\u5F85\u89E3\u8BFB\n' +
+        '\u3010\u5F85\u89E3\u7B54\u9898\u3011\u65E0\n' +
+        '\u3010\u884C\u52A8\u5EFA\u8BAE\u3011\u65E0';
+    }
+
+    var title = '\u5854\u7F57: ' + (state.question || '\u6BCF\u65E5\u6307\u5F15').slice(0, 20);
 
     var keywords = ['\u5854\u7F57', sp.name];
     state.selected.forEach(function(sel){
@@ -1189,7 +1223,7 @@ async function saveTarotMemory(){
       charId: state.charId,
       chatId: 'tarot_' + state.charId,
       title: title,
-      content: content.slice(0, 140),
+      content: memContent,
       keywords: keywords.slice(0, 8),
       valence: 0,
       arousal: 0.3,
