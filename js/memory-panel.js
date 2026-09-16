@@ -287,13 +287,14 @@
 
     // Recall toggle
     panel.querySelectorAll('[data-action="recall"]').forEach(function(btn) {
-      btn.addEventListener('click', function() {
+      btn.addEventListener('click', async function() {
         var id = btn.getAttribute('data-id');
         var recalledKey = 'memRecalled_' + charId;
         var recalled = [];
         try { recalled = JSON.parse(localStorage.getItem(recalledKey) || '[]'); } catch(e) { recalled = []; }
         var idx = recalled.indexOf(id);
-        if (idx !== -1) {
+        var isRecalling = idx === -1; // true = marking as recalled
+        if (!isRecalling) {
           recalled.splice(idx, 1);
           btn.classList.remove('active');
           var card = btn.closest('.mp-memory-card');
@@ -305,6 +306,17 @@
           if (card) card.classList.add('mp-recalled');
         }
         localStorage.setItem(recalledKey, JSON.stringify(recalled));
+        // 同步更新 db.memories（真正的回忆系统）
+        if (isRecalling && id && window.db && db.memories) {
+          try {
+            var memId = isNaN(Number(id)) ? id : Number(id);
+            await db.memories.update(memId, {
+              decayPercent: 80,
+              lastRecalledAt: Date.now(),
+              status: 'active'
+            });
+          } catch(e) { console.warn('[MemoryPanel] recall update failed:', e); }
+        }
       });
     });
 
