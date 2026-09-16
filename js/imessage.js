@@ -627,6 +627,16 @@ async function sendAnonymousCharSMS(user) {
     var anonPhone = genAnonPhone()
     var anonName = genAnonName()
     var now = Date.now()
+    // 确保有手机号
+    if (!_smsActivePhone) {
+      try {
+        var users = await db.characters.where('type').equals('user').toArray()
+        for (var i = 0; i < users.length; i++) {
+          var ph = users[i].identity && users[i].identity.phone
+          if (ph) { _smsActivePhone = ph; break }
+        }
+      } catch(e) {}
+    }
     var ownerPhone = _smsActivePhone || user.phone || (user.identity && user.identity.phone) || 'user_default'
 
     // 查找或创建对话
@@ -676,7 +686,8 @@ async function sendAnonymousCharSMS(user) {
     showImessageTopMessagePopup({
       title: anonName,
       body: messages[messages.length - 1],
-      avatar: SMS_DEFAULT_AVATAR
+      avatar: SMS_DEFAULT_AVATAR,
+      open: function() { (window.openSmsChat || openSmsChat)(convId) }
     })
 
     console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone + ' (' + messages.length + '条) ownerPhone=' + ownerPhone + ' _smsActivePhone=' + _smsActivePhone)
@@ -754,7 +765,17 @@ var _smsCheckTimer = setInterval(function() {
     console.log("[AnonSMS] 25分钟触发条件达成", { hasSendFn: !!window.sendAnonymousCharSMS, hasCallAI: !!window.callAI, userPhones: _smsUserPhones.length })
     window.toast && window.toast('收到一条匿名短信')
     var delay = (30 + Math.random() * 60) * 1000
-    setTimeout(function() {
+    setTimeout(async function() {
+      // 确保有手机号：从DB加载用户角色的手机号
+      if (!_smsActivePhone) {
+        try {
+          var users = await db.characters.where('type').equals('user').toArray()
+          for (var i = 0; i < users.length; i++) {
+            var ph = users[i].identity && users[i].identity.phone
+            if (ph) { _smsActivePhone = ph; _smsUserPhones = [{charId: users[i].id, charName: users[i].name||'', avatar: users[i].avatar||'', phone: ph}]; break }
+          }
+        } catch(e) {}
+      }
       var user = _smsUserPhones[0] || { id: 0, name: '用户' }
       if (window.sendAnonymousCharSMS) {
         window.sendAnonymousCharSMS(user)
