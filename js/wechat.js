@@ -3678,6 +3678,60 @@ async function openPrivateChat(wechatPage, charId, chatId) {
           if (_data.mem_schedule_today) _panel.scheduleToday = _data.mem_schedule_today
           if (_data.mem_schedule_tomorrow) _panel.scheduleTomorrow = _data.mem_schedule_tomorrow
           if (_data.mem_agreements) _panel.agreements = _data.mem_agreements
+
+          // 从记忆库提取事件，补充日程（AI生成的太少）
+          try {
+            var _memRows = await db.memories.where('charId').equals(char.id).filter(function(m) {
+              return m.status !== 'archived'
+            }).toArray()
+            if (_memRows.length) {
+              var _now2 = new Date()
+              var _todayStr = (_now2.getMonth()+1) + '月' + _now2.getDate() + '日'
+              var _scheduleMap = {} // date -> [{time, event}]
+              _memRows.forEach(function(m) {
+                var content = m.content || ''
+                // 提取时间引用：YYYY年M月D日下午X点 或 M月D日下午X点
+                var timeMatch = content.match(/(\d{4}年)?(\d{1,2}月\d{1,2}日)(上午|中午|下午|晚上|凌晨|深夜)?(\d{1,2}[点时](?:\d{1,2}分?)?)/g)
+                if (!timeMatch) return
+                timeMatch.forEach(function(tm) {
+                  // 提取日期部分
+                  var dateMatch = tm.match(/(\d{4}年)?(\d{1,2}月\d{1,2}日)/)
+                  if (!dateMatch) return
+                  var dateStr = dateMatch[0]
+                  // 提取事件描述（时间后面的内容）
+                  var timeEnd = content.indexOf(tm) + tm.length
+                  var eventText = content.slice(timeEnd, timeEnd + 50).replace(/^[，,。.\s]+/, '').split(/[。！？\n]/)[0]
+                  if (!eventText || eventText.length < 3) {
+                    // 如果时间后面没内容，用整条记忆的title
+                    eventText = (m.title || '').slice(0, 30)
+                  }
+                  if (!eventText) return
+                  if (!_scheduleMap[dateStr]) _scheduleMap[dateStr] = []
+                  // 去重
+                  var exists = _scheduleMap[dateStr].some(function(e) { return e.event === eventText })
+                  if (!exists) {
+                    _scheduleMap[dateStr].push({ time: tm.replace(dateStr, '').trim() || '全天', event: eventText })
+                  }
+                })
+              })
+              // 合并到schedulePast
+              var _existingPast = _panel.schedulePast || []
+              var _existingDates = _existingPast.map(function(d) { return d.date })
+              Object.keys(_scheduleMap).forEach(function(dateStr) {
+                if (_existingDates.indexOf(dateStr) === -1 && _scheduleMap[dateStr].length) {
+                  _existingPast.push({ date: dateStr, events: _scheduleMap[dateStr] })
+                }
+              })
+              // 按日期排序（最新的在前）
+              _existingPast.sort(function(a, b) {
+                var da = a.date.replace(/[^0-9]/g, '')
+                var db = b.date.replace(/[^0-9]/g, '')
+                return db.localeCompare(da)
+              })
+              _panel.schedulePast = _existingPast
+            }
+          } catch(_schedErr) { console.warn('[MemoryPanel] 记忆提取日程失败:', _schedErr) }
+
           _panel.updatedAt = _now
           localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
           // 同时存到 db.config，让 memory-panel.js 能读到
