@@ -249,7 +249,7 @@ async function catchUpMoments(count) {
     var data = parseJSON(raw);
     if (!data || !Array.isArray(data.posts)) return 0;
     var ok = 0;
-    var ownerUid = await getCfg('currentUserId');
+    var ownerUid = window._wechatUid || await getCfg('currentUserId');
     for (var pi = 0; pi < data.posts.length; pi++) {
       var p = data.posts[pi];
       if (!p || !p.text) continue;

@@ -2077,6 +2077,7 @@ async function generate5PostsForChar(char) {
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
 
     var allPosts = xLoadPosts()
+    var savedCount = 0
     if (data.posts) {
       data.posts.forEach(function(p, i) {
       if (!p || !p.content) return // 跳过空帖子
@@ -2094,6 +2095,7 @@ async function generate5PostsForChar(char) {
           engagement: generateEngagement(),
           createdAt: new Date(Date.now() - i * 3600000).toISOString()
         })
+        savedCount++
 
         // 生成评论（含发帖人回复+路人互评）
         if (p.comments && p.comments.length) {
@@ -2128,7 +2130,7 @@ async function generate5PostsForChar(char) {
       })
       xSavePosts(allPosts)
     }
-    showToastLong('补回完成，已保存 ' + newPosts.length + ' 条帖子', 3000)
+    showToastLong('补回完成，已保存 ' + savedCount + ' 条帖子', 3000)
   } catch(e) {
     console.error('[X] 一键生成帖子失败:', e)
     showToastLong('补回失败：' + e.message, 3000)
@@ -2413,10 +2415,10 @@ function showXGenPostsDialog(user, genBtn, page) {
       setTimeout(function(){ dialog.remove() }, 200)
       renderXHomeTab(page, user)
       showToast('5篇帖子已生成！')
-    }).catch(function() {
+    }).catch(function(err) { console.error("[X] 帖子生成失败:", err);
       dialog.classList.add('closing')
       setTimeout(function(){ dialog.remove() }, 200)
-      showToast('生成失败，请重试')
+      showToast('生成失败：' + (err && err.message ? err.message : '未知错误'))
     })
   })
 }
@@ -2449,7 +2451,7 @@ window.showToastLong = function(msg, duration) {
 
 // ===== 批量生成帖子 =====
 async function generateBatchPosts(user, preference) {
-  if (!window.callAI) return
+  if (!window.callAI) throw new Error("AI服务未配置")
 
   var npcTypes = X_NPC_TYPES.sort(function(){return Math.random()-0.5}).slice(0,4)
   var cats = X_CATEGORIES.sort(function(){return Math.random()-0.5}).slice(0,5)
@@ -2480,7 +2482,7 @@ async function generateBatchPosts(user, preference) {
     commentDescs + '\n' +
     '评论要体现NPC各自的性格特点，30字以内。\n\n' +
     '返回JSON：\n' +
-    '{"posts":[{"content":"帖子内容","tags":["标签"],"isAnonymous":false,"comments":[{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"]}]}'
+    '{"posts":[{"content":"帖子内容","tags":["标签"],"isAnonymous":false,"comments":[{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"}]}]'
 
   try {
     var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object'})

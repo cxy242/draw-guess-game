@@ -11,7 +11,7 @@
     page.innerHTML =
       '<iframe id="music-iframe" src="' + MUSIC_URL + '" style="width:100%;height:100%;border:none;"></iframe>' +
       '<div id="music-fab" style="position:absolute;bottom:80px;right:16px;z-index:500;width:44px;height:44px;border-radius:50%;background:rgba(210,110,136,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;box-shadow:0 4px 16px rgba(152,78,104,0.3);transition:transform 0.15s ease-out;"><i class="fa-solid fa-gear" style="color:#fff;font-size:16px;pointer-events:none;"></i></div>' +
-      '<div id="music-close-btn" style="position:absolute;top:8px;left:8px;z-index:500;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.3);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;"><i class="fa-solid fa-xmark" style="color:#fff;font-size:14px;"></i></div>';
+      '<div id="music-close-btn" style="position:absolute;top:40px;left:8px;z-index:500;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.3);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;"><i class="fa-solid fa-xmark" style="color:#fff;font-size:14px;"></i></div>';
     document.getElementById('app').appendChild(page);
 
     // 关闭按钮
