@@ -177,7 +177,7 @@
       cards = memories.map(function(m) {
         const id = m.id || m._id || '';
         const title = escMemHtml(m.title || '无标题');
-        const content = escMemHtml((m.content || '').substring(0, 50) + ((m.content || '').length > 50 ? '...' : ''));
+        const content = escMemHtml((m.content || '').substring(0, 80) + ((m.content || '').length > 80 ? '...' : ''));
         const sourceType = escMemHtml(m.sourceType || 'unknown');
         const time = escMemHtml(formatMemoryTimeRange(m) || m.time || '');
         const isRecalled = recalled.indexOf(id) !== -1;
@@ -362,28 +362,27 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 处理中...';
         try {
-          let mem = null;
-          try { mem = await db.memories.get(memId); } catch(e) {}
-          if (!mem) {
-            const all = await db.memories.toArray();
-            mem = (all || []).find(function(m) { return String(m.id) === String(memId) || String(m._id) === String(memId); });
-          }
-          if (mem && typeof window.callAI === 'function') {
-            const result = await window.callAI({
-              task: 'resummarize',
-              memoryId: memId,
-              content: mem.content || mem.originalText || '',
-              title: mem.title || ''
-            });
-            if (result) {
+          if (window.WanWanMemory && window.WanWanMemory.resummarizeMemory) {
+            var result = await window.WanWanMemory.resummarizeMemory(memId);
+            if (result && result.ok) {
               btn.innerHTML = '<i class="fa-solid fa-check"></i> 完成';
+              // 刷新卡片内容
+              var card = btn.closest('.mp-memory-card');
+              if (card) {
+                var mem = await db.memories.get(isNaN(Number(memId)) ? memId : Number(memId));
+                if (mem) {
+                  var contentEl = card.querySelector('.mp-memory-content');
+                  if (contentEl) contentEl.textContent = (mem.content || '').substring(0, 80) + ((mem.content || '').length > 80 ? '...' : '');
+                  var timeEl = card.querySelector('.mp-memory-time');
+                  if (timeEl) timeEl.textContent = formatMemoryTimeRange(mem) || '';
+                }
+              }
             } else {
               btn.innerHTML = '<i class="fa-solid fa-rotate"></i> 重新总结';
             }
           } else {
             btn.innerHTML = '<i class="fa-solid fa-rotate"></i> 重新总结';
-            if (!mem) console.warn('Memory not found:', memId);
-            if (typeof window.callAI !== 'function') console.warn('window.callAI not available');
+            console.warn('WanWanMemory.resummarizeMemory not available');
           }
         } catch(e) {
           console.error('Re-summarize error:', e);
