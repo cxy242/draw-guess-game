@@ -2482,7 +2482,7 @@ async function generateBatchPosts(user, preference) {
     commentDescs + '\n' +
     '评论要体现NPC各自的性格特点，30字以内。\n\n' +
     '返回JSON：\n' +
-    '{"posts":[{"content":"帖子内容","tags":["标签"],"isAnonymous":false,"comments":[{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"}]}]'
+    '{"posts":[{"content":"帖子内容","tags":["标签"],"isAnonymous":false,"comments":[{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"},{"npcType":"人设名","content":"评论内容"}]}]}'
 
   try {
     var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object'})
