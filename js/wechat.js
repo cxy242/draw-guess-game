@@ -3632,7 +3632,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         var _recentMsgs = []
         try {
           var _rows = await db.messages.where('chatId').equals(chat.id).reverse().limit(100).toArray()
-          _recentMsgs = _rows.reverse().map(function(m) { return { role: m.role, content: m.content || '' } })
+          _recentMsgs = _rows.reverse().map(function(m) { return { role: m.role, content: m.content || '', createdAt: m.createdAt || 0 } })
         } catch(e) {}
         var _memories = []
         try { _memories = await db.memories.where('participants').equals(char.id).toArray() } catch(e) {}
@@ -3731,6 +3731,53 @@ async function openPrivateChat(wechatPage, charId, chatId) {
               _panel.schedulePast = _existingPast
             }
           } catch(_schedErr) { console.warn('[MemoryPanel] 记忆提取日程失败:', _schedErr) }
+
+          // 从聊天记录提取事件补充日程
+          try {
+            if (_recentMsgs && _recentMsgs.length) {
+              var _chatScheduleMap = {}
+              _recentMsgs.forEach(function(m) {
+                var msg = m.content || ''
+                var ts = m.createdAt || 0
+                if (!ts) return
+                var d = new Date(ts)
+                var h = d.getHours()
+                var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
+                var dateStr = (d.getMonth()+1) + '月' + d.getDate() + '日'
+                var timeStr = period + h + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes()
+                // 检测事件模式
+                var eventPatterns = /(?:去了|到了|在|吃了|买了|看了|做了|玩了|学了|写了|画了|唱了|跑了|打了|修了|搬了|回来了|出发了|到达了|开始了|结束了|完成了|考了|面试了|见了|遇到|碰到了|约了|订了|去医院|上学|上班|下课|下班|出门|回家|起床|睡觉)/
+                if (eventPatterns.test(msg)) {
+                  var eventText = msg.slice(0, 60).replace(/^[我你他她它们]\s*/,'')
+                  if (eventText.length >= 3) {
+                    if (!_chatScheduleMap[dateStr]) _chatScheduleMap[dateStr] = []
+                    var exists = _chatScheduleMap[dateStr].some(function(e) { return e.event === eventText })
+                    if (!exists) {
+                      _chatScheduleMap[dateStr].push({ time: timeStr, event: eventText })
+                    }
+                  }
+                }
+              })
+              // 合并到schedulePast
+              var _existingPast2 = _panel.schedulePast || []
+              var _existingDates2 = _existingPast2.map(function(d) { return d.date })
+              Object.keys(_chatScheduleMap).forEach(function(dateStr) {
+                if (_existingDates2.indexOf(dateStr) === -1 && _chatScheduleMap[dateStr].length) {
+                  _existingPast2.push({ date: dateStr, events: _chatScheduleMap[dateStr] })
+                } else if (_existingDates2.indexOf(dateStr) !== -1) {
+                  // 合并到已有日期
+                  var existing = _existingPast2.find(function(d) { return d.date === dateStr })
+                  if (existing) {
+                    _chatScheduleMap[dateStr].forEach(function(ev) {
+                      var dup = existing.events.some(function(e) { return e.event === ev.event })
+                      if (!dup) existing.events.push(ev)
+                    })
+                  }
+                }
+              })
+              _panel.schedulePast = _existingPast2
+            }
+          } catch(_chatErr) { console.warn('[MemoryPanel] 聊天提取日程失败:', _chatErr) }
 
           _panel.updatedAt = _now
           localStorage.setItem(_memPanelKey, JSON.stringify(_panel))
