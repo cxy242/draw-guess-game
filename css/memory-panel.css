@@ -299,6 +299,14 @@
   color: var(--mp-text);
   flex: 1;
 }
+.mp-timeline-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mp-label, #6b7d8d);
+  padding: 8px 0 4px 0;
+  border-bottom: 1px solid var(--mp-border, #e0e0e0);
+  margin-bottom: 4px;
+}
 .mp-timeline-content {
   display: flex;
   flex-direction: column;

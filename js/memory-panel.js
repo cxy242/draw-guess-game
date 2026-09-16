@@ -12,6 +12,29 @@
       .replace(/'/g, '&#39;');
   }
 
+  // 时间段格式：2026年9月12日下午3:14
+  function formatTimePeriod(ts) {
+    if (!ts) return '';
+    var d = new Date(Number(ts));
+    if (isNaN(d.getTime())) return '';
+    var h = d.getHours();
+    var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜';
+    var min = d.getMinutes();
+    return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h + ':' + (min < 10 ? '0' : '') + min;
+  }
+
+  // 格式化记忆时间范围
+  function formatMemoryTimeRange(memory) {
+    var start = memory.sourceStartTime || null;
+    var end = memory.sourceEndTime || memory.sourceAt || memory.createdAt || null;
+    if (start && end && start !== end) {
+      return formatTimePeriod(start) + ' - ' + formatTimePeriod(end);
+    }
+    if (end) return formatTimePeriod(end);
+    if (memory.createdAt) return formatTimePeriod(memory.createdAt);
+    return '';
+  }
+
   function renderSkeletonCards(count) {
     var html = '';
     for (var i = 0; i < (count || 3); i++) {
@@ -83,14 +106,32 @@
     const tomorrow = d.scheduleTomorrow || [];
     const agreements = d.agreements || [];
 
-    function renderTimeline(items) {
+    function renderTimeline(items, isNestedPast) {
       if (!items.length) return '<div class="mp-empty"><i class="fa-solid fa-calendar-xmark"></i>暂无安排</div>';
+      // 支持嵌套结构：[{date, events: [{time, event}]}]
+      if (isNestedPast || (items.length > 0 && items[0].date && Array.isArray(items[0].events))) {
+        var html = '';
+        items.forEach(function(day) {
+          html += '<div class="mp-timeline-date">' + escMemHtml(day.date || '') + '</div>';
+          (day.events || []).forEach(function(ev) {
+            html += '<div class="mp-timeline-item">' +
+              '<div class="mp-timeline-dot"></div>' +
+              '<div class="mp-timeline-content">' +
+                '<div class="mp-timeline-time">' + escMemHtml(ev.time || '') + '</div>' +
+                '<div class="mp-timeline-text">' + escMemHtml(ev.event || ev.text || ev.content || '') + '</div>' +
+              '</div>' +
+            '</div>';
+          });
+        });
+        return html;
+      }
+      // 扁平结构：[{time, event/text/content}]
       return items.map(function(it) {
         return '<div class="mp-timeline-item">' +
           '<div class="mp-timeline-dot"></div>' +
           '<div class="mp-timeline-content">' +
             '<div class="mp-timeline-time">' + escMemHtml(it.time || '') + '</div>' +
-            '<div class="mp-timeline-text">' + escMemHtml(it.text || it.content || '') + '</div>' +
+            '<div class="mp-timeline-text">' + escMemHtml(it.event || it.text || it.content || '') + '</div>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -104,7 +145,7 @@
         '<button class="mp-tab" data-tab="tomorrow">明天</button>' +
         '<button class="mp-tab" data-tab="agreements">约定</button>' +
       '</div>' +
-      '<div class="mp-tab-content" data-tab-content="past">' + renderTimeline(past) + '</div>' +
+      '<div class="mp-tab-content" data-tab-content="past">' + renderTimeline(past, true) + '</div>' +
       '<div class="mp-tab-content" data-tab-content="today" style="display:none">' + renderTimeline(today) + '</div>' +
       '<div class="mp-tab-content" data-tab-content="tomorrow" style="display:none">' + renderTimeline(tomorrow) + '</div>' +
       '<div class="mp-tab-content" data-tab-content="agreements" style="display:none">' + renderTimeline(agreements) + '</div>' +
@@ -138,7 +179,7 @@
         const title = escMemHtml(m.title || '无标题');
         const content = escMemHtml((m.content || '').substring(0, 50) + ((m.content || '').length > 50 ? '...' : ''));
         const sourceType = escMemHtml(m.sourceType || 'unknown');
-        const time = escMemHtml(m.time || m.createdAt || '');
+        const time = escMemHtml(formatMemoryTimeRange(m) || m.time || '');
         const isRecalled = recalled.indexOf(id) !== -1;
 
         return '<div class="mp-memory-card' + (isRecalled ? ' mp-recalled' : '') + '" data-mem-id="' + escMemHtml(String(id)) + '">' +

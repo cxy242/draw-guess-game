@@ -6044,6 +6044,16 @@ async function updatePrivateMessageIdempotently(messageId, changes) {
 }
 
 async function addUserMsg(chatPage, content, createdAt, extra = null) {
+  // 实时事件检测：用户发消息时自动记录事件
+  if (content && chatPage?.dataset?.charId) {
+    try {
+      var _charId = parseInt(chatPage.dataset.charId)
+      var _char = await db.characters.get(_charId)
+      if (window.WanWanMemory?.detectAndLogEvent) {
+        window.WanWanMemory.detectAndLogEvent(_charId, content, _char?.nick || _char?.name)
+      }
+    } catch(e) {}
+  }
   // 群聊：写入 db.groupMessages（senderId=用户），不走联机/私聊逻辑
   if (chatPage?.dataset?.groupId) {
     const groupId = parseInt(chatPage.dataset.groupId)

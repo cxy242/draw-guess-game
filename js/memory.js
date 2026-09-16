@@ -190,8 +190,9 @@
   async function autoRecallMemories(chatId, charId, ownerUid, aiReplyText) {
     if (!db.memories || !aiReplyText) return
     try {
-      var rows = await db.memories.where('chatId').equals(chatId).filter(function(m) {
-        return m.ownerUid === ownerUid && m.charId === charId && m.status !== 'archived'
+      // 搜索该角色的所有记忆（不限chatId）
+      var rows = await db.memories.where('charId').equals(charId).filter(function(m) {
+        return m.ownerUid === ownerUid && m.status !== 'archived'
       }).toArray()
       if (!rows.length) return
       var now = Date.now()
@@ -442,22 +443,34 @@
       : '未配置专属 API'
   }
 
-  function buildSummaryPrompt(messages, charName, userName) {
+function buildSummaryPrompt(messages, charName, userName) {
     charName = charName || '角色'
     userName = userName || '用户'
     var lines = messages.map(function(m) {
       var speaker = m.role === 'assistant' ? charName : userName
-      return speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
+      var ts = m.createdAt || m.timestamp || m.ts || 0
+      var timeStr = ''
+      if (ts) {
+        var d = new Date(Number(ts))
+        if (!isNaN(d.getTime())) {
+          var h = d.getHours()
+          var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
+          var min = d.getMinutes()
+          timeStr = '[' + d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h + '点' + (min > 0 ? min + '分' : '') + '] '
+        }
+      }
+      return timeStr + speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
     }).join('\n')
-    return `你是一个长期记忆整理器。请根据下面的聊天记录，提取适合长期保存的记忆。
+    return `你是一个长期记忆整理器。请根据下面的聊天记录，提取适合长期保存的记忆。每条记录前面有时间戳。
 
 要求：
 1. 使用第三人称叙述。
 2. 客观平实：只陈述发生了什么、谁表达了什么、双方形成了什么关系信息或偏好信息。
-3. 禁止使用强烈情绪词汇，例如“极度愤怒”“痛彻心扉”“欣喜若狂”等。
+3. 禁止使用强烈情绪词汇，例如"极度愤怒""痛彻心扉""欣喜若狂"等。
 4. 不要价值升华，不要写感悟，不要总结人生意义。
 5. 禁止加入聊天记录中没有出现的信息。
 6. 标题应尽量简短；内容应控制在，适合未来${charName}回复时参考。
+7. 【强制】每条记忆的content里必须写明时间，格式为"YYYY年M月D日上午/中午/下午/晚上X点XX分"。例如："2026年9月12日下午3点 用户说想去咖啡店"。如果事件跨越多个时间点，写开始和结束时间，例如"2026年9月12日下午3点到下午5点 用户和${charName}在咖啡店聊天"。绝对不能只写事件不写时间。
 
 请返回合法 JSON，不要输出 Markdown，不要输出 JSON 以外的文字。
 
@@ -466,7 +479,7 @@ JSON 格式：
   "memories": [
     {
       "title": "简短标题",
-      "content": "第三人称、客观平实的记忆内容，",
+      "content": "2026年9月12日下午3点 用户提到想吃火锅，${charName}说可以一起去。2026年9月12日下午5点 两人约好周六晚上去吃。",
       "keywords": ["关键词1", "关键词2"],
       "valence": 0,
       "arousal": 0.3,
@@ -477,7 +490,7 @@ JSON 格式：
 
 字段说明：
 - title：尽量简短，用于快速识别这条记忆。
-- content：第三人称客观陈述，，禁止夸张、抒情、升华。
+- content：第三人称客观陈述，必须包含"YYYY年M月D日上午/中午/下午X点XX分"格式的时间。禁止只有事件没有时间。
 - keywords：用于后续检索的关键词。
 - valence：情感效价，-1 到 1。负数表示负向，0 表示中性，正数表示正向。
 - arousal：唤醒度，0 到 1。越接近平静越低，越涉及冲突、紧张、强烈偏好越高。
@@ -486,7 +499,6 @@ JSON 格式：
 聊天记录：
 ${lines}`
   }
-
   function buildMeetingSummaryPrompt(messages, charName, userName) {
     charName = charName || '角色'
     userName = userName || '用户'
@@ -544,6 +556,13 @@ ${lines}`
     return JSON.parse(s)
   }
 
+  // 检查记忆内容是否包含时间引用
+  function hasTimeReference(text) {
+    if (!text) return false
+    // 匹配：X点、X时、上午/下午/晚上/中午/凌晨/深夜 + 时间、YYYY年、X月X日
+    return /\d+[点时分秒]|上午|下午|晚上|中午|凌晨|深夜|\d{4}年|\d+月\d+[日号]/.test(text)
+  }
+
   function normalizeMemory(raw, meta) {
     var title = String(raw?.title || '').trim().slice(0, 30) || '未命名记忆'
     var content = String(raw?.content || '').trim()
@@ -564,6 +583,8 @@ ${lines}`
       sourceMsgStartId: meta.fromMsgId,
       sourceMsgEndId: meta.toMsgId,
       sourceAt: isValidTimestamp(meta.sourceAt) ? Number(meta.sourceAt) : null,
+      sourceStartTime: isValidTimestamp(meta.sourceStartTime) ? Number(meta.sourceStartTime) : null,
+      sourceEndTime: isValidTimestamp(meta.sourceEndTime) ? Number(meta.sourceEndTime) : null,
       // 新增字段：衰减、层级、长期记忆、参与人物
       decayPercent: 80,
       isLongTerm: false,
@@ -606,6 +627,7 @@ ${lines}`
     var fromMsgId = fresh[0].id
     var toMsgId = fresh[fresh.length - 1].id
     var sourceAt = isValidTimestamp(fresh[fresh.length - 1].createdAt) ? Number(fresh[fresh.length - 1].createdAt) : null
+    var sourceStartTime = isValidTimestamp(fresh[0].createdAt) ? Number(fresh[0].createdAt) : null
 
     // 存储完整原文（用于重新总结）
     var originalText = fresh.map(function(m) {
@@ -623,7 +645,19 @@ ${lines}`
       try {
         var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'),  })
         parsed = extractJson(raw)
-        if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
+        if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
+          // 校验每条记忆是否有时间引用
+          var allHaveTime = parsed.memories.every(function(m) { return hasTimeReference(m.content || '') })
+          if (allHaveTime) break
+          // 如果有记忆没有时间，让AI重写（只重试一次）
+          if (attempt === 1) {
+            console.warn('[memory] 部分记忆缺少时间引用，重试...')
+            lastError = '记忆内容缺少时间'
+            continue
+          }
+          // 第二次就算了，接受结果
+          break
+        }
         lastError = 'AI返回为空或格式错误'
       } catch(e) {
         lastError = e.message || String(e)
@@ -660,7 +694,9 @@ ${lines}`
       var row = normalizeMemory(memories[i], {
         ownerUid: ownerUid, charId: charId, chatId: chatId,
         fromMsgId: fromMsgId, toMsgId: toMsgId,
-        sourceAt: sourceAt
+        sourceAt: sourceAt,
+        sourceStartTime: sourceStartTime,
+        sourceEndTime: sourceAt
       })
       if (!row) continue
       row.sourceType = 'wechat'
@@ -847,8 +883,9 @@ ${lines}`
     if (!db.memories || !ownerUid || !chatId || !charId) return ''
     var settings = await getSettings(chatId)
     if (!settings.enabled) return ''
-    var rows = await db.memories.where('chatId').equals(chatId).filter(function(m) {
-      return m.ownerUid === ownerUid && m.charId === charId && m.status !== 'archived'
+    // 搜索该角色的所有记忆（不限chatId），让记忆跨聊天联通
+    var rows = await db.memories.where('charId').equals(charId).filter(function(m) {
+      return m.ownerUid === ownerUid && m.status !== 'archived'
     }).toArray()
     if (!rows.length) return ''
     var queryText = (recentMessages || []).map(function(m) { return m.content || '' }).join(' ')
@@ -866,9 +903,14 @@ ${lines}`
       var decayScore = Math.min(1, decayPercent / 100)
       // 层级越高（数字越小）分数越高
       var layerScore = (5 - (m.injectionLayer || 2)) / 4
+      // 时间质量加分：有精确时间引用的记忆更可靠，衰减更慢
+      var hasTime = hasTimeReference(m.content || '') ? 1 : 0
+      var timeQuality = hasTime * 1.5
+      // 有时间引用的记忆衰减更慢（衰减系数减半）
+      if (hasTime) decayScore = Math.min(1, decayScore * 1.5)
       return {
         memory: m,
-        score: semanticScore * 4 + keywordScore * 3 + importanceScore * 2 + emotionScore * 1.5 + decayScore + layerScore * 2
+        score: semanticScore * 4 + keywordScore * 3 + importanceScore * 2 + emotionScore * 1.5 + decayScore + layerScore * 2 + timeQuality
       }
     }).sort(function(a, b) { return b.score - a.score })
     var selected = scored.slice(0, settings.injectLimit).filter(function(x) { return x.score > 0.15 || x.memory.status === 'active' })
@@ -912,12 +954,25 @@ ${lines}`
       var m = x.memory
       var sourceLabel = SOURCE_TYPE_LABEL[m.sourceType] || '微信'
       var memoryTime = getMemoryInjectionSourceAt(m)
-      var timeStr = memoryTime ? formatMemoryDateTime(memoryTime) : '未知时间'
+      // 使用起止时间段
+      var startTime = m.sourceStartTime || null
+      var endTime = m.sourceEndTime || m.sourceAt || memoryTime
+      var timeStr = ''
+      if (startTime && endTime && startTime !== endTime) {
+        timeStr = formatTimePeriod(startTime) + ' 到 ' + formatTimePeriod(endTime)
+      } else if (endTime) {
+        timeStr = formatTimePeriod(endTime)
+      } else {
+        timeStr = '未知时间'
+      }
       var relativeStr = memoryTime ? '（' + formatRelativeTime(memoryTime) + '）' : ''
       var layerTag = '【' + (LAYER_LABEL[m.injectionLayer] || '第二层') + '】'
       var keywordsTag = (m.keywords && m.keywords.length) ? ' 关键词：' + m.keywords.join('、') : ''
       return `${i + 1}. ${layerTag}【${sourceLabel}｜${timeStr}${relativeStr}】${m.title}：${m.content}${keywordsTag}`
     }).join('\n')
+
+    // 追加回忆指引
+    result += '\n\n【回忆指引】当你在聊天中发现用户提到的内容与上面某条记忆相关时，在回复开头自然地提及，例如：刚刚想起来了，之前（时间段）你说过/做过... 这样用户知道你记得。'
 
     // 追加未总结的近期动态（X帖子+朋友圈）
     var recentActivity = []
@@ -949,6 +1004,10 @@ ${lines}`
       result += '\n\n【近期动态（未总结）】\n' + recentActivity.join('\n')
     }
 
+    // 追加结构化事件日志（时间100%准确）
+    var eventCtx = getStructuredEventContext(charId)
+    if (eventCtx) result += eventCtx
+
     return result
   }
 
@@ -963,6 +1022,17 @@ ${lines}`
   }
 
   // 相对时间（让AI知道这是多久前的事）
+  // 时间段格式：2026年9月12日下午3:14
+  function formatTimePeriod(ts) {
+    if (!isValidTimestamp(ts)) return '未知时间'
+    var d = new Date(Number(ts))
+    if (isNaN(d.getTime())) return '未知时间'
+    var h = d.getHours()
+    var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
+    var min = d.getMinutes()
+    return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h + ':' + (min < 10 ? '0' : '') + min
+  }
+
   function formatRelativeTime(ts) {
     if (!isValidTimestamp(ts)) return ''
     var diff = Date.now() - Number(ts)
@@ -2016,6 +2086,70 @@ ${lines}`
     return { ok: true, memoryCount: 1 }
   }
 
+  // ===== 结构化事件日志（双层记忆第一层）=====
+  // 时间100%准确，系统自动记录，不依赖AI回忆
+  var EVENT_LOG_KEY = 'memoryEventLog_'
+
+  function logStructuredEvent(charId, eventData) {
+    if (!charId || !eventData || !eventData.event) return
+    var key = EVENT_LOG_KEY + charId
+    var events = []
+    try { events = JSON.parse(localStorage.getItem(key) || '[]') } catch(e) {}
+    var now = Date.now()
+    var d = new Date(now)
+    var h = d.getHours()
+    var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
+    events.push({
+      timestamp: now,
+      timeStr: d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(),
+      event: String(eventData.event).slice(0, 200),
+      location: eventData.location || '',
+      participants: eventData.participants || [],
+      source: eventData.source || 'chat'
+    })
+    // 只保留最近200条
+    if (events.length > 200) events = events.slice(-200)
+    try { localStorage.setItem(key, JSON.stringify(events)) } catch(e) {}
+  }
+
+  function getStructuredEvents(charId, limit) {
+    if (!charId) return []
+    var key = EVENT_LOG_KEY + charId
+    try {
+      var events = JSON.parse(localStorage.getItem(key) || '[]')
+      return events.slice(-(limit || 50))
+    } catch(e) { return [] }
+  }
+
+  function getStructuredEventContext(charId) {
+    var events = getStructuredEvents(charId, 20)
+    if (!events.length) return ''
+    return '\n\n【近期事件日志（系统自动记录，时间精确）】\n' + events.map(function(e) {
+      return e.timeStr + ' ' + e.event + (e.location ? '，在' + e.location : '')
+    }).join('\n')
+  }
+
+  // 事件检测：从用户消息中自动提取事件
+  var EVENT_PATTERNS = [
+    /(?:我|我们|刚|刚才|刚刚|昨天|前天|今天|上周|这周).{0,5}(?:去了|到了|去了|在|吃了|买了|看了|做了|玩了|学了|写了|画了|唱了|跑了|跳了|打了|修了|搬了|去了|回来了|出发了|到达了|开始了|结束了|完成了|考了|试了|面试了|见了|遇到|碰到了|约了|订了|预约了|下载了|安装了|更新了|升级了|注册了|登录了)/,
+    /(?:下午|上午|晚上|中午|凌晨|深夜|早上).{0,20}(?:去|到|在|吃|买|看|做|玩|学|写|画|唱|跑|跳|打|修|搬)/
+  ]
+
+  function detectAndLogEvent(charId, userMessage, aiName) {
+    if (!charId || !userMessage) return
+    var msg = String(userMessage).trim()
+    // 检查是否匹配事件模式
+    var isEvent = EVENT_PATTERNS.some(function(p) { return p.test(msg) })
+    if (!isEvent) return
+    // 提取事件描述（取前100字）
+    var eventDesc = msg.slice(0, 100)
+    logStructuredEvent(charId, {
+      event: eventDesc,
+      source: 'chat',
+      participants: [aiName || 'AI']
+    })
+  }
+
   window.WanWanMemory = {
     getSettings: getSettings,
     saveSettings: saveSettings,
@@ -2031,6 +2165,10 @@ ${lines}`
     recallMemory: recallMemory,
     autoRecallMemories: autoRecallMemories,
     getFailedRuns: getFailedRuns,
-    retrySummary: retrySummary
+    retrySummary: retrySummary,
+    logStructuredEvent: logStructuredEvent,
+    getStructuredEvents: getStructuredEvents,
+    getStructuredEventContext: getStructuredEventContext,
+    detectAndLogEvent: detectAndLogEvent
   }
 })()
