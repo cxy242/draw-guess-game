@@ -57,7 +57,7 @@ window.renderAutoMomentsPanel = async function (container) {
   var chars      = await getCfg(AM.chars) || [];
   var interval   = await getCfg(AM.interval) || 4;
   var mode       = await getCfg(AM.mode) || 'daily';
-  var commentsOn = await getCfg(AM.commentsOn);
+  var commentsOn = opts.manual ? true : await getCfg(AM.commentsOn);
   var imagesOn   = await getCfg(AM.imagesOn);
 
   var allChars = [];

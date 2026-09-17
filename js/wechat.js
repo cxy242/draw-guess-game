@@ -142,6 +142,13 @@ let _wechatUid  = null
 let _wechatRolePhoneSession = null
 const WECHAT_SWITCH_UIDS_KEY = 'wanwan_wechat_switch_uids'
 
+// Sync _wechatUid to window for cross-file access (auto-moments.js etc.)
+Object.defineProperty(window, "_wechatUid", {
+  get: function() { return _wechatUid },
+  set: function(v) { _wechatUid = v },
+  configurable: true
+})
+
 const WECHAT_MEMORY_DEFAULT = 100
 const WECHAT_MEMORY_MIN = 1
 const WECHAT_MEMORY_MAX = 1000
