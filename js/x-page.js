@@ -1,3 +1,16 @@
+// [DEBUG] Global error catcher - REMOVE AFTER FIX
+window._xPageError = null;
+window.addEventListener('error', function(e) {
+  window._xPageError = e.message + ' at ' + (e.filename || '') + ':' + (e.lineno || '');
+  console.error('[X-PAGE-ERROR]', window._xPageError);
+  try { window.toast && window.toast('[X错误] ' + window._xPageError); } catch(_) {}
+});
+window.addEventListener('unhandledrejection', function(e) {
+  window._xPageError = String(e.reason || 'unhandled rejection');
+  console.error('[X-PAGE-REJECTION]', window._xPageError);
+  try { window.toast && window.toast('[X异步错误] ' + window._xPageError); } catch(_) {}
+});
+
 // x-page.js — 仿 X (Twitter) 页面 · 完全重写
 // 依赖：db.js, settings.js (window.callAI)
 
@@ -459,9 +472,14 @@ function xGenNpcCommenter() {
 
 // ===== 用户会话 =====
 window.showXPage = async function() {
-  var user = await getXSessionUser()
-  if (!user) { showXLoginPage(); return }
-  renderXMainPage(user)
+  try {
+    var user = await getXSessionUser()
+    if (!user) { showXLoginPage(); return }
+    renderXMainPage(user)
+  } catch(e) {
+    console.error('[X] showXPage error:', e)
+    window.toast && window.toast('X页面加载失败：' + e.message)
+  }
 }
 
 async function getXSessionUser() {
@@ -688,7 +706,7 @@ function renderXHomeTab(page, user) {
       return
     }
 
-    var _html = posts.slice(0, 50).map(function(post) { return buildXPostCard(post) }).join('')
+    var _html = posts.slice(0, 20).map(function(post) { return buildXPostCard(post) }).join('')
     panel.innerHTML = _html
     bindPostCardEvents(panel, user)
   } catch(e) {
