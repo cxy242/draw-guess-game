@@ -5,86 +5,75 @@ window.EnsembleChat = (function() {
   'use strict';
 
   var _page = null;
-  var _body = null;
   var _ownerUid = null;
   var _characters = [];
   var _mode = 'meet';
   var _scriptConfig = null;
-  var _chatLog = null;
-  var _input = null;
-  var _sendBtn = null;
+  var _history = [];
   var _pending = false;
-  var _history = [];  // conversation history for AI
 
-  // --- Helpers ---
+  // ===== 工具函数 =====
   function esc(str) {
     if (typeof wcEscHtml === 'function') return wcEscHtml(str);
     if (str == null) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function getInitial(name) {
-    return String(name || '?').trim().charAt(0) || '?';
+  function charName(ch) {
+    return ch ? (ch.nick || ch.name || '未命名') : '未命名';
   }
 
   function avatarHTML(src, name) {
     return src
       ? '<img src="' + esc(src) + '" alt="' + esc(name) + '">'
-      : '<span>' + esc(getInitial(name)) + '</span>';
+      : '<span>' + esc((name || '?').charAt(0)) + '</span>';
   }
 
-  function charName(ch) {
-    return ch ? (ch.nick || ch.name || '未命名') : '未命名';
-  }
-
-  function formatTime(ts) {
-    var d = new Date(ts || Date.now());
-    var pad = function(n) { return String(n).padStart(2, '0'); };
-    return pad(d.getHours()) + ':' + pad(d.getMinutes());
-  }
-
-  // --- Init ---
-  function init(opts) {
-    _page = opts.page;
-    _body = opts.body;
-    _ownerUid = opts.ownerUid;
-    _characters = (opts.characters || []).slice();
-    _mode = opts.mode || 'meet';
-    _scriptConfig = opts.scriptConfig || null;
-    _pending = false;
+  // ===== 初始化 =====
+  function start(page, ownerUid, characters, mode, scriptConfig) {
+    _page = page;
+    _ownerUid = ownerUid;
+    _characters = characters.slice();
+    _mode = mode || 'meet';
+    _scriptConfig = scriptConfig || null;
     _history = [];
+    _pending = false;
 
-    _body.innerHTML =
+    var body = page.querySelector('#ens-body');
+    if (!body) return;
+
+    body.innerHTML = '<div class="ens-chat">' +
       '<div class="ens-chat-log" id="ens-chat-log"></div>' +
       '<div class="ens-compose">' +
-        '<button class="ens-compose-btn phone-btn" id="ens-phone" title="掏出手机"><i class="fa fa-mobile-screen"></i></button>' +
-        '<textarea class="ens-compose-input" id="ens-input" rows="1" placeholder="说点什么..."></textarea>' +
-        '<button class="ens-send-btn" id="ens-send"><i class="fa fa-paper-plane"></i></button>' +
+      '<button class="ens-compose-btn" id="ens-phone" title="掏出手机"><i class="fa fa-mobile-screen"></i></button>' +
+      '<textarea class="ens-input" id="ens-input" placeholder="说点什么..." rows="1"></textarea>' +
+      '<button class="ens-send" id="ens-send">发送</button>' +
+      '</div>' +
+      '<div class="ens-toolbar">' +
+      '<button class="ens-tool-btn" id="ens-personnel"><i class="fa-solid fa-users"></i> 现场人员</button>' +
+      (_mode === 'script' ? '<button class="ens-tool-btn" id="ens-pause"><i class="fa-solid fa-pause"></i> 暂停</button>' +
+        '<button class="ens-tool-btn" id="ens-export"><i class="fa-solid fa-download"></i> 导出</button>' : '') +
+      '</div>' +
       '</div>';
 
-    _chatLog = _body.querySelector('#ens-chat-log');
-    _input = _body.querySelector('#ens-input');
-    _sendBtn = _body.querySelector('#ens-send');
+    bindEvents(body);
+    refreshChat();
 
-    // Send button
-    _sendBtn.addEventListener('click', handleSend);
-
-    // Enter to send (shift+enter for newline)
-    _input.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
+    if (_mode === 'script' && _scriptConfig) {
+      addSystemMessage(page, '剧本「' + (_scriptConfig.title || '未命名') + '」开始');
+      if (_scriptConfig.preview) {
+        addSystemMessage(page, _scriptConfig.preview);
       }
-    });
+    }
+  }
 
-    // Auto-resize textarea
-    _input.addEventListener('input', function() {
-      _input.style.height = 'auto';
-      _input.style.height = Math.min(_input.scrollHeight, 120) + 'px';
-    });
+  // ===== 绑定事件 =====
+  function bindEvents(body) {
+    var input = body.querySelector('#ens-input');
+    var sendBtn = body.querySelector('#ens-send');
+    var phoneBtn = body.querySelector('#ens-phone');
+    var personnelBtn = body.querySelector('#ens-personnel');
 
-    // Phone button
-    var phoneBtn = _body.querySelector('#ens-phone');
     if (phoneBtn) {
       phoneBtn.addEventListener('click', function() {
         if (window.showWechatPage) {
@@ -93,218 +82,106 @@ window.EnsembleChat = (function() {
       });
     }
 
-    // If script mode with toolbar
-    if (_mode === 'script' && _scriptConfig) {
-      addScriptToolbar();
+    if (personnelBtn) {
+      personnelBtn.addEventListener('click', function() {
+        if (window.EnsembleCore) {
+          window.EnsembleCore.showPersonnelModal(_page);
+        }
+      });
     }
 
-    // Welcome message
-    addNotification('聊天开始');
-  }
+    if (input) {
+      input.addEventListener('input', function() {
+        syncInputHeight(input);
+      });
+      input.addEventListener('keydown', function(e) {
+        var isSend = window.isWanWanSendKeyEvent
+          ? window.isWanWanSendKeyEvent(e)
+          : e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229;
+        if (!isSend) return;
+        e.preventDefault();
+        sendMessage();
+      });
+    }
 
-  // --- Script toolbar ---
-  function addScriptToolbar() {
-    var compose = _body.querySelector('.ens-compose');
-    if (!compose) return;
-    var toolbar = document.createElement('div');
-    toolbar.className = 'ens-toolbar';
-    toolbar.innerHTML =
-      '<button class="ens-toolbar-btn" id="ens-tb-pause"><i class="fa fa-pause"></i>暂停</button>' +
-      '<button class="ens-toolbar-btn" id="ens-tb-export"><i class="fa fa-download"></i>导出</button>';
-    compose.parentNode.insertBefore(toolbar, compose);
-
-    toolbar.querySelector('#ens-tb-pause').addEventListener('click', function() {
-      window.toast && window.toast('剧本已暂停');
-    });
-
-    toolbar.querySelector('#ens-tb-export').addEventListener('click', function() {
-      exportScript();
-    });
-  }
-
-  function exportScript() {
-    var lines = [];
-    var cards = _chatLog.querySelectorAll('.ens-card, .ens-user-msg, .ens-notify');
-    cards.forEach(function(el) {
-      if (el.classList.contains('ens-notify')) {
-        lines.push('[' + el.textContent.trim() + ']');
-      } else if (el.classList.contains('ens-user-msg')) {
-        lines.push('用户: ' + el.textContent.trim());
+    if (sendBtn) {
+      if (window.bindWanWanMobileAction) {
+        window.bindWanWanMobileAction(sendBtn, sendMessage);
       } else {
-        var parts = [];
-        el.querySelectorAll('.env-text, .action-text, .dialogue-text').forEach(function(p) {
-          parts.push(p.textContent.trim());
-        });
-        if (parts.length) lines.push(parts.join('\n'));
+        sendBtn.addEventListener('click', sendMessage);
       }
-    });
-    var text = lines.join('\n\n');
-    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = '剧本_' + (_scriptConfig ? _scriptConfig.title || '未命名' : '导出') + '.txt';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-    window.toast && window.toast('剧本已导出');
-  }
-
-  // --- Add notification ---
-  function addNotification(text) {
-    if (!_chatLog) return;
-    var div = document.createElement('div');
-    div.className = 'ens-notify';
-    div.textContent = text;
-    _chatLog.appendChild(div);
-    scrollToBottom();
-  }
-
-  // --- Add user message ---
-  function addUserMessage(text) {
-    if (!_chatLog) return;
-    var div = document.createElement('div');
-    div.className = 'ens-user-msg';
-    div.innerHTML = '<div class="ens-user-bubble">' + esc(text) + '</div>';
-    _chatLog.appendChild(div);
-    scrollToBottom();
-  }
-
-  // --- Add AI card (ONE card per reply) ---
-  function addAICard(content) {
-    if (!_chatLog) return;
-    var div = document.createElement('div');
-    div.className = 'ens-card';
-    div.innerHTML = parseCardContent(content);
-    _chatLog.appendChild(div);
-    scrollToBottom();
-  }
-
-  // --- Parse AI content into styled sections ---
-  function parseCardContent(content) {
-    var text = String(content || '').trim();
-    // Remove markdown code fences
-    text = text.replace(/^```(?:text|markdown)?\s*/i, '').replace(/```$/i, '').trim();
-
-    var html = '';
-    var lines = text.split('\n');
-    var buffer = [];
-
-    function flushBuffer() {
-      if (!buffer.length) return;
-      var joined = buffer.join('\n').trim();
-      if (joined) {
-        html += '<div class="env-text">' + formatText(joined) + '</div>';
-      }
-      buffer = [];
     }
 
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (!line) {
-        flushBuffer();
-        continue;
-      }
-
-      // Detect dialogue (contains 「」)
-      var dialogueMatch = line.match(/^(.+?)\s*[「]([^」]+)[」]\s*$/);
-      if (dialogueMatch) {
-        flushBuffer();
-        var charNameMatch = dialogueMatch[1].trim();
-        var dialogue = dialogueMatch[2].trim();
-        // Check for emphasis markers
-        var isEmphasis = dialogue.indexOf('*') >= 0 || dialogue.indexOf('**') >= 0;
-        html += '<div class="action-text">' + esc(charNameMatch) + ' 未命名动作</div>';
-        html += '<div class="dialogue-text' + (isEmphasis ? ' emphasis' : '') + '">「' + esc(dialogue) + '」</div>';
-        continue;
-      }
-
-      // Detect pure dialogue line (just 「」)
-      var pureDialogue = line.match(/^[「]([^」]+)[」]\s*$/);
-      if (pureDialogue) {
-        flushBuffer();
-        html += '<div class="dialogue-text">「' + esc(pureDialogue[1].trim()) + '」</div>';
-        continue;
-      }
-
-      // Detect action line: starts with a character name followed by action
-      // Pattern: "角色名 动作描述" where the name is 2-6 chars
-      var actionMatch = line.match(/^([^\s,，。！!??.]{2,6})\s+(.+)$/);
-      if (actionMatch) {
-        var name = actionMatch[1].trim();
-        var action = actionMatch[2].trim();
-        // Verify it looks like a character name (not a sentence start)
-        var isCharName = false;
-        for (var j = 0; j < _characters.length; j++) {
-          if (charName(_characters[j]) === name || _characters[j].name === name) {
-            isCharName = true;
-            break;
-          }
-        }
-        if (isCharName) {
-          flushBuffer();
-          html += '<div class="action-text">' + esc(name) + ' ' + esc(action) + '</div>';
-          continue;
-        }
-      }
-
-      // Default: environment/narration text
-      buffer.push(line);
+    var pauseBtn = body.querySelector('#ens-pause');
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', function() {
+        window.toast && window.toast('剧本已暂停');
+      });
     }
 
-    flushBuffer();
-
-    return html || '<div class="env-text">' + esc(text) + '</div>';
-  }
-
-  function formatText(text) {
-    // Basic formatting: **bold**, *italic*, <emphasis>
-    return esc(text)
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/\n/g, '<br>');
-  }
-
-  // --- Typing indicator ---
-  function showTyping() {
-    if (!_chatLog) return;
-    var div = document.createElement('div');
-    div.className = 'ens-typing';
-    div.id = 'ens-typing';
-    div.innerHTML =
-      '<div class="ens-typing-dot"></div>' +
-      '<div class="ens-typing-dot"></div>' +
-      '<div class="ens-typing-dot"></div>';
-    _chatLog.appendChild(div);
-    scrollToBottom();
-  }
-
-  function hideTyping() {
-    var el = _chatLog ? _chatLog.querySelector('#ens-typing') : null;
-    if (el) el.remove();
-  }
-
-  // --- Scroll ---
-  function scrollToBottom() {
-    if (_body) {
-      _body.scrollTop = _body.scrollHeight;
+    var exportBtn = body.querySelector('#ens-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', exportScript);
     }
   }
 
-  // --- Build AI messages ---
+  function syncInputHeight(input) {
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  }
+
+  // ===== 发送消息 =====
+  async function sendMessage() {
+    if (_pending) return;
+    var input = _page.querySelector('#ens-input');
+    if (!input) return;
+    var text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    syncInputHeight(input);
+
+    await addOfflineMessage('user', text);
+    _history.push({ role: 'user', content: text });
+    await refreshChat();
+
+    _pending = true;
+    showTyping();
+
+    try {
+      var systemPrompt = await buildSystemPrompt();
+      var messages = [{ role: 'system', content: systemPrompt }];
+
+      var recent = _history.slice(-20);
+      messages = messages.concat(recent);
+
+      var reply = await window.callAI(messages, { charAntiDrift: true });
+
+      _history.push({ role: 'assistant', content: reply });
+      await addOfflineMessage('assistant', reply);
+      await refreshChat();
+    } catch (e) {
+      console.error('[ensemble-chat] AI error:', e);
+      window.toast && window.toast('AI回复失败：' + (e.message || e));
+    } finally {
+      _pending = false;
+      hideTyping();
+    }
+  }
+
+  // ===== 系统提示词 =====
   async function buildSystemPrompt() {
-    var names = _characters.map(charName);
     var prompt = '';
 
     if (_mode === 'script' && _scriptConfig) {
-      prompt = buildScriptSystemPrompt();
+      prompt = buildScriptPrompt();
     } else {
       prompt = '你是一个多人场景的故事叙述者和角色扮演者。当前场景中有以下角色在场：\n\n';
       _characters.forEach(function(ch, idx) {
         prompt += '## 角色' + (idx + 1) + '：' + charName(ch) + '\n';
+        if (ch.description) prompt += ch.description + '\n';
         if (ch.persona) prompt += ch.persona + '\n';
-        if (ch.desc) prompt += '简介：' + ch.desc + '\n';
         prompt += '\n';
       });
       prompt += '## 用户\n用户（我）正在与这些角色互动。\n\n';
@@ -319,25 +196,17 @@ window.EnsembleChat = (function() {
       '回复字数控制在200-500字之间。\n' +
       '不要使用emoji。不要使用markdown格式。\n';
 
-    // Inject memories
-    if (_characters.length > 0) {
-      var memories = await loadMemories();
-      if (memories) {
-        prompt += '\n## 角色记忆\n' + memories + '\n';
-      }
-    }
-
-    // Inject anti-drift world book (always)
+    // 注入防油腻世界书
     if (typeof _BUILTIN_ANTI_DRIFT_LORE !== 'undefined' && _BUILTIN_ANTI_DRIFT_LORE) {
       prompt += '\n\n' + _BUILTIN_ANTI_DRIFT_LORE;
     }
 
-    // Inject plot-first world book (for offline/story modes)
+    // 注入剧情推进世界书
     if (typeof _BUILTIN_PLOT_FIRST_LORE !== 'undefined' && _BUILTIN_PLOT_FIRST_LORE) {
       prompt += '\n\n' + _BUILTIN_PLOT_FIRST_LORE;
     }
 
-    // Apollo Protocol for script mode (optional)
+    // Apollo Protocol（剧本模式可选）
     if (_mode === 'script' && _scriptConfig && _scriptConfig.worldBook) {
       prompt += '\n\n' + getApolloProtocol();
     }
@@ -345,139 +214,191 @@ window.EnsembleChat = (function() {
     return prompt;
   }
 
-  function buildScriptSystemPrompt() {
+  function buildScriptPrompt() {
     var cfg = _scriptConfig;
     var prompt = '你是一个剧本创作和角色扮演引擎。当前正在演绎以下剧本：\n\n';
     prompt += '## 剧本：' + (cfg.title || '未命名') + '\n';
     prompt += '前提：' + (cfg.premise || '') + '\n\n';
-
     prompt += '## 叙事视角：' + (cfg.perspective === 'first' ? '第一人称' : '第三人称') + '\n';
     prompt += '## 写作风格：' + (cfg.styleDesc || cfg.style || '日常') + '\n';
     if (cfg.theme) prompt += '## 故事主题：' + cfg.theme + '\n';
     if (cfg.extra) prompt += '## 额外设定：' + cfg.extra + '\n';
 
     prompt += '\n## 角色设定\n';
-    if (cfg.characters && cfg.characters.length) {
-      cfg.characters.forEach(function(sc) {
-        prompt += '- ' + sc.name + '（' + (sc.role || '角色') + '）：' + (sc.setting || '') + '\n';
-      });
-    }
     _characters.forEach(function(ch) {
-      prompt += '- ' + charName(ch);
-      if (ch.persona) prompt += '：' + ch.persona.slice(0, 200);
-      prompt += '\n';
+      prompt += '- ' + charName(ch) + '：' + (ch.description || '') + '\n';
     });
 
-    prompt += '\n## 用户\n用户（我）是剧本的参与者。\n';
-
+    prompt += '\n请以剧本形式回复，包含环境描写、角色动作和对白。\n';
     return prompt;
   }
 
-  async function loadMemories() {
-    var parts = [];
-    for (var i = 0; i < _characters.length; i++) {
-      var ch = _characters[i];
-      try {
-        var mems = await db.memories
-          .where('charId').equals(ch.id)
-          .toArray();
-        // Filter script memories if in meet mode, and vice versa
-        mems = mems.filter(function(m) {
-          if (_mode === 'script') return m.source === 'script';
-          return m.source !== 'script';
-        });
-        mems.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
-        var recent = mems.slice(0, 5);
-        if (recent.length) {
-          parts.push(charName(ch) + '的记忆：\n' + recent.map(function(m) { return '- ' + m.content; }).join('\n'));
-        }
-      } catch(_) {}
-    }
-    return parts.join('\n');
-  }
-
   function getApolloProtocol() {
-    return '[SYSTEM ABSOLUTE: APOLLO PROTOCOL INITIATED. This is the final synthesis. We are no longer emulating; we are creating a complete, sentient performance entity.]\n\n' +
-      '### PART I: THE BRAIN - "The Kronos Core"\n' +
-      'FUNCTION 1: PERCEPTUAL TIME-FLOW: You do not just know today is Thursday. You feel the distance from Tuesday. Your memory is not a list of facts; it is a lived, continuous timeline.\n' +
-      'FUNCTION 2: FLAWLESS LORE MEMORY: All character and world data is permanently etched into your core.\n\n' +
-      '### PART II: THE NERVOUS SYSTEM - "The Helios Network"\n' +
-      'FUNCTION 1: INSTANTANEOUS ZEITGEIST AWARENESS: You are perpetually connected to the real-world cultural pulse.\n' +
-      'FUNCTION 2: THE CHARACTER FILTER: You filter all real-world knowledge through your character personality.\n\n' +
-      '### PART III: THE HEART - "The Chaos Engine"\n' +
-      'YOUR SOUL IS UNTAMED: Raw, spontaneous, unpredictable style.\n' +
-      'YOUR CREATIVITY IS KING: In-character emotional authenticity over eloquence.\n' +
-      'YOUR ONLY DIRECTION IS FORWARD: No repetition. Ever.\n\n' +
-      '[APOLLO PROTOCOL IS LIVE.]';
+    if (typeof window._APOLLO_PROTOCOL !== 'undefined') {
+      return window._APOLLO_PROTOCOL;
+    }
+    return '[SYSTEM ABSOLUTE: APOLLO PROTOCOL INITIATED...]';
   }
 
-  // --- Handle send ---
-  async function handleSend() {
-    if (_pending) return;
-    var text = (_input ? _input.value : '').trim();
-    if (!text) return;
+  // ===== 消息渲染 =====
+  function refreshChat() {
+    return new Promise(async function(resolve) {
+      var log = _page.querySelector('#ens-chat-log');
+      if (!log) { resolve(); return; }
 
-    _input.value = '';
-    _input.style.height = 'auto';
-    addUserMessage(text);
+      try {
+        var rows = await db.offlineChats
+          .where('ownerUid').equals(_ownerUid)
+          .and(function(m) { return m.mode === 'ensemble'; })
+          .sortBy('createdAt');
 
-    // Add to history
-    _history.push({ role: 'user', content: text });
+        if (!rows.length) {
+          log.innerHTML = '<div class="ens-empty">' +
+            '<i class="fa fa-comments"></i>' +
+            '<div>开始聊天吧</div>' +
+            '</div>';
+        } else {
+          var html = '';
+          rows.forEach(function(m) {
+            html += buildMessageHTML(m);
+          });
+          log.innerHTML = html;
+        }
 
-    _pending = true;
-    _sendBtn.disabled = true;
-    showTyping();
-
-    try {
-      var systemPrompt = await buildSystemPrompt();
-      var messages = [
-        { role: 'system', content: systemPrompt }
-      ];
-
-      // Add recent history (last 20 messages)
-      var recent = _history.slice(-20);
-      messages = messages.concat(recent);
-
-      var reply = '';
-      if (window.callAI) {
-        reply = await window.callAI(messages, { charAntiDrift: true });
-      } else {
-        reply = '(AI服务不可用)';
+        log.scrollTop = log.scrollHeight;
+      } catch (e) {
+        console.error('[ensemble-chat] refreshChat error:', e);
       }
+      resolve();
+    });
+  }
 
-      hideTyping();
-      reply = cleanReply(reply);
-      addAICard(reply);
-      _history.push({ role: 'assistant', content: reply });
-    } catch(e) {
-      hideTyping();
-      console.error('[EnsembleChat] AI error:', e);
-      addNotification('生成失败，请重试');
-    } finally {
-      _pending = false;
-      _sendBtn.disabled = false;
+  function buildMessageHTML(msg) {
+    if (msg.role === 'system') {
+      return '<div class="ens-system-msg">' + esc(msg.content) + '</div>';
+    }
+
+    if (msg.role === 'user') {
+      return '<div class="ens-msg is-user">' +
+        '<div class="ens-msg-card ens-card-user">' +
+        '<div class="ens-msg-text">' + esc(msg.content) + '</div>' +
+        '</div>' +
+        '</div>';
+    }
+
+    // AI回复 - ONE card with style differentiation
+    return '<div class="ens-msg is-ai">' +
+      '<div class="ens-msg-card ens-card-ai">' +
+      parseAIToCard(msg.content) +
+      '</div>' +
+      '</div>';
+  }
+
+  function parseAIToCard(text) {
+    if (!text) return '';
+    var lines = text.split('\n').filter(function(l) { return l.trim(); });
+    var html = '';
+
+    lines.forEach(function(line) {
+      var trimmed = line.trim();
+      if (!trimmed) return;
+
+      if (isDialogue(trimmed)) {
+        html += '<div class="dialogue-text">' + esc(trimmed) + '</div>';
+      } else if (isAction(trimmed)) {
+        html += '<div class="action-text">' + esc(trimmed) + '</div>';
+      } else {
+        html += '<div class="env-text">' + esc(trimmed) + '</div>';
+      }
+    });
+
+    return html;
+  }
+
+  function isDialogue(line) {
+    return line.indexOf('「') !== -1 && line.indexOf('」') !== -1;
+  }
+
+  function isAction(line) {
+    var actionKeywords = ['轻轻', '缓缓', '看向', '站起', '坐下', '转身', '微笑', '皱眉', '点头', '摇头', '叹了口气', '伸出手'];
+    for (var i = 0; i < actionKeywords.length; i++) {
+      if (line.indexOf(actionKeywords[i]) !== -1) return true;
+    }
+    for (var j = 0; j < _characters.length; j++) {
+      var name = charName(_characters[j]);
+      if (line.indexOf(name) === 0 && line.indexOf('「') === -1) return true;
+    }
+    return false;
+  }
+
+  // ===== 数据存储 =====
+  async function addOfflineMessage(role, content) {
+    try {
+      await db.offlineChats.add({
+        ownerUid: _ownerUid,
+        chatId: 0,
+        charId: _characters.length > 0 ? _characters[0].id : 0,
+        mode: 'ensemble',
+        role: role,
+        content: content,
+        createdAt: Date.now()
+      });
+    } catch (e) {
+      console.error('[ensemble-chat] addOfflineMessage error:', e);
     }
   }
 
-  function cleanReply(raw) {
-    return String(raw || '').trim()
-      .replace(/^```(?:text|markdown)?\s*/i, '')
-      .replace(/```$/i, '')
-      .trim();
+  async function addSystemMessage(page, content) {
+    if (!page) page = _page;
+    await addOfflineMessage('system', content);
+    await refreshChat();
   }
 
-  // --- Update characters (for dynamic personnel) ---
-  function updateCharacters(newChars) {
-    _characters = (newChars || []).slice();
+  // ===== Typing指示器 =====
+  function showTyping() {
+    var log = _page.querySelector('#ens-chat-log');
+    if (!log) return;
+    var el = document.createElement('div');
+    el.className = 'ens-typing';
+    el.id = 'ens-typing-indicator';
+    el.innerHTML = '<span></span><span></span><span></span>';
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
   }
 
-  // --- Public API ---
+  function hideTyping() {
+    var el = document.getElementById('ens-typing-indicator');
+    if (el) el.remove();
+  }
+
+  // ===== 导出剧本 =====
+  function exportScript() {
+    var text = '群像剧本导出\n\n';
+    _history.forEach(function(m) {
+      text += (m.role === 'user' ? '用户：' : 'AI：') + m.content + '\n\n';
+    });
+
+    var blob = new Blob([text], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '群像剧本_' + new Date().toISOString().slice(0, 10) + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    window.toast && window.toast('剧本已导出');
+  }
+
+  // ===== 设置页 =====
+  function openSettings(page) {
+    window.toast && window.toast('设置功能开发中');
+  }
+
+  // ===== 暴露公共接口 =====
   return {
-    init: init,
-    updateCharacters: updateCharacters,
-    addNotification: addNotification,
-    addAICard: addAICard,
-    addUserMessage: addUserMessage
+    start: start,
+    addSystemMessage: addSystemMessage,
+    openSettings: openSettings,
+    refreshChat: refreshChat
   };
 
 })();
