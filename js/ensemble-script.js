@@ -1,7 +1,6 @@
 // ensemble-script.js - 剧本模式：设置页、AI生成剧本、剧本聊天
 // 依赖：ensemble.js, ensemble-chat.js, settings.js (callAI)
 
-try {
 window.EnsembleScript = (function() {
   'use strict';
 
@@ -116,8 +115,8 @@ window.EnsembleScript = (function() {
     var body = page.querySelector('#ens-body');
     if (!body) return;
 
-    var perspective = body.querySelector('input[name="ens-perspective" class="ens-radio-perspective"]:checked');
-    var style = body.querySelector('input[name="ens-style" class="ens-radio-style"]:checked');
+    var perspective = body.querySelector('input.ens-radio-perspective:checked');
+    var style = body.querySelector('input.ens-radio-style:checked');
     var worldBook = body.querySelector('#ens-worldbook');
     var theme = body.querySelector('#ens-theme');
     var extra = body.querySelector('#ens-extra');
@@ -336,4 +335,3 @@ window.EnsembleScript = (function() {
   };
 
 })();
-} catch(e) { console.error('[ensemble-script] Load error:', e); window.EnsembleScript = { openSettings: function() { window.toast('剧本模块加载失败: ' + e.message); } }; }
