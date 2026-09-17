@@ -339,7 +339,7 @@ async function postMoment(opts) {
   var chatCtx = await getRecentChat(charId, char.name);
 
   /* 构建 prompt */
-  var sys = buildPrompt(char, mode, commentsOn, relations, opts.manual);
+  var sys = await buildPrompt(char, mode, commentsOn, relations, opts.manual);
   var msgs = [{ role: 'system', content: sys }];
   var userMsg = opts.userMsg || '请生成一条朋友圈动态。';
   if (chatCtx) userMsg += '\n\n最近聊天参考：\n' + chatCtx;
@@ -406,6 +406,30 @@ async function postMoment(opts) {
 
     console.log('[AutoMoments] 已发布:', char.name, data.text.slice(0, 30));
     window.toast && window.toast('[朋友圈] 已发布: ' + char.name);
+    // 写入记忆：发帖角色记住自己发了朋友圈，评论的角色也记住
+    try {
+      var posterName = char.nick || char.name;
+      var commentNames = (moment.comments || []).map(function(c) { return c.name; }).filter(function(n) { return n && n !== posterName; });
+      // 发帖角色的记忆
+      if (db.memories && window._wechatUid) {
+        await db.memories.add({
+          ownerUid: window._wechatUid, charId: char.id, chatId: 'moments_' + char.id,
+          title: posterName + '发了朋友圈',
+          content: posterName + '发了一条朋友圈："' + data.text.slice(0, 60) + '"' + (commentNames.length ? '。' + commentNames.join('、') + '来评论了。' : ''),
+          keywords: ['朋友圈', posterName], valence: 0.3, arousal: 0.2, importance: 4,
+          sourceType: 'moments', status: 'active', decayPercent: 80, injectionLayer: 2,
+          createdAt: Date.now(), updatedAt: Date.now()
+        });
+        // 评论的AI角色也记住
+        var uniqueCommenters = [];
+        (moment.comments || []).forEach(function(c) {
+          if (c.uid && c.uid.indexOf('char_') === 0 && uniqueCommenters.indexOf(c.name) === -1) {
+            uniqueCommenters.push(c.name);
+          }
+        });
+      }
+    } catch(memErr) { console.warn('[AutoMoments] 记忆写入失败:', memErr); }
+
     refreshMomentsPage();
     return moment;
   } catch (e) {
@@ -428,7 +452,7 @@ function normalizeComments(raw, charName) {
   });
 }
 
-function buildPrompt(char, mode, commentsOn, relations, isManual) {
+async function buildPrompt(char, mode, commentsOn, relations, isManual) {
   var p = '你是一个真实的人，正在发朋友圈。你的朋友圈必须有真人感、活人感。\n\n';
   p += '【你的信息】\n';
   p += '名字：' + char.name + '\n';
@@ -449,16 +473,30 @@ function buildPrompt(char, mode, commentsOn, relations, isManual) {
   p += '- 可以有emoji但自然使用不要堆砌\n';
   p += '- 配图描述要具体（"今天的拿铁拉花"而不是"咖啡"）\n';
 
-  // 始终生成评论（NPC评论增加互动感）
+  // 获取其他AI角色作为评论人
+  var otherChars = [];
+  try {
+    var allChars = await window.db.characters.where('type').equals('char').toArray();
+    otherChars = allChars.filter(function(c) { return c.id !== char.id; }).slice(0, 5);
+  } catch(_) {}
+
+  // 始终生成评论
   p += '\n【评论规则】\n';
-  p += '- 生成3-5条评论\n';
+  p += '- 生成5条评论\n';
   if (relations.length) {
-    p += '- 评论人从这些人中选：' + relations.join('、') + '\n';
-  } else {
-    p += '- 评论人用普通网友名字（如：路人甲、吃瓜群众、热心市民等）\n';
+    p += '- 评论人必须从这些关系人中选：' + relations.join('、') + '\n';
   }
-  p += '- 评论像真人朋友互动（调侃、关心、吐槽）\n';
-  p += '- ' + char.name + '回复其中1-2条评论\n';
+  if (otherChars.length) {
+    var otherNames = otherChars.map(function(c) { return c.name + '（' + (c.description || c.identity?.bio || '').slice(0, 30) + '）'; }).join('、');
+    p += '- 其他AI角色也可以来评论：' + otherNames + '\n';
+    p += '- 这些AI角色评论时要体现自己的性格特点\n';
+  }
+  if (!relations.length && !otherChars.length) {
+    p += '- 用普通网友名字评论（如：路人甲、吃瓜群众等）\n';
+  }
+  p += '- 评论像真人朋友互动（调侃、关心、吐槽、问八卦）\n';
+  p += '- 【重要】' + char.name + '（发帖人）必须回复其中2-3条评论，体现角色性格\n';
+  p += '- 被回复的评论人可以再回复' + char.name + '，形成对话\n';
   p += '- 绝对不要生成"用户"的评论\n';
 
   if (isManual) {
@@ -578,12 +616,16 @@ async function batchPostMoments(charIds, countPerChar) {
   });
   var relStr = relations.length ? relations.slice(0, 5).join('、') : '普通网友';
 
+  // 获取所有AI角色信息
+  var allAIChars = [];
+  try { allAIChars = await window.db.characters.where('type').equals('char').toArray(); } catch(_) {}
+
   var prompt = '为以下' + chars.length + '个角色各生成' + countPerChar + '条朋友圈。\n\n' +
     '角色：\n' + charDescs + '\n\n' +
     '评论人可选：' + relStr + '\n\n' +
     '要求：\n' +
     '1. 每条1-3句，不超过80字，口语化自然\n' +
-    '2. 每条配3-5条评论，评论人从角色关系人中选\n' +
+    '2. 每条配5条评论。评论人来源：角色的关系人 + 其他AI角色（' + allAIChars.map(function(c) { return c.name; }).filter(function(n) { return n; }).join('、') + '）+ 普通网友\n' +
     '3. 角色回复其中1-2条评论\n' +
     '4. 不同角色的朋友圈风格要不同\n\n' +
     '返回JSON：\n' +
