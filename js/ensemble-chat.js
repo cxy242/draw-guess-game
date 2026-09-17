@@ -327,7 +327,17 @@ window.EnsembleChat = (function() {
       }
     }
 
-    // Apollo Protocol for script mode
+    // Inject anti-drift world book (always)
+    if (typeof _BUILTIN_ANTI_DRIFT_LORE !== 'undefined' && _BUILTIN_ANTI_DRIFT_LORE) {
+      prompt += '\n\n' + _BUILTIN_ANTI_DRIFT_LORE;
+    }
+
+    // Inject plot-first world book (for offline/story modes)
+    if (typeof _BUILTIN_PLOT_FIRST_LORE !== 'undefined' && _BUILTIN_PLOT_FIRST_LORE) {
+      prompt += '\n\n' + _BUILTIN_PLOT_FIRST_LORE;
+    }
+
+    // Apollo Protocol for script mode (optional)
     if (_mode === 'script' && _scriptConfig && _scriptConfig.worldBook) {
       prompt += '\n\n' + getApolloProtocol();
     }
