@@ -71,16 +71,16 @@ window.EnsembleScript = (function() {
     body.innerHTML = '<div class="ens-script-settings">' +
       '<div class="miss-section-title">叙事视角</div>' +
       '<div class="ens-radio-group">' +
-      '<label class="ens-radio-item"><input type="radio" name="ens-perspective" value="first"><span>第一人称</span></label>' +
-      '<label class="ens-radio-item"><input type="radio" name="ens-perspective" value="third" checked><span>第三人称</span></label>' +
+      '<label class="ens-radio-item"><input type="radio" name="ens-perspective" class="ens-radio-perspective" value="first"><span>第一人称</span></label>' +
+      '<label class="ens-radio-item"><input type="radio" name="ens-perspective" class="ens-radio-perspective" value="third" checked><span>第三人称</span></label>' +
       '</div>' +
 
       '<div class="miss-section-title">写作风格</div>' +
       '<div class="ens-radio-group">' +
-      '<label class="ens-radio-item"><input type="radio" name="ens-style" value="daily" checked><span>轻松日常</span></label>' +
-      '<label class="ens-radio-item"><input type="radio" name="ens-style" value="mystery"><span>悬疑推理</span></label>' +
-      '<label class="ens-radio-item"><input type="radio" name="ens-style" value="fantasy"><span>奇幻冒险</span></label>' +
-      '<label class="ens-radio-item"><input type="radio" name="ens-style" value="romance"><span>虐心言情</span></label>' +
+      '<label class="ens-radio-item"><input type="radio" name="ens-style" class="ens-radio-style" value="daily" checked><span>轻松日常</span></label>' +
+      '<label class="ens-radio-item"><input type="radio" name="ens-style" class="ens-radio-style" value="mystery"><span>悬疑推理</span></label>' +
+      '<label class="ens-radio-item"><input type="radio" name="ens-style" class="ens-radio-style" value="fantasy"><span>奇幻冒险</span></label>' +
+      '<label class="ens-radio-item"><input type="radio" name="ens-style" class="ens-radio-style" value="romance"><span>虐心言情</span></label>' +
       '</div>' +
 
       '<div class="miss-section-title">世界书（Apollo Protocol）</div>' +
@@ -116,8 +116,8 @@ window.EnsembleScript = (function() {
     var body = page.querySelector('#ens-body');
     if (!body) return;
 
-    var perspective = body.querySelector('input[name="ens-perspective"]:checked');
-    var style = body.querySelector('input[name="ens-style"]:checked');
+    var perspective = body.querySelector('input[name="ens-perspective" class="ens-radio-perspective"]:checked');
+    var style = body.querySelector('input[name="ens-style" class="ens-radio-style"]:checked');
     var worldBook = body.querySelector('#ens-worldbook');
     var theme = body.querySelector('#ens-theme');
     var extra = body.querySelector('#ens-extra');
