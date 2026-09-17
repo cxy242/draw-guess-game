@@ -11932,6 +11932,8 @@ async function renderMomentsList(momentsPage, wechatPage, options = {}) {
   bindMomentsListActions(momentsPage, wechatPage || momentsPage._wechatPage)
 }
 
+window.renderMomentsList = renderMomentsList
+
 async function renderMomentsPinned(momentsPage, filter = {}) {
   const wrap = momentsPage.querySelector('#moments-pinned')
   if (!wrap) return

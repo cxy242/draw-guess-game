@@ -670,25 +670,31 @@ function buildXBottomBar() {
 
 // ===== 首页Tab =====
 function renderXHomeTab(page, user) {
-  var panel = page.querySelector('#x-tab-home')
-  var posts = xLoadPosts()
-  window.toast && window.toast('[X] 加载帖子: ' + posts.length + ' 条')
-  // 按时间倒序
-  posts.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt) })
+  try {
+    var panel = page.querySelector('#x-tab-home')
+    if (!panel) return
+    var posts = xLoadPosts()
+    window.toast && window.toast('[X] 加载帖子: ' + posts.length + ' 条')
+    // 按时间倒序
+    posts.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt) })
 
-  if (!posts.length) {
-    // 生成一些初始帖子
-    panel.innerHTML = '<div class="x-loading"><i class="fa fa-spinner fa-spin"></i></div>'
-    generateInitialPosts(user).then(function() {
-      renderXHomeTab(page, user)
-    })
-    return
+    if (!posts.length) {
+      // 生成一些初始帖子
+      panel.innerHTML = '<div class="x-loading"><i class="fa fa-spinner fa-spin"></i></div>'
+      generateInitialPosts(user).then(function() {
+        renderXHomeTab(page, user)
+      })
+      return
+    }
+
+    var _html = posts.map(function(post) { return buildXPostCard(post) }).join('')
+    window.toast && window.toast('[X] 渲染HTML: ' + _html.length + ' 字符')
+    panel.innerHTML = _html
+    bindPostCardEvents(panel, user)
+  } catch(e) {
+    console.error('[X] renderXHomeTab error:', e)
+    window.toast && window.toast('[X] 渲染出错：' + e.message)
   }
-
-  var _html = posts.map(function(post) { return buildXPostCard(post) }).join('')
-  window.toast && window.toast('[X] 渲染HTML: ' + _html.length + ' 字符')
-  panel.innerHTML = _html
-  bindPostCardEvents(panel, user)
 }
 
 // 生成初始帖子
@@ -2546,7 +2552,7 @@ async function generateBatchPosts(user, preference) {
     }
     xSavePosts(posts)
     console.log('[X] 批量生成完成: '+items.length+'篇帖子+评论')
-  } catch(e) { console.error('[X] batch gen err', e) }
+  } catch(e) { console.error('[X] batch gen err', e); window.toast && window.toast('[X] 生成失败：' + (e.message || '未知错误')) }
 }
 
 
