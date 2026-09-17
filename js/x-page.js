@@ -671,10 +671,11 @@ function buildXBottomBar() {
 // ===== 首页Tab =====
 function renderXHomeTab(page, user) {
   try {
+    if (!page) page = document.getElementById('x-page')
+    if (!page) return
     var panel = page.querySelector('#x-tab-home')
     if (!panel) return
     var posts = xLoadPosts()
-    window.toast && window.toast('[X] 加载帖子: ' + posts.length + ' 条')
     // 按时间倒序
     posts.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt) })
 
@@ -687,13 +688,11 @@ function renderXHomeTab(page, user) {
       return
     }
 
-    var _html = posts.map(function(post) { return buildXPostCard(post) }).join('')
-    window.toast && window.toast('[X] 渲染HTML: ' + _html.length + ' 字符')
+    var _html = posts.slice(0, 50).map(function(post) { return buildXPostCard(post) }).join('')
     panel.innerHTML = _html
     bindPostCardEvents(panel, user)
   } catch(e) {
     console.error('[X] renderXHomeTab error:', e)
-    window.toast && window.toast('[X] 渲染出错：' + e.message)
   }
 }
 
@@ -840,7 +839,7 @@ function bindPostCardEvents(container, user) {
           localStorage.removeItem('x_comments_' + postId)
           overlay.remove()
           window.toast && window.toast('已删除')
-          if (typeof renderXHomeTab === 'function') renderXHomeTab()
+          var _xp = document.getElementById('x-page'); if (_xp) renderXHomeTab(_xp, user)
         }
         overlay.onclick = function(e) { if (e.target === overlay) overlay.remove() }
       }, 600)

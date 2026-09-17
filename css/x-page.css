@@ -2118,7 +2118,7 @@ ground-color: var(--x-accent);
 
 /* ===== 生成帖子弹窗 ===== */
 .x-gen-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:9998;animation:x-fade-in .2s ease}
-.x-gen-card{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(380px,90vw);background:var(--x-bg,#111);border:1px solid var(--x-border,rgba(255,255,255,0.1));border-radius:16px;padding:24px;z-index:9999;animation:x-slide-up .25s cubic-bezier(.23,1,.32,1);box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+/* removed old gen-card rule */
 .x-gen-title{font-size:20px;font-weight:700;color:var(--x-text);margin-bottom:4px}
 .x-gen-desc{font-size:13px;color:var(--x-text-muted,#71767b);margin-bottom:16px}
 .x-gen-input{width:100%;min-height:72px;border:1px solid var(--x-border,rgba(255,255,255,0.1));border-radius:12px;padding:12px;background:var(--x-bg,#000);color:var(--x-text);font-size:14px;resize:none;outline:none;font-family:inherit;box-sizing:border-box;transition:border-color .15s}
@@ -2177,9 +2177,9 @@ ground-color: var(--x-accent);
 }
 
 /* 关闭动画 */
-.x-gen-overlay,.x-gen-card{transition:opacity .2s ease}
+/* removed old gen-card rule */
 #x-gen-dialog.closing .x-gen-overlay{opacity:0}
-#x-gen-dialog.closing .x-gen-card{opacity:0;transform:translate(-50%,-50%) scale(0.95)}
+/* removed old gen-card rule */
 
 @keyframes x-fade-in{from{opacity:0}to{opacity:1}}
 @keyframes x-slide-up{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}

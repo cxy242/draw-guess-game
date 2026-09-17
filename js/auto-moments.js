@@ -183,40 +183,53 @@ var _LAST_MOMENT_KEY = 'autoMomentsLastPost';
 
 async function startScheduler() {
   stopScheduler();
-  if (!await getCfg(AM.enabled)) return;
+  var enabled = await getCfg(AM.enabled);
+  console.log('[AutoMoments] startScheduler enabled=' + enabled);
+  if (!enabled) return;
   var hours = await getCfg(AM.interval) || 4;
   var intervalMs = hours * 3600000;
-
-  // 补回逻辑：按真实时间计算缺了几条
-  var lastPost = parseInt(localStorage.getItem(_LAST_MOMENT_KEY)) || 0;
   var now = Date.now();
-  if (lastPost > 0) {
+
+  // 补回逻辑：始终检查，不管lastPost是否为0
+  var lastPost = parseInt(localStorage.getItem(_LAST_MOMENT_KEY)) || 0;
+  if (lastPost === 0) {
+    // 首次启用，记录当前时间，不补回
+    localStorage.setItem(_LAST_MOMENT_KEY, String(now));
+    console.log('[AutoMoments] 首次启用，记录时间');
+  } else {
     var elapsed = now - lastPost;
     var missed = Math.floor(elapsed / intervalMs);
     if (missed > 0) {
       missed = Math.min(missed, 10);
-      console.log('[Moments] 补回：距上次' + Math.round(elapsed/60000) + '分钟，需补' + missed + '条');
-      if (window.showToastLong) showToastLong('正在补回 ' + missed + ' 条朋友圈...', 4000);
+      console.log('[AutoMoments] 需补回' + missed + '条，距上次' + Math.round(elapsed/60000) + '分钟');
+      window.showToastLong && showToastLong('正在补回 ' + missed + ' 条朋友圈...', 4000);
       try {
         var ok = await catchUpMoments(missed);
         localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
-        if (window.showToastLong) showToastLong('补回成功 ' + ok + ' 条朋友圈', 3000);
+        window.showToastLong && showToastLong('补回完成 ' + ok + ' 条朋友圈', 3000);
+        console.log('[AutoMoments] 补回完成: ' + ok + '条');
       } catch(e) {
-        console.warn('[Moments] 补回失败:', e);
+        console.warn('[AutoMoments] 补回失败:', e);
         localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
-        if (window.showToastLong) showToastLong('朋友圈补回失败', 3000);
+        window.showToastLong && showToastLong('补回失败：' + (e.message || '未知错误'), 3000);
       }
+    } else {
+      console.log('[AutoMoments] 无需补回，下次发帖在' + Math.round((intervalMs - elapsed) / 60000) + '分钟后');
     }
   }
-  if (!lastPost) localStorage.setItem(_LAST_MOMENT_KEY, String(now));
 
   // 启动定时器
   _timer = setTimeout(async function tick() {
-    try { await postMoment(); } catch (_) {}
+    console.log('[AutoMoments] 定时发帖触发');
+    try { 
+      var result = await postMoment(); 
+      if (result) console.log('[AutoMoments] 发帖成功:', result.content?.slice(0, 20));
+    } catch (e) { console.warn('[AutoMoments] 发帖失败:', e); }
     localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
     var h = await getCfg(AM.interval) || 4;
     _timer = setTimeout(tick, h * 3600000);
   }, intervalMs);
+  console.log('[AutoMoments] 定时器已启动，间隔' + hours + '小时');
 }
 
 function stopScheduler() {
@@ -565,6 +578,22 @@ var observer = new MutationObserver(function() {
   _injectTimer = setTimeout(injectMomentsButton, 300);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+// 确保showToastLong可用（x-page.js可能还没加载）
+if (!window.showToastLong) {
+  window.showToastLong = function(msg, duration) {
+    duration = duration || 3000
+    var old = document.getElementById('x-toast-long')
+    if (old) old.remove()
+    var toast = document.createElement('div')
+    toast.id = 'x-toast-long'
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;padding:12px 20px;border-radius:14px;font-size:14px;z-index:100001;max-width:min(320px,80vw);max-height:50vh;overflow-y:auto;opacity:0;transition:opacity 0.3s ease;pointer-events:none;text-align:center;line-height:1.5'
+    toast.innerHTML = msg.replace(/\n/g, '<br>')
+    document.body.appendChild(toast)
+    setTimeout(function(){ toast.style.opacity = '1' }, 10)
+    setTimeout(function(){ toast.style.opacity = '0'; setTimeout(function(){ toast.remove() }, 300) }, duration)
+  }
+}
 
 async function initScheduler() {
   try {
