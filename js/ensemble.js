@@ -86,7 +86,12 @@
         return;
       }
 
-      var html = '<div class="miss-section-title">选择微信账号</div>' +
+      var html = '<div class="ens-page-header">' +
+        '<div class="ens-page-icon"><i class="fa-solid fa-users-viewfinder"></i></div>' +
+        '<div class="ens-page-title">选择身份</div>' +
+        '<div class="ens-page-desc">选择一个微信账号开始群像之旅</div>' +
+        '</div>' +
+        '<div class="miss-section-title">微信账号</div>' +
         '<div class="miss-list">';
       users.forEach(function(user) {
         html += '<button class="miss-row ens-account-row" data-owner-uid="' + user.id + '">' +
@@ -142,7 +147,12 @@
       }
 
       var selected = {};
-      var html = '<div class="miss-section-title">选择角色（可多选）</div>' +
+      var html = '<div class="ens-page-header">' +
+        '<div class="ens-page-icon"><i class="fa-solid fa-user-group"></i></div>' +
+        '<div class="ens-page-title">选择角色</div>' +
+        '<div class="ens-page-desc">选择要一起互动的角色，可以多选哦</div>' +
+        '</div>' +
+        '<div class="miss-section-title">可选角色</div>' +
         '<div class="miss-list ens-char-list">';
       items.forEach(function(item) {
         html += '<button class="miss-row ens-char-row" data-char-id="' + item.char.id + '" data-chat-id="' + item.chat.id + '">' +

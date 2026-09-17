@@ -1,6 +1,7 @@
 // ensemble-script.js - 剧本模式：设置页、AI生成剧本、剧本聊天
 // 依赖：ensemble.js, ensemble-chat.js, settings.js (callAI)
 
+try {
 window.EnsembleScript = (function() {
   'use strict';
 
@@ -335,3 +336,4 @@ window.EnsembleScript = (function() {
   };
 
 })();
+} catch(e) { console.error('[ensemble-script] Load error:', e); window.EnsembleScript = { openSettings: function() { window.toast('剧本模块加载失败: ' + e.message); } }; }
