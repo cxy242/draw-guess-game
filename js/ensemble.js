@@ -78,10 +78,10 @@
       users.sort(function(a, b) { return (b.id || 0) - (a.id || 0); });
 
       if (!users.length) {
-        body.innerHTML = '<div class="miss-empty">' +
-          '<i class="fa fa-user"></i>' +
-          '<div>暂无微信账号</div>' +
-          '<span>请先在微信里登录或创建 USER 角色</span>' +
+        body.innerHTML = '<div class="ens-empty-state">' +
+          '<div class="ens-empty-icon"><i class="fa fa-user-plus"></i></div>' +
+          '<div class="ens-empty-title">还没有微信账号</div>' +
+          '<div class="ens-empty-desc">请先在微信里登录或创建一个 USER 角色</div>' +
           '</div>';
         return;
       }
@@ -133,10 +133,10 @@
       }
 
       if (!items.length) {
-        body.innerHTML = '<div class="miss-empty">' +
-          '<i class="fa fa-users"></i>' +
-          '<div>暂无角色</div>' +
-          '<span>请先在微信里和角色建立私聊</span>' +
+        body.innerHTML = '<div class="ens-empty-state">' +
+          '<div class="ens-empty-icon"><i class="fa fa-user-group"></i></div>' +
+          '<div class="ens-empty-title">还没有角色</div>' +
+          '<div class="ens-empty-desc">请先在微信里和角色建立私聊</div>' +
           '</div>';
         return;
       }

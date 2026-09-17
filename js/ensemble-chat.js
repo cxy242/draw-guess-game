@@ -59,6 +59,19 @@ window.EnsembleChat = (function() {
     bindEvents(body);
     refreshChat();
 
+    // Add info card
+    var log = page.querySelector('#ens-chat-log');
+    if (log) {
+      var names = _characters.map(function(c) { return charName(c); }).join('、');
+      var infoHtml = '<div class="ens-chat-info">' +
+        '<div class="ens-chat-info-avatar"><i class="fa-solid fa-' + (_mode === 'script' ? 'book-open' : 'people-group') + '"></i></div>' +
+        '<div class="ens-chat-info-text">' +
+        '<div class="ens-chat-info-name">' + esc(names) + '</div>' +
+        '<div class="ens-chat-info-status">' + (_mode === 'script' ? '剧本模式' : '见面模式') + ' · ' + _characters.length + '人在线</div>' +
+        '</div></div>';
+      log.innerHTML = infoHtml;
+    }
+
     if (_mode === 'script' && _scriptConfig) {
       addSystemMessage(page, '剧本「' + (_scriptConfig.title || '未命名') + '」开始');
       if (_scriptConfig.preview) {
@@ -390,7 +403,46 @@ window.EnsembleChat = (function() {
 
   // ===== 设置页 =====
   function openSettings(page) {
-    window.toast && window.toast('设置功能开发中');
+    var state = window.EnsembleCore ? window.EnsembleCore.getState(page) : {};
+    var body = page.querySelector('#ens-body');
+    if (!body) return;
+
+    var html = '<div class="ens-settings-page">' +
+      '<div class="ens-settings-section">' +
+      '<div class="ens-settings-label">当前模式</div>' +
+      '<div class="ens-settings-value">' + (_mode === 'script' ? '剧本模式' : '见面模式') + '</div>' +
+      '</div>' +
+      '<div class="ens-settings-section">' +
+      '<div class="ens-settings-label">在场角色</div>' +
+      '<div class="ens-settings-chars">';
+
+    _characters.forEach(function(ch) {
+      html += '<span class="ens-settings-char-tag">' + esc(charName(ch)) + '</span>';
+    });
+
+    html += '</div></div>' +
+      '<div class="ens-settings-section">' +
+      '<div class="ens-settings-label">操作</div>' +
+      '<button class="btn-ghost" id="ens-settings-clear" style="width:100%;margin-top:8px;">清空聊天记录</button>' +
+      '</div></div>';
+
+    body.innerHTML = html;
+
+    var clearBtn = body.querySelector('#ens-settings-clear');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', async function() {
+        if (confirm('确定要清空聊天记录吗？')) {
+          try {
+            await db.offlineChats.where('ownerUid').equals(_ownerUid).and(function(m) { return m.mode === 'ensemble'; }).delete();
+            _history = [];
+            await refreshChat();
+            window.toast && window.toast('聊天记录已清空');
+          } catch (e) {
+            window.toast && window.toast('清空失败');
+          }
+        }
+      });
+    }
   }
 
   // ===== 暴露公共接口 =====
