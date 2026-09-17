@@ -100,7 +100,6 @@ window.injectDataButtons = function(page) {
 // 设置页关闭后 DOM 实例连同缓存一起销毁，下次打开设置时才重新计算。
 function openDataManagePage(settingsPage) {
   var cachedSizes = settingsPage && settingsPage._dataSizesResult
-  var placeholder = { wechat: 0, characters: 0, lorebook: 0, missyou: 0, social: 0, other: 0 }
   var html = buildDataPageHTML(cachedSizes || placeholder)
   var page = buildSubPage('sub-data-manage', '数据管理', html)
   openSubPage(page)
@@ -186,12 +185,13 @@ function buildSizeRowsHTML(sizes) {
     '<div class="preview-row"><span>角色档案</span><span>' + formatBytes(sizes.characters) + '</span></div>' +
     '<div class="preview-row"><span>世界书</span><span>' + formatBytes(sizes.lorebook) + '</span></div>' +
     '<div class="preview-row"><span>想见你</span><span>' + formatBytes(sizes.missyou) + '</span></div>' +
+    '<div class="preview-row"><span>群像</span><span>' + formatBytes(sizes.ensemble) + '</span></div>' +
     '<div class="preview-row"><span>社媒软件</span><span>' + formatBytes(sizes.social) + '</span></div>' +
     '<div class="preview-row"><span>其他</span><span>' + formatBytes(sizes.other) + '</span></div>'
 }
 
 function getTotalDataSize(sizes) {
-  return ['wechat', 'characters', 'lorebook', 'missyou', 'social', 'other'].reduce(function(total, key) {
+  return ['wechat', 'characters', 'lorebook', 'missyou', 'ensemble', 'social', 'other'].reduce(function(total, key) {
     return total + (Number(sizes[key]) || 0)
   }, 0)
 }
@@ -202,6 +202,7 @@ function buildOverviewRowsHTML(sizes) {
     ['fa-solid fa-folder-closed', '角色档案', sizes.characters, 'data-icon-character'],
     ['fa-solid fa-earth-americas', '世界书', sizes.lorebook, 'data-icon-lore'],
     ['fa-solid fa-fire-flame-curved', '想见你', sizes.missyou, 'data-icon-miss'],
+    ['fa-solid fa-users', '群像', sizes.ensemble, 'data-icon-ensemble'],
     ['fa-solid fa-hashtag', '社媒软件', sizes.social, 'data-icon-social'],
     ['fa-solid fa-box-archive', '其他', sizes.other, 'data-icon-other']
   ]
@@ -757,7 +758,6 @@ function backupStructuralOverhead(configCount, lsKeyCount) {
 
 // ===== 计算各分组占用空间（字节）—— 流式分批、低内存、可让出主线程 =====
 async function getDataSizes() {
-  var sizes = { wechat: 0, characters: 0, lorebook: 0, missyou: 0, social: 0, other: 0 }
 
   // 微信数据：聊天 / 群聊 / 朋友圈 / 通话（逐表分批，批间让出主线程）
   var wechatTables = ['chats', 'messages', 'groupChats', 'groupMessages', 'moments', 'callRecords', 'mcpToolTraces']

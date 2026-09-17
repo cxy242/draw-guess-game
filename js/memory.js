@@ -13,7 +13,7 @@
   var LAMBDA_MAP = { low: 0.02, medium: 0.04, high: 0.08 }
   var STATUS_LABEL = { active: '活跃', sleeping: '沉睡', archived: '归档' }
   var LAYER_LABEL = { 1: '第一层', 2: '第二层', 3: '第三层', 4: '第四层' }
-  var SOURCE_TYPE_LABEL = { wechat: '微信', x: 'X', sms: '短信', moments: '朋友圈', offline: '线下', manual: '手动', offlineMeet: '见面' }
+  var SOURCE_TYPE_LABEL = { wechat: '微信', x: 'X', sms: '短信', moments: '朋友圈', offline: '线下', manual: '手动', offlineMeet: '见面', ensemble: '群像' }
   var ROLE_SUBTITLE_DEFAULT = '于是我们建立羁绊'
   var _launchFilter = null
 
@@ -1520,7 +1520,7 @@ ${lines}`
 
   // 构建失败总结区域
   function buildFailedRunsSection(runs) {
-    var sourceLabels = { wechat: '微信', x: 'X', sms: '短信', offlineMeet: '线下', moments: '朋友圈' }
+    var sourceLabels = { wechat: '微信', x: 'X', sms: '短信', offlineMeet: '线下', ensemble: '群像', moments: '朋友圈' }
     return `
       <div class="memory-panel memory-failed-panel">
         <div class="memory-panel-head">
@@ -1746,7 +1746,7 @@ ${lines}`
 
   // 显示原文弹窗
   function showOriginalTextModal(run) {
-    var sourceLabels = { wechat: '微信聊天', x: 'X软件', sms: '短信', offlineMeet: '线下见面', moments: '朋友圈' }
+    var sourceLabels = { wechat: '微信聊天', x: 'X软件', sms: '短信', offlineMeet: '线下见面', ensemble: '群像', moments: '朋友圈' }
     var sourceLabel = sourceLabels[run.sourceType] || '未知'
     var overlay = document.createElement('div')
     overlay.className = 'sheet-overlay'
