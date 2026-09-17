@@ -515,6 +515,7 @@ function showXLoginPage(opts) {
     if (existing) existing.remove();
     var page = document.createElement('div');
     page.id = 'x-login-page';
+    page.className = 'x-login-page';
     page.innerHTML =
       '<button class="x-login-close" type="button"><i class="fa fa-angle-left"></i></button>' +
       '<div class="x-login-shell">' +
@@ -938,6 +939,7 @@ function showXPostDetail(postId, user) {
 
     var page = document.createElement('div');
     page.id = 'x-detail-page';
+    page.className = 'x-detail-page';
     page.innerHTML =
       '<div class="x-detail-header">' +
         '<button class="x-detail-back" type="button">' + X_SVG.back + '</button>' +
@@ -1318,6 +1320,7 @@ function showXCompose(user) {
     if (existing) existing.remove();
     var page = document.createElement('div');
     page.id = 'x-compose';
+    page.className = 'x-compose-page';
     var isAnonymous = false;
 
     page.innerHTML =
@@ -1818,6 +1821,7 @@ function showFollowListPanel(user) {
     var follows = xLoadFollows(user.id);
     var panel = document.createElement('div');
     panel.id = 'x-follow-list-panel';
+    panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:var(--x-bg,#000);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:env(safe-area-inset-top) 0 0 0';
 
     var listHTML = '';
     if (!follows.length) {
@@ -2242,6 +2246,7 @@ function showXSettingsPage(user) {
 
     var page = document.createElement('div');
     page.id = 'x-settings-page';
+    page.className = 'x-settings-page';
 
     page.innerHTML =
       '<div class="x-settings-header">' +
@@ -2423,6 +2428,7 @@ function showXProfileEdit(user) {
 
     var page = document.createElement('div');
     page.id = 'x-profile-edit-page';
+    page.className = 'x-profile-edit-page';
 
     var sig = '';
     try { var p = JSON.parse(localStorage.getItem(X_PROFILE_PREFIX + user.id)); if (p && p.signature) sig = p.signature; } catch(e) {}
