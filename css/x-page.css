@@ -2117,69 +2117,6 @@ ground-color: var(--x-accent);
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 /* ===== 生成帖子弹窗 ===== */
-.x-gen-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:9998;animation:x-fade-in .2s ease}
-.x-gen-card{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(380px,90vw);background:var(--x-bg,#111);border:1px solid var(--x-border,rgba(255,255,255,0.1));border-radius:16px;padding:24px;z-index:9999;animation:x-slide-up .25s cubic-bezier(.23,1,.32,1);box-shadow:0 20px 60px rgba(0,0,0,0.5)}
-.x-gen-title{font-size:20px;font-weight:700;color:var(--x-text);margin-bottom:4px}
-.x-gen-desc{font-size:13px;color:var(--x-text-muted,#71767b);margin-bottom:16px}
-.x-gen-input{width:100%;min-height:72px;border:1px solid var(--x-border,rgba(255,255,255,0.1));border-radius:12px;padding:12px;background:var(--x-bg,#000);color:var(--x-text);font-size:14px;resize:none;outline:none;font-family:inherit;box-sizing:border-box;transition:border-color .15s}
-.x-gen-input:focus{border-color:var(--x-accent,#1d9bf0)}
-.x-gen-input::placeholder{color:var(--x-text-muted,#555)}
-.x-gen-tags{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-.x-gen-tag{padding:6px 14px;border-radius:999px;border:1px solid var(--x-border,rgba(255,255,255,0.15));background:transparent;color:var(--x-text-muted,#71767b);font-size:13px;cursor:pointer;transition:all .15s}
-.x-gen-tag:hover{border-color:var(--x-accent,#1d9bf0);color:var(--x-accent)}
-.x-gen-tag.active{background:var(--x-accent,#1d9bf0);border-color:var(--x-accent);color:#fff}
-.x-gen-actions{display:flex;gap:10px;margin-top:16px}
-.x-gen-cancel{flex:1;padding:10px;border-radius:10px;border:1px solid var(--x-border);background:transparent;color:var(--x-text-muted);font-size:14px;cursor:pointer;transition:all .15s}
-.x-gen-cancel:hover{background:rgba(255,255,255,0.05)}
-.x-gen-confirm{flex:2;padding:10px;border-radius:10px;border:none;background:var(--x-accent,#1d9bf0);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.x-gen-confirm:hover{filter:brightness(1.1)}
-.x-gen-confirm:active{transform:scale(0.97)}
-
-/* Loading状态 */
-.x-gen-loading{text-align:center;padding:20px 0}
-.x-gen-spinner{width:40px;height:40px;border:3px solid var(--x-border,rgba(255,255,255,0.1));border-top-color:var(--x-accent,#1d9bf0);border-radius:50%;margin:0 auto 16px;animation:spin .8s linear infinite}
-.x-gen-loading-text{font-size:16px;font-weight:600;color:var(--x-text);margin-bottom:4px}
-.x-gen-loading-desc{font-size:13px;color:var(--x-text-muted,#71767b)}
-
-/* Toast */
-#x-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--x-accent,#1d9bf0);color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;z-index:99999;opacity:0;transition:all .3s cubic-bezier(.23,1,.32,1);pointer-events:none}
-#x-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* 补回提示弹窗 */
-.x-toast-long {
-  position: fixed;
-  bottom: 100px;
-  left: 50%;
-  transform: translateX(-50%) translateY(16px);
-  width: min(320px, 80vw);
-  max-height: 50vh;
-  overflow-y: auto;
-  background: rgba(28, 28, 30, 0.92);
-  color: #e5e5ea;
-  padding: 14px 18px;
-  border-radius: 14px;
-  font-size: 13px;
-  line-height: 1.6;
-  font-weight: 500;
-  z-index: 99999;
-  opacity: 0;
-  pointer-events: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.23, 1, 0.32, 1);
-  box-sizing: border-box;
-  word-break: break-word;
-}
-.x-toast-long.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-/* 关闭动画 */
-.x-gen-overlay,.x-gen-card{transition:opacity .2s ease}
-#x-gen-dialog.closing .x-gen-overlay{opacity:0}
-#x-gen-dialog.closing .x-gen-card{opacity:0;transform:translate(-50%,-50%) scale(0.95)}
 
 @keyframes x-fade-in{from{opacity:0}to{opacity:1}}
 @keyframes x-slide-up{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
