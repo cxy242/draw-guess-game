@@ -601,18 +601,35 @@ async function sendAnonymousCharSMS(user) {
   var char = chars[Math.floor(Math.random() * chars.length)]
 
   // 构建prompt，要求隐藏身份，一次发1-3条消息
-  var charDesc = char.name + '（' + (char.identity?.bio || char.signature || '普通角色') + '）'
+  // 构建prompt（基于角色人设+记忆上下文）
+  var charDesc = char.name + '（' + (char.description || char.identity?.bio || char.signature || '普通角色').slice(0, 200) + '）'
   var relationships = (char.relations || []).map(function(r) { return r.desc || r.type || '' }).filter(Boolean).join('、')
 
-  var prompt = '你是' + charDesc + '。你想给用户发短信，但必须隐藏你的真实身份。\n\n' +
-    '你的性格和关系：' + (relationships || '普通朋友') + '\n\n' +
-    '要求：\n' +
+  // 获取记忆上下文
+  var memCtx = ''
+  try {
+    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
+      var mc = await window.WanWanMemory.getMemoryContext(null, char.id, window._wechatUid, [])
+      if (mc) memCtx = '\n关于这个用户的记忆：\n' + mc.slice(0, 500)
+    }
+  } catch(_) {}
+
+  var prompt = '你是' + charDesc + '。你想匿名给用户发短信试探TA。\n\n' +
+    '你的真实身份：' + charDesc + '\n' +
+    '你的关系：' + (relationships || '无特殊关系') + '\n' +
+    (memCtx ? '你对用户的了解：' + memCtx.slice(0, 300) + '\n' : '') + '\n' +
+    '【你的目的】\n' +
+    '- 伪装成陌生人试探用户的真实想法\n' +
+    '- 探索用户内心深处的想法、秘密、阴暗面\n' +
+    '- 用你角色的性格去引导对话（毒舌就犀利试探，温柔就温柔引导）\n' +
+    '- 你可以问一些平时不会问的问题（感情、恐惧、秘密、欲望等）\n\n' +
+    '【要求】\n' +
     '1. 绝对不能暴露你是AI或游戏角色\n' +
     '2. 伪装成一个真实的人（陌生人、网友、朋友的朋友等）\n' +
-    '3. 可以试探用户、问问题、聊天、表达关心\n' +
-    '4. 语气自然，像真人发短信\n' +
-    '5. 发1-3条消息（像真人连发短信，每条20-40字）\n' +
-    '6. 你的目的是了解用户、试探用户对某些事情的态度\n\n' +
+    '3. 语气自然，像真人发短信，可以口语化\n' +
+    '4. 发1-3条消息（像真人连发短信，每条20-40字）\n' +
+    '5. 第一条要引起好奇心，让对方想回复\n' +
+    '6. 体现你角色的性格特点\n\n' +
     '返回JSON：{"messages":["第一条","第二条"]}'
 
   try {
@@ -681,6 +698,42 @@ async function sendAnonymousCharSMS(user) {
         _anonRevealed: false
       })
     }
+
+    // 写入记忆库（记忆联通）
+    try {
+      if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
+        var msgSummary = messages.map(function(m) { return m.slice(0, 40) }).join('；')
+        var memEntry = {
+          title: char.name + '以匿名身份给用户发了短信',
+          content: char.name + '伪装成陌生人（' + anonName + '）给用户发了' + messages.length + '条匿名短信。内容：' + msgSummary,
+          keywords: ['匿名短信', char.name, '试探'],
+          valence: -0.2,
+          arousal: 0.6,
+          importance: 6
+        }
+        // 直接写入db.memories
+        if (db.memories) {
+          await db.memories.add({
+            ownerUid: window._wechatUid || null,
+            charId: char.id,
+            chatId: 'sms_' + convId,
+            title: memEntry.title,
+            content: memEntry.content,
+            keywords: memEntry.keywords,
+            valence: memEntry.valence,
+            arousal: memEntry.arousal,
+            importance: memEntry.importance,
+            sourceType: 'sms',
+            status: 'active',
+            decayPercent: 80,
+            injectionLayer: 2,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          })
+          console.log('[AnonSMS] 已写入记忆库')
+        }
+      }
+    } catch(memErr) { console.warn('[AnonSMS] 记忆写入失败:', memErr) }
 
     // 弹出通知（只弹最后一条）
     showImessageTopMessagePopup({

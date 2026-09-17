@@ -1,1 +1,1 @@
-{"version": "2.9.2", "date": "2026-09-17", "note": "X指定角色发帖+朋友圈评论修复+renderMomentsList导出+弹窗UI重做"}
+{"version": "3.0.0", "date": "2026-09-17", "note": "X模块完全重写+朋友圈AI批量发帖+nginx不缓存JS/CSS"}

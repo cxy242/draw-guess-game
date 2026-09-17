@@ -57,7 +57,7 @@ window.renderAutoMomentsPanel = async function (container) {
   var chars      = await getCfg(AM.chars) || [];
   var interval   = await getCfg(AM.interval) || 4;
   var mode       = await getCfg(AM.mode) || 'daily';
-  var commentsOn = await getCfg(AM.commentsOn);
+  var commentsOn = opts.manual ? true : await getCfg(AM.commentsOn);
   var imagesOn   = await getCfg(AM.imagesOn);
 
   var allChars = [];
@@ -179,15 +179,57 @@ function bindPanelEvents(panel) {
 /* ══════════════════════════════════════════════════
    自动发帖调度（递归 setTimeout，比 setInterval 可靠）
    ══════════════════════════════════════════════════ */
+var _LAST_MOMENT_KEY = 'autoMomentsLastPost';
+
 async function startScheduler() {
   stopScheduler();
-  if (!await getCfg(AM.enabled)) return;
+  var enabled = await getCfg(AM.enabled);
+  console.log('[AutoMoments] startScheduler enabled=' + enabled);
+  if (!enabled) return;
   var hours = await getCfg(AM.interval) || 4;
+  var intervalMs = hours * 3600000;
+  var now = Date.now();
+
+  // 补回逻辑：始终检查，不管lastPost是否为0
+  var lastPost = parseInt(localStorage.getItem(_LAST_MOMENT_KEY)) || 0;
+  if (lastPost === 0) {
+    // 首次启用，记录当前时间，不补回
+    localStorage.setItem(_LAST_MOMENT_KEY, String(now));
+    console.log('[AutoMoments] 首次启用，记录时间');
+  } else {
+    var elapsed = now - lastPost;
+    var missed = Math.floor(elapsed / intervalMs);
+    if (missed > 0) {
+      missed = Math.min(missed, 10);
+      console.log('[AutoMoments] 需补回' + missed + '条，距上次' + Math.round(elapsed/60000) + '分钟');
+      window.showToastLong && showToastLong('正在补回 ' + missed + ' 条朋友圈...', 4000);
+      try {
+        var ok = await catchUpMoments(missed);
+        localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
+        window.showToastLong && showToastLong('补回完成 ' + ok + ' 条朋友圈', 3000);
+        console.log('[AutoMoments] 补回完成: ' + ok + '条');
+      } catch(e) {
+        console.warn('[AutoMoments] 补回失败:', e);
+        localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
+        window.showToastLong && showToastLong('补回失败：' + (e.message || '未知错误'), 3000);
+      }
+    } else {
+      console.log('[AutoMoments] 无需补回，下次发帖在' + Math.round((intervalMs - elapsed) / 60000) + '分钟后');
+    }
+  }
+
+  // 启动定时器
   _timer = setTimeout(async function tick() {
-    try { await postMoment(); } catch (_) {}
+    console.log('[AutoMoments] 定时发帖触发');
+    try { 
+      var result = await postMoment(); 
+      if (result) console.log('[AutoMoments] 发帖成功:', result.content?.slice(0, 20));
+    } catch (e) { console.warn('[AutoMoments] 发帖失败:', e); }
+    localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
     var h = await getCfg(AM.interval) || 4;
     _timer = setTimeout(tick, h * 3600000);
-  }, hours * 3600000);
+  }, intervalMs);
+  console.log('[AutoMoments] 定时器已启动，间隔' + hours + '小时');
 }
 
 function stopScheduler() {
@@ -197,6 +239,52 @@ function stopScheduler() {
 /* ══════════════════════════════════════════════════
    核心：生成并发布朋友圈
    ══════════════════════════════════════════════════ */
+
+/* 补回：一次API生成N条朋友圈（省API！） */
+async function catchUpMoments(count) {
+  if (!window.callAI) return 0;
+  var charIds = await getCfg(AM.chars) || [];
+  if (!charIds.length) return 0;
+  var mode = await getCfg(AM.mode) || 'daily';
+  var chars = [];
+  for (var ci = 0; ci < charIds.length; ci++) {
+    var c = await window.db.characters.get(charIds[ci]);
+    if (c) chars.push(c);
+  }
+  if (!chars.length) return 0;
+  var picked = [];
+  for (var i = 0; i < count; i++) picked.push(chars[Math.floor(Math.random() * chars.length)]);
+  var charDescs = picked.map(function(c, i) { return (i+1) + '. ' + c.name; }).join(', ');
+  var modeDesc = mode === 'daily' ? '80%日常+20%提到用户' : '50%日常+50%提到用户';
+  var prompt = '为以下' + count + '个角色各生成1条朋友圈。角色：' + charDescs + '。方向：' + modeDesc + '。每条1-3句不超过80字，口语化自然。每条配3-5条评论。返回JSON：{posts:[{text:文案,likes:[人],comments:[{from:人,to:null,text:评论}]}]}';
+  try {
+    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
+    var data = parseJSON(raw);
+    if (!data || !Array.isArray(data.posts)) return 0;
+    var ok = 0;
+    var ownerUid = window._wechatUid || await getCfg('currentUserId');
+    for (var pi = 0; pi < data.posts.length; pi++) {
+      var p = data.posts[pi];
+      if (!p || !p.text) continue;
+      var char = picked[pi] || picked[0];
+      var moment = {
+        charId: char.id, ownerUid: ownerUid || String(char.id),
+        content: p.text, images: [],
+        likes: Array.isArray(p.likes) ? p.likes.map(function(n, li) { return { uid: 'npc_' + li, name: n, createdAt: Date.now() }; }) : [],
+        comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
+          return { id: 'cmt_' + Date.now() + '_' + ci + '_' + pi, uid: c.from === char.name ? 'char_' + char.id : 'npc_' + ci, name: c.from, replyToId: c.to ? 'cmt_prev' : '', replyToName: c.to || '', text: c.text, createdAt: Date.now() + ci * 1000 };
+        }),
+        createdAt: Date.now() - (count - pi) * 60000
+      };
+      await window.db.moments.put(moment);
+      ok++;
+      console.log('[Moments] 补回成功:', char.name, p.text.slice(0, 20));
+    }
+    refreshMomentsPage();
+    return ok;
+  } catch(e) { console.warn('[Moments] catchUpMoments失败:', e); return 0; }
+}
+
 async function postMoment(opts) {
   opts = opts || {};
   var charIds = await getCfg(AM.chars) || [];
@@ -227,7 +315,7 @@ async function postMoment(opts) {
   msgs.push({ role: 'user', content: userMsg });
 
   try {
-    var raw = await window.callAI(msgs, { responseFormat: 'json_object' });
+    var raw = await window.callAI(msgs, { responseFormat: 'json_object', charAntiDrift: true });
     var data = parseJSON(raw);
     if (!data || !data.text) return null;
 
@@ -237,11 +325,11 @@ async function postMoment(opts) {
     }
 
     /* 构造 moment 并持久化（格式匹配 buildMomentCardHTML） */
-    var ownerUid = await getCfg('currentUserId');
+    var ownerUid = (window._wechatUid || await getCfg('currentUserId'));
     var moment = {
       charId:    charId,
       ownerUid:  ownerUid || String(charId),
-      text:      data.text,
+      content:   data.text,
       images:    (data.imagesDesc || []).map(function(desc) {
         return { src: '', desc: desc };
       }),
@@ -263,7 +351,24 @@ async function postMoment(opts) {
     };
     await window.db.moments.put(moment);
 
-    console.log('[AutoMoments] 已发布:', char.name, data.text.slice(0, 30));
+    // 批量记忆：记录朋友圈互动
+    if (window.addToBatchMemory && window.checkAndFlushBatchMemory) {
+      var commentSummary = (moment.comments || []).map(function(c) {
+        return c.name + (c.replyToName ? '回复' + c.replyToName : '') + '：' + c.text;
+      }).slice(0, 3).join('；');
+      var likeSummary = (moment.likes || []).map(function(l) { return l.name; }).slice(0, 5).join('、');
+      addToBatchMemory('moments', charId, {
+        title: char.name + '发了朋友圈',
+        content: char.name + '发了一条朋友圈："' + data.text.slice(0, 60) + '"' +
+          (commentSummary ? '。评论：' + commentSummary : '') +
+          (likeSummary ? '。点赞：' + likeSummary : ''),
+        keywords: ['朋友圈', char.name]
+      });
+      checkAndFlushBatchMemory('moments', charId);
+    }
+
+    console.log('[AutoMoments] 已发布:', char.name, data.text.slice(0, 30))
+    window.toast && window.toast('[朋友圈] 已发布: ' + char.name);
     refreshMomentsPage();
     return moment;
   } catch (e) {
@@ -307,14 +412,17 @@ function buildPrompt(char, mode, commentsOn, relations, isManual) {
   p += '- 可以有emoji但自然使用不要堆砌\n';
   p += '- 配图描述要具体（"今天的拿铁拉花"而不是"咖啡"）\n';
 
-  if (commentsOn && relations.length) {
-    p += '\n【评论规则】\n';
-    p += '- 生成3-5条评论\n';
+  // 始终生成评论（NPC评论增加互动感）
+  p += '\n【评论规则】\n';
+  p += '- 生成3-5条评论\n';
+  if (relations.length) {
     p += '- 评论人从这些人中选：' + relations.join('、') + '\n';
-    p += '- 评论像真人朋友互动（调侃、关心、吐槽）\n';
-    p += '- 你回复其中1-2条评论\n';
-    p += '- 绝对不要生成"用户"的评论\n';
+  } else {
+    p += '- 评论人用普通网友名字（如：路人甲、吃瓜群众、热心市民等）\n';
   }
+  p += '- 评论像真人朋友互动（调侃、关心、吐槽）\n';
+  p += '- ' + char.name + '回复其中1-2条评论\n';
+  p += '- 绝对不要生成"用户"的评论\n';
 
   if (isManual) {
     p += '\n- 这是用户主动让你发的，内容可以更丰富一点\n';
@@ -328,7 +436,7 @@ function buildPrompt(char, mode, commentsOn, relations, isManual) {
 
 async function getRecentChat(charId, charName) {
   try {
-    var uid = await getCfg('currentUserId');
+    var uid = (window._wechatUid || await getCfg('currentUserId'));
     if (!uid) return '';
     var chat = await window.db.chats.where({ charId: charId, ownerUid: uid }).first();
     if (!chat) return '';
@@ -393,6 +501,177 @@ function refreshMomentsPage() {
 /* ══════════════════════════════════════════════════
    公开接口
    ══════════════════════════════════════════════════ */
+
+// === AI批量发帖（一次API生成多条）===
+async function batchPostMoments(charIds, countPerChar) {
+  if (!window.callAI) { window.toast && window.toast('AI服务未配置'); return 0; }
+  if (!charIds || !charIds.length) { window.toast && window.toast('请选择角色'); return 0; }
+
+  var chars = [];
+  for (var i = 0; i < charIds.length; i++) {
+    var c = await window.db.characters.get(charIds[i]);
+    if (c) chars.push(c);
+  }
+  if (!chars.length) { window.toast && window.toast('未找到角色'); return 0; }
+
+  var totalCount = chars.length * countPerChar;
+  var charDescs = chars.map(function(c, i) {
+    return (i+1) + '. ' + c.name + ' (' + (c.description || (c.identity && c.identity.bio) || '').slice(0, 50) + ')';
+  }).join('\n');
+
+  var relations = [];
+  chars.forEach(function(c) {
+    (c.relations || []).forEach(function(r) {
+      if (r.desc || r.type) relations.push(r.desc || r.type);
+    });
+  });
+  var relStr = relations.length ? relations.slice(0, 5).join('、') : '普通网友';
+
+  var prompt = '为以下' + chars.length + '个角色各生成' + countPerChar + '条朋友圈。\n\n' +
+    '角色：\n' + charDescs + '\n\n' +
+    '评论人可选：' + relStr + '\n\n' +
+    '要求：\n' +
+    '1. 每条1-3句，不超过80字，口语化自然\n' +
+    '2. 每条配3-5条评论，评论人从角色关系人中选\n' +
+    '3. 角色回复其中1-2条评论\n' +
+    '4. 不同角色的朋友圈风格要不同\n\n' +
+    '返回JSON：\n' +
+    '{"posts":[{"charIndex":0,"text":"文案","likes":["点赞人"],"comments":[{"from":"人","to":null,"text":"评论"}]}]}';
+
+  window.toast && window.toast('正在生成' + totalCount + '条朋友圈...');
+  try {
+    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
+    if (!data || !data.posts || !data.posts.length) { window.toast && window.toast('AI未返回内容'); return 0; }
+
+    var ownerUid = window._wechatUid || null;
+    var ok = 0;
+    for (var pi = 0; pi < data.posts.length; pi++) {
+      var p = data.posts[pi];
+      if (!p || !p.text) continue;
+      var charIdx = (typeof p.charIndex === 'number') ? p.charIndex : (pi % chars.length);
+      var char = chars[charIdx] || chars[0];
+      var moment = {
+        charId: char.id,
+        ownerUid: ownerUid || String(char.id),
+        content: p.text,
+        images: [],
+        likes: Array.isArray(p.likes) ? p.likes.map(function(n, li) { return {uid:'npc_'+li, name:n, createdAt:Date.now()}; }) : [],
+        comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
+          return {id:'cmt_'+Date.now()+'_'+ci+'_'+pi, uid:c.from===char.name?'char_'+char.id:'npc_'+ci, name:c.from, replyToId:c.to?'cmt_prev':'', replyToName:c.to||'', text:c.text, createdAt:Date.now()+ci*1000};
+        }),
+        createdAt: Date.now() - (data.posts.length - pi) * 60000
+      };
+      await window.db.moments.put(moment);
+      ok++;
+    }
+    window.toast && window.toast('已生成' + ok + '条朋友圈');
+    refreshMomentsPage();
+    return ok;
+  } catch(e) {
+    console.warn('[AutoMoments] batchPostMoments失败:', e);
+    window.toast && window.toast('生成失败：' + (e.message || '未知错误'));
+    return 0;
+  }
+}
+
+// === AI发帖弹窗 ===
+window.showMomentsBatchDialog = async function() {
+  var old = document.getElementById('am-batch-dialog');
+  if (old) { old.remove(); return; }
+
+  var chars = [];
+  try { chars = await window.db.characters.where('type').equals('char').toArray(); } catch(e) {}
+
+  var overlay = document.createElement('div');
+  overlay.id = 'am-batch-dialog';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;display:flex;align-items:flex-end;justify-content:center;';
+
+  var backdrop = document.createElement('div');
+  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+  backdrop.onclick = function() { overlay.remove(); };
+  overlay.appendChild(backdrop);
+
+  var card = document.createElement('div');
+  card.style.cssText = 'position:relative;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;background:#f7f5f4;border-radius:20px 20px 0 0;animation:am-slide-up 280ms cubic-bezier(0.23,1,0.32,1);';
+
+  var selectedCount = 1;
+
+  card.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid rgba(0,0,0,0.06)">' +
+      '<div style="font-size:16px;font-weight:600;color:#2d2b2e">AI发朋友圈</div>' +
+      '<button class="am-batch-close" style="background:none;border:none;font-size:18px;color:#8b8589;cursor:pointer;padding:4px 8px">关闭</button>' +
+    '</div>' +
+    '<div style="padding:14px 20px">' +
+      '<div style="font-size:13px;font-weight:500;color:#8b8589;margin-bottom:10px">选择角色</div>' +
+      '<div class="am-batch-chars" style="display:flex;flex-wrap:wrap;gap:8px">' +
+        chars.map(function(c) {
+          return '<label class="am-batch-pill" data-id="' + c.id + '" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1px solid rgba(0,0,0,0.12);background:#8b8589;color:#fff;cursor:pointer;font-size:13px;transition:all 150ms ease-out"><input type="checkbox" checked style="display:none"><span>' + esc(c.nick || c.name) + '</span></label>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
+    '<div style="padding:0 20px 14px">' +
+      '<div style="font-size:13px;font-weight:500;color:#8b8589;margin-bottom:10px">每人发几条</div>' +
+      '<div class="am-batch-counts" style="display:flex;gap:8px">' +
+        '<button class="am-count-btn active" data-val="1" style="padding:6px 16px;border-radius:16px;border:1px solid #8b8589;background:#8b8589;color:#fff;font-size:13px;cursor:pointer">1条</button>' +
+        '<button class="am-count-btn" data-val="2" style="padding:6px 16px;border-radius:16px;border:1px solid rgba(0,0,0,0.12);background:transparent;color:#2d2b2e;font-size:13px;cursor:pointer">2条</button>' +
+        '<button class="am-count-btn" data-val="3" style="padding:6px 16px;border-radius:16px;border:1px solid rgba(0,0,0,0.12);background:transparent;color:#2d2b2e;font-size:13px;cursor:pointer">3条</button>' +
+        '<button class="am-count-btn" data-val="5" style="padding:6px 16px;border-radius:16px;border:1px solid rgba(0,0,0,0.12);background:transparent;color:#2d2b2e;font-size:13px;cursor:pointer">5条</button>' +
+      '</div>' +
+    '</div>' +
+    '<div style="padding:0 20px 24px">' +
+      '<button class="am-batch-confirm" style="width:100%;padding:12px;border:none;border-radius:12px;background:#8b8589;color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:transform 150ms ease-out">立即生成</button>' +
+    '</div>';
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  // Close
+  card.querySelector('.am-batch-close').onclick = function() { overlay.remove(); };
+
+  // Count selection
+  card.querySelectorAll('.am-count-btn').forEach(function(btn) {
+    btn.onclick = function() {
+      selectedCount = parseInt(btn.dataset.val) || 1;
+      card.querySelectorAll('.am-count-btn').forEach(function(b) {
+        var isActive = b === btn;
+        b.style.background = isActive ? '#8b8589' : 'transparent';
+        b.style.color = isActive ? '#fff' : '#2d2b2e';
+        b.style.borderColor = isActive ? '#8b8589' : 'rgba(0,0,0,0.12)';
+      });
+    };
+  });
+
+  // Character pill toggle
+  card.querySelectorAll('.am-batch-pill').forEach(function(label) {
+    var cb = label.querySelector('input');
+    label.onclick = function(e) {
+      e.preventDefault();
+      cb.checked = !cb.checked;
+      label.style.background = cb.checked ? '#8b8589' : 'transparent';
+      label.style.color = cb.checked ? '#fff' : '#2d2b2e';
+      label.style.borderColor = cb.checked ? '#8b8589' : 'rgba(0,0,0,0.12)';
+    };
+  });
+
+  // Confirm
+  card.querySelector('.am-batch-confirm').onclick = async function() {
+    var selectedIds = [];
+    card.querySelectorAll('.am-batch-pill input:checked').forEach(function(cb) {
+      selectedIds.push(parseInt(cb.closest('.am-batch-pill').dataset.id));
+    });
+    if (!selectedIds.length) { window.toast && window.toast('请至少选一个角色'); return; }
+
+    var btn = card.querySelector('.am-batch-confirm');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+
+    await batchPostMoments(selectedIds, selectedCount);
+    overlay.remove();
+  };
+};
+
+
 window.AutoMoments = {
   post:       postMoment,
 
@@ -458,8 +737,21 @@ function injectMomentsButton() {
     e.stopPropagation();
     openSettingsPanel();
   });
+  // AI批量发帖按钮
+  var batchBtn = document.createElement('button');
+  batchBtn.id = 'am-batch-btn';
+  batchBtn.className = 'moments-nav-btn';
+  batchBtn.style.marginRight = '4px';
+  batchBtn.setAttribute('aria-label', 'AI发帖');
+  batchBtn.innerHTML = '<i class="fa-solid fa-robot"></i>';
+  batchBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.showMomentsBatchDialog) window.showMomentsBatchDialog();
+  });
   // 插入到发帖按钮前面
   postBtn.parentNode.insertBefore(btn, postBtn);
+  postBtn.parentNode.insertBefore(batchBtn, postBtn);
   console.log('[AutoMoments] 按钮已注入');
 }
 
@@ -470,6 +762,66 @@ var observer = new MutationObserver(function() {
   _injectTimer = setTimeout(injectMomentsButton, 300);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+// 确保showToastLong可用（x-page.js可能还没加载）
+if (!window.showToastLong) {
+  window.showToastLong = function(msg, duration) {
+    duration = duration || 3000
+    var old = document.getElementById('x-toast-long')
+    if (old) old.remove()
+    var toast = document.createElement('div')
+    toast.id = 'x-toast-long'
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;padding:12px 20px;border-radius:14px;font-size:14px;z-index:100001;max-width:min(320px,80vw);max-height:50vh;overflow-y:auto;opacity:0;transition:opacity 0.3s ease;pointer-events:none;text-align:center;line-height:1.5'
+    toast.innerHTML = msg.replace(/\n/g, '<br>')
+    document.body.appendChild(toast)
+    setTimeout(function(){ toast.style.opacity = '1' }, 10)
+    setTimeout(function(){ toast.style.opacity = '0'; setTimeout(function(){ toast.remove() }, 300) }, duration)
+  }
+}
+
+async function initScheduler() {
+  try {
+    if (await getCfg(AM.enabled)) {
+      console.log('[AutoMoments] 启动调度器');
+      startScheduler();
+    }
+  } catch (e) {
+    console.error('[AutoMoments] 初始化失败:', e);
+  }
+}
+setTimeout(initScheduler, 2000);
+
+// === Service Worker 注册 ===
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+    console.log('[AutoMoments] SW registered');
+    // 发送启动消息
+    if (reg.active) {
+      reg.active.postMessage('start');
+    }
+    reg.addEventListener('updatefound', function() {
+      var newWorker = reg.installing;
+      newWorker.addEventListener('statechange', function() {
+        if (newWorker.state === 'activated') {
+          newWorker.postMessage('start');
+        }
+      });
+    });
+  }).catch(function(e) {
+    console.error('[AutoMoments] SW注册失败:', e);
+  });
+  
+  // 监听SW消息
+  navigator.serviceWorker.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'auto-moments-check') {
+      console.log('[AutoMoments] 收到SW唤醒信号，检查发帖');
+      if (typeof startScheduler === 'function') {
+        startScheduler();
+      }
+    }
+  });
+}
+
 
 // 初始尝试注入
 setTimeout(injectMomentsButton, 1000);
