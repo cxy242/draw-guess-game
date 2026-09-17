@@ -1,107 +1,96 @@
-/* ensemble.css - 群像模块样式
- * 雾蓝配色：#6b7d8d #8fa0af #b1bfca #eceef1
- * 设计风格：Neo Minimalism, Card-based, 12px border-radius
+/* ensemble.css - 群像模块
+ * 设计风格：高级感亮色、精致阴影、玻璃质感
+ * 与小手机整体白色系风格统一
  */
-
-/* ===== CSS变量 ===== */
-.ens-page {
-  --ens-bg: #0a0a1a;
-  --ens-surface: #141428;
-  --ens-surface-2: #1e1e38;
-  --ens-border: rgba(107, 125, 141, 0.15);
-  --ens-border-m: rgba(107, 125, 141, 0.25);
-  --ens-accent: #6b7d8d;
-  --ens-accent-light: #8fa0af;
-  --ens-accent-dark: #4a5f6f;
-  --ens-blue-light: #b1bfca;
-  --ens-blue-pale: #eceef1;
-  --ens-text: #eceef1;
-  --ens-text-muted: #8fa0af;
-  --ens-text-dim: #6b7d8d;
-  --ens-env-color: #8fa0af;
-  --ens-action-color: #b1bfca;
-  --ens-dialogue-color: #eceef1;
-  --ens-card-ai-bg: rgba(30, 30, 56, 0.8);
-  --ens-card-user-bg: rgba(107, 125, 141, 0.15);
-}
 
 /* ===== 页面基础 ===== */
 .ens-page {
-  background: var(--ens-bg) !important;
-  color: var(--ens-text);
-  font-size: 15px;
-  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #2f3136;
 }
 
 .ens-page .ens-header {
-  background: rgba(20, 20, 40, 0.95);
-  border-bottom: 1px solid var(--ens-border);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .ens-page .header-back,
 .ens-page .ens-settings-btn {
-  color: var(--ens-blue-light);
+  color: #2f3136;
 }
 
 .ens-page .header-title {
-  color: var(--ens-text);
+  color: #2f3136;
   font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.5px;
 }
 
 /* ===== Body ===== */
 .ens-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  background: var(--c-bg, #f5f5f5);
   -webkit-overflow-scrolling: touch;
 }
 
-/* ===== 列表样式 ===== */
+/* ===== 区域标题 ===== */
 .ens-page .miss-section-title {
-  color: var(--ens-text-muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  padding: 16px 16px 8px;
+  padding: 20px 20px 10px;
+  color: #8a8a8a;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
+/* ===== 列表容器 ===== */
 .ens-page .miss-list {
-  padding: 0 12px;
+  margin: 0 16px 24px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
+/* ===== 列表行 ===== */
 .ens-page .miss-row {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 14px 16px;
-  margin-bottom: 4px;
-  background: var(--ens-surface);
-  border: 1px solid var(--ens-border);
-  border-radius: 12px;
-  color: var(--ens-text);
-  cursor: pointer;
-  transition: all 200ms ease-out;
-  min-height: 56px;
-  width: 100%;
+  color: #2f3136;
   text-align: left;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+  background: transparent;
+  cursor: pointer;
+  transition: background 150ms ease;
+  min-height: 56px;
 }
 
-.ens-page .miss-row:hover {
-  background: var(--ens-surface-2);
-  border-color: var(--ens-border-m);
+.ens-page .miss-row:last-child {
+  border-bottom: none;
 }
 
 .ens-page .miss-row:active {
-  transform: scale(0.98);
+  background: rgba(0, 0, 0, 0.03);
 }
 
+/* ===== 头像 ===== */
 .ens-page .miss-avatar {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
-  background: var(--ens-accent);
+  background: linear-gradient(135deg, #e8edf2 0%, #d4dbe3 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -114,46 +103,48 @@
 }
 
 .ens-page .miss-avatar span {
-  color: var(--ens-blue-pale);
+  color: #6b7d8d;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 17px;
 }
 
+/* ===== 行内容 ===== */
 .ens-page .miss-row-main {
   flex: 1;
   min-width: 0;
 }
 
 .ens-page .miss-row-title {
-  color: var(--ens-text);
+  color: #2f3136;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .ens-page .miss-row-sub {
-  color: var(--ens-text-dim);
+  color: #8a8a8a;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .ens-page .fa-angle-right {
-  color: var(--ens-text-dim);
+  color: #c7c7cc;
+  font-size: 14px;
 }
 
 /* ===== Loading & Empty ===== */
 .ens-page .miss-loading {
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: var(--ens-accent-light);
-  font-size: 24px;
+  color: #c7c7cc;
+  font-size: 20px;
 }
 
 .ens-page .miss-empty {
@@ -161,101 +152,117 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: var(--ens-text-dim);
+  padding: 80px 20px;
+  color: #8a8a8a;
   text-align: center;
 }
 
 .ens-page .miss-empty i {
   font-size: 48px;
   margin-bottom: 16px;
-  opacity: 0.5;
+  color: #d4dbe3;
 }
 
 .ens-page .miss-empty div {
   font-size: 16px;
-  margin-bottom: 8px;
+  color: #2f3136;
+  margin-bottom: 6px;
 }
 
 .ens-page .miss-empty span {
   font-size: 13px;
-  opacity: 0.7;
+  color: #8a8a8a;
 }
 
 /* ===== 多选角色 ===== */
 .ens-char-list .ens-char-row {
   position: relative;
+  transition: background 150ms ease;
 }
 
 .ens-char-list .ens-char-row.selected {
-  background: rgba(107, 125, 141, 0.2);
-  border-color: var(--ens-accent);
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .ens-check {
   width: 24px;
   height: 24px;
+  border-radius: 50%;
+  border: 2px solid #d4dbe3;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ens-accent-light);
   flex-shrink: 0;
+  transition: all 200ms ease;
+}
+
+.ens-char-row.selected .ens-check {
+  background: #2f3136;
+  border-color: #2f3136;
+}
+
+.ens-check i {
+  color: #fff;
+  font-size: 11px;
 }
 
 .ens-confirm-bar {
-  padding: 16px;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
   position: sticky;
   bottom: 0;
-  background: var(--ens-bg);
-  border-top: 1px solid var(--ens-border);
+  background: rgba(245, 245, 245, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.06);
 }
 
 /* ===== 模式选择 ===== */
 .ens-mode-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 16px 20px;
 }
 
 .ens-mode-card {
-  background: var(--ens-surface);
-  border: 2px solid var(--ens-border);
+  background: #fff;
+  border: none;
   border-radius: 16px;
-  padding: 24px 16px;
+  padding: 28px 16px;
   text-align: center;
   cursor: pointer;
-  transition: all 250ms ease-out;
-  color: var(--ens-text);
-  min-height: 120px;
-}
-
-.ens-mode-card:hover {
-  border-color: var(--ens-accent);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(107, 125, 141, 0.15);
+  transition: all 250ms ease;
+  color: #2f3136;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.04);
 }
 
 .ens-mode-card:active {
   transform: scale(0.97);
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .ens-mode-icon {
-  font-size: 32px;
-  margin-bottom: 12px;
-  color: var(--ens-accent-light);
+  font-size: 36px;
+  margin-bottom: 14px;
+  color: #2f3136;
 }
 
 .ens-mode-title {
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  color: #2f3136;
 }
 
 .ens-mode-desc {
-  font-size: 13px;
-  color: var(--ens-text-dim);
-  line-height: 1.4;
+  font-size: 12px;
+  color: #8a8a8a;
+  line-height: 1.5;
 }
 
 /* ===== 聊天界面 ===== */
@@ -270,6 +277,7 @@
   overflow-y: auto;
   padding: 16px;
   -webkit-overflow-scrolling: touch;
+  background: var(--c-bg, #f5f5f5);
 }
 
 /* ===== 消息卡片 ===== */
@@ -287,43 +295,51 @@
 }
 
 .ens-msg-card {
-  max-width: 85%;
-  padding: 14px 16px;
-  border-radius: 12px;
-  line-height: 1.7;
+  max-width: 82%;
+  padding: 16px 18px;
+  border-radius: 16px;
+  line-height: 1.75;
 }
 
+/* AI卡片 - 白色卡片带精致阴影 */
 .ens-card-ai {
-  background: var(--ens-card-ai-bg);
-  border: 1px solid var(--ens-border);
+  background: #fff;
+  border-radius: 18px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
+/* 用户卡片 - 深色气泡 */
 .ens-card-user {
-  background: var(--ens-card-user-bg);
-  border: 1px solid rgba(107, 125, 141, 0.3);
+  background: #2f3136;
+  color: #fff;
 }
 
 /* ===== 卡片内文字样式 ===== */
 .ens-card-ai .env-text {
-  color: var(--ens-env-color);
+  color: #8a8a8a;
   font-size: 14px;
-  margin-bottom: 8px;
+  line-height: 1.7;
+  margin-bottom: 10px;
+  font-style: italic;
 }
 
 .ens-card-ai .action-text {
-  color: var(--ens-action-color);
-  font-style: italic;
+  color: #6b7280;
   font-size: 14px;
-  margin-bottom: 8px;
+  line-height: 1.7;
+  margin-bottom: 10px;
   padding-left: 12px;
-  border-left: 3px solid rgba(177, 191, 202, 0.3);
+  border-left: 2px solid #e5e7eb;
 }
 
 .ens-card-ai .dialogue-text {
-  color: var(--ens-dialogue-color);
-  font-weight: 500;
+  color: #1f2937;
   font-size: 15px;
-  margin-bottom: 8px;
+  font-weight: 500;
+  line-height: 1.75;
+  margin-bottom: 10px;
 }
 
 .ens-card-ai .env-text:last-child,
@@ -335,32 +351,32 @@
 /* ===== 系统消息 ===== */
 .ens-system-msg {
   text-align: center;
-  color: var(--ens-text-dim);
-  font-size: 13px;
-  padding: 8px 16px;
+  color: #8a8a8a;
+  font-size: 12px;
+  padding: 10px 20px;
   margin-bottom: 12px;
-  opacity: 0.7;
 }
 
-/* ===== 用户消息 ===== */
+/* ===== 用户消息文字 ===== */
 .ens-msg-text {
-  color: var(--ens-text);
+  color: #fff;
   font-size: 15px;
+  line-height: 1.6;
 }
 
 /* ===== Typing指示器 ===== */
 .ens-typing {
   display: flex;
-  gap: 6px;
-  padding: 12px 16px;
+  gap: 5px;
+  padding: 14px 18px;
   justify-content: flex-start;
 }
 
 .ens-typing span {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--ens-accent);
+  background: #c7c7cc;
   animation: ens-typing-bounce 1.4s infinite ease-in-out;
 }
 
@@ -377,81 +393,80 @@
 .ens-compose {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
-  background: rgba(20, 20, 40, 0.95);
-  border-top: 1px solid var(--ens-border);
+  gap: 10px;
+  padding: 10px 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
 }
 
 .ens-compose-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  background: var(--ens-surface);
-  border: 1px solid var(--ens-border);
-  color: var(--ens-accent-light);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+  border: none;
+  color: #6b7280;
   cursor: pointer;
-  transition: all 160ms ease-out;
+  transition: all 150ms ease;
   flex-shrink: 0;
-}
-
-.ens-compose-btn:hover {
-  background: var(--ens-surface-2);
+  font-size: 15px;
 }
 
 .ens-compose-btn:active {
+  background: rgba(0, 0, 0, 0.08);
   transform: scale(0.95);
 }
 
 .ens-input {
   flex: 1;
-  min-height: 44px;
-  max-height: 120px;
-  padding: 10px 14px;
-  background: var(--ens-surface);
-  border: 1px solid var(--ens-border);
-  border-radius: 10px;
-  color: var(--ens-text);
+  min-height: 36px;
+  max-height: 100px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.04);
+  border: none;
+  border-radius: 18px;
+  color: #2f3136;
   font-size: 15px;
   resize: none;
   outline: none;
-  transition: border-color 200ms ease-out;
+  transition: background 200ms ease;
+  line-height: 1.4;
 }
 
 .ens-input:focus {
-  border-color: var(--ens-accent);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .ens-input::placeholder {
-  color: var(--ens-text-dim);
+  color: #c7c7cc;
 }
 
 .ens-send {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 44px;
-  padding: 0 20px;
-  background: var(--ens-accent);
+  height: 36px;
+  padding: 0 18px;
+  background: #2f3136;
   border: none;
-  border-radius: 10px;
-  color: var(--ens-blue-pale);
-  font-size: 15px;
+  border-radius: 18px;
+  color: #fff;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 160ms ease-out;
+  transition: all 150ms ease;
   flex-shrink: 0;
 }
 
-.ens-send:hover {
-  background: var(--ens-accent-light);
-}
-
 .ens-send:active {
-  transform: scale(0.97);
+  transform: scale(0.95);
+  opacity: 0.9;
 }
 
 /* ===== 工具栏 ===== */
@@ -459,8 +474,10 @@
   display: flex;
   gap: 8px;
   padding: 8px 16px;
-  background: rgba(20, 20, 40, 0.9);
-  border-top: 1px solid var(--ens-border);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.06);
 }
 
 .ens-tool-btn {
@@ -470,120 +487,125 @@
   justify-content: center;
   gap: 6px;
   padding: 10px 12px;
-  background: var(--ens-surface);
-  border: 1px solid var(--ens-border);
-  border-radius: 8px;
-  color: var(--ens-text-muted);
+  background: rgba(0, 0, 0, 0.03);
+  border: none;
+  border-radius: 10px;
+  color: #6b7280;
   font-size: 13px;
   cursor: pointer;
-  transition: all 160ms ease-out;
+  transition: all 150ms ease;
   min-height: 40px;
 }
 
-.ens-tool-btn:hover {
-  background: var(--ens-surface-2);
-  color: var(--ens-text);
-}
-
 .ens-tool-btn:active {
+  background: rgba(0, 0, 0, 0.06);
   transform: scale(0.97);
 }
 
 /* ===== 人员管理弹窗 ===== */
 .ens-personnel-modal {
-  max-width: 360px;
-  width: 90%;
-  background: var(--ens-surface);
-  border: 1px solid var(--ens-border);
-  border-radius: 16px;
+  max-width: 340px;
+  width: 88%;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.1),
+    0 12px 48px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
 }
 
 .ens-personnel-list {
-  max-height: 400px;
+  max-height: 360px;
   overflow-y: auto;
-  padding: 12px 0;
+  padding: 8px 0;
 }
 
 .ens-section-label {
   font-size: 11px;
-  color: var(--ens-text-dim);
+  color: #8a8a8a;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
-  padding: 8px 16px;
-  margin-top: 8px;
+  letter-spacing: 1px;
+  padding: 12px 20px 6px;
+  font-weight: 600;
 }
 
 .ens-person-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 10px 20px;
 }
 
 .ens-person-name {
   flex: 1;
-  font-size: 14px;
-  color: var(--ens-text);
+  font-size: 15px;
+  color: #2f3136;
+  font-weight: 500;
 }
 
 .ens-remove-btn,
 .ens-add-btn {
-  padding: 6px 14px;
-  font-size: 12px;
-  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 160ms ease-out;
+  transition: all 150ms ease;
   min-height: 32px;
   border: none;
 }
 
 .ens-remove-btn {
-  background: rgba(176, 90, 90, 0.2);
-  color: #e8a0a0;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
 }
 
-.ens-remove-btn:hover {
-  background: rgba(176, 90, 90, 0.3);
+.ens-remove-btn:active {
+  background: rgba(239, 68, 68, 0.15);
+  transform: scale(0.95);
 }
 
 .ens-add-btn {
-  background: rgba(107, 125, 141, 0.2);
-  color: var(--ens-blue-light);
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
 }
 
-.ens-add-btn:hover {
-  background: rgba(107, 125, 141, 0.3);
+.ens-add-btn:active {
+  background: rgba(59, 130, 246, 0.15);
+  transform: scale(0.95);
 }
 
 /* ===== 剧本设置 ===== */
 .ens-script-settings {
-  padding: 16px;
+  padding: 8px 0;
 }
 
 .ens-radio-group {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 16px;
+  padding: 0 20px;
+  margin-bottom: 20px;
 }
 
 .ens-radio-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  background: var(--ens-surface);
-  border: 1px solid var(--ens-border);
-  border-radius: 8px;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.03);
+  border: none;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 160ms ease-out;
-  min-height: 44px;
-  color: var(--ens-text);
+  transition: all 150ms ease;
+  min-height: 40px;
+  color: #2f3136;
+  font-size: 14px;
 }
 
 .ens-radio-item:has(input:checked) {
-  border-color: var(--ens-accent);
-  background: rgba(107, 125, 141, 0.15);
+  background: #2f3136;
+  color: #fff;
 }
 
 .ens-radio-item input[type="radio"] {
@@ -594,16 +616,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
-  margin-bottom: 16px;
-  color: var(--ens-text);
+  padding: 12px 20px;
+  color: #2f3136;
+  font-size: 15px;
 }
 
 .ens-toggle {
   position: relative;
-  width: 48px;
-  height: 28px;
+  width: 51px;
+  height: 31px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .ens-toggle input {
@@ -618,25 +641,26 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--ens-accent-dark);
-  transition: 300ms;
-  border-radius: 28px;
+  background-color: #e5e7eb;
+  transition: 300ms ease;
+  border-radius: 31px;
 }
 
 .ens-toggle-slider:before {
   position: absolute;
   content: "";
-  height: 20px;
-  width: 20px;
-  left: 4px;
-  bottom: 4px;
-  background-color: var(--ens-blue-pale);
-  transition: 300ms;
+  height: 27px;
+  width: 27px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #fff;
+  transition: 300ms ease;
   border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .ens-toggle input:checked + .ens-toggle-slider {
-  background-color: var(--ens-accent);
+  background-color: #2f3136;
 }
 
 .ens-toggle input:checked + .ens-toggle-slider:before {
@@ -645,26 +669,26 @@
 
 .ens-input-field,
 .ens-textarea-field {
-  width: 100%;
-  padding: 12px;
+  width: calc(100% - 40px);
+  margin: 0 20px 16px;
+  padding: 12px 16px;
   font-size: 15px;
-  border: 1px solid var(--ens-border);
-  border-radius: 8px;
-  background: var(--ens-surface);
-  color: var(--ens-text);
-  margin-bottom: 16px;
-  transition: border-color 200ms ease-out;
+  border: none;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  color: #2f3136;
+  transition: background 200ms ease;
   outline: none;
 }
 
 .ens-input-field:focus,
 .ens-textarea-field:focus {
-  border-color: var(--ens-accent);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .ens-input-field::placeholder,
 .ens-textarea-field::placeholder {
-  color: var(--ens-text-dim);
+  color: #c7c7cc;
 }
 
 .ens-textarea-field {
@@ -675,60 +699,69 @@
 .ens-settings-actions {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 /* ===== 剧本预览 ===== */
 .ens-script-preview {
-  padding: 16px;
+  padding: 8px 0;
 }
 
 .ens-script-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--ens-text);
+  font-size: 24px;
+  font-weight: 700;
+  color: #2f3136;
   margin-bottom: 24px;
   text-align: center;
+  letter-spacing: -0.5px;
 }
 
 .ens-script-section {
-  margin-bottom: 20px;
+  margin: 0 20px 20px;
 }
 
 .ens-script-label {
   font-size: 11px;
-  color: var(--ens-text-dim);
+  color: #8a8a8a;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 1px;
   margin-bottom: 8px;
+  font-weight: 600;
 }
 
 .ens-script-text {
   font-size: 14px;
-  color: var(--ens-text-muted);
-  line-height: 1.7;
-  padding: 12px;
-  background: var(--ens-surface);
-  border-radius: 8px;
-  border: 1px solid var(--ens-border);
+  color: #4b5563;
+  line-height: 1.75;
+  padding: 16px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .ens-script-char {
-  padding: 12px;
-  background: var(--ens-surface);
-  border-radius: 8px;
+  padding: 14px 16px;
+  background: #fff;
+  border-radius: 12px;
   margin-bottom: 8px;
-  border: 1px solid var(--ens-border);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .ens-script-char strong {
-  color: var(--ens-text);
+  color: #2f3136;
+  font-weight: 600;
 }
 
 .ens-script-char-desc {
   font-size: 13px;
-  color: var(--ens-text-dim);
+  color: #8a8a8a;
   margin-top: 4px;
+  line-height: 1.5;
 }
 
 .ens-keywords {
@@ -738,24 +771,25 @@
 }
 
 .ens-keyword {
-  padding: 4px 12px;
-  background: rgba(107, 125, 141, 0.15);
-  color: var(--ens-accent-light);
-  border-radius: 12px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #6b7280;
+  border-radius: 20px;
   font-size: 13px;
-  border: 1px solid var(--ens-border);
+  font-weight: 500;
 }
 
 .ens-script-actions {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 /* ===== 历史剧本 ===== */
 .ens-history-date {
   font-size: 12px;
-  color: var(--ens-text-dim);
+  color: #c7c7cc;
   flex-shrink: 0;
 }
 
@@ -765,29 +799,27 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 24px;
+  padding: 14px 24px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   border: none;
-  border-radius: 10px;
+  border-radius: 14px;
   cursor: pointer;
-  transition: all 160ms ease-out;
-  min-height: 44px;
+  transition: all 150ms ease;
+  min-height: 48px;
   flex: 1;
-  background: var(--ens-accent);
-  color: var(--ens-blue-pale);
-}
-
-.ens-page .btn-pill:hover {
-  background: var(--ens-accent-light);
+  background: #2f3136;
+  color: #fff;
+  letter-spacing: 0.3px;
 }
 
 .ens-page .btn-pill:active {
   transform: scale(0.97);
+  opacity: 0.9;
 }
 
 .ens-page .btn-pill:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -796,36 +828,32 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 24px;
+  padding: 14px 24px;
   font-size: 15px;
   font-weight: 500;
-  border: 1px solid var(--ens-border);
-  border-radius: 10px;
+  border: none;
+  border-radius: 14px;
   cursor: pointer;
-  transition: all 160ms ease-out;
-  min-height: 44px;
+  transition: all 150ms ease;
+  min-height: 48px;
   flex: 1;
-  background: transparent;
-  color: var(--ens-text-muted);
-}
-
-.ens-page .btn-ghost:hover {
-  background: var(--ens-surface);
-  color: var(--ens-text);
+  background: rgba(0, 0, 0, 0.04);
+  color: #6b7280;
 }
 
 .ens-page .btn-ghost:active {
   transform: scale(0.97);
+  background: rgba(0, 0, 0, 0.07);
 }
 
 /* ===== 弹窗动画 ===== */
 .sheet-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   z-index: 1000;
   opacity: 0;
-  transition: opacity 200ms ease-out;
+  transition: opacity 250ms ease;
 }
 
 .sheet-overlay.show {
@@ -836,10 +864,10 @@
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.95);
+  transform: translate(-50%, -50%) scale(0.92);
   z-index: 1001;
   opacity: 0;
-  transition: all 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: all 300ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .center-modal.show {
@@ -849,9 +877,10 @@
 
 .sheet-title {
   font-size: 18px;
-  font-weight: 600;
-  color: var(--ens-text);
-  padding: 20px 20px 12px;
+  font-weight: 700;
+  color: #2f3136;
+  padding: 24px 20px 12px;
+  text-align: center;
 }
 
 .sheet-actions {
@@ -865,11 +894,5 @@
   .ens-page * {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .ens-page .miss-row:hover {
-    background: var(--ens-surface-2);
   }
 }
