@@ -501,6 +501,177 @@ function refreshMomentsPage() {
 /* ══════════════════════════════════════════════════
    公开接口
    ══════════════════════════════════════════════════ */
+
+// === AI批量发帖（一次API生成多条）===
+async function batchPostMoments(charIds, countPerChar) {
+  if (!window.callAI) { window.toast && window.toast('AI服务未配置'); return 0; }
+  if (!charIds || !charIds.length) { window.toast && window.toast('请选择角色'); return 0; }
+
+  var chars = [];
+  for (var i = 0; i < charIds.length; i++) {
+    var c = await window.db.characters.get(charIds[i]);
+    if (c) chars.push(c);
+  }
+  if (!chars.length) { window.toast && window.toast('未找到角色'); return 0; }
+
+  var totalCount = chars.length * countPerChar;
+  var charDescs = chars.map(function(c, i) {
+    return (i+1) + '. ' + c.name + ' (' + (c.description || (c.identity && c.identity.bio) || '').slice(0, 50) + ')';
+  }).join('\n');
+
+  var relations = [];
+  chars.forEach(function(c) {
+    (c.relations || []).forEach(function(r) {
+      if (r.desc || r.type) relations.push(r.desc || r.type);
+    });
+  });
+  var relStr = relations.length ? relations.slice(0, 5).join('、') : '普通网友';
+
+  var prompt = '为以下' + chars.length + '个角色各生成' + countPerChar + '条朋友圈。\n\n' +
+    '角色：\n' + charDescs + '\n\n' +
+    '评论人可选：' + relStr + '\n\n' +
+    '要求：\n' +
+    '1. 每条1-3句，不超过80字，口语化自然\n' +
+    '2. 每条配3-5条评论，评论人从角色关系人中选\n' +
+    '3. 角色回复其中1-2条评论\n' +
+    '4. 不同角色的朋友圈风格要不同\n\n' +
+    '返回JSON：\n' +
+    '{"posts":[{"charIndex":0,"text":"文案","likes":["点赞人"],"comments":[{"from":"人","to":null,"text":"评论"}]}]}';
+
+  window.toast && window.toast('正在生成' + totalCount + '条朋友圈...');
+  try {
+    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
+    if (!data || !data.posts || !data.posts.length) { window.toast && window.toast('AI未返回内容'); return 0; }
+
+    var ownerUid = window._wechatUid || null;
+    var ok = 0;
+    for (var pi = 0; pi < data.posts.length; pi++) {
+      var p = data.posts[pi];
+      if (!p || !p.text) continue;
+      var charIdx = (typeof p.charIndex === 'number') ? p.charIndex : (pi % chars.length);
+      var char = chars[charIdx] || chars[0];
+      var moment = {
+        charId: char.id,
+        ownerUid: ownerUid || String(char.id),
+        content: p.text,
+        images: [],
+        likes: Array.isArray(p.likes) ? p.likes.map(function(n, li) { return {uid:'npc_'+li, name:n, createdAt:Date.now()}; }) : [],
+        comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
+          return {id:'cmt_'+Date.now()+'_'+ci+'_'+pi, uid:c.from===char.name?'char_'+char.id:'npc_'+ci, name:c.from, replyToId:c.to?'cmt_prev':'', replyToName:c.to||'', text:c.text, createdAt:Date.now()+ci*1000};
+        }),
+        createdAt: Date.now() - (data.posts.length - pi) * 60000
+      };
+      await window.db.moments.put(moment);
+      ok++;
+    }
+    window.toast && window.toast('已生成' + ok + '条朋友圈');
+    refreshMomentsPage();
+    return ok;
+  } catch(e) {
+    console.warn('[AutoMoments] batchPostMoments失败:', e);
+    window.toast && window.toast('生成失败：' + (e.message || '未知错误'));
+    return 0;
+  }
+}
+
+// === AI发帖弹窗 ===
+window.showMomentsBatchDialog = async function() {
+  var old = document.getElementById('am-batch-dialog');
+  if (old) { old.remove(); return; }
+
+  var chars = [];
+  try { chars = await window.db.characters.where('type').equals('char').toArray(); } catch(e) {}
+
+  var overlay = document.createElement('div');
+  overlay.id = 'am-batch-dialog';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;display:flex;align-items:flex-end;justify-content:center;';
+
+  var backdrop = document.createElement('div');
+  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+  backdrop.onclick = function() { overlay.remove(); };
+  overlay.appendChild(backdrop);
+
+  var card = document.createElement('div');
+  card.style.cssText = 'position:relative;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;background:#f7f5f4;border-radius:20px 20px 0 0;animation:am-slide-up 280ms cubic-bezier(0.23,1,0.32,1);';
+
+  var selectedCount = 1;
+
+  card.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid rgba(0,0,0,0.06)">' +
+      '<div style="font-size:16px;font-weight:600;color:#2d2b2e">AI发朋友圈</div>' +
+      '<button class="am-batch-close" style="background:none;border:none;font-size:18px;color:#8b8589;cursor:pointer;padding:4px 8px">关闭</button>' +
+    '</div>' +
+    '<div style="padding:14px 20px">' +
+      '<div style="font-size:13px;font-weight:500;color:#8b8589;margin-bottom:10px">选择角色</div>' +
+      '<div class="am-batch-chars" style="display:flex;flex-wrap:wrap;gap:8px">' +
+        chars.map(function(c) {
+          return '<label class="am-batch-pill" data-id="' + c.id + '" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1px solid rgba(0,0,0,0.12);background:#8b8589;color:#fff;cursor:pointer;font-size:13px;transition:all 150ms ease-out"><input type="checkbox" checked style="display:none"><span>' + esc(c.nick || c.name) + '</span></label>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
+    '<div style="padding:0 20px 14px">' +
+      '<div style="font-size:13px;font-weight:500;color:#8b8589;margin-bottom:10px">每人发几条</div>' +
+      '<div class="am-batch-counts" style="display:flex;gap:8px">' +
+        '<button class="am-count-btn active" data-val="1" style="padding:6px 16px;border-radius:16px;border:1px solid #8b8589;background:#8b8589;color:#fff;font-size:13px;cursor:pointer">1条</button>' +
+        '<button class="am-count-btn" data-val="2" style="padding:6px 16px;border-radius:16px;border:1px solid rgba(0,0,0,0.12);background:transparent;color:#2d2b2e;font-size:13px;cursor:pointer">2条</button>' +
+        '<button class="am-count-btn" data-val="3" style="padding:6px 16px;border-radius:16px;border:1px solid rgba(0,0,0,0.12);background:transparent;color:#2d2b2e;font-size:13px;cursor:pointer">3条</button>' +
+        '<button class="am-count-btn" data-val="5" style="padding:6px 16px;border-radius:16px;border:1px solid rgba(0,0,0,0.12);background:transparent;color:#2d2b2e;font-size:13px;cursor:pointer">5条</button>' +
+      '</div>' +
+    '</div>' +
+    '<div style="padding:0 20px 24px">' +
+      '<button class="am-batch-confirm" style="width:100%;padding:12px;border:none;border-radius:12px;background:#8b8589;color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:transform 150ms ease-out">立即生成</button>' +
+    '</div>';
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  // Close
+  card.querySelector('.am-batch-close').onclick = function() { overlay.remove(); };
+
+  // Count selection
+  card.querySelectorAll('.am-count-btn').forEach(function(btn) {
+    btn.onclick = function() {
+      selectedCount = parseInt(btn.dataset.val) || 1;
+      card.querySelectorAll('.am-count-btn').forEach(function(b) {
+        var isActive = b === btn;
+        b.style.background = isActive ? '#8b8589' : 'transparent';
+        b.style.color = isActive ? '#fff' : '#2d2b2e';
+        b.style.borderColor = isActive ? '#8b8589' : 'rgba(0,0,0,0.12)';
+      });
+    };
+  });
+
+  // Character pill toggle
+  card.querySelectorAll('.am-batch-pill').forEach(function(label) {
+    var cb = label.querySelector('input');
+    label.onclick = function(e) {
+      e.preventDefault();
+      cb.checked = !cb.checked;
+      label.style.background = cb.checked ? '#8b8589' : 'transparent';
+      label.style.color = cb.checked ? '#fff' : '#2d2b2e';
+      label.style.borderColor = cb.checked ? '#8b8589' : 'rgba(0,0,0,0.12)';
+    };
+  });
+
+  // Confirm
+  card.querySelector('.am-batch-confirm').onclick = async function() {
+    var selectedIds = [];
+    card.querySelectorAll('.am-batch-pill input:checked').forEach(function(cb) {
+      selectedIds.push(parseInt(cb.closest('.am-batch-pill').dataset.id));
+    });
+    if (!selectedIds.length) { window.toast && window.toast('请至少选一个角色'); return; }
+
+    var btn = card.querySelector('.am-batch-confirm');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+
+    await batchPostMoments(selectedIds, selectedCount);
+    overlay.remove();
+  };
+};
+
+
 window.AutoMoments = {
   post:       postMoment,
 
@@ -566,8 +737,21 @@ function injectMomentsButton() {
     e.stopPropagation();
     openSettingsPanel();
   });
+  // AI批量发帖按钮
+  var batchBtn = document.createElement('button');
+  batchBtn.id = 'am-batch-btn';
+  batchBtn.className = 'moments-nav-btn';
+  batchBtn.style.marginRight = '4px';
+  batchBtn.setAttribute('aria-label', 'AI发帖');
+  batchBtn.innerHTML = '<i class="fa-solid fa-robot"></i>';
+  batchBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.showMomentsBatchDialog) window.showMomentsBatchDialog();
+  });
   // 插入到发帖按钮前面
   postBtn.parentNode.insertBefore(btn, postBtn);
+  postBtn.parentNode.insertBefore(batchBtn, postBtn);
   console.log('[AutoMoments] 按钮已注入');
 }
 
