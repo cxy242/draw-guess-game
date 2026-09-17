@@ -276,8 +276,20 @@ async function catchUpMoments(count) {
   for (var i = 0; i < count; i++) picked.push(chars[Math.floor(Math.random() * chars.length)]);
   var charDescs = picked.map(function(c, i) { return (i+1) + '. ' + c.name; }).join(', ');
   var modeDesc = mode === 'daily' ? '80%日常+20%提到用户' : '50%日常+50%提到用户';
-  var prompt = '为以下' + count + '个角色各生成1条朋友圈。角色：' + charDescs + '。方向：' + modeDesc + '。每条1-3句不超过80字，口语化自然。每条配3-5条评论，评论人用普通网友名字，角色回复其中1-2条。返回JSON：{posts:[{text:文案,likes:[人名],comments:[{from:人,to:null,text:评论}]}]}';
-  try {
+  // 获取其他AI角色
+    var otherAI = [];
+  try { otherAI = (await window.db.characters.where('type').equals('char').toArray()).filter(function(c) { return picked.indexOf(c) === -1; }); } catch(_) {}
+  var aiNames = otherAI.map(function(c) { return c.name; }).join('\u3001') || '\u5c0f\u7f8e\u3001\u963f\u6770';
+
+  var prompt = '\u4e3a\u4ee5\u4e0b' + count + '\u4e2a\u89d2\u8272\u5404\u751f\u62101\u6761\u670b\u53cb\u5708\u3002\u89d2\u8272\uff1a' + charDescs + '\u3002\u65b9\u5411\uff1a' + modeDesc + '\u3002\u6bcf\u67611-3\u53e5\u4e0d\u8d85\u8fc780\u5b57\uff0c\u53e3\u8bed\u5316\u81ea\u7136\u3002\n\n' +
+    '\u3010\u8bc4\u8bba\u89c4\u5219\u3011\n' +
+    '- \u6bcf\u6761\u914d5\u6761\u8bc4\u8bba\n' +
+    '- \u8bc4\u8bba\u4eba\u5fc5\u987b\u7528\u771f\u5b9e\u540d\u5b57\uff1a' + aiNames + '\n' +
+    '- \u53d1\u5e16\u89d2\u8272\u5fc5\u987b\u56de\u590d\u5176\u4e2d2-3\u6761\u8bc4\u8bba\n' +
+    '- \u88ab\u56de\u590d\u7684\u4eba\u53ef\u4ee5\u518d\u56de\u590d\uff0c\u5f62\u6210\u5bf9\u8bdd\n\n' +
+    '\u8fd4\u56deJSON\uff1a{posts:[{text:\u6587\u6848,likes:[\u4eba\u540d],comments:[{from:\u4eba,to:null,text:\u8bc4\u8bba}]}]}';
+
+try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
     var data = parseJSON(raw);
     if (!data || !Array.isArray(data.posts)) {
@@ -305,7 +317,7 @@ async function catchUpMoments(count) {
       };
       // 确保至少有一条评论
       if (!moment.comments.length) {
-        moment.comments = [{id:'cmt_'+ts+'_d_'+pi, uid:'npc_0', name:'网友', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
+        moment.comments = [{id:'cmt_'+ts+'_d_'+pi, uid:'npc_0', name:(otherAI[0] && otherAI[0].name) || '小美', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
       }
       await window.db.moments.put(moment);
       ok++;
@@ -384,7 +396,7 @@ async function postMoment(opts) {
     };
     // 确保至少有一条评论
     if (!moment.comments.length) {
-      moment.comments = [{id:'cmt_'+ts+'_d', uid:'npc_0', name:'网友', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
+      moment.comments = [{id:'cmt_'+ts+'_d', uid:'npc_0', name:'小美', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
     }
     await window.db.moments.put(moment);
 
@@ -492,7 +504,7 @@ async function buildPrompt(char, mode, commentsOn, relations, isManual) {
     p += '- 这些AI角色评论时要体现自己的性格特点\n';
   }
   if (!relations.length && !otherChars.length) {
-    p += '- 用普通网友名字评论（如：路人甲、吃瓜群众等）\n';
+    p += '- 用其他AI角色名字评论，体现各自性格\n';
   }
   p += '- 评论像真人朋友互动（调侃、关心、吐槽、问八卦）\n';
   p += '- 【重要】' + char.name + '（发帖人）必须回复其中2-3条评论，体现角色性格\n';
@@ -614,7 +626,7 @@ async function batchPostMoments(charIds, countPerChar) {
       if (r.desc || r.type) relations.push(r.desc || r.type);
     });
   });
-  var relStr = relations.length ? relations.slice(0, 5).join('、') : '普通网友';
+  var relStr = relations.length ? relations.slice(0, 5).join('、') : '小美';
 
   // 获取所有AI角色信息
   var allAIChars = [];
@@ -625,7 +637,7 @@ async function batchPostMoments(charIds, countPerChar) {
     '评论人可选：' + relStr + '\n\n' +
     '要求：\n' +
     '1. 每条1-3句，不超过80字，口语化自然\n' +
-    '2. 每条配5条评论。评论人来源：角色的关系人 + 其他AI角色（' + allAIChars.map(function(c) { return c.name; }).filter(function(n) { return n; }).join('、') + '）+ 普通网友\n' +
+    '2. 每条配5条评论。评论人来源：角色的关系人 + 其他AI角色（' + allAIChars.map(function(c) { return c.name; }).filter(function(n) { return n; }).join('、') + '）\n' +
     '3. 角色回复其中1-2条评论\n' +
     '4. 不同角色的朋友圈风格要不同\n\n' +
     '返回JSON：\n' +
@@ -657,7 +669,7 @@ async function batchPostMoments(charIds, countPerChar) {
         createdAt: ts - (data.posts.length - pi) * 60000
       };
       if (!moment.comments.length) {
-        moment.comments = [{id:'cmt_'+ts+'_d_'+pi, uid:'npc_0', name:'网友', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
+        moment.comments = [{id:'cmt_'+ts+'_d_'+pi, uid:'npc_0', name:(otherAI[0] && otherAI[0].name) || '小美', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
       }
       await window.db.moments.put(moment);
       ok++;
