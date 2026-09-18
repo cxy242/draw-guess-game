@@ -3641,8 +3641,21 @@ async function openPrivateChat(wechatPage, charId, chatId) {
           var _rows = await db.messages.where('chatId').equals(chat.id).reverse().limit(100).toArray()
           _recentMsgs = _rows.reverse().map(function(m) { return { role: m.role, content: m.content || '', createdAt: m.createdAt || 0 } })
         } catch(e) {}
+        // Also load offline chats (miss-you + ensemble)
+        try {
+          var _offlineRows = await db.offlineChats.toArray()
+          var _charOffline = _offlineRows.filter(function(m) {
+            return m.charId === char.id && m.ownerUid === window._wechatUid && (m.role === 'user' || m.role === 'assistant')
+          }).sort(function(a,b) { return (a.createdAt||0) - (b.createdAt||0); }).slice(-50)
+          if (_charOffline.length) {
+            _recentMsgs = _recentMsgs.concat(_charOffline.map(function(m) {
+              return { role: m.role, content: m.content || '', createdAt: m.createdAt || 0, source: m.mode || 'offline' }
+            }))
+            _recentMsgs.sort(function(a,b) { return (a.createdAt||0) - (b.createdAt||0); })
+          }
+        } catch(e) {}
         var _memories = []
-        try { _memories = await db.memories.where('participants').equals(char.id).toArray() } catch(e) {}
+        try { _memories = await db.memories.where('charId').equals(char.id).filter(function(m) { return m.status !== 'archived' }).toArray() } catch(e) {}
         var _memContext = _memories.map(function(m) { return m.title + ': ' + (m.content || '').slice(0, 100) }).join('\n')
         var _sysPrompt = '你是' + (char.nick || char.name) + '。请根据以下聊天记录和记忆信息，生成详细的角色状态面板。这个面板将帮助你以后回忆起之前发生的事情，所以必须写得足够详细。\n\n' +
         '【重要】每个字段都必须写得具体、详细，不能敷衍。比如"在聊天"是不合格的，应该写"在微信上和用户讨论周末去哪里吃饭，用户想吃火锅但角色建议吃日料"。\n\n' +
@@ -3665,7 +3678,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         '- 写得像日记一样具体，不要概括性的废话\n' +
         '- 根据聊天记录推断，信息不足时用合理默认值但要写得具体\n\n' +
         '返回JSON格式，不要输出其他内容：\n' +
-        '{"mem_wearing":"具体穿着描述","mem_activity":"当前在做什么","mem_location":"当前在哪里","mem_mood":"自然的心情描述","mem_next":"接下来打算做什么","mem_health_ai":"身体状况描述","mem_health_user":"用户身体状况","mem_schedule_past":[{"date":"X月X日","events":[{"time":"时间","event":"事件"}]}],"mem_schedule_today":[{"time":"时间","event":"事件"}],"mem_schedule_tomorrow":[{"time":"时间","event":"事件"}],"mem_agreements":[{"event":"约定内容","time":"时间","status":"状态"}]}'
+        '{"mem_wearing":"具体穿着描述","mem_activity":"当前在做什么","mem_location":"当前在哪里","mem_mood":"自然的心情描述","mem_next":"接下来打算做什么","mem_health_ai":"身体状况描述","mem_health_user":"用户身体状况","mem_schedule_past":[{"date":"2026年X月X日","events":[{"time":"时间","event":"事件"}]}],"mem_schedule_today":[{"time":"时间","event":"事件"}],"mem_schedule_tomorrow":[{"time":"时间","event":"事件"}],"mem_agreements":[{"event":"约定内容","time":"时间","status":"状态"}]}'
         var _msgs = _recentMsgs.slice(-20).map(function(m) { return m.role + ': ' + m.content.slice(0, 200) }).join('\n')
         if (_memContext) _msgs += '\n\n记忆库：\n' + _memContext
         var _raw = await window.callAI([{ role: 'user', content: _msgs }], { system: _sysPrompt, responseFormat: 'json_object', charAntiDrift: true })
@@ -3693,7 +3706,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
             }).toArray()
             if (_memRows.length) {
               var _now2 = new Date()
-              var _todayStr = (_now2.getMonth()+1) + '月' + _now2.getDate() + '日'
+              var _todayStr = _now2.getFullYear() + '年' + (_now2.getMonth()+1) + '月' + _now2.getDate() + '日'
               var _scheduleMap = {} // date -> [{time, event}]
               _memRows.forEach(function(m) {
                 var content = m.content || ''

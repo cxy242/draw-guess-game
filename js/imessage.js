@@ -617,7 +617,8 @@ async function sendAnonymousCharSMS(user) {
   var prompt = '你是' + charDesc + '。你想匿名给用户发短信试探TA。\n\n' +
     '你的真实身份：' + charDesc + '\n' +
     '你的关系：' + (relationships || '无特殊关系') + '\n' +
-    (memCtx ? '你对用户的了解：' + memCtx.slice(0, 300) + '\n' : '') + '\n' +
+    (memCtx ? '你对用户的了解：' + memCtx.slice(0, 300) + '\n' : '') +
+    (recentChat ? '最近和用户的聊天内容（你要基于这些内容去试探用户）：' + recentChat.slice(0, 500) + '\n' : '') + '\n' +
     '【你的目的】\n' +
     '- 伪装成陌生人试探用户的真实想法\n' +
     '- 探索用户内心深处的想法、秘密、阴暗面\n' +
