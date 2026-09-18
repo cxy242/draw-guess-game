@@ -2674,7 +2674,9 @@ function startXAutoPostScheduler(user) {
       var missed = Math.floor(elapsed / intervalMs);
       if (missed > 0) {
         missed = Math.min(missed, 10);
+        if (document.getElementById('x-page')) {
         xAutoPostCatchUp(user, missed, lastPost, intervalMs);
+      }
       }
     }
 

@@ -634,7 +634,9 @@ async function batchPostMoments(charIds, countPerChar) {
 
   var prompt = '为以下' + chars.length + '个角色各生成' + countPerChar + '条朋友圈。\n\n' +
     '角色：\n' + charDescs + '\n\n' +
-    '评论人可选：' + relStr + '\n\n' +
+    '评论人可选（各有独特人设）：' + relStr + "\n\n" +
+    '评论人人设：\n' + allAIChars.map(function(c){return c.name+"："+((c.description||c.persona||"").slice(0,50))}).join("\n") + "\n\n" +
+     + '\n\n' +
     '要求：\n' +
     '1. 每条1-3句，不超过80字，口语化自然\n' +
     '2. 每条配5条评论。评论人来源：角色的关系人 + 其他AI角色（' + allAIChars.map(function(c) { return c.name; }).filter(function(n) { return n; }).join('、') + '）\n' +
