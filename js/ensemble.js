@@ -199,6 +199,9 @@ function renderChat(page) {
   var names = _state.current.map(function(c) { return chName(c.char); }).join('、');
   log.innerHTML = '<div class="ens-chat-info"><div class="ens-chat-info-avatar"><i class="fa-solid fa-' + (_state.mode === 'script' ? 'book-open' : 'people-group') + '"></i></div><div class="ens-chat-info-text"><div class="ens-chat-info-name">' + esc(names) + '</div><div class="ens-chat-info-status">' + (_state.mode === 'script' ? '剧本模式' : '见面模式') + ' · ' + _state.current.length + '人</div></div></div>';
 
+  // 加载历史聊天
+  loadChatHistory(page);
+
   if (_state.mode === 'script' && _state.scriptData) {
     addSysMsg(page, '剧本「' + (_state.scriptData.title || '未命名') + '」开始');
     if (_state.scriptData.preview) addSysMsg(page, _state.scriptData.preview);
@@ -306,13 +309,27 @@ function addMsg(page, role, text) {
   var div = document.createElement('div');
   div.className = 'ens-msg ' + (role === 'user' ? 'is-user' : 'is-ai');
   if (role === 'user') {
-    div.innerHTML = '<div class="ens-msg-card ens-card-user"><div class="ens-msg-text">' + esc(text) + '</div></div>';
+    div.innerHTML = '<div class=ens-msg-card><div class=ens-msg-text>' + esc(text) + '</div></div>';
   } else {
-    div.innerHTML = '<div class="ens-msg-card ens-card-ai">' + parseCard(text) + '</div>';
+    var chars = _state.current || [];
+    var firstChar = chars.length > 0 ? chars[0].char : null;
+    var ch = firstChar || {};
+    var avatarHtml = ch.avatar ? '<img src= + esc(ch.avatar) +  alt=>' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
+    div.innerHTML =
+      '<div class=ens-msg-card ens-card-ai>' +
+        '<div class=ens-card-head>' +
+          '<div class=ens-card-avatar>' + avatarHtml + '</div>' +
+          '<div class=ens-card-name>' + esc(chName(ch)) + '</div>' +
+          '<div class=ens-card-role>群像</div>' +
+        '</div>' +
+        '<div class=ens-card-body>' + parseCard(text) + '</div>' +
+      '</div>';
   }
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
+  saveChatMsg(role, text);
 }
+
 
 function addSysMsg(page, text) {
   var log = page.querySelector('#ens-log');

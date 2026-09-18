@@ -280,72 +280,125 @@
   background: var(--c-bg, #f5f5f5);
 }
 
-/* ===== 消息卡片 ===== */
+/* ===== 消息卡片（参考miss-you精致卡片风格） ===== */
 .ens-msg {
-  margin-bottom: 16px;
-  display: flex;
+  margin: 0 auto 14px;
+  max-width: 560px;
 }
 
-.ens-msg.is-user {
-  justify-content: flex-end;
-}
-
-.ens-msg.is-ai {
-  justify-content: flex-start;
-}
-
-.ens-msg-card {
-  max-width: 82%;
-  padding: 16px 18px;
-  border-radius: 16px;
-  line-height: 1.75;
-}
-
-/* AI卡片 - 白色卡片带精致阴影 */
-.ens-card-ai {
+/* AI卡片 - 完整卡片结构 */
+.ens-msg.is-ai .ens-msg-card {
   background: #fff;
-  border-radius: 18px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
-/* 用户卡片 - 深色气泡 */
-.ens-card-user {
-  background: #2f3136;
-  color: #fff;
+/* AI卡片头部 - 角色名+头像 */
+.ens-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
 }
 
-/* ===== 卡片内文字样式 ===== */
-.ens-card-ai .env-text {
+.ens-card-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(245,247,249,0.88);
+  border: 2px solid rgba(255,255,255,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7d8d;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ens-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ens-card-name {
+  font-size: 15px;
+  font-weight: 650;
+  color: #303035;
+}
+
+.ens-card-role {
+  font-size: 11px;
+  color: #8a8a8a;
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* AI卡片正文区域 */
+.ens-card-body {
+  padding: 16px 18px;
+}
+
+/* 环境/旁白 - 灰色，居中 */
+.ens-card-body .env-text {
   color: #8a8a8a;
   font-size: 14px;
-  line-height: 1.7;
-  margin-bottom: 10px;
+  line-height: 1.8;
+  margin-bottom: 12px;
+  text-align: center;
   font-style: italic;
 }
 
-.ens-card-ai .action-text {
-  color: #6b7280;
+/* 角色动作 - 左边框 + 灰色 */
+.ens-card-body .action-text {
+  color: #4b5563;
   font-size: 14px;
-  line-height: 1.7;
-  margin-bottom: 10px;
-  padding-left: 12px;
-  border-left: 2px solid #e5e7eb;
+  line-height: 1.75;
+  margin-bottom: 12px;
+  padding-left: 14px;
+  border-left: 3px solid #e5e7eb;
 }
 
-.ens-card-ai .dialogue-text {
+/* 角色对白 - 黑色粗体 */
+.ens-card-body .dialogue-text {
   color: #1f2937;
   font-size: 15px;
   font-weight: 500;
-  line-height: 1.75;
-  margin-bottom: 10px;
+  line-height: 1.8;
+  margin-bottom: 12px;
 }
 
-.ens-card-ai .env-text:last-child,
-.ens-card-ai .action-text:last-child,
-.ens-card-ai .dialogue-text:last-child {
+.ens-card-body .env-text:last-child,
+.ens-card-body .action-text:last-child,
+.ens-card-body .dialogue-text:last-child {
   margin-bottom: 0;
+}
+
+/* 用户消息 - 简洁气泡 */
+.ens-msg.is-user {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 12px;
+}
+
+.ens-msg.is-user .ens-msg-card {
+  background: #2f3136;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 16px;
+  max-width: 75%;
+}
+
+.ens-msg-text {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 /* ===== 系统消息 ===== */
@@ -355,13 +408,6 @@
   font-size: 12px;
   padding: 10px 20px;
   margin-bottom: 12px;
-}
-
-/* ===== 用户消息文字 ===== */
-.ens-msg-text {
-  color: #fff;
-  font-size: 15px;
-  line-height: 1.6;
 }
 
 /* ===== Typing指示器 ===== */
