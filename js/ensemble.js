@@ -236,7 +236,14 @@
           if (window.EnsembleScript) {
             window.EnsembleScript.openSettings(page, ownerUid, selectedItems);
           } else {
-            window.toast('剧本模块未加载');
+            console.error('[ensemble] EnsembleScript not found, retrying...');
+            setTimeout(function() {
+              if (window.EnsembleScript) {
+                window.EnsembleScript.openSettings(page, ownerUid, selectedItems);
+              } else {
+                window.toast('剧本模块加载失败，请刷新页面');
+              }
+            }, 500);
           }
         }
       });

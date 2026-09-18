@@ -1,6 +1,7 @@
 // ensemble-script.js - 剧本模式：设置、生成、预览、聊天、历史
 // 依赖：ensemble.js, ensemble-chat.js
 
+console.log('[ensemble-script] loading...');
 window.EnsembleScript = (function() {
   'use strict';
 
@@ -257,3 +258,4 @@ window.EnsembleScript = (function() {
   };
 
 })();
+console.log('[ensemble-script] loaded, EnsembleScript=', typeof window.EnsembleScript);
