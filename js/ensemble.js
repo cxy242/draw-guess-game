@@ -280,8 +280,11 @@ async function doSend(page) {
 }
 
 // ===== 构建群聊提示词（参考SillyTavern） =====
-function buildGroupPrompt(chars, mode, scriptData) {
+async function buildGroupPrompt(chars, mode, scriptData) {
   var p = '';
+  var narrative = _state.narrative || 'third';
+  var minW = _state.minWords || 200;
+  var maxW = _state.maxWords || 600;
 
   if (mode === 'script' && scriptData) {
     p += '你是剧本演绎引擎。当前剧本：「' + (scriptData.title || '') + '」\n';
@@ -290,6 +293,17 @@ function buildGroupPrompt(chars, mode, scriptData) {
     p += '\n';
   } else {
     p += '你是多人场景的故事叙述者和角色扮演者。\n\n';
+  }
+
+  // Narrative perspective
+  var narrText = { first: '第一人称（以“我”的视角叙述）', second: '第二人称（以“你”的视角叙述）', third: '第三人称' };
+  p += '## 叙述视角：' + (narrText[narrative] || '第三人称') + '\n\n';
+
+  // Load memories
+  var memCtx = '';
+  try { memCtx = await loadMemoriesForChars(chars, _state.uid); } catch(e) {}
+  if (memCtx) {
+    p += '## 角色记忆（线上+线下历史）\n' + memCtx + '\n\n';
   }
 
   // SillyTavern风格：收集所有角色信息
@@ -649,4 +663,154 @@ async function clearChatHistory() {
     if (ids.length) await db.offlineChats.bulkDelete(ids);
     _state.history = [];
   } catch(e) { console.error('[ensemble] clear:', e); }
+}
+// ===== 设置页（参考miss-you完整设置） =====
+async function openEnsembleSettings(page, uid, chars) {
+  var body = page.querySelector('#ens-body');
+  if (!body) return;
+
+  // 加载历史
+  var history = [];
+  try {
+    if (db.offlineChats) {
+      var all = await db.offlineChats.toArray();
+      history = all.filter(function(m) {
+        return m.ownerUid === uid && m.mode === 'ensemble';
+      }).sort(function(a,b) { return (b.createdAt||0)-(a.createdAt||0); });
+    }
+  } catch(e) {}
+
+  var charNames = (chars || []).map(function(c) { return chName(c.char); }).join('\u3001');
+  var firstChar = chars && chars.length > 0 ? chars[0].char : {};
+  var avHtml = firstChar.avatar ? '<img src="' + esc(firstChar.avatar) + '" alt="">' : '<span>' + esc(chName(firstChar).charAt(0)) + '</span>';
+
+  var h = '<div class="ens-settings-page">' +
+
+    // 目标角色
+    '<div class="ens-settings-target">' +
+      '<div class="miss-avatar">' + avHtml + '</div>' +
+      '<div><div class="ens-settings-target-name">' + esc(charNames) + '</div>' +
+      '<div class="ens-settings-target-sub">' + (_state.mode === 'script' ? '剧本模式' : '见面模式') + '</div></div>' +
+    '</div>' +
+
+    // 回复字数
+    '<div class="ens-settings-section">' +
+      '<div class="ens-settings-label">回复字数</div>' +
+      '<div class="ens-word-grid">' +
+        '<label class="ens-field-label"><span>最少</span><input class="input-field" id="ens-min-words" type="number" min="50" value="' + (_state.minWords || 200) + '"></label>' +
+        '<label class="ens-field-label"><span>最多</span><input class="input-field" id="ens-max-words" type="number" min="100" value="' + (_state.maxWords || 600) + '"></label>' +
+      '</div>' +
+    '</div>' +
+
+    // 叙述人称
+    '<div class="ens-settings-section">' +
+      '<div class="ens-settings-label">叙述人称</div>' +
+      '<select class="input-field" id="ens-narrative">' +
+        '<option value="first"' + ((_state.narrative || 'third') === 'first' ? ' selected' : '') + '>第一人称</option>' +
+        '<option value="second"' + ((_state.narrative || 'third') === 'second' ? ' selected' : '') + '>第二人称</option>' +
+        '<option value="third"' + ((_state.narrative || 'third') === 'third' ? ' selected' : '') + '>第三人称</option>' +
+      '</select>' +
+    '</div>' +
+
+    // 会话管理
+    '<div class="ens-settings-section">' +
+      '<div class="ens-settings-label">会话管理</div>' +
+      '<button class="btn-ghost" id="ens-summary" style="width:100%;margin:8px 0 0;">总结并结束此次见面</button>' +
+      '<button class="btn-ghost" id="ens-clear" style="width:100%;margin:8px 0 0;">清空聊天记录</button>' +
+    '</div>' +
+
+    // 过往见面记录
+    '<div class="ens-settings-section">' +
+      '<div class="ens-settings-label">过往见面记录</div>';
+
+  if (history.length) {
+    var days = {};
+    history.forEach(function(m) {
+      var d = m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '';
+      if (d && !days[d]) days[d] = 0;
+      if (d) days[d]++;
+    });
+    Object.keys(days).slice(0, 10).forEach(function(d) {
+      h += '<div class="ens-history-item"><span>' + esc(d) + '</span><span class="ens-history-count">' + days[d] + '条</span></div>';
+    });
+  } else {
+    h += '<div style="color:#8a8a8a;font-size:13px;padding:8px 0;">暂无记录</div>';
+  }
+
+  h += '</div>' +
+    '<button class="btn-pill" id="ens-settings-save" style="width:100%;margin-top:16px;">保存设置</button>' +
+    '</div>';
+
+  body.innerHTML = h;
+
+  body.querySelector('#ens-settings-save').onclick = function() {
+    _state.minWords = parseInt(body.querySelector('#ens-min-words').value) || 200;
+    _state.maxWords = parseInt(body.querySelector('#ens-max-words').value) || 600;
+    _state.narrative = body.querySelector('#ens-narrative').value || 'third';
+    window.toast && window.toast('设置已保存');
+    renderChat(page);
+  };
+
+  body.querySelector('#ens-clear').onclick = function() {
+    if (confirm('清空聊天记录？')) {
+      clearChatHistory().then(function() { window.toast && window.toast('已清空'); renderChat(page); });
+    }
+  };
+
+  body.querySelector('#ens-summary').onclick = function() { summarizeAndEnd(page); };
+}
+
+// ===== 见面总结 =====
+async function summarizeAndEnd(page) {
+  if (!window.WanWanMemory || !window.WanWanMemory.summarizeMeeting) {
+    window.toast && window.toast('记忆系统未加载');
+    return;
+  }
+  window.toast && window.toast('正在总结...');
+  try {
+    var uid = _state.uid;
+    var chars = _state.current || [];
+    var history = _state.history || [];
+    if (!history.length) { window.toast && window.toast('没有聊天内容'); return; }
+
+    for (var i = 0; i < chars.length; i++) {
+      var ch = chars[i].char;
+      var sessionId = 'ensemble_' + uid + '_' + ch.id + '_' + Date.now();
+      var summaryMsgs = history.map(function(m) { return { role: m.role, content: m.content }; });
+      try {
+        await window.WanWanMemory.summarizeMeeting(ch.id, ch.id, uid, sessionId, summaryMsgs, Date.now());
+      } catch(e) { console.error('[ensemble] summarize ' + ch.name, e); }
+    }
+
+    if (db.offlineChats) {
+      await db.offlineChats.add({
+        ownerUid: uid, chatId: 0, charId: 0,
+        mode: 'ensemble', role: 'system',
+        content: '见面结束 · ' + new Date().toLocaleString(),
+        createdAt: Date.now()
+      });
+    }
+
+    await clearChatHistory();
+    window.toast && window.toast('已总结并保存');
+    renderChat(page);
+  } catch(e) {
+    console.error('[ensemble] summarize error:', e);
+    window.toast && window.toast('总结失败');
+  }
+}
+
+// ===== 记忆读取 =====
+async function loadMemoriesForChars(chars, uid) {
+  var parts = [];
+  for (var i = 0; i < chars.length; i++) {
+    var ch = chars[i].char;
+    try {
+      if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
+        var ctx = await window.WanWanMemory.getMemoryContext(null, ch.id, uid, []);
+        if (ctx) parts.push(ch.name + '的记忆：\n' + ctx);
+      }
+    } catch(e) {}
+  }
+  return parts.join('\n\n');
 }
