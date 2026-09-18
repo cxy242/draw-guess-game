@@ -12,26 +12,13 @@ window.showEnsemblePage = async function() {
     page.id = 'ens-page';
     page.className = 'full-page ens-page';
     page.innerHTML =
-      '<div class="page-header ens-header">' +
-        '<button class="header-back" id="ens-back"><i class="fa fa-angle-left"></i></button>' +
-        '<span class="header-title" id="ens-title">群像</span>' +
-        '<button class="btn-icon" id="ens-settings-btn" style="display:none"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+      '<div class="ens-header">' +
+        '<button class="ens-header-back" id="ens-back"><i class="fa fa-angle-left"></i></button>' +
+        '<span class="ens-header-title" id="ens-title">群像</span>' +
       '</div>' +
       '<div class="ens-body" id="ens-body"></div>';
 
     page.querySelector('#ens-back').onclick = function() { handleBack(page); };
-    page.querySelector('#ens-settings-btn').onclick = function() {
-      if (_state.view === 'chat') {
-        // 清空聊天确认
-        if (confirm('清空聊天记录？')) {
-          clearChatHistory().then(function() {
-            var log = page.querySelector('#ens-log');
-            if (log) log.innerHTML = '';
-            window.toast && window.toast('已清空');
-          });
-        }
-      }
-    };
     window.openPage(page);
     await renderAccounts(page);
   } catch(e) {
@@ -46,11 +33,11 @@ var _state = {};
 function setState(page, s) {
   _state = Object.assign({}, _state, s);
   var btn = page.querySelector('#ens-settings-btn');
-  if (btn) btn.style.display = _state.view === 'chat' ? 'flex' : 'none';
+  // settings button managed in renderChat
 }
 
 function setTitle(page, t) {
-  var el = page.querySelector('#ens-title');
+  var el = page.querySelector('.ens-header-title');
   if (el) el.textContent = t;
 }
 
@@ -198,33 +185,46 @@ function enterMeet(page, uid, chars) {
 // ===== 聊天渲染 =====
 function renderChat(page) {
   var body = page.querySelector('#ens-body');
+  var chars = _state.current || [];
+
+  // CAST头像组HTML
+  var castAvatars = chars.map(function(c) {
+    var ch = c.char;
+    var av = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
+    return '<div class="ens-header-cast-avatar">' + av + '</div>';
+  }).join('');
+
   body.innerHTML =
     '<div class="ens-chat">' +
       '<div class="ens-chat-log" id="ens-log"></div>' +
       '<div class="ens-compose">' +
-        '<button class="ens-compose-btn" id="ens-phone" title="掏出手机"><i class="fa fa-mobile-screen"></i></button>' +
-        '<textarea class="ens-input" id="ens-input" placeholder="说点什么..." rows="1"></textarea>' +
-        '<button class="ens-send" id="ens-send">发送</button>' +
+        '<button class="ens-compose-icon" id="ens-phone" title="掏出手机"><i class="fa fa-mobile-screen"></i></button>' +
+        '<textarea class="ens-compose-input" id="ens-input" placeholder="说点什么..." rows="1"></textarea>' +
+        '<button class="ens-compose-send" id="ens-send">发送</button>' +
       '</div>' +
       '<div class="ens-toolbar">' +
-        '<button class="ens-tool-btn" id="ens-cast"><i class="fa-solid fa-users"></i> 现场人员</button>' +
+        '<button class="ens-toolbar-btn" id="ens-cast"><i class="fa-solid fa-users"></i> 现场人员</button>' +
       '</div>' +
     '</div>';
 
-  // Info card
-  var log = body.querySelector('#ens-log');
-  var names = _state.current.map(function(c) { return chName(c.char); }).join('、');
-  log.innerHTML = '<div class="ens-chat-info"><div class="ens-chat-info-avatar"><i class="fa-solid fa-' + (_state.mode === 'script' ? 'book-open' : 'people-group') + '"></i></div><div class="ens-chat-info-text"><div class="ens-chat-info-name">' + esc(names) + '</div><div class="ens-chat-info-status">' + (_state.mode === 'script' ? '剧本模式' : '见面模式') + ' · ' + _state.current.length + '人</div></div></div>';
-
-  // 加载历史聊天
-  loadChatHistory(page);
-
-  if (_state.mode === 'script' && _state.scriptData) {
-    addSysMsg(page, '剧本「' + (_state.scriptData.title || '未命名') + '」开始');
-    if (_state.scriptData.preview) addSysMsg(page, _state.scriptData.preview);
+  // 更新header的CAST头像和更多按钮
+  var header = page.querySelector('.ens-header');
+  if (header) {
+    var titleEl = header.querySelector('.ens-header-title');
+    if (titleEl) {
+      titleEl.outerHTML =
+        '<span class="ens-header-title">' + esc(chars.map(function(c) { return chName(c.char); }).join('、')) + '</span>' +
+        '<div class="ens-header-cast">' + castAvatars + '</div>' +
+        '<button class="ens-header-more" id="ens-settings-btn"><i class="fa-solid fa-ellipsis"></i></button>';
+    }
+    var settingsBtn = header.querySelector('#ens-settings-btn');
+    if (settingsBtn) settingsBtn.onclick = function() { openEnsembleSettings(page, _state.uid, chars); };
   }
 
-  // Events
+  // 加载历史
+  loadChatHistory(page);
+
+  // 事件绑定
   var phone = body.querySelector('#ens-phone');
   if (phone) phone.onclick = function() { if (window.showWechatPage) window.showWechatPage(); };
 
@@ -337,43 +337,50 @@ async function buildGroupPrompt(chars, mode, scriptData) {
 function addMsg(page, role, text) {
   var log = page.querySelector('#ens-log');
   if (!log) return;
+  var div = document.createElement('div');
+  var msgIdx = log.querySelectorAll('.ens-user-msg, .ens-narr-msg').length + 1;
   var chars = _state.current || [];
-  var div = document.createElement('article');
-  var msgIdx = log.querySelectorAll('.ens-msg').length + 1;
 
   if (role === 'user') {
-    // 用户卡片 - 和miss-you一样的结构
-    div.className = 'ens-msg is-user';
+    // 用户消息 - 浅灰气泡
+    var userName = _state.userName || '我';
+    var userAv = '<span>' + esc(userName.charAt(0)) + '</span>';
+    div.className = 'ens-user-msg';
     div.innerHTML =
-      '<button class=ens-entry-head>' +
-        '<div class=ens-entry-person>' +
-          '<div class=ens-msg-avatar><span>' + esc((_state.userName || '我').charAt(0)) + '</span></div>' +
-          '<div class=ens-entry-nameblock><div class=ens-msg-name>' + esc(_state.userName || '我') + '</div></div>' +
+      '<div class="ens-user-card">' +
+        '<div class="ens-user-head">' +
+          '<div class="ens-user-avatar">' + userAv + '</div>' +
+          '<div class="ens-user-name">' + esc(userName) + '</div>' +
         '</div>' +
-        '<div class=ens-entry-floor>#' + msgIdx + '</div>' +
-      '</button>' +
-      '<div class=ens-entry-card><div class=ens-msg-text>' + esc(text) + '</div></div>';
+        '<div class="ens-user-body">' + esc(text) + '</div>' +
+        '<div class="ens-user-footer"><span>' + formatTime(Date.now()) + '</span></div>' +
+      '</div>';
   } else {
-    // AI卡片 - miss-you风格，多人时显示所有角色
-    div.className = 'ens-msg is-char';
-    var names = chars.map(function(c) { return chName(c.char); }).join('、');
-    var firstChar = chars.length > 0 ? chars[0].char : {};
-    var avHtml = firstChar.avatar
-      ? '<img src= + esc(firstChar.avatar) +  alt=>'
-      : '<span>' + esc(chName(firstChar).charAt(0)) + '</span>';
+    // AI叙事 - 白色NARRATION大卡片
+    div.className = 'ens-narr-msg';
+    var charsHTML = '';
+
+    // 解析文本，按角色分段
+    var segments = parseNarrationSegments(text, chars);
+    segments.forEach(function(seg) {
+      charsHTML += '<div class="ens-char-unit">' +
+        '<div class="ens-char-head">' +
+          '<div class="ens-char-avatar">' + seg.avatarHtml + '</div>' +
+          '<div class="ens-char-name">' + esc(seg.name) + '</div>' +
+        '</div>' +
+        seg.bodyHtml +
+      '</div>';
+    });
 
     div.innerHTML =
-      '<button class=ens-entry-head>' +
-        '<div class=ens-entry-person>' +
-          '<div class=ens-msg-avatar>' + avHtml + '</div>' +
-          '<div class=ens-entry-nameblock>' +
-            '<div class=ens-msg-name>' + esc(names) + '</div>' +
-            '<div class=ens-msg-sub>' + chars.length + '人在线</div>' +
-          '</div>' +
+      '<div class="ens-narr-card">' +
+        '<div class="ens-narr-header">' +
+          '<span class="ens-narr-icon"><i class="fa-solid fa-play"></i></span>' +
+          '<span class="ens-narr-label">NARRATION</span>' +
+          '<span class="ens-narr-mode">Multi</span>' +
         '</div>' +
-        '<div class=ens-entry-floor>#' + msgIdx + '</div>' +
-      '</button>' +
-      '<div class=ens-entry-card><div class=ens-msg-text>' + parseCard(text) + '</div></div>';
+        '<div class="ens-narr-body">' + charsHTML + '</div>' +
+      '</div>';
   }
 
   log.appendChild(div);
@@ -393,22 +400,86 @@ function addSysMsg(page, text) {
   log.scrollTop = log.scrollHeight;
 }
 
-function parseCard(text) {
-  if (!text) return '';
+function parseNarrationSegments(text, chars) {
+  if (!text) return [];
   var lines = text.split('\n').filter(function(l) { return l.trim(); });
-  var h = '';
+  var segments = [];
+  var currentChar = null;
+  var currentLines = [];
+
+  function flushSegment() {
+    if (currentLines.length === 0) return;
+    var bodyHtml = currentLines.map(function(line) {
+      var t = line.trim();
+      if (!t) return '';
+      if (isDialogue(t)) return '<div class="ens-text-dialogue">' + esc(t) + '</div>';
+      if (isAction(t)) return '<div class="ens-text-action">' + esc(t) + '</div>';
+      return '<div class="ens-text-env">' + esc(t) + '</div>';
+    }).filter(Boolean).join('');
+
+    var ch = currentChar || (chars.length > 0 ? chars[0].char : {});
+    var avHtml = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
+    segments.push({ name: chName(ch), avatarHtml: avHtml, bodyHtml: bodyHtml });
+    currentLines = [];
+  }
+
   lines.forEach(function(line) {
     var t = line.trim();
-    if (!t) return;
-    if (t.indexOf('「') !== -1 && t.indexOf('」') !== -1) {
-      h += '<div class="dialogue-text">' + esc(t) + '</div>';
-    } else if (isAction(t)) {
-      h += '<div class="action-text">' + esc(t) + '</div>';
+    // 检查是否是新角色开始
+    var matchedChar = null;
+    chars.forEach(function(c) {
+      var name = chName(c.char);
+      if (t.indexOf(name) === 0 && (t.charAt(name.length) === ' ' || t.charAt(name.length) === '\u3001')) {
+        matchedChar = c.char;
+      }
+    });
+    if (matchedChar) {
+      flushSegment();
+      currentChar = matchedChar;
+      // 去掉角色名前缀
+      var nameLen = chName(matchedChar).length;
+      t = t.substring(nameLen).replace(/^\s*[\u3001,，]?\s*/, '');
+      if (t) currentLines.push(t);
     } else {
-      h += '<div class="env-text">' + esc(t) + '</div>';
+      currentLines.push(line);
     }
   });
-  return h;
+  flushSegment();
+
+  // 如果没有解析出任何段落，用默认角色
+  if (segments.length === 0 && currentLines.length > 0) {
+    var ch = chars.length > 0 ? chars[0].char : {};
+    var avHtml = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
+    var bodyHtml = currentLines.map(function(line) {
+      var t = line.trim();
+      if (isDialogue(t)) return '<div class="ens-text-dialogue">' + esc(t) + '</div>';
+      if (isAction(t)) return '<div class="ens-text-action">' + esc(t) + '</div>';
+      return '<div class="ens-text-env">' + esc(t) + '</div>';
+    }).filter(Boolean).join('');
+    segments.push({ name: chName(ch), avatarHtml: avHtml, bodyHtml: bodyHtml });
+  }
+
+  return segments;
+}
+
+function isDialogue(line) {
+  if (line.indexOf('\u201c') !== -1 && line.indexOf('\u201d') !== -1) return true;
+  if (line.indexOf('\u300c') !== -1 && line.indexOf('\u300d') !== -1) return true;
+  if (line.indexOf('"') !== -1 && line.indexOf('"') !== -1) return true;
+  return false;
+}
+
+function isAction(line) {
+  var kw = ['\u8f7b\u8f7b','\u7f13\u7f13','\u770b\u5411','\u7ad9\u8d77','\u5750\u4e0b','\u8f6c\u8eab','\u5fae\u7b11','\u76b1\u7709','\u70b9\u5934','\u6447\u5934','\u53f9\u4e86\u53e3\u6c14','\u4f38\u51fa\u624b','\u4f4e\u4e0b\u5934','\u62ac\u8d77'];
+  for (var i = 0; i < kw.length; i++) { if (line.indexOf(kw[i]) !== -1) return true; }
+  return false;
+}
+
+function formatTime(ts) {
+  var d = new Date(ts);
+  var h = d.getHours().toString().padStart(2,'0');
+  var m = d.getMinutes().toString().padStart(2,'0');
+  return h + ':' + m;
 }
 
 function isAction(line) {
