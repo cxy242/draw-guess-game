@@ -275,6 +275,74 @@ async function openSmsChat(conversationId, listPage) {
   window.openPage(page)
   await loadSmsChatMessages(page, conversationId)
 
+  // Bind send button
+  var sendBtn = page.querySelector('#imessage-send-btn')
+  var inputField = page.querySelector('#imessage-chat-input-field')
+  if (sendBtn && inputField) {
+    var sendPending = false
+    var doSend = async function() {
+      if (sendPending) return
+      var text = inputField.value.trim()
+      if (!text) return
+      sendPending = true
+      sendBtn.disabled = true
+      try {
+        // Save user message
+        await db.smsMessages.add({
+          conversationId: conversationId,
+          direction: 'out',
+          body: text,
+          createdAt: Date.now(),
+          read: true
+        })
+        inputField.value = ''
+        await loadSmsChatMessages(page, conversationId)
+
+        // Generate AI reply
+        var convData = await db.smsConversations.get(conversationId)
+        if (convData && convData._anonCharId) {
+          var char = await window.getCharacter(convData._anonCharId)
+          if (char && window.callAI) {
+            var charDesc = char.name + '（' + (char.description || '').slice(0, 200) + '）'
+            var recentMsgs = await db.smsMessages.where('conversationId').equals(conversationId).reverse().limit(10).toArray()
+            recentMsgs.reverse()
+            var chatHistory = recentMsgs.map(function(m) {
+              var who = m.direction === 'out' ? '\u7528\u6237' : '\u964c\u751f\u4eba'
+              return who + '\uff1a' + (m.body || '')
+            }).join('\n')
+
+            var prompt = '\u4f60\u662f' + charDesc + '\uff0c\u6b63\u5728\u4ee5\u964c\u751f\u4eba\u8eab\u4efd\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n'
+              + '\u4f60\u7684\u4eba\u8bbe\uff1a' + (char.description || '').slice(0, 300) + '\n'
+              + '\u6700\u8fd1\u804a\u5929\uff1a\n' + chatHistory + '\n'
+              + '\u7528\u6237\u521a\u53d1\uff1a' + text + '\n'
+              + '\u8981\u6c42\uff1a\u4ee5\u964c\u751f\u4eba\u8eab\u4efd\u56de\u590d\u4e00\u53e5\uff0c\u7b26\u5408\u4eba\u8bbe\uff0c\u7b80\u77ed\u81ea\u7136\u3002'
+
+            try {
+              var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
+              if (reply) {
+                await db.smsMessages.add({
+                  conversationId: conversationId,
+                  direction: 'in',
+                  body: reply.trim(),
+                  createdAt: Date.now(),
+                  read: false,
+                  _anonCharId: convData._anonCharId,
+                  _anonCharName: char.name
+                })
+                await loadSmsChatMessages(page, conversationId)
+              }
+            } catch(e) { console.error('[imessage] reply error:', e) }
+          }
+        }
+      } catch(e) { console.error('[imessage] send error:', e) }
+      finally { sendPending = false; sendBtn.disabled = false }
+    }
+    sendBtn.addEventListener('click', doSend)
+    inputField.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend() }
+    })
+  }
+
   if (conv.unreadCount > 0) {
     await db.smsConversations.update(conversationId, { unreadCount: 0 })
     await db.smsMessages.where('conversationId').equals(conversationId).modify({ read: true })

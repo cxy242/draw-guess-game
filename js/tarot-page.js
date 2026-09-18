@@ -613,7 +613,7 @@ function renderFanSelect(root){
   state.phase = 'select';
   var sp = SPREADS[state.spread];
   var need = sp.count;
-  var showCount = Math.max(need*2, 14);
+  var showCount = state.deck.length;
   var deck = state.deck.slice(0, showCount);
 
   var fanCardsHTML = deck.map(function(c,i){
@@ -652,8 +652,8 @@ function renderFanSelect(root){
 
   // Position cards in a fan arc
   var total = cards.length;
-  var angleSpread = Math.min(120, total * 6);
-  var radius = 220;
+  var angleSpread = Math.min(180, total * 8);
+  var radius = 260;
   cards.forEach(function(card, i){
     var angle = -angleSpread/2 + (angleSpread/(total-1))*i;
     var rad = (angle - 90) * Math.PI / 180;
