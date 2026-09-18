@@ -2575,3 +2575,26 @@ ground-color: var(--x-accent);
 
 .animate { animation: x-fade-in 200ms ease-out; }
 .chart { display: block; }
+
+/* showToastLong - fixed position, no layout impact */
+.x-toast-long {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  text-align: center;
+  max-width: 80%;
+  white-space: nowrap;
+}
+.x-toast-long.show {
+  opacity: 1;
+}

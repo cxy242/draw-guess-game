@@ -499,14 +499,18 @@ async function buildPrompt(char, mode, commentsOn, relations, isManual) {
     p += '- 评论人必须从这些关系人中选：' + relations.join('、') + '\n';
   }
   if (otherChars.length) {
-    var otherNames = otherChars.map(function(c) { return c.name + '（' + (c.description || c.identity?.bio || '').slice(0, 30) + '）'; }).join('、');
-    p += '- 其他AI角色也可以来评论：' + otherNames + '\n';
+    var otherInfo = otherChars.map(function(oc) {
+      var rel = (char.relations || []).find(function(r) { return parseInt(r.charId) === oc.id; });
+      var relText = rel ? (rel.type || '') + (rel.desc ? '（' + rel.desc.slice(0, 30) + '）' : '') : '未设定关系';
+      return oc.name + '（人设：' + (oc.description || '').slice(0, 30) + '，与' + char.name + '的关系：' + relText + '）';
+    }).join('、');
+    p += '- 其他AI角色也可以来评论：' + otherInfo + '\n';
     p += '- 这些AI角色评论时要体现自己的性格特点\n';
   }
   if (!relations.length && !otherChars.length) {
     p += '- 用其他AI角色名字评论，体现各自性格\n';
   }
-  p += '- 评论像真人朋友互动（调侃、关心、吐槽、问八卦）\n';
+  p += '- 评论必须根据评论人与发帖人的关系来写：朋友→友好调侃，敌人→冷淡/讽刺/挑行，暗恋→昧撒关心，陌生人→礼貌客套\n';
   p += '- 【重要】' + char.name + '（发帖人）必须回复其中2-3条评论，体现角色性格\n';
   p += '- 被回复的评论人可以再回复' + char.name + '，形成对话\n';
   p += '- 绝对不要生成"用户"的评论\n';
