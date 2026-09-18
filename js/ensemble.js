@@ -570,3 +570,43 @@ async function showHistory(page, uid, chars) {
     r.onclick = function() { var i = parseInt(r.dataset.i); if (list[i]) showScriptPreview(page, uid, chars, {}, list[i]); };
   });
 }
+// ===== 聊天保存/加载 =====
+async function saveChatMsg(role, text) {
+  try {
+    if (!_state.uid || !db.offlineChats) return;
+    await db.offlineChats.add({
+      ownerUid: _state.uid,
+      chatId: 0,
+      charId: _state.current && _state.current[0] ? _state.current[0].char.id : 0,
+      mode: 'ensemble',
+      role: role,
+      content: text,
+      createdAt: Date.now()
+    });
+  } catch(e) { console.error('[ensemble] save:', e); }
+}
+
+async function loadChatHistory(page) {
+  try {
+    if (!_state.uid || !db.offlineChats) return;
+    var all = await db.offlineChats.toArray();
+    var rows = all.filter(function(m) {
+      return m.ownerUid === _state.uid && m.mode === 'ensemble';
+    }).sort(function(a, b) { return (a.createdAt||0) - (b.createdAt||0); });
+    rows.forEach(function(m) {
+      if (m.role === 'user') addMsg(page, 'user', m.content);
+      else if (m.role === 'assistant') addMsg(page, 'ai', m.content);
+      else if (m.role === 'system') addSysMsg(page, m.content);
+    });
+  } catch(e) { console.error('[ensemble] load:', e); }
+}
+
+async function clearChatHistory() {
+  try {
+    if (!_state.uid || !db.offlineChats) return;
+    var all = await db.offlineChats.toArray();
+    var ids = all.filter(function(m) { return m.ownerUid === _state.uid && m.mode === 'ensemble'; }).map(function(m) { return m.id; });
+    if (ids.length) await db.offlineChats.bulkDelete(ids);
+    _state.history = [];
+  } catch(e) { console.error('[ensemble] clear:', e); }
+}
