@@ -20,6 +20,18 @@ window.showEnsemblePage = async function() {
       '<div class="ens-body" id="ens-body"></div>';
 
     page.querySelector('#ens-back').onclick = function() { handleBack(page); };
+    page.querySelector('#ens-settings-btn').onclick = function() {
+      if (_state.view === 'chat') {
+        // 清空聊天确认
+        if (confirm('清空聊天记录？')) {
+          clearChatHistory().then(function() {
+            var log = page.querySelector('#ens-log');
+            if (log) log.innerHTML = '';
+            window.toast && window.toast('已清空');
+          });
+        }
+      }
+    };
     window.openPage(page);
     await renderAccounts(page);
   } catch(e) {
@@ -95,7 +107,12 @@ async function renderAccounts(page) {
   h += '</div>';
   body.innerHTML = h;
   body.querySelectorAll('.miss-row').forEach(function(r) {
-    r.onclick = function() { renderChars(page, parseInt(r.dataset.uid)); };
+    r.onclick = function() {
+      var uid = parseInt(r.dataset.uid);
+      var u = users.find(function(x) { return x.id === uid; });
+      _state.userName = u ? (u.name || '我') : '我';
+      renderChars(page, uid);
+    };
   });
 }
 
@@ -306,29 +323,50 @@ function buildGroupPrompt(chars, mode, scriptData) {
 function addMsg(page, role, text) {
   var log = page.querySelector('#ens-log');
   if (!log) return;
-  var div = document.createElement('div');
-  div.className = 'ens-msg ' + (role === 'user' ? 'is-user' : 'is-ai');
+  var chars = _state.current || [];
+  var div = document.createElement('article');
+  var msgIdx = log.querySelectorAll('.ens-msg').length + 1;
+
   if (role === 'user') {
-    div.innerHTML = '<div class=ens-msg-card><div class=ens-msg-text>' + esc(text) + '</div></div>';
-  } else {
-    var chars = _state.current || [];
-    var firstChar = chars.length > 0 ? chars[0].char : null;
-    var ch = firstChar || {};
-    var avatarHtml = ch.avatar ? '<img src= + esc(ch.avatar) +  alt=>' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
+    // 用户卡片 - 和miss-you一样的结构
+    div.className = 'ens-msg is-user';
     div.innerHTML =
-      '<div class=ens-msg-card ens-card-ai>' +
-        '<div class=ens-card-head>' +
-          '<div class=ens-card-avatar>' + avatarHtml + '</div>' +
-          '<div class=ens-card-name>' + esc(chName(ch)) + '</div>' +
-          '<div class=ens-card-role>群像</div>' +
+      '<button class=ens-entry-head>' +
+        '<div class=ens-entry-person>' +
+          '<div class=ens-msg-avatar><span>' + esc((_state.userName || '我').charAt(0)) + '</span></div>' +
+          '<div class=ens-entry-nameblock><div class=ens-msg-name>' + esc(_state.userName || '我') + '</div></div>' +
         '</div>' +
-        '<div class=ens-card-body>' + parseCard(text) + '</div>' +
-      '</div>';
+        '<div class=ens-entry-floor>#' + msgIdx + '</div>' +
+      '</button>' +
+      '<div class=ens-entry-card><div class=ens-msg-text>' + esc(text) + '</div></div>';
+  } else {
+    // AI卡片 - miss-you风格，多人时显示所有角色
+    div.className = 'ens-msg is-char';
+    var names = chars.map(function(c) { return chName(c.char); }).join('、');
+    var firstChar = chars.length > 0 ? chars[0].char : {};
+    var avHtml = firstChar.avatar
+      ? '<img src= + esc(firstChar.avatar) +  alt=>'
+      : '<span>' + esc(chName(firstChar).charAt(0)) + '</span>';
+
+    div.innerHTML =
+      '<button class=ens-entry-head>' +
+        '<div class=ens-entry-person>' +
+          '<div class=ens-msg-avatar>' + avHtml + '</div>' +
+          '<div class=ens-entry-nameblock>' +
+            '<div class=ens-msg-name>' + esc(names) + '</div>' +
+            '<div class=ens-msg-sub>' + chars.length + '人在线</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class=ens-entry-floor>#' + msgIdx + '</div>' +
+      '</button>' +
+      '<div class=ens-entry-card><div class=ens-msg-text>' + parseCard(text) + '</div></div>';
   }
+
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
   saveChatMsg(role, text);
 }
+
 
 
 function addSysMsg(page, text) {
@@ -573,7 +611,7 @@ async function showHistory(page, uid, chars) {
 // ===== 聊天保存/加载 =====
 async function saveChatMsg(role, text) {
   try {
-    if (!_state.uid || !db.offlineChats) return;
+    if (!_state.uid || !db.offlineChats || _state._loading) return;
     await db.offlineChats.add({
       ownerUid: _state.uid,
       chatId: 0,
@@ -589,6 +627,7 @@ async function saveChatMsg(role, text) {
 async function loadChatHistory(page) {
   try {
     if (!_state.uid || !db.offlineChats) return;
+    _state._loading = true;
     var all = await db.offlineChats.toArray();
     var rows = all.filter(function(m) {
       return m.ownerUid === _state.uid && m.mode === 'ensemble';
@@ -598,7 +637,8 @@ async function loadChatHistory(page) {
       else if (m.role === 'assistant') addMsg(page, 'ai', m.content);
       else if (m.role === 'system') addSysMsg(page, m.content);
     });
-  } catch(e) { console.error('[ensemble] load:', e); }
+    _state._loading = false;
+  } catch(e) { _state._loading = false; console.error('[ensemble] load:', e); }
 }
 
 async function clearChatHistory() {

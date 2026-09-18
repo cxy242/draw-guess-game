@@ -280,33 +280,50 @@
   background: var(--c-bg, #f5f5f5);
 }
 
-/* ===== 消息卡片（参考miss-you精致卡片风格） ===== */
+/* ===== 消息卡片（复用miss-you风格，适配多人） ===== */
 .ens-msg {
   margin: 0 auto 14px;
   max-width: 560px;
 }
 
-/* AI卡片 - 完整卡片结构 */
-.ens-msg.is-ai .ens-msg-card {
-  background: #fff;
-  border: 1px solid rgba(0,0,0,0.05);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+/* 整体卡片结构 */
+.ens-entry {
+  width: 100%;
 }
 
-/* AI卡片头部 - 角色名+头像 */
-.ens-card-head {
+/* 头部 - 角色信息栏 */
+.ens-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  min-height: 56px;
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 8px;
+  background: #fff;
+  gap: 12px;
+}
+
+.ens-msg.is-user .ens-entry-head {
+  flex-direction: row-reverse;
+}
+
+/* 角色信息区 */
+.ens-entry-person {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(0,0,0,0.04);
+  min-width: 0;
 }
 
-.ens-card-avatar {
-  width: 36px;
-  height: 36px;
+.ens-msg.is-user .ens-entry-person {
+  flex-direction: row-reverse;
+}
+
+/* 头像 - 圆形 */
+.ens-msg-avatar {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: rgba(245,247,249,0.88);
   border: 2px solid rgba(255,255,255,0.9);
@@ -320,87 +337,116 @@
   overflow: hidden;
 }
 
-.ens-card-avatar img {
+.ens-msg-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.ens-card-name {
+/* 名字区 */
+.ens-entry-nameblock {
+  min-width: 0;
+}
+
+.ens-msg.is-user .ens-entry-nameblock {
+  text-align: right;
+}
+
+.ens-msg-name {
   font-size: 15px;
   font-weight: 650;
   color: #303035;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.ens-card-role {
+.ens-msg-sub {
   font-size: 11px;
   color: #8a8a8a;
-  margin-left: auto;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin-top: 2px;
 }
 
-/* AI卡片正文区域 */
-.ens-card-body {
-  padding: 16px 18px;
-}
-
-/* 环境/旁白 - 灰色，居中 */
-.ens-card-body .env-text {
+/* 序号 */
+.ens-entry-floor {
+  flex-shrink: 0;
   color: #8a8a8a;
   font-size: 14px;
-  line-height: 1.8;
-  margin-bottom: 12px;
-  text-align: center;
-  font-style: italic;
+  font-weight: 600;
 }
 
-/* 角色动作 - 左边框 + 灰色 */
-.ens-card-body .action-text {
-  color: #4b5563;
-  font-size: 14px;
-  line-height: 1.75;
+/* 内容卡片 - 白色圆角 */
+.ens-entry-card {
+  margin-top: 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.05);
+  background: #fff;
+}
+
+/* 文字区域 */
+.ens-msg-text {
+  padding: 20px 16px;
+  color: #2f3136;
+  font-size: 15px;
+  line-height: 1.85;
+  word-break: break-word;
+}
+
+/* 环境/旁白 - 灰色居中斜体 */
+.ens-msg-text .env-text {
+  color: #8a8a8a;
+  font-style: italic;
+  text-align: center;
   margin-bottom: 12px;
+  line-height: 1.7;
+}
+
+/* 角色动作 - 左边框+灰色 */
+.ens-msg-text .action-text {
+  color: #4b5563;
   padding-left: 14px;
   border-left: 3px solid #e5e7eb;
+  margin-bottom: 12px;
+  line-height: 1.7;
 }
 
 /* 角色对白 - 黑色粗体 */
-.ens-card-body .dialogue-text {
+.ens-msg-text .dialogue-text {
   color: #1f2937;
-  font-size: 15px;
   font-weight: 500;
-  line-height: 1.8;
   margin-bottom: 12px;
+  line-height: 1.8;
 }
 
-.ens-card-body .env-text:last-child,
-.ens-card-body .action-text:last-child,
-.ens-card-body .dialogue-text:last-child {
+.ens-msg-text .env-text:last-child,
+.ens-msg-text .action-text:last-child,
+.ens-msg-text .dialogue-text:last-child {
   margin-bottom: 0;
 }
 
-/* 用户消息 - 简洁气泡 */
-.ens-msg.is-user {
+/* 底部操作栏 */
+.ens-entry-footer {
   display: flex;
-  justify-content: flex-end;
-  padding: 0 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid rgba(0,0,0,0.04);
+  font-size: 12px;
+  color: #8a8a8a;
 }
 
-.ens-msg.is-user .ens-msg-card {
-  background: #2f3136;
-  color: #fff;
-  padding: 10px 16px;
-  border-radius: 16px;
-  max-width: 75%;
+/* 用户卡片颜色 */
+.ens-msg.is-user .ens-entry-card {
+  background: #f0f0f0;
+  border-color: rgba(0,0,0,0.06);
 }
 
-.ens-msg-text {
-  color: #fff;
-  font-size: 15px;
-  line-height: 1.6;
+.ens-msg.is-user .ens-msg-text {
+  color: #2f3136;
 }
 
+/* ===== 系统消息 ===== */
 /* ===== 系统消息 ===== */
 .ens-system-msg {
   text-align: center;
