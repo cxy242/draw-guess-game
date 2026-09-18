@@ -18,7 +18,8 @@ window.showEnsemblePage = async function() {
       '</div>' +
       '<div class="ens-body" id="ens-body"></div>';
 
-    page.querySelector('#ens-back').onclick = function() { handleBack(page); };
+    var backBtn = page.querySelector('#ens-back');
+    if (backBtn) backBtn.onclick = function() { handleBack(page); };
     window.openPage(page);
     await renderAccounts(page);
   } catch(e) {
@@ -32,8 +33,6 @@ var _state = {};
 
 function setState(page, s) {
   _state = Object.assign({}, _state, s);
-  var btn = page.querySelector('#ens-settings-btn');
-  // settings button managed in renderChat
 }
 
 function setTitle(page, t) {
@@ -63,10 +62,22 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function chName(ch) { return ch ? (ch.nick || ch.name || '?') : '?'; }
+function chName(ch) {
+  return ch ? (ch.nick || ch.name || '?') : '?';
+}
 
-function avatar(src, name) {
-  return src ? '<img src="' + esc(src) + '" alt="">' : '<span>' + esc((name||'?').charAt(0)) + '</span>';
+function avatarHtml(src, name) {
+  if (src) {
+    return '<img src="' + esc(src) + '" alt="' + esc(name || '') + '">';
+  }
+  return '<span>' + esc((name || '?').charAt(0)) + '</span>';
+}
+
+function userAvatarHtml(user) {
+  if (user && user.avatar) {
+    return '<img src="' + esc(user.avatar) + '" alt="' + esc(user.name || '') + '">';
+  }
+  return '<span>' + esc((_state.userName || '我').charAt(0)) + '</span>';
 }
 
 // ===== 账号选择 =====
@@ -74,30 +85,49 @@ async function renderAccounts(page) {
   setState(page, { view: 'accounts' });
   setTitle(page, '群像');
   var body = page.querySelector('#ens-body');
+  if (!body) return;
   body.innerHTML = '<div class="miss-loading"><i class="fa fa-spinner fa-spin"></i></div>';
 
   var users = await db.characters.where('type').equals('user').toArray();
   users.sort(function(a,b) { return (b.id||0)-(a.id||0); });
 
   if (!users.length) {
-    body.innerHTML = '<div class="ens-empty"><div class="ens-empty-icon"><i class="fa fa-user-plus"></i></div><div class="ens-empty-title">还没有微信账号</div><div class="ens-empty-desc">请先在微信里创建账号</div></div>';
+    body.innerHTML =
+      '<div class="ens-empty">' +
+        '<div class="ens-empty-icon"><i class="fa fa-user-plus"></i></div>' +
+        '<div class="ens-empty-title">还没有微信账号</div>' +
+        '<div class="ens-empty-desc">请先在微信里创建账号</div>' +
+      '</div>';
     return;
   }
 
-  var h = '<div class="ens-page-header"><div class="ens-page-icon"><i class="fa-solid fa-users-viewfinder"></i></div><div class="ens-page-title">选择身份</div><div class="ens-page-desc">选择微信账号开始群像</div></div><div class="miss-list">';
+  var h =
+    '<div class="ens-page-header">' +
+      '<div class="ens-page-icon"><i class="fa-solid fa-users-viewfinder"></i></div>' +
+      '<div class="ens-page-title">选择身份</div>' +
+      '<div class="ens-page-desc">选择微信账号开始群像</div>' +
+    '</div>' +
+    '<div class="miss-list">';
   users.forEach(function(u) {
-    h += '<button class="miss-row" data-uid="' + u.id + '">' +
-      '<div class="miss-avatar">' + avatar(u.avatar, u.name) + '</div>' +
-      '<div class="miss-row-main"><div class="miss-row-title">' + esc(u.name) + '</div><div class="miss-row-sub">' + esc(u.description || '微信账号') + '</div></div>' +
-      '<i class="fa fa-angle-right"></i></button>';
+    h +=
+      '<button class="miss-row" data-uid="' + u.id + '">' +
+        '<div class="miss-avatar">' + avatarHtml(u.avatar, u.name) + '</div>' +
+        '<div class="miss-row-main">' +
+          '<div class="miss-row-title">' + esc(u.name) + '</div>' +
+          '<div class="miss-row-sub">' + esc(u.description || '微信账号') + '</div>' +
+        '</div>' +
+        '<i class="fa fa-angle-right"></i>' +
+      '</button>';
   });
   h += '</div>';
   body.innerHTML = h;
+
   body.querySelectorAll('.miss-row').forEach(function(r) {
     r.onclick = function() {
       var uid = parseInt(r.dataset.uid);
       var u = users.find(function(x) { return x.id === uid; });
       _state.userName = u ? (u.name || '我') : '我';
+      _state.userAvatar = u ? u.avatar : null;
       renderChars(page, uid);
     };
   });
@@ -108,6 +138,7 @@ async function renderChars(page, uid) {
   setState(page, { view: 'chars', uid: uid });
   setTitle(page, '选择角色');
   var body = page.querySelector('#ens-body');
+  if (!body) return;
   body.innerHTML = '<div class="miss-loading"><i class="fa fa-spinner fa-spin"></i></div>';
 
   var chats = (await db.chats.toArray()).filter(function(c) { return c.ownerUid === uid; });
@@ -118,39 +149,65 @@ async function renderChars(page, uid) {
   }
 
   if (!items.length) {
-    body.innerHTML = '<div class="ens-empty"><div class="ens-empty-icon"><i class="fa fa-user-group"></i></div><div class="ens-empty-title">还没有角色</div><div class="ens-empty-desc">请先在微信里和角色建立私聊</div></div>';
+    body.innerHTML =
+      '<div class="ens-empty">' +
+        '<div class="ens-empty-icon"><i class="fa fa-user-group"></i></div>' +
+        '<div class="ens-empty-title">还没有角色</div>' +
+        '<div class="ens-empty-desc">请先在微信里和角色建立私聊</div>' +
+      '</div>';
     return;
   }
 
   var sel = {};
-  var h = '<div class="ens-page-header"><div class="ens-empty-icon"><i class="fa-solid fa-user-group"></i></div><div class="ens-page-title">选择角色</div><div class="ens-page-desc">可多选，至少选一个</div></div><div class="miss-list">';
+  var h =
+    '<div class="ens-page-header">' +
+      '<div class="ens-page-icon"><i class="fa-solid fa-user-group"></i></div>' +
+      '<div class="ens-page-title">选择角色</div>' +
+      '<div class="ens-page-desc">可多选，至少选一个</div>' +
+    '</div>' +
+    '<div class="miss-list">';
   items.forEach(function(it) {
-    h += '<button class="miss-row ens-char-row" data-cid="' + it.char.id + '">' +
-      '<div class="miss-avatar">' + avatar(it.char.avatar, chName(it.char)) + '</div>' +
-      '<div class="miss-row-main"><div class="miss-row-title">' + esc(chName(it.char)) + '</div><div class="miss-row-sub">' + esc((it.char.description || '').slice(0, 40)) + '</div></div>' +
-      '<div class="ens-check"><i class="fa fa-check" style="display:none"></i></div></button>';
+    h +=
+      '<button class="miss-row ens-char-row" data-cid="' + it.char.id + '">' +
+        '<div class="miss-avatar">' + avatarHtml(it.char.avatar, chName(it.char)) + '</div>' +
+        '<div class="miss-row-main">' +
+          '<div class="miss-row-title">' + esc(chName(it.char)) + '</div>' +
+          '<div class="miss-row-sub">' + esc((it.char.description || '').slice(0, 40)) + '</div>' +
+        '</div>' +
+        '<div class="ens-check"><i class="fa fa-check" style="display:none"></i></div>' +
+      '</button>';
   });
-  h += '</div><div class="ens-confirm-bar"><button class="btn-pill" id="ens-confirm" disabled>确认选择</button></div>';
+  h +=
+    '</div>' +
+    '<div class="ens-confirm-bar"><button class="btn-pill" id="ens-confirm" disabled>确认选择</button></div>';
   body.innerHTML = h;
 
   body.querySelectorAll('.ens-char-row').forEach(function(r) {
     r.onclick = function() {
       var cid = parseInt(r.dataset.cid);
       var ci = r.querySelector('.ens-check i');
-      if (sel[cid]) { delete sel[cid]; ci.style.display = 'none'; r.classList.remove('selected'); }
-      else {
+      if (sel[cid]) {
+        delete sel[cid];
+        if (ci) ci.style.display = 'none';
+        r.classList.remove('selected');
+      } else {
         var it = items.find(function(x) { return x.char.id === cid; });
         sel[cid] = it;
-        ci.style.display = 'inline'; r.classList.add('selected');
+        if (ci) ci.style.display = 'inline';
+        r.classList.add('selected');
       }
-      body.querySelector('#ens-confirm').disabled = Object.keys(sel).length === 0;
+      var confirmBtn = body.querySelector('#ens-confirm');
+      if (confirmBtn) confirmBtn.disabled = Object.keys(sel).length === 0;
     };
   });
 
-  body.querySelector('#ens-confirm').onclick = function() {
-    var chars = Object.values(sel);
-    if (chars.length) renderModes(page, uid, chars);
-  };
+  var confirmBtn = body.querySelector('#ens-confirm');
+  if (confirmBtn) {
+    confirmBtn.onclick = function() {
+      var chars = Object.values(sel);
+      if (chars.length) renderModes(page, uid, chars);
+    };
+  }
 }
 
 // ===== 模式选择 =====
@@ -158,13 +215,26 @@ async function renderModes(page, uid, chars) {
   setState(page, { view: 'modes', uid: uid, chars: chars });
   setTitle(page, '选择模式');
   var body = page.querySelector('#ens-body');
+  if (!body) return;
   var names = chars.map(function(c) { return chName(c.char); }).join('、');
 
   body.innerHTML =
-    '<div class="ens-page-header"><div class="ens-page-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div class="ens-page-title">选择模式</div><div class="ens-page-desc">和 ' + esc(names) + ' 一起开始</div></div>' +
+    '<div class="ens-page-header">' +
+      '<div class="ens-page-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>' +
+      '<div class="ens-page-title">选择模式</div>' +
+      '<div class="ens-page-desc">和 ' + esc(names) + ' 一起开始</div>' +
+    '</div>' +
     '<div class="ens-mode-grid">' +
-      '<button class="ens-mode-card" data-mode="meet"><div class="ens-mode-icon"><i class="fa-solid fa-people-group"></i></div><div class="ens-mode-title">见面模式</div><div class="ens-mode-desc">多人实时聊天，支持动态增删</div></button>' +
-      '<button class="ens-mode-card" data-mode="script"><div class="ens-mode-icon"><i class="fa-solid fa-book-open"></i></div><div class="ens-mode-title">剧本模式</div><div class="ens-mode-desc">AI生成剧本，进入故事世界</div></button>' +
+      '<button class="ens-mode-card" data-mode="meet">' +
+        '<div class="ens-mode-icon"><i class="fa-solid fa-people-group"></i></div>' +
+        '<div class="ens-mode-title">见面模式</div>' +
+        '<div class="ens-mode-desc">多人实时聊天，支持动态增删</div>' +
+      '</button>' +
+      '<button class="ens-mode-card" data-mode="script">' +
+        '<div class="ens-mode-icon"><i class="fa-solid fa-book-open"></i></div>' +
+        '<div class="ens-mode-title">剧本模式</div>' +
+        '<div class="ens-mode-desc">AI生成剧本，进入故事世界</div>' +
+      '</button>' +
     '</div>';
 
   body.querySelectorAll('.ens-mode-card').forEach(function(c) {
@@ -185,13 +255,13 @@ function enterMeet(page, uid, chars) {
 // ===== 聊天渲染 =====
 function renderChat(page) {
   var body = page.querySelector('#ens-body');
+  if (!body) return;
   var chars = _state.current || [];
 
   // CAST头像组HTML
   var castAvatars = chars.map(function(c) {
     var ch = c.char;
-    var av = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
-    return '<div class="ens-header-cast-avatar">' + av + '</div>';
+    return '<div class="ens-header-cast-avatar">' + avatarHtml(ch.avatar, chName(ch)) + '</div>';
   }).join('');
 
   body.innerHTML =
@@ -218,10 +288,13 @@ function renderChat(page) {
         '<button class="ens-header-more" id="ens-settings-btn"><i class="fa-solid fa-ellipsis"></i></button>';
     }
     var settingsBtn = header.querySelector('#ens-settings-btn');
-    if (settingsBtn) settingsBtn.onclick = function() { openEnsembleSettings(page, _state.uid, chars); };
+    if (settingsBtn) {
+      settingsBtn.onclick = function() { openEnsembleSettings(page, _state.uid, chars); };
+    }
   }
 
-  // 加载历史
+  // 加载历史（标记去重）
+  _state._historyLoaded = false;
   loadChatHistory(page);
 
   // 事件绑定
@@ -234,7 +307,10 @@ function renderChat(page) {
   var input = body.querySelector('#ens-input');
   var sendBtn = body.querySelector('#ens-send');
   if (input) {
-    input.oninput = function() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 100) + 'px'; };
+    input.oninput = function() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+    };
     input.onkeydown = function(e) {
       var isSend = window.isWanWanSendKeyEvent ? window.isWanWanSendKeyEvent(e) : (e.key === 'Enter' && !e.shiftKey && !e.isComposing);
       if (isSend) { e.preventDefault(); doSend(page); }
@@ -258,7 +334,7 @@ async function doSend(page) {
   showTyping(page);
 
   try {
-    var sys = buildGroupPrompt(_state.current, _state.mode, _state.scriptData);
+    var sys = await buildGroupPrompt(_state.current, _state.mode, _state.scriptData);
     var msgs = [{ role: 'system', content: sys }];
     var hist = (_state.history || []).slice(-20);
     msgs = msgs.concat(hist);
@@ -269,13 +345,14 @@ async function doSend(page) {
       { role: 'user', content: text },
       { role: 'assistant', content: reply }
     ]);
+    hideTyping(page);
     addMsg(page, 'ai', reply);
   } catch(e) {
     console.error('[ensemble] send error:', e);
     window.toast && window.toast('回复失败');
+    hideTyping(page);
   } finally {
     _state.sending = false;
-    hideTyping(page);
   }
 }
 
@@ -283,8 +360,6 @@ async function doSend(page) {
 async function buildGroupPrompt(chars, mode, scriptData) {
   var p = '';
   var narrative = _state.narrative || 'third';
-  var minW = _state.minWords || 200;
-  var maxW = _state.maxWords || 600;
 
   if (mode === 'script' && scriptData) {
     p += '你是剧本演绎引擎。当前剧本：「' + (scriptData.title || '') + '」\n';
@@ -296,12 +371,12 @@ async function buildGroupPrompt(chars, mode, scriptData) {
   }
 
   // Narrative perspective
-  var narrText = { first: '第一人称（以“我”的视角叙述）', second: '第二人称（以“你”的视角叙述）', third: '第三人称' };
+  var narrText = { first: '第一人称（以"我"的视角叙述）', second: '第二人称（以"你"的视角叙述）', third: '第三人称' };
   p += '## 叙述视角：' + (narrText[narrative] || '第三人称') + '\n\n';
 
   // Load memories
   var memCtx = '';
-  try { memCtx = await loadMemoriesForChars(chars, _state.uid); } catch(e) {}
+  try { memCtx = await loadMemoriesForChars(chars, _state.uid); } catch(e) { /* ignore */ }
   if (memCtx) {
     p += '## 角色记忆（线上+线下历史）\n' + memCtx + '\n\n';
   }
@@ -327,8 +402,8 @@ async function buildGroupPrompt(chars, mode, scriptData) {
   p += '让角色自然互动，每次回复包含多个角色。200-500字。\n';
 
   // 世界书注入
-  try { if (window._BUILTIN_ANTI_DRIFT_LORE) p += '\n\n' + window._BUILTIN_ANTI_DRIFT_LORE; } catch(e){}
-  try { if (window._BUILTIN_PLOT_FIRST_LORE) p += '\n\n' + window._BUILTIN_PLOT_FIRST_LORE; } catch(e){}
+  try { if (window._BUILTIN_ANTI_DRIFT_LORE) p += '\n\n' + window._BUILTIN_ANTI_DRIFT_LORE; } catch(e) { /* ignore */ }
+  try { if (window._BUILTIN_PLOT_FIRST_LORE) p += '\n\n' + window._BUILTIN_PLOT_FIRST_LORE; } catch(e) { /* ignore */ }
 
   return p;
 }
@@ -338,18 +413,16 @@ function addMsg(page, role, text) {
   var log = page.querySelector('#ens-log');
   if (!log) return;
   var div = document.createElement('div');
-  var msgIdx = log.querySelectorAll('.ens-user-msg, .ens-narr-msg').length + 1;
   var chars = _state.current || [];
 
   if (role === 'user') {
-    // 用户消息 - 浅灰气泡
+    // 用户消息 - 浅灰气泡，带头像
     var userName = _state.userName || '我';
-    var userAv = '<span>' + esc(userName.charAt(0)) + '</span>';
     div.className = 'ens-user-msg';
     div.innerHTML =
       '<div class="ens-user-card">' +
         '<div class="ens-user-head">' +
-          '<div class="ens-user-avatar">' + userAv + '</div>' +
+          '<div class="ens-user-avatar">' + userAvatarHtml(null) + '</div>' +
           '<div class="ens-user-name">' + esc(userName) + '</div>' +
         '</div>' +
         '<div class="ens-user-body">' + esc(text) + '</div>' +
@@ -358,19 +431,25 @@ function addMsg(page, role, text) {
   } else {
     // AI叙事 - 白色NARRATION大卡片
     div.className = 'ens-narr-msg';
-    var charsHTML = '';
 
     // 解析文本，按角色分段
     var segments = parseNarrationSegments(text, chars);
+    var charsHTML = '';
     segments.forEach(function(seg) {
-      charsHTML += '<div class="ens-char-unit">' +
-        '<div class="ens-char-head">' +
-          '<div class="ens-char-avatar">' + seg.avatarHtml + '</div>' +
-          '<div class="ens-char-name">' + esc(seg.name) + '</div>' +
-        '</div>' +
-        seg.bodyHtml +
-      '</div>';
+      charsHTML +=
+        '<div class="ens-char-unit">' +
+          '<div class="ens-char-head">' +
+            '<div class="ens-char-avatar">' + seg.avatarHtml + '</div>' +
+            '<div class="ens-char-name">' + esc(seg.name) + '</div>' +
+          '</div>' +
+          seg.bodyHtml +
+        '</div>';
     });
+
+    // 如果没有解析出段落，显示原始文本
+    if (!charsHTML) {
+      charsHTML = '<div class="ens-text-env">' + esc(text) + '</div>';
+    }
 
     div.innerHTML =
       '<div class="ens-narr-card">' +
@@ -388,8 +467,6 @@ function addMsg(page, role, text) {
   saveChatMsg(role, text);
 }
 
-
-
 function addSysMsg(page, text) {
   var log = page.querySelector('#ens-log');
   if (!log) return;
@@ -400,6 +477,7 @@ function addSysMsg(page, text) {
   log.scrollTop = log.scrollHeight;
 }
 
+// ===== 叙事文本解析 =====
 function parseNarrationSegments(text, chars) {
   if (!text) return [];
   var lines = text.split('\n').filter(function(l) { return l.trim(); });
@@ -417,9 +495,14 @@ function parseNarrationSegments(text, chars) {
       return '<div class="ens-text-env">' + esc(t) + '</div>';
     }).filter(Boolean).join('');
 
-    var ch = currentChar || (chars.length > 0 ? chars[0].char : {});
-    var avHtml = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
-    segments.push({ name: chName(ch), avatarHtml: avHtml, bodyHtml: bodyHtml });
+    var ch = currentChar || (chars.length > 0 ? chars[0].char : null);
+    if (ch) {
+      segments.push({
+        name: chName(ch),
+        avatarHtml: avatarHtml(ch.avatar, chName(ch)),
+        bodyHtml: bodyHtml
+      });
+    }
     currentLines = [];
   }
 
@@ -429,7 +512,7 @@ function parseNarrationSegments(text, chars) {
     var matchedChar = null;
     chars.forEach(function(c) {
       var name = chName(c.char);
-      if (t.indexOf(name) === 0 && (t.charAt(name.length) === ' ' || t.charAt(name.length) === '\u3001')) {
+      if (t.indexOf(name) === 0 && (t.charAt(name.length) === ' ' || t.charAt(name.length) === '、' || t.charAt(name.length) === ',')) {
         matchedChar = c.char;
       }
     });
@@ -448,15 +531,20 @@ function parseNarrationSegments(text, chars) {
 
   // 如果没有解析出任何段落，用默认角色
   if (segments.length === 0 && currentLines.length > 0) {
-    var ch = chars.length > 0 ? chars[0].char : {};
-    var avHtml = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
-    var bodyHtml = currentLines.map(function(line) {
-      var t = line.trim();
-      if (isDialogue(t)) return '<div class="ens-text-dialogue">' + esc(t) + '</div>';
-      if (isAction(t)) return '<div class="ens-text-action">' + esc(t) + '</div>';
-      return '<div class="ens-text-env">' + esc(t) + '</div>';
-    }).filter(Boolean).join('');
-    segments.push({ name: chName(ch), avatarHtml: avHtml, bodyHtml: bodyHtml });
+    var ch = chars.length > 0 ? chars[0].char : null;
+    if (ch) {
+      var bodyHtml = currentLines.map(function(line) {
+        var t = line.trim();
+        if (isDialogue(t)) return '<div class="ens-text-dialogue">' + esc(t) + '</div>';
+        if (isAction(t)) return '<div class="ens-text-action">' + esc(t) + '</div>';
+        return '<div class="ens-text-env">' + esc(t) + '</div>';
+      }).filter(Boolean).join('');
+      segments.push({
+        name: chName(ch),
+        avatarHtml: avatarHtml(ch.avatar, chName(ch)),
+        bodyHtml: bodyHtml
+      });
+    }
   }
 
   return segments;
@@ -470,27 +558,23 @@ function isDialogue(line) {
 }
 
 function isAction(line) {
-  var kw = ['\u8f7b\u8f7b','\u7f13\u7f13','\u770b\u5411','\u7ad9\u8d77','\u5750\u4e0b','\u8f6c\u8eab','\u5fae\u7b11','\u76b1\u7709','\u70b9\u5934','\u6447\u5934','\u53f9\u4e86\u53e3\u6c14','\u4f38\u51fa\u624b','\u4f4e\u4e0b\u5934','\u62ac\u8d77'];
-  for (var i = 0; i < kw.length; i++) { if (line.indexOf(kw[i]) !== -1) return true; }
+  var kw = ['轻轻','缓缓','看向','站起','坐下','转身','微笑','皱眉','点头','摇头','叹了口气','伸出手','低下头','抬起','走来','离开','说道','开口','沉默','注视'];
+  for (var i = 0; i < kw.length; i++) {
+    if (line.indexOf(kw[i]) !== -1) return true;
+  }
+  var chars = _state.current || [];
+  for (var j = 0; j < chars.length; j++) {
+    var n = chName(chars[j].char);
+    if (line.indexOf(n) === 0 && line.indexOf('「') === -1 && line.indexOf('\u201c') === -1) return true;
+  }
   return false;
 }
 
 function formatTime(ts) {
   var d = new Date(ts);
-  var h = d.getHours().toString().padStart(2,'0');
-  var m = d.getMinutes().toString().padStart(2,'0');
+  var h = d.getHours().toString().padStart(2, '0');
+  var m = d.getMinutes().toString().padStart(2, '0');
   return h + ':' + m;
-}
-
-function isAction(line) {
-  var kw = ['轻轻','缓缓','看向','站起','坐下','转身','微笑','皱眉','点头','摇头','叹了口气','伸出手','低下头','抬起'];
-  for (var i = 0; i < kw.length; i++) { if (line.indexOf(kw[i]) !== -1) return true; }
-  var chars = _state.current || [];
-  for (var j = 0; j < chars.length; j++) {
-    var n = chName(chars[j].char);
-    if (line.indexOf(n) === 0 && line.indexOf('「') === -1) return true;
-  }
-  return false;
 }
 
 function showTyping(page) {
@@ -519,24 +603,44 @@ function showCastModal(page) {
   var modal = document.createElement('div');
   modal.className = 'center-modal ens-personnel-modal';
 
-  var h = '<div class="sheet-title">现场人员</div><div class="ens-personnel-list">';
-  h += '<div class="ens-section-label">在场</div>';
+  var h =
+    '<div class="sheet-title">现场人员</div>' +
+    '<div class="ens-personnel-list">' +
+    '<div class="ens-section-label">在场</div>';
   cur.forEach(function(c) {
-    h += '<div class="ens-person-row"><div class="miss-avatar">' + avatar(c.char.avatar, chName(c.char)) + '</div><div class="ens-person-name">' + esc(chName(c.char)) + '</div><button class="ens-remove-btn" data-cid="' + c.char.id + '">移除</button></div>';
+    h +=
+      '<div class="ens-person-row">' +
+        '<div class="miss-avatar">' + avatarHtml(c.char.avatar, chName(c.char)) + '</div>' +
+        '<div class="ens-person-name">' + esc(chName(c.char)) + '</div>' +
+        '<button class="ens-remove-btn" data-cid="' + c.char.id + '">移除</button>' +
+      '</div>';
   });
   h += '<div class="ens-section-label">不在场</div>';
-  all.filter(function(c) { return !cur.find(function(x) { return x.char.id === c.char.id; }); }).forEach(function(c) {
-    h += '<div class="ens-person-row"><div class="miss-avatar">' + avatar(c.char.avatar, chName(c.char)) + '</div><div class="ens-person-name">' + esc(chName(c.char)) + '</div><button class="ens-add-btn" data-cid="' + c.char.id + '">加入</button></div>';
+  all.filter(function(c) {
+    return !cur.find(function(x) { return x.char.id === c.char.id; });
+  }).forEach(function(c) {
+    h +=
+      '<div class="ens-person-row">' +
+        '<div class="miss-avatar">' + avatarHtml(c.char.avatar, chName(c.char)) + '</div>' +
+        '<div class="ens-person-name">' + esc(chName(c.char)) + '</div>' +
+        '<button class="ens-add-btn" data-cid="' + c.char.id + '">加入</button>' +
+      '</div>';
   });
-  h += '</div><div class="sheet-actions"><button class="btn-pill btn-full" id="ens-cast-close">关闭</button></div>';
+  h +=
+    '</div>' +
+    '<div class="sheet-actions"><button class="btn-pill btn-full" id="ens-cast-close">关闭</button></div>';
   modal.innerHTML = h;
 
   document.body.appendChild(overlay);
   document.body.appendChild(modal);
-  requestAnimationFrame(function() { overlay.classList.add('show'); modal.classList.add('show'); });
+  requestAnimationFrame(function() {
+    overlay.classList.add('show');
+    modal.classList.add('show');
+  });
 
   function close() {
-    overlay.classList.remove('show'); modal.classList.remove('show');
+    overlay.classList.remove('show');
+    modal.classList.remove('show');
     setTimeout(function() { overlay.remove(); modal.remove(); }, 300);
   }
 
@@ -546,7 +650,8 @@ function showCastModal(page) {
       var ch = cur.find(function(x) { return x.char.id === cid; });
       _state.current = cur.filter(function(x) { return x.char.id !== cid; });
       if (ch) addSysMsg(page, chName(ch.char) + ' 离开了聊天');
-      close(); showCastModal(page);
+      close();
+      showCastModal(page);
       setTitle(page, '群像 · ' + _state.current.length + '人在线');
     };
   });
@@ -555,13 +660,18 @@ function showCastModal(page) {
     b.onclick = function() {
       var cid = parseInt(b.dataset.cid);
       var ch = all.find(function(x) { return x.char.id === cid; });
-      if (ch) { _state.current.push(ch); addSysMsg(page, chName(ch.char) + ' 加入了聊天'); }
-      close(); showCastModal(page);
+      if (ch) {
+        _state.current.push(ch);
+        addSysMsg(page, chName(ch.char) + ' 加入了聊天');
+      }
+      close();
+      showCastModal(page);
       setTitle(page, '群像 · ' + _state.current.length + '人在线');
     };
   });
 
-  modal.querySelector('#ens-cast-close').onclick = close;
+  var closeBtn = modal.querySelector('#ens-cast-close');
+  if (closeBtn) closeBtn.onclick = close;
   overlay.onclick = close;
 }
 
@@ -569,18 +679,39 @@ function showCastModal(page) {
 var SCRIPT_CFG = 'ens_script_cfg';
 var SCRIPT_HIST = 'ens_script_hist';
 
-async function getScriptCfg(uid) { try { var r = await db.config.get(SCRIPT_CFG + '_' + uid); return r ? r.value : null; } catch(e) { return null; } }
-async function saveScriptCfg(uid, c) { try { await db.config.put({ key: SCRIPT_CFG + '_' + uid, value: c }); } catch(e) {} }
-async function getScriptHist(uid) { try { var r = await db.config.get(SCRIPT_HIST + '_' + uid); return r ? r.value : []; } catch(e) { return []; } }
-async function saveScriptHist(uid, d) { try { var h = await getScriptHist(uid); h.unshift(Object.assign({}, d, { savedAt: Date.now() })); if (h.length > 20) h.length = 20; await db.config.put({ key: SCRIPT_HIST + '_' + uid, value: h }); } catch(e) {} }
+async function getScriptCfg(uid) {
+  try { var r = await db.config.get(SCRIPT_CFG + '_' + uid); return r ? r.value : null; }
+  catch(e) { return null; }
+}
+async function saveScriptCfg(uid, c) {
+  try { await db.config.put({ key: SCRIPT_CFG + '_' + uid, value: c }); }
+  catch(e) { /* ignore */ }
+}
+async function getScriptHist(uid) {
+  try { var r = await db.config.get(SCRIPT_HIST + '_' + uid); return r ? r.value : []; }
+  catch(e) { return []; }
+}
+async function saveScriptHist(uid, d) {
+  try {
+    var h = await getScriptHist(uid);
+    h.unshift(Object.assign({}, d, { savedAt: Date.now() }));
+    if (h.length > 20) h.length = 20;
+    await db.config.put({ key: SCRIPT_HIST + '_' + uid, value: h });
+  } catch(e) { /* ignore */ }
+}
 
 function openScriptSettings(page, uid, chars) {
   setState(page, { view: 'script-settings', uid: uid, chars: chars });
   setTitle(page, '剧本设置');
   var body = page.querySelector('#ens-body');
+  if (!body) return;
 
   body.innerHTML =
-    '<div class="ens-page-header"><div class="ens-page-icon"><i class="fa-solid fa-book-open"></i></div><div class="ens-page-title">剧本设置</div><div class="ens-page-desc">设置参数，AI生成剧本</div></div>' +
+    '<div class="ens-page-header">' +
+      '<div class="ens-page-icon"><i class="fa-solid fa-book-open"></i></div>' +
+      '<div class="ens-page-title">剧本设置</div>' +
+      '<div class="ens-page-desc">设置参数，AI生成剧本</div>' +
+    '</div>' +
     '<div class="ens-script-settings">' +
       '<div class="miss-section-title">叙事视角</div>' +
       '<div class="ens-radio-group">' +
@@ -595,7 +726,10 @@ function openScriptSettings(page, uid, chars) {
         '<label class="ens-radio-item"><input type="radio" name="ens-s" value="romance"><span>虐心言情</span></label>' +
       '</div>' +
       '<div class="miss-section-title">世界书</div>' +
-      '<div class="ens-toggle-row"><span>Apollo Protocol</span><label class="ens-toggle"><input type="checkbox" id="ens-wb"><span class="ens-toggle-slider"></span></label></div>' +
+      '<div class="ens-toggle-row">' +
+        '<span>Apollo Protocol</span>' +
+        '<label class="ens-toggle"><input type="checkbox" id="ens-wb"><span class="ens-toggle-slider"></span></label>' +
+      '</div>' +
       '<div class="miss-section-title">故事主题</div>' +
       '<input type="text" class="ens-input-field" id="ens-theme" placeholder="如：校园恋爱">' +
       '<div class="miss-section-title">额外设定</div>' +
@@ -606,21 +740,32 @@ function openScriptSettings(page, uid, chars) {
       '</div>' +
     '</div>';
 
-  body.querySelector('#ens-gen').onclick = function() { generateScript(page, uid, chars); };
-  body.querySelector('#ens-hist').onclick = function() { showHistory(page, uid, chars); };
+  var genBtn = body.querySelector('#ens-gen');
+  if (genBtn) genBtn.onclick = function() { generateScript(page, uid, chars); };
+  var histBtn = body.querySelector('#ens-hist');
+  if (histBtn) histBtn.onclick = function() { showHistory(page, uid, chars); };
 }
 
 async function generateScript(page, uid, chars) {
   var body = page.querySelector('#ens-body');
+  if (!body) return;
   var p = body.querySelector('input[name="ens-p"]:checked');
   var s = body.querySelector('input[name="ens-s"]:checked');
   var wb = body.querySelector('#ens-wb');
   var th = body.querySelector('#ens-theme');
   var ex = body.querySelector('#ens-extra');
-  var cfg = { p: p ? p.value : 'third', s: s ? s.value : 'daily', wb: wb ? wb.checked : false, theme: th ? th.value.trim() : '', extra: ex ? ex.value.trim() : '' };
+  var cfg = {
+    p: p ? p.value : 'third',
+    s: s ? s.value : 'daily',
+    wb: wb ? wb.checked : false,
+    theme: th ? th.value.trim() : '',
+    extra: ex ? ex.value.trim() : ''
+  };
   await saveScriptCfg(uid, cfg);
 
-  body.innerHTML = '<div class="miss-loading"><i class="fa fa-spinner fa-spin"></i></div><div style="text-align:center;color:#8a8a8a;margin-top:12px;">AI生成剧本中...</div>';
+  body.innerHTML =
+    '<div class="miss-loading"><i class="fa fa-spinner fa-spin"></i></div>' +
+    '<div style="text-align:center;color:#8a8a8a;margin-top:12px;">AI生成剧本中...</div>';
 
   try {
     var descs = chars.map(function(c) { return c.char.name + '：' + (c.char.description || '无'); }).join('\n');
@@ -631,8 +776,8 @@ async function generateScript(page, uid, chars) {
     prompt += '\n返回JSON：{"title":"","premise":"","characters":[{"name":"","role":"","setting":""}],"preview":"","keywords":[""]}';
 
     var sys = '你是剧本创作AI，严格返回JSON。';
-    try { if (_BUILTIN_ANTI_DRIFT_LORE) sys += '\n\n' + _BUILTIN_ANTI_DRIFT_LORE; } catch(e){}
-    try { if (_BUILTIN_PLOT_FIRST_LORE) sys += '\n\n' + _BUILTIN_PLOT_FIRST_LORE; } catch(e){}
+    try { if (window._BUILTIN_ANTI_DRIFT_LORE) sys += '\n\n' + window._BUILTIN_ANTI_DRIFT_LORE; } catch(e) { /* ignore */ }
+    try { if (window._BUILTIN_PLOT_FIRST_LORE) sys += '\n\n' + window._BUILTIN_PLOT_FIRST_LORE; } catch(e) { /* ignore */ }
     if (cfg.wb && window._APOLLO_PROTOCOL) sys += '\n\n' + window._APOLLO_PROTOCOL;
 
     var reply = await window.callAI([{ role:'system', content:sys }, { role:'user', content:prompt }], { responseFormat:'json_object', charAntiDrift:true });
@@ -650,49 +795,84 @@ function showScriptPreview(page, uid, chars, cfg, data) {
   setState(page, { view: 'script-preview', uid: uid, chars: chars, cfg: cfg, scriptData: data });
   setTitle(page, '剧本预览');
   var body = page.querySelector('#ens-body');
+  if (!body) return;
 
-  var h = '<div class="ens-script-preview"><div class="ens-script-title">' + esc(data.title || '未命名') + '</div>';
+  var h =
+    '<div class="ens-script-preview">' +
+    '<div class="ens-script-title">' + esc(data.title || '未命名') + '</div>';
+
   h += '<div class="ens-script-section"><div class="ens-script-label">前提</div><div class="ens-script-text">' + esc(data.premise || '') + '</div></div>';
+
   h += '<div class="ens-script-section"><div class="ens-script-label">角色</div>';
-  (data.characters || []).forEach(function(c) { h += '<div class="ens-script-char"><strong>' + esc(c.name) + '</strong> - ' + esc(c.role || '') + '<div class="ens-script-char-desc">' + esc(c.setting || '') + '</div></div>'; });
+  (data.characters || []).forEach(function(c) {
+    h += '<div class="ens-script-char"><strong>' + esc(c.name) + '</strong> - ' + esc(c.role || '') +
+      '<div class="ens-script-char-desc">' + esc(c.setting || '') + '</div></div>';
+  });
   h += '</div>';
+
   h += '<div class="ens-script-section"><div class="ens-script-label">预览</div><div class="ens-script-text">' + esc(data.preview || '') + '</div></div>';
+
   h += '<div class="ens-script-section"><div class="ens-script-label">关键词</div><div class="ens-keywords">';
   (data.keywords || []).forEach(function(k) { h += '<span class="ens-keyword">#' + esc(k) + '</span>'; });
   h += '</div></div>';
-  h += '<div class="ens-script-actions"><button class="btn-pill" id="ens-start">开始剧本</button><button class="btn-ghost" id="ens-retry">重新生成</button></div></div>';
+
+  h += '<div class="ens-script-actions">' +
+    '<button class="btn-pill" id="ens-start">开始剧本</button>' +
+    '<button class="btn-ghost" id="ens-retry">重新生成</button>' +
+  '</div></div>';
   body.innerHTML = h;
 
-  body.querySelector('#ens-start').onclick = function() {
-    _state.scriptData = data;
-    _state.mode = 'script';
-    enterMeet(page, uid, chars);
-  };
-  body.querySelector('#ens-retry').onclick = function() { openScriptSettings(page, uid, chars); };
+  var startBtn = body.querySelector('#ens-start');
+  if (startBtn) {
+    startBtn.onclick = function() {
+      _state.scriptData = data;
+      _state.mode = 'script';
+      enterMeet(page, uid, chars);
+    };
+  }
+  var retryBtn = body.querySelector('#ens-retry');
+  if (retryBtn) retryBtn.onclick = function() { openScriptSettings(page, uid, chars); };
 }
 
 async function showHistory(page, uid, chars) {
   setState(page, { view: 'script-history', uid: uid, chars: chars });
   setTitle(page, '历史剧本');
   var body = page.querySelector('#ens-body');
+  if (!body) return;
   var list = await getScriptHist(uid);
 
   if (!list.length) {
-    body.innerHTML = '<div class="ens-empty"><div class="ens-empty-icon"><i class="fa fa-clock-rotate-left"></i></div><div class="ens-empty-title">暂无历史剧本</div></div>';
+    body.innerHTML =
+      '<div class="ens-empty">' +
+        '<div class="ens-empty-icon"><i class="fa fa-clock-rotate-left"></i></div>' +
+        '<div class="ens-empty-title">暂无历史剧本</div>' +
+      '</div>';
     return;
   }
 
   var h = '<div class="miss-section-title">历史剧本</div><div class="miss-list">';
   list.forEach(function(s, i) {
     var d = s.savedAt ? new Date(s.savedAt).toLocaleDateString() : '';
-    h += '<button class="miss-row" data-i="' + i + '"><div class="miss-row-main"><div class="miss-row-title">' + esc(s.title || '未命名') + '</div><div class="miss-row-sub">' + esc(s.preview || '').slice(0, 50) + '</div></div><div class="ens-history-date">' + esc(d) + '</div></button>';
+    h +=
+      '<button class="miss-row" data-i="' + i + '">' +
+        '<div class="miss-row-main">' +
+          '<div class="miss-row-title">' + esc(s.title || '未命名') + '</div>' +
+          '<div class="miss-row-sub">' + esc(s.preview || '').slice(0, 50) + '</div>' +
+        '</div>' +
+        '<div class="ens-history-date">' + esc(d) + '</div>' +
+      '</button>';
   });
   h += '</div>';
   body.innerHTML = h;
+
   body.querySelectorAll('.miss-row').forEach(function(r) {
-    r.onclick = function() { var i = parseInt(r.dataset.i); if (list[i]) showScriptPreview(page, uid, chars, {}, list[i]); };
+    r.onclick = function() {
+      var i = parseInt(r.dataset.i);
+      if (list[i]) showScriptPreview(page, uid, chars, {}, list[i]);
+    };
   });
 }
+
 // ===== 聊天保存/加载 =====
 async function saveChatMsg(role, text) {
   try {
@@ -712,33 +892,54 @@ async function saveChatMsg(role, text) {
 async function loadChatHistory(page) {
   try {
     if (!_state.uid || !db.offlineChats) return;
+    if (_state._historyLoaded) return; // 防止重复加载
     _state._loading = true;
+    _state._historyLoaded = true;
+
     var all = await db.offlineChats.toArray();
     var rows = all.filter(function(m) {
       return m.ownerUid === _state.uid && m.mode === 'ensemble';
     }).sort(function(a, b) { return (a.createdAt||0) - (b.createdAt||0); });
+
+    // 填充 _state.history 以保持AI上下文
+    _state.history = [];
     rows.forEach(function(m) {
-      if (m.role === 'user') addMsg(page, 'user', m.content);
-      else if (m.role === 'assistant') addMsg(page, 'ai', m.content);
-      else if (m.role === 'system') addSysMsg(page, m.content);
+      if (m.role === 'user') {
+        addMsg(page, 'user', m.content);
+        _state.history.push({ role: 'user', content: m.content });
+      } else if (m.role === 'assistant') {
+        addMsg(page, 'ai', m.content);
+        _state.history.push({ role: 'assistant', content: m.content });
+      } else if (m.role === 'system') {
+        addSysMsg(page, m.content);
+      }
     });
     _state._loading = false;
-  } catch(e) { _state._loading = false; console.error('[ensemble] load:', e); }
+  } catch(e) {
+    _state._loading = false;
+    console.error('[ensemble] load:', e);
+  }
 }
 
 async function clearChatHistory() {
   try {
     if (!_state.uid || !db.offlineChats) return;
     var all = await db.offlineChats.toArray();
-    var ids = all.filter(function(m) { return m.ownerUid === _state.uid && m.mode === 'ensemble'; }).map(function(m) { return m.id; });
+    var ids = all.filter(function(m) {
+      return m.ownerUid === _state.uid && m.mode === 'ensemble';
+    }).map(function(m) { return m.id; });
     if (ids.length) await db.offlineChats.bulkDelete(ids);
     _state.history = [];
+    _state._historyLoaded = false;
   } catch(e) { console.error('[ensemble] clear:', e); }
 }
-// ===== 设置页（参考miss-you完整设置） =====
+
+// ===== 设置页 =====
 async function openEnsembleSettings(page, uid, chars) {
   var body = page.querySelector('#ens-body');
   if (!body) return;
+
+  setState(page, { view: 'settings', uid: uid, chars: chars });
 
   // 加载历史
   var history = [];
@@ -749,19 +950,21 @@ async function openEnsembleSettings(page, uid, chars) {
         return m.ownerUid === uid && m.mode === 'ensemble';
       }).sort(function(a,b) { return (b.createdAt||0)-(a.createdAt||0); });
     }
-  } catch(e) {}
+  } catch(e) { /* ignore */ }
 
   var charNames = (chars || []).map(function(c) { return chName(c.char); }).join('\u3001');
-  var firstChar = chars && chars.length > 0 ? chars[0].char : {};
-  var avHtml = firstChar.avatar ? '<img src="' + esc(firstChar.avatar) + '" alt="">' : '<span>' + esc(chName(firstChar).charAt(0)) + '</span>';
+  var firstChar = chars && chars.length > 0 ? chars[0].char : null;
 
-  var h = '<div class="ens-settings-page">' +
+  var h =
+    '<div class="ens-settings-page">' +
 
     // 目标角色
     '<div class="ens-settings-target">' +
-      '<div class="miss-avatar">' + avHtml + '</div>' +
-      '<div><div class="ens-settings-target-name">' + esc(charNames) + '</div>' +
-      '<div class="ens-settings-target-sub">' + (_state.mode === 'script' ? '剧本模式' : '见面模式') + '</div></div>' +
+      '<div class="miss-avatar">' + (firstChar ? avatarHtml(firstChar.avatar, chName(firstChar)) : '<span>?</span>') + '</div>' +
+      '<div>' +
+        '<div class="ens-settings-target-name">' + esc(charNames) + '</div>' +
+        '<div class="ens-settings-target-sub">' + (_state.mode === 'script' ? '剧本模式' : '见面模式') + '</div>' +
+      '</div>' +
     '</div>' +
 
     // 回复字数
@@ -798,8 +1001,10 @@ async function openEnsembleSettings(page, uid, chars) {
     var days = {};
     history.forEach(function(m) {
       var d = m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '';
-      if (d && !days[d]) days[d] = 0;
-      if (d) days[d]++;
+      if (d) {
+        if (!days[d]) days[d] = 0;
+        days[d]++;
+      }
     });
     Object.keys(days).slice(0, 10).forEach(function(d) {
       h += '<div class="ens-history-item"><span>' + esc(d) + '</span><span class="ens-history-count">' + days[d] + '条</span></div>';
@@ -814,21 +1019,36 @@ async function openEnsembleSettings(page, uid, chars) {
 
   body.innerHTML = h;
 
-  body.querySelector('#ens-settings-save').onclick = function() {
-    _state.minWords = parseInt(body.querySelector('#ens-min-words').value) || 200;
-    _state.maxWords = parseInt(body.querySelector('#ens-max-words').value) || 600;
-    _state.narrative = body.querySelector('#ens-narrative').value || 'third';
-    window.toast && window.toast('设置已保存');
-    renderChat(page);
-  };
+  var saveBtn = body.querySelector('#ens-settings-save');
+  if (saveBtn) {
+    saveBtn.onclick = function() {
+      var minEl = body.querySelector('#ens-min-words');
+      var maxEl = body.querySelector('#ens-max-words');
+      var narrEl = body.querySelector('#ens-narrative');
+      _state.minWords = minEl ? (parseInt(minEl.value) || 200) : 200;
+      _state.maxWords = maxEl ? (parseInt(maxEl.value) || 600) : 600;
+      _state.narrative = narrEl ? (narrEl.value || 'third') : 'third';
+      window.toast && window.toast('设置已保存');
+      renderChat(page);
+    };
+  }
 
-  body.querySelector('#ens-clear').onclick = function() {
-    if (confirm('清空聊天记录？')) {
-      clearChatHistory().then(function() { window.toast && window.toast('已清空'); renderChat(page); });
-    }
-  };
+  var clearBtn = body.querySelector('#ens-clear');
+  if (clearBtn) {
+    clearBtn.onclick = function() {
+      if (confirm('清空聊天记录？')) {
+        clearChatHistory().then(function() {
+          window.toast && window.toast('已清空');
+          renderChat(page);
+        });
+      }
+    };
+  }
 
-  body.querySelector('#ens-summary').onclick = function() { summarizeAndEnd(page); };
+  var summaryBtn = body.querySelector('#ens-summary');
+  if (summaryBtn) {
+    summaryBtn.onclick = function() { summarizeAndEnd(page); };
+  }
 }
 
 // ===== 见面总结 =====
@@ -881,7 +1101,7 @@ async function loadMemoriesForChars(chars, uid) {
         var ctx = await window.WanWanMemory.getMemoryContext(null, ch.id, uid, []);
         if (ctx) parts.push(ch.name + '的记忆：\n' + ctx);
       }
-    } catch(e) {}
+    } catch(e) { /* ignore */ }
   }
   return parts.join('\n\n');
 }

@@ -331,7 +331,7 @@
 }
 
 /* ===== 系统消息 ===== */
-.ens-sys-msg {
+.ens-system-msg {
   text-align: center;
   font-size: 12px;
   color: var(--ens-gray-hint);
@@ -503,6 +503,10 @@
   color: var(--ens-black);
   cursor: pointer;
   min-height: 52px;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
 }
 
 .ens-page .miss-row:last-child { border-bottom: none; }
@@ -562,28 +566,196 @@
 .ens-empty-desc { font-size: 13px; color: var(--ens-gray-hint); }
 
 /* ===== 人员管理弹窗 ===== */
-.ens-cast-modal { max-width: 340px; width: 88%; background: var(--ens-white); border-radius: var(--ens-radius); overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.12); }
-.ens-cast-list { max-height: 340px; overflow-y: auto; padding: 8px 0; }
-.ens-cast-label { font-size: 11px; color: var(--ens-gray-hint); text-transform: uppercase; letter-spacing: 0.6px; padding: 10px 16px 4px; font-weight: 600; }
-.ens-cast-row { display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
-.ens-cast-name { flex: 1; font-size: 14px; font-weight: 500; }
-.ens-cast-btn { padding: 5px 14px; font-size: 12px; font-weight: 600; border-radius: var(--ens-radius-sm); border: 1px solid var(--ens-border); background: none; cursor: pointer; }
-.ens-cast-btn-remove { color: #c41c1c; border-color: #c41c1c; }
-.ens-cast-btn-add { color: var(--ens-black); }
+.ens-personnel-modal {
+  max-width: 340px;
+  width: 88%;
+  background: var(--ens-white);
+  border-radius: var(--ens-radius);
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+}
+
+.ens-personnel-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.ens-section-label {
+  font-size: 11px;
+  color: var(--ens-gray-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 10px 16px 4px;
+  font-weight: 600;
+}
+
+.ens-person-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+}
+
+.ens-person-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ens-remove-btn,
+.ens-add-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--ens-radius-sm);
+  border: 1px solid var(--ens-border);
+  background: none;
+  cursor: pointer;
+}
+
+.ens-remove-btn {
+  color: #c41c1c;
+  border-color: #c41c1c;
+}
+
+.ens-add-btn {
+  color: var(--ens-black);
+}
 
 /* ===== 设置页 ===== */
-.ens-settings { padding: 12px 0; }
-.ens-settings-target { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin: 0 16px 12px; background: var(--ens-white); border: 1px solid var(--ens-border); border-radius: var(--ens-radius); }
-.ens-settings-name { font-size: 16px; font-weight: 600; }
-.ens-settings-sub { font-size: 12px; color: var(--ens-gray-hint); }
-.ens-settings-section { background: var(--ens-white); border: 1px solid var(--ens-border); border-radius: var(--ens-radius); padding: 14px; margin: 0 16px 12px; }
-.ens-settings-label { font-size: 12px; font-weight: 600; color: var(--ens-gray-hint); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
-.ens-settings-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.ens-settings-field span { font-size: 12px; color: var(--ens-gray-hint); }
-.ens-settings-field input, .ens-settings-field select, .ens-settings-field textarea { padding: 8px 10px; border: 1px solid var(--ens-border); border-radius: var(--ens-radius-sm); font-size: 14px; color: var(--ens-black); background: var(--ens-bg); outline: none; font-family: inherit; }
-.ens-settings-field input:focus, .ens-settings-field select:focus, .ens-settings-field textarea:focus { border-color: var(--ens-gray-333); }
-.ens-settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.ens-history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--ens-border); font-size: 13px; }
+.ens-settings-page {
+  padding: 12px 0;
+}
+
+.ens-settings-target {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 0 16px 12px;
+  background: var(--ens-white);
+  border: 1px solid var(--ens-border);
+  border-radius: var(--ens-radius);
+}
+
+.ens-settings-target-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ens-settings-target-sub {
+  font-size: 12px;
+  color: var(--ens-gray-hint);
+}
+
+.ens-settings-section {
+  background: var(--ens-white);
+  border: 1px solid var(--ens-border);
+  border-radius: var(--ens-radius);
+  padding: 14px;
+  margin: 0 16px 12px;
+}
+
+.ens-settings-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ens-gray-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.ens-settings-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* 字数设置网格 */
+.ens-word-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ens-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ens-field-label span {
+  font-size: 12px;
+  color: var(--ens-gray-hint);
+}
+
+.ens-field-label input {
+  padding: 8px 10px;
+  border: 1px solid var(--ens-border);
+  border-radius: var(--ens-radius-sm);
+  font-size: 14px;
+  color: var(--ens-black);
+  background: var(--ens-bg);
+  outline: none;
+  font-family: inherit;
+}
+
+.ens-field-label input:focus {
+  border-color: var(--ens-gray-333);
+}
+
+/* 剧本设置输入框 */
+.ens-input-field {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--ens-border);
+  border-radius: var(--ens-radius-sm);
+  font-size: 14px;
+  color: var(--ens-black);
+  background: var(--ens-bg);
+  outline: none;
+  font-family: inherit;
+  margin-bottom: 12px;
+}
+
+.ens-input-field:focus {
+  border-color: var(--ens-gray-333);
+}
+
+.ens-textarea-field {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 10px;
+  border: 1px solid var(--ens-border);
+  border-radius: var(--ens-radius-sm);
+  font-size: 14px;
+  color: var(--ens-black);
+  background: var(--ens-bg);
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.ens-textarea-field:focus {
+  border-color: var(--ens-gray-333);
+}
+
+/* 历史记录计数 */
+.ens-history-count {
+  font-size: 12px;
+  color: var(--ens-gray-999);
+}
+
+.ens-history-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ens-border);
+  font-size: 13px;
+}
+
 .ens-history-item:last-child { border-bottom: none; }
 
 /* ===== 剧本设置 ===== */
@@ -595,10 +767,10 @@
 .ens-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; font-size: 14px; }
 .ens-toggle { position: relative; width: 44px; height: 24px; cursor: pointer; }
 .ens-toggle input { opacity: 0; width: 0; height: 0; }
-.ens-toggle-track { position: absolute; inset: 0; background: var(--ens-border); border-radius: 24px; transition: 200ms; }
-.ens-toggle-track::before { content: ''; position: absolute; width: 20px; height: 20px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: 200ms; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
-.ens-toggle input:checked + .ens-toggle-track { background: var(--ens-black); }
-.ens-toggle input:checked + .ens-toggle-track::before { transform: translateX(20px); }
+.ens-toggle-slider { position: absolute; inset: 0; background: var(--ens-border); border-radius: 24px; transition: 200ms; }
+.ens-toggle-slider::before { content: ''; position: absolute; width: 20px; height: 20px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: 200ms; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+.ens-toggle input:checked + .ens-toggle-slider { background: var(--ens-black); }
+.ens-toggle input:checked + .ens-toggle-slider::before { transform: translateX(20px); }
 
 /* ===== 剧本预览 ===== */
 .ens-script-preview { padding: 16px; }
@@ -611,13 +783,46 @@
 .ens-script-char-desc { font-size: 12px; color: var(--ens-gray-hint); margin-top: 3px; }
 .ens-keywords { display: flex; flex-wrap: wrap; gap: 6px; }
 .ens-keyword { padding: 4px 10px; background: rgba(0,0,0,0.04); border-radius: var(--ens-radius-sm); font-size: 12px; color: var(--ens-gray-333); }
+.ens-script-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+/* ===== 历史日期 ===== */
+.ens-history-date { font-size: 12px; color: var(--ens-gray-hint); flex-shrink: 0; }
 
 /* ===== 通用按钮 ===== */
-.ens-page .btn-pill { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; background: var(--ens-black); color: var(--ens-white); border: none; border-radius: var(--ens-radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; flex: 1; }
+.ens-page .btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 20px;
+  background: var(--ens-black);
+  color: var(--ens-white);
+  border: none;
+  border-radius: var(--ens-radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
 .ens-page .btn-pill:active { transform: scale(0.97); }
 .ens-page .btn-pill:disabled { opacity: 0.3; }
-.ens-page .btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; background: none; color: var(--ens-black); border: 1px solid var(--ens-border); border-radius: var(--ens-radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; flex: 1; }
+.ens-page .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 20px;
+  background: none;
+  color: var(--ens-black);
+  border: 1px solid var(--ens-border);
+  border-radius: var(--ens-radius-sm);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  flex: 1;
+}
 .ens-page .btn-ghost:active { background: rgba(0,0,0,0.03); }
+.btn-full { width: 100%; }
 
 /* ===== 弹窗 ===== */
 .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; opacity: 0; transition: opacity 200ms; }
@@ -629,3 +834,14 @@
 
 /* ===== Loading ===== */
 .ens-page .miss-loading { height: 160px; display: flex; align-items: center; justify-content: center; color: var(--ens-gray-hint); font-size: 18px; }
+
+/* ===== Section title (shared with miss-you) ===== */
+.miss-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ens-gray-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+  margin-top: 4px;
+}
