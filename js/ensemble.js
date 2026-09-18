@@ -74,8 +74,9 @@ function avatarHtml(src, name) {
 }
 
 function userAvatarHtml(user) {
-  if (user && user.avatar) {
-    return '<img src="' + esc(user.avatar) + '" alt="' + esc(user.name || '') + '">';
+  var av = _state.userAvatar || (user && user.avatar) || '';
+  if (av) {
+    return '<img src="' + esc(av) + '" alt="">';
   }
   return '<span>' + esc((_state.userName || '我').charAt(0)) + '</span>';
 }
@@ -127,6 +128,7 @@ async function renderAccounts(page) {
       var uid = parseInt(r.dataset.uid);
       var u = users.find(function(x) { return x.id === uid; });
       _state.userName = u ? (u.name || '我') : '我';
+      _state.userAvatar = u ? (u.avatar || '') : '';
       _state.userAvatar = u ? u.avatar : null;
       renderChars(page, uid);
     };
@@ -399,7 +401,7 @@ async function buildGroupPrompt(chars, mode, scriptData) {
   p += '- 环境/旁白：灰色描述\n';
   p += '- 角色动作：「角色名 动作」，灰色斜体\n';
   p += '- 角色对白：「"对话内容"」，黑色粗体\n';
-  p += '让角色自然互动，每次回复包含多个角色。200-500字。\n';
+  p += '让角色自然互动，每次回复必须让所有在场角色都行动和说话，不能只有一个角色。不要用星号*、加粗**、斜体*等markdown标记。动作直接写文字，台词用“”包裹。" + minW + "-" + maxW + "字。\n';
 
   // 世界书注入
   try { if (window._BUILTIN_ANTI_DRIFT_LORE) p += '\n\n' + window._BUILTIN_ANTI_DRIFT_LORE; } catch(e) { /* ignore */ }
@@ -409,6 +411,21 @@ async function buildGroupPrompt(chars, mode, scriptData) {
 }
 
 // ===== 消息渲染 =====
+function stripMarkdown(text) {
+  if (!text) return '';
+  // Remove **bold** markers
+  text = text.replace(/\*\*(.+?)\*\*/g, '');
+  // Remove *italic* markers
+  text = text.replace(/\*(.+?)\*/g, '');
+  // Remove __underline__ markers
+  text = text.replace(/__(.+?)__/g, '');
+  // Remove ~~strikethrough~~ markers
+  text = text.replace(/~~(.+?)~~/g, '');
+  // Remove markdown headers
+  text = text.replace(/^#{1,6}\s+/gm, '');
+  return text;
+}
+
 function addMsg(page, role, text) {
   var log = page.querySelector('#ens-log');
   if (!log) return;
