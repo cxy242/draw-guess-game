@@ -534,6 +534,7 @@ async function buildGroupPrompt(chars, mode, scriptData) {
   p += '3. \u53f0\u8bcd\u7528\u4e2d\u6587\u53cc\u5f15\u53f7\u201c\u201d\u5305\u88f9\n';
   p += '4. \u7981\u6b62\u4f7f\u7528\u661f\u53f7*\u3001\u52a0\u7c97**\u3001\u659c\u4f53_\u3001\u6ce2\u6d6a\u7ebf~\u7b49\u4efb\u4f55markdown\u6807\u8bb0\n';
   p += '5. \u6bcf\u6b21\u56de\u590d\u5fc5\u987b\u8ba9\u6240\u6709\u5728\u573a\u89d2\u8272\u90fd\u51fa\u573a\n';
+  var minW = _state.minWords || 200; var maxW = _state.maxWords || 600;
   p += '6. ' + minW + '-' + maxW + '\u5b57\n';
 
   // 世界书注入
