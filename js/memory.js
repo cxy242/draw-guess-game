@@ -2314,6 +2314,17 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     logStructuredEvent: logStructuredEvent,
     getStructuredEvents: getStructuredEvents,
     getStructuredEventContext: getStructuredEventContext,
-    detectAndLogEvent: detectAndLogEvent
+    detectAndLogEvent: detectAndLogEvent,
+    extractFacts: extractFacts,
+    autoExtractAndStore: autoExtractAndStore,
+    getFormattedNow: getFormattedNow,
+    getTimeSinceLastChat: getTimeSinceLastChat,
+    buildTimeAwarenessContext: buildTimeAwarenessContext,
+    saveConversationProgress: saveConversationProgress,
+    getConversationProgress: getConversationProgress,
+    getConversationProgressContext: getConversationProgressContext,
+    dreamConsolidate: dreamConsolidate,
+    detectEmotion: detectEmotion,
+    resolveConflict: resolveConflict
   }
 })()
