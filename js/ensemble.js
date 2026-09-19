@@ -414,6 +414,33 @@ function renderChat(page) {
   if (aiGenBtn) aiGenBtn.onclick = function() { doAIGenerate(page); };
 }
 
+// ===== AI生成 =====
+async function doAIGenerate(page) {
+  if (_state.sending) return;
+  _state.sending = true;
+  showTyping(page);
+  try {
+    var sys = await buildGroupPrompt(_state.current, _state.mode, _state.scriptData);
+    var msgs = [{ role: system, content: sys }];
+    var hist = (_state.history || []).slice(-20);
+    msgs = msgs.concat(hist);
+    msgs.push({ role: user, content: u7ee7u7eedu5267u60c5uff0cu8ba9u89d2u8272u4eecu81eau7136u4e92u52a8u3002 });
+    var reply = await window.callAI(msgs, { charAntiDrift: true });
+    _state.history = (_state.history || []).concat([
+      { role: user, content: u7ee7u7eedu5267u60c5 },
+      { role: assistant, content: reply }
+    ]);
+    hideTyping(page);
+    addMsg(page, ai, reply);
+  } catch(e) {
+    console.error('[ensemble] ai gen error:', e);
+    window.toast && window.toast(u751fu6210u5931u8d25);
+    hideTyping(page);
+  } finally {
+    _state.sending = false;
+  }
+}
+
 // ===== 发送 =====
 async function doSend(page) {
   if (_state.sending) return;
