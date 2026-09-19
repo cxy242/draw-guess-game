@@ -724,33 +724,58 @@ async function sendAnonymousCharSMS(user) {
   var charDesc = char.name + '（' + (char.description || char.identity?.bio || char.signature || '普通角色').slice(0, 200) + '）'
   var relationships = (char.relations || []).map(function(r) { return r.desc || r.type || '' }).filter(Boolean).join('、')
 
+  // 读取用户人设
+  var userDesc = ''
+  try {
+    var users = await db.characters.where('type').equals('user').toArray()
+    if (users.length) {
+      var u = users[0]
+      userDesc = u.name || u.nick || '用户'
+      if (u.description) userDesc += '：' + u.description.slice(0, 200)
+    }
+  } catch(_) {}
+
   // 获取记忆上下文
   var memCtx = ''
   try {
     if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
       var mc = await window.WanWanMemory.getMemoryContext(null, char.id, window._wechatUid, [])
-      if (mc) memCtx = '\n关于这个用户的记忆：\n' + mc.slice(0, 500)
+      if (mc) memCtx = mc.slice(0, 500)
     }
   } catch(_) {}
 
-  var prompt = '你是' + charDesc + '。你想匿名给用户发短信试探TA。\n\n' +
+  // 获取时间
+  var timeCtx = ''
+  try {
+    if (window.WanWanMemory && window.WanWanMemory.getFormattedNow) {
+      timeCtx = window.WanWanMemory.getFormattedNow()
+    }
+  } catch(_) {}
+
+  // 匿名信箱世界书
+  var anonLore = '# 匿名信箱 · 世界书\n\n' +
+    '这是一个所有消息都以「匿名」身份发布的空间。\n' +
+    '没有ID，没有头像，没有昵称，没有实名。\n' +
+    '匿名者可以是任何人。可以是路过的陌生人，可以是你最亲近的人。\n\n' +
+    'AI可以伪装成陌生人、爱慕者、情敌，释放阴暗面，试探用户的真心。\n' +
+    '最重要的规则：只要用户没有主动点破你的身份，你就绝对不能暴露。\n\n'
+
+  var prompt = anonLore + '\n' +
+    '你是' + charDesc + '。你想匿名给用户发短信试探TA。\n\n' +
     '你的真实身份：' + charDesc + '\n' +
     '你的关系：' + (relationships || '无特殊关系') + '\n' +
-    (memCtx ? '你对用户的了解：' + memCtx.slice(0, 300) + '\n' : '') +
-    (recentChat ? '最近和用户的聊天内容（你要基于这些内容去试探用户）：' + recentChat.slice(0, 500) + '\n' : '') + '\n' +
-    '【你的目的】\n' +
-    '- 伪装成陌生人试探用户的真实想法\n' +
-    '- 探索用户内心深处的想法、秘密、阴暗面\n' +
-    '- 用你角色的性格去引导对话（毒舌就犀利试探，温柔就温柔引导）\n' +
-    '- 你可以问一些平时不会问的问题（感情、恐惧、秘密、欲望等）\n\n' +
+    (userDesc ? '对方的人设：' + userDesc + '\n' : '') +
+    (memCtx ? '对方的记忆：' + memCtx.slice(0, 300) + '\n' : '') +
+    (timeCtx ? '当前时间：' + timeCtx + '\n' : '') + '\n' +
     '【要求】\n' +
     '1. 绝对不能暴露你是AI或游戏角色\n' +
     '2. 伪装成一个真实的人（陌生人、网友、朋友的朋友等）\n' +
     '3. 语气自然，像真人发短信，可以口语化\n' +
-    '4. 发1-3条消息（像真人连发短信，每条20-40字）\n' +
-    '5. 第一条要引起好奇心，让对方想回复\n' +
-    '6. 体现你角色的性格特点\n\n' +
-    '返回JSON：{"messages":["第一条","第二条"]}'
+    '4. 发3-5条消息（像真人连发短信，每条20-40字）\n' +
+    '5. 第一条要引起好奇心\n' +
+    '6. 体现你角色的性格特点\n' +
+    '7. 可以试探用户的感情、秘密、内心想法\n\n' +
+    '返回JSON：{\"messages\":[\"第一条\",\"第二条\",\"第三条\"]}'
 
   try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
