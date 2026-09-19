@@ -130,6 +130,7 @@ window.showTutorialPage = function() {
         tutorialRow('row-memory-settings-tutorial', 'fa-solid fa-chart-simple', '记忆设置', '了解聊天设置中的长期记忆选项') +
         tutorialRow('row-memory-values-tutorial', 'fa-solid fa-chart-line', '记忆数值设置', '了解记忆列表中的各项数值') +
         tutorialRow('row-memory-api-tutorial', 'fa-solid fa-bolt-lightning', 'API调用说明', '了解回复、总结和向量检索的调用次数') +
+        tutorialRow('row-memory-enhance-tutorial', 'fa-solid fa-brain', '记忆增强系统', '8大增强功能：情感坐标、浮现机制、自动提取等') +
       '</div>' +
       '<div class="setting-section">' +
         '<div class="section-title">微信</div>' +
@@ -151,6 +152,7 @@ window.showTutorialPage = function() {
   page.querySelector('#row-memory-settings-tutorial').addEventListener('click', openMemorySettingsTutorialPage)
   page.querySelector('#row-memory-values-tutorial').addEventListener('click', openMemoryValuesTutorialPage)
   page.querySelector('#row-memory-api-tutorial').addEventListener('click', openMemoryApiTutorialPage)
+  page.querySelector('#row-memory-enhance-tutorial').addEventListener('click', openMemoryEnhanceTutorialPage)
   page.querySelector('#row-thought-template-tutorial').addEventListener('click', openThoughtTemplateTutorialPage)
   page.querySelector('#row-chat-beauty-tutorial').addEventListener('click', openChatBeautyTutorialPage)
   page.querySelector('#row-app-theme-tutorial').addEventListener('click', openAppThemeTutorialPage)
@@ -617,4 +619,48 @@ function openCloudflareTutorialPage() {
       window.toast('复制失败：' + (err && err.message ? err.message : '请手动复制'))
     })
   })
+}
+
+
+function openMemoryEnhanceTutorialPage() {
+  var html =
+    '<div class="tutorial-content">' +
+      '<div class="tutorial-hero">' +
+        '<div class="tutorial-hero-icon"><i class="fa-solid fa-brain"></i></div>' +
+        '<div class="tutorial-hero-title">\u8bb0\u5fc6\u589e\u5f3a\u7cfb\u7edf</div>' +
+        '<div class="tutorial-hero-desc">8\u5927\u529f\u80fd\u8ba9AI\u89d2\u8272\u62e5\u6709\u771f\u5b9e\u7684\u8bb0\u5fc6\u548c\u60c5\u611f</div>' +
+      '</div>' +
+
+      '<div class="section-title">\u2728 8\u5927\u589e\u5f3a\u529f\u80fd</div>' +
+
+      tutorialSteps([
+        '\u60c5\u611f\u5750\u6807 \u2014 \u6bcf\u6761\u8bb0\u5fc6\u90fd\u6709\u60c5\u7eea\u6e29\u5ea6\uff0c\u91cd\u8981\u7684\u4e8b\u4e0d\u4f1a\u5fd8\u3002\u60c5\u7eea\u5f3a\u7684\u8bb0\u5fc6\u8870\u51cf\u66f4\u6162\u3002',
+        '\u6d6e\u73b0\u673a\u5236 \u2014 \u6bcf\u6b21\u5bf9\u8bdd\u5f00\u5934\uff0c\u81ea\u52a8\u6d6e\u73b0\u6700\u76f8\u5173\u7684\u8bb0\u5fc6\uff0cAI\u81ea\u52a8\u60f3\u8d77\u91cd\u8981\u7684\u4e8b\u3002',
+        '\u81ea\u52a8\u63d0\u53d6 \u2014 \u4ece\u804a\u5929\u4e2d\u81ea\u52a8\u62bd\u53d6\u4eba\u7269/\u4e8b\u4ef6/\u504f\u597d\uff0c\u4e0d\u9760AI\u603b\u7ed3\u3002',
+        '\u65f6\u95f4\u611f\u77e5 \u2014 AI\u77e5\u9053\u4eca\u5929\u51e0\u53f7\u3001\u4e0a\u6b21\u804a\u5230\u54ea\u3002',
+        '\u804a\u5929\u8fdb\u5ea6 \u2014 AI\u8bb0\u5f97\u4e0a\u6b21\u804a\u4e86\u4ec0\u4e48\u3001\u505c\u5728\u54ea\u91cc\u3002',
+        '\u505a\u68a6\u6d88\u5316 \u2014 \u5b9a\u671f\u6574\u7406\u8bb0\u5fc6\uff0c\u5408\u5e76\u91cd\u590d/\u76f8\u4f3c\u7684\u3002',
+        '\u60c5\u7eea\u611f\u77e5 \u2014 \u4ece\u7528\u6237\u6d88\u606f\u4e2d\u68c0\u6d4b\u60c5\u7eea\u3002',
+        '\u51b2\u7a81\u89e3\u51b3 \u2014 \u65b0\u65e7\u8bb0\u5fc6\u77db\u76fe\u65f6\u81ea\u52a8\u66f4\u65b0\u3002'
+      ]) +
+
+      '<div class="section-title">\u{1f517} \u8de8\u8f6f\u4ef6\u8054\u901a</div>' +
+      '<div class="tutorial-note">' +
+        '<p>\u8bb0\u5fc6\u589e\u5f3a\u7cfb\u7edf\u4e0e\u6240\u6709\u8f6f\u4ef6\u8054\u901a\uff1a</p>' +
+        '<p>\u2022 \u7fa4\u50cf\u3001\u60f3\u89c1\u4f60\u3001\u5fae\u4fe1\u3001X\u8f6f\u4ef6\u3001\u670b\u53cb\u5708\u3001\u533f\u540d\u77ed\u4fe1 \u2014 \u5168\u90e8\u5199\u5165+\u8bfb\u53d6\u8bb0\u5fc6\u5e93</p>' +
+        '<p>\u2022 \u8bb0\u5fc6\u9762\u677f \u2014 \u5c55\u793a\u6240\u6709\u6570\u636e</p>' +
+        '<p>\u2022 imprint-memory \u2014 \u589e\u5f3a\u68c0\u7d22\u5c42\uff08FTS5+\u5173\u952e\u8bcd+\u8bed\u4e49\uff09</p>' +
+      '</div>' +
+
+      '<div class="section-title">\u{1f4ca} \u6570\u636e\u6d41\u5411</div>' +
+      '<div class="tutorial-note">' +
+        '<p>\u6240\u6709\u8f6f\u4ef6\u53d1\u6d88\u606f\u65f6 \u2192 \u81ea\u52a8\u63d0\u53d6\u4e8b\u5b9e + \u60c5\u7eea\u68c0\u6d4b + \u4fdd\u5b58\u8fdb\u5ea6</p>' +
+        '<p>\u5bf9\u8bdd\u5f00\u59cb\u65f6 \u2192 \u6d6e\u73b0\u76f8\u5173\u8bb0\u5fc6 + \u65f6\u95f4\u611f\u77e5 + \u804a\u5929\u8fdb\u5ea6</p>' +
+        '<p>\u8bb0\u5fc6\u5e93\uff08db.memories\uff09\u662f\u6838\u5fc3\uff0c\u6240\u6709\u529f\u80fd\u90fd\u5728\u8fd9\u91cc\u5de5\u4f5c</p>' +
+      '</div>' +
+    '</div>';
+
+  var page = buildSubPage('sub-memory-enhance-tutorial', '\u8bb0\u5fc6\u589e\u5f3a\u7cfb\u7edf', html);
+  document.getElementById('app').appendChild(page);
+  openPage(page);
 }
