@@ -342,10 +342,12 @@
 
 /* ===== 输入栏 ===== */
 .ens-compose {
+  flex: 0 0 auto;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   padding: 10px 14px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
   background: var(--ens-white);
   border-top: 1px solid var(--ens-border);
 }
