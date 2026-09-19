@@ -585,22 +585,11 @@ async function loadSmsChatMessages(page, conversationId, conv) {
 
     // 解除匿名只在三点菜单
 
-    // Revealed tag
-    if (m._anonCharId && (m._anonRevealed || revealedIds.indexOf(m.id) !== -1)) {
-      html += '<div class="sms-revealed-tag"><i class="fa-solid fa-user"></i> ' + escSmsHtml(m._anonCharName) + '</div>'
-    }
   }
 
   container.innerHTML = html
   container.scrollTop = container.scrollHeight
 
-  // Bind reveal buttons
-  container.querySelectorAll('.sms-reveal-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var msgId = parseInt(btn.dataset.msgId)
-      if (msgId) window.revealAnonSms(msgId)
-    })
-  })
 }
 
 // ===== Page 3: Three-Dot Menu (7 buttons, ALL functional) =====
