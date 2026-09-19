@@ -670,6 +670,11 @@ function renderFanSelect(root){
   var isDragging = false;
 
   function updateFanPositions(offset) {
+    // Clamp offset so cards don't fly off screen
+    var maxOffset = angleSpread * 0.4;
+    if (offset > maxOffset) offset = maxOffset;
+    if (offset < -maxOffset) offset = -maxOffset;
+    fanOffset = offset;
     cards.forEach(function(card, i){
       var angle = -angleSpread/2 + (angleSpread/(total-1))*i + offset;
       var rad = (angle - 90) * Math.PI / 180;
