@@ -25,6 +25,13 @@ window.showEnsemblePage = async function() {
     // Load user avatar and name from database
     try {
       var uid = window._wechatUid;
+      if (!uid) {
+        // Fallback: find user from db.characters
+        try {
+          var users = await db.characters.where('type').equals('user').toArray();
+          if (users.length) uid = users[0].id;
+        } catch(e2) {}
+      }
       if (uid) {
         _state.uid = uid;
         var user = await window.getCharacter(uid);
@@ -600,17 +607,24 @@ function addMsg(page, role, text) {
   var chars = _state.current || [];
 
   if (role === 'user') {
-    // 用户消息 - 浅灰气泡，带头像
+    // 用户消息 - miss-entry is-user结构，头像在右边
     var userName = _state.userName || '我';
-    div.className = 'ens-user-msg';
+    div.className = 'miss-entry is-user';
+    div.setAttribute('data-msg-idx', log.children.length);
     div.innerHTML =
-      '<div class="ens-user-card">' +
-        '<div class="ens-user-head">' +
-          '<div class="ens-user-avatar">' + userAvatarHtml(null) + '</div>' +
-          '<div class="ens-user-name">' + esc(userName) + '</div>' +
+      '<button class="miss-entry-head" type="button">' +
+        '<div class="miss-entry-person">' +
+          '<div class="miss-msg-avatar">' + userAvatarHtml(null) + '</div>' +
+          '<div class="miss-entry-nameblock">' +
+            '<div class="miss-msg-name">' + esc(userName) + '</div>' +
+          '</div>' +
         '</div>' +
-        '<div class="ens-user-body">' + esc(text) + '</div>' +
-        '<div class="ens-user-footer"><span>' + formatTime(Date.now()) + '</span></div>' +
+      '</button>' +
+      '<div class="miss-entry-card">' +
+        '<div class="miss-msg-text">' + esc(text) + '</div>' +
+        '<div class="miss-entry-footer">' +
+          '<span>' + formatTime(Date.now()) + '</span>' +
+        '</div>' +
       '</div>';
   } else {
     // AI叙事 - 白色NARRATION大卡片
