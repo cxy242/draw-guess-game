@@ -269,13 +269,11 @@ function renderChat(page) {
   body.innerHTML =
     '<div class="ens-chat">' +
       '<div class="ens-chat-log" id="ens-log"></div>' +
-      '<div class="ens-compose">' +
-        '<button class="ens-compose-icon" id="ens-phone" title="掏出手机"><i class="fa fa-mobile-screen"></i></button>' +
-        '<textarea class="ens-compose-input" id="ens-input" placeholder="说点什么..." rows="1"></textarea>' +
-        '<button class="ens-compose-send" id="ens-send">发送</button>' +
-      '</div>' +
-      '<div class="ens-toolbar">' +
-        '<button class="ens-toolbar-btn" id="ens-cast"><i class="fa-solid fa-users"></i> 现场人员</button>' +
+      '<div class="miss-compose">' +
+        '<button class="miss-end-meet" id="ens-phone" type="button" title="\u624b\u673a"><i class="fa fa-mobile-screen"></i></button>' +
+        '<button class="miss-end-meet" id="ens-cast" type="button" title="\u73b0\u573a\u4eba\u5458"><i class="fa-solid fa-users"></i></button>' +
+        '<textarea class="miss-input" id="ens-input" rows="1" placeholder="\u8bf4\u70b9\u4ec0\u4e48..."></textarea>' +
+        '<button class="miss-send" id="ens-send" type="button" title="\u53d1\u9001"><i class="fa-solid fa-paper-plane"></i></button>' +
       '</div>' +
     '</div>';
 

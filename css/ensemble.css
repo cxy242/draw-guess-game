@@ -117,6 +117,13 @@
 
 .ens-header-more:active { background: rgba(0,0,0,0.05); }
 
+/* ===== Body ===== */
+.ens-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* ===== 聊天区域 ===== */
 .ens-chat {
   flex: 1;
