@@ -550,3 +550,63 @@ html.has-android-bottom-inset .imessage-chat-input {
   gap: 4px;
 }
 .sms-revealed-tag i { font-size: 10px; }
+
+
+/* ===== SMS Chat Menu Popup ===== */
+.sms-menu-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: 50px;
+  padding-right: 12px;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.sms-menu-overlay.show { opacity: 1; }
+.sms-menu-overlay.hiding { opacity: 0; }
+
+.sms-menu-popup {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  min-width: 180px;
+  overflow: hidden;
+  transform: scale(0.95);
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.sms-menu-overlay.show .sms-menu-popup { transform: scale(1); }
+
+.sms-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  font-size: 15px;
+  color: #2a2a2a;
+  cursor: pointer;
+  transition: background 120ms ease;
+  min-height: 44px;
+}
+.sms-menu-item:active { background: rgba(0,0,0,0.05); }
+.sms-menu-item i {
+  width: 20px;
+  text-align: center;
+  color: #6b7d8d;
+  font-size: 14px;
+}
+.sms-menu-reveal { color: #5b8fb9; }
+.sms-menu-reveal i { color: #5b8fb9; }
+.sms-menu-item[data-action="delete"] { color: #c44; }
+.sms-menu-item[data-action="delete"] i { color: #c44; }
+.sms-menu-item[data-action="block"] { color: #c44; }
+.sms-menu-item[data-action="block"] i { color: #c44; }
+
+.sms-menu-divider {
+  height: 1px;
+  background: rgba(0,0,0,0.06);
+  margin: 0 18px;
+}

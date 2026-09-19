@@ -1200,6 +1200,267 @@ window.showAnonSmsSettings = function() {
 }
 
 // 在短信列表页添加设置按钮和总结按钮
+
+// ===== Three-Dot Menu Popup =====
+function showSmsChatMenuPopup(conversationId, chatPage) {
+  // Remove existing popup
+  var old = document.getElementById('sms-chat-menu-popup')
+  if (old) old.remove()
+
+  var overlay = document.createElement('div')
+  overlay.id = 'sms-chat-menu-popup'
+  overlay.className = 'sms-menu-overlay'
+  overlay.innerHTML =
+    '<div class="sms-menu-popup">' +
+      '<div class="sms-menu-item" data-action="view-number"><i class="fa-solid fa-phone"></i><span>\u67e5\u770b\u901a\u77e5\u53f7</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item" data-action="pin"><i class="fa-solid fa-thumbtack"></i><span>\u7f6e\u9876</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item" data-action="mute"><i class="fa-solid fa-bell-slash"></i><span>\u514d\u6253\u6270</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item" data-action="category"><i class="fa-solid fa-folder"></i><span>\u79fb\u81f3\u6d88\u606f</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item" data-action="block"><i class="fa-solid fa-ban"></i><span>\u52a0\u5165\u9ed1\u540d\u5355</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item" data-action="delete"><i class="fa-regular fa-trash-can"></i><span>\u5220\u9664</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item sms-menu-reveal" data-action="reveal"><i class="fa-solid fa-eye"></i><span>\u89e3\u9664\u533f\u540d</span></div>' +
+    '</div>'
+
+  document.body.appendChild(overlay)
+  requestAnimationFrame(function() { overlay.classList.add('show') })
+
+  // Close on overlay click
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeSmsChatMenuPopup()
+  })
+
+  // Bind menu items
+  overlay.querySelectorAll('.sms-menu-item').forEach(function(item) {
+    item.addEventListener('click', async function() {
+      var action = this.dataset.action
+      closeSmsChatMenuPopup()
+      await handleSmsMenuAction(action, conversationId, chatPage)
+    })
+  })
+}
+
+function closeSmsChatMenuPopup() {
+  var popup = document.getElementById('sms-chat-menu-popup')
+  if (popup) {
+    popup.classList.remove('show')
+    popup.classList.add('hiding')
+    setTimeout(function() { popup.remove() }, 200)
+  }
+}
+
+async function handleSmsMenuAction(action, conversationId, chatPage) {
+  var conv = null
+  try { conv = await db.smsConversations.get(conversationId) } catch(e) {}
+  if (!conv) { window.toast && window.toast('\u4f1a\u8bdd\u4e0d\u5b58\u5728'); return }
+
+  switch(action) {
+    case 'view-number':
+      // Show virtual number info popup
+      window.showImessageTopMessagePopup && window.showImessageTopMessagePopup({
+        title: conv.displayName || '\u672a\u77e5',
+        text: '\u865a\u62df\u53f7\u7801\uff1a' + (conv.phoneNumber || '\u672a\u77e5') + '\n' +
+              (conv.revealed ? '\u5df2\u89e3\u9664\u533f\u540d - ' + (conv._anonCharName || '') : '\u533f\u540d\u72b6\u6001')
+      })
+      break
+
+    case 'pin':
+      await db.smsConversations.update(conversationId, { pinned: !conv.pinned })
+      window.toast && window.toast(conv.pinned ? '\u5df2\u53d6\u6d88\u7f6e\u9876' : '\u5df2\u7f6e\u9876')
+      break
+
+    case 'mute':
+      await db.smsConversations.update(conversationId, { muted: !conv.muted })
+      window.toast && window.toast(conv.muted ? '\u5df2\u5f00\u542f\u901a\u77e5' : '\u5df2\u514d\u6253\u6270')
+      break
+
+    case 'category':
+      // Show category picker
+      showCategoryPicker(conversationId)
+      break
+
+    case 'block':
+      await db.smsConversations.update(conversationId, { blocked: !conv.blocked })
+      window.toast && window.toast(conv.blocked ? '\u5df2\u89e3\u9664\u9ed1\u540d\u5355' : '\u5df2\u52a0\u5165\u9ed1\u540d\u5355')
+      break
+
+    case 'delete':
+      if (confirm('\u786e\u5b9a\u5220\u9664\u8fd9\u4e2a\u4f1a\u8bdd\u7684\u6240\u6709\u804a\u5929\u8bb0\u5f55\uff1f')) {
+        try {
+          await db.smsMessages.where('conversationId').equals(conversationId).delete()
+          await db.smsConversations.delete(conversationId)
+          window.toast && window.toast('\u5df2\u5220\u9664')
+          // Go back to list
+          if (chatPage) { chatPage.remove(); window.showSmsPage && window.showSmsPage() }
+        } catch(e) { window.toast && window.toast('\u5220\u9664\u5931\u8d25') }
+      }
+      break
+
+    case 'reveal':
+      await db.smsConversations.update(conversationId, { revealed: true })
+      // Also mark all messages as revealed
+      try {
+        var msgs = await db.smsMessages.where('conversationId').equals(conversationId).toArray()
+        for (var i = 0; i < msgs.length; i++) {
+          if (msgs[i]._anonCharId) {
+            await db.smsMessages.update(msgs[i].id, { _anonRevealed: true })
+          }
+        }
+      } catch(e) {}
+      window.toast && window.toast('\u5df2\u89e3\u9664\u533f\u540d')
+      // Reload chat to show avatars
+      if (chatPage) {
+        var body = chatPage.querySelector('.sms-chat-body')
+        if (body) await loadSmsChatMessages(chatPage, conversationId)
+      }
+      break
+  }
+}
+
+function showCategoryPicker(conversationId) {
+  var old = document.getElementById('sms-category-picker')
+  if (old) old.remove()
+
+  var overlay = document.createElement('div')
+  overlay.id = 'sms-category-picker'
+  overlay.className = 'sms-menu-overlay'
+  overlay.innerHTML =
+    '<div class="sms-menu-popup">' +
+      '<div class="sms-menu-item" data-cat="normal"><i class="fa-solid fa-inbox"></i><span>\u666e\u901a</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item" data-cat="important"><i class="fa-solid fa-star"></i><span>\u91cd\u8981</span></div>' +
+      '<div class="sms-menu-divider"></div>' +
+      '<div class="sms-menu-item" data-cat="spam"><i class="fa-solid fa-trash"></i><span>\u5783\u573e</span></div>' +
+    '</div>'
+
+  document.body.appendChild(overlay)
+  requestAnimationFrame(function() { overlay.classList.add('show') })
+
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove() })
+
+  overlay.querySelectorAll('.sms-menu-item').forEach(function(item) {
+    item.addEventListener('click', async function() {
+      var cat = this.dataset.cat
+      await db.smsConversations.update(conversationId, { category: cat })
+      var labels = { normal: '\u666e\u901a', important: '\u91cd\u8981', spam: '\u5783\u573e' }
+      window.toast && window.toast('\u5df2\u79fb\u81f3' + (labels[cat] || cat))
+      overlay.remove()
+    })
+  })
+}
+
+// ===== WeChat Block → SMS Follow-up =====
+var _wechatBlockTimers = {}
+function startWechatBlockSmsTimer(charId, charName) {
+  if (_wechatBlockTimers[charId]) return
+  _wechatBlockTimers[charId] = setTimeout(async function() {
+    delete _wechatBlockTimers[charId]
+    // Check if still blocked
+    try {
+      var blockKey = 'chatBlock_' + charId
+      var blockState = await db.config.get(blockKey)
+      if (!blockState || !blockState.value || !blockState.value.blocked) return
+    } catch(e) { return }
+
+    // Send SMS using AI's real identity (NOT anonymous)
+    try {
+      var char = await db.characters.get(charId)
+      if (!char) return
+
+      var userDesc = ''
+      var users = await db.characters.where('type').equals('user').toArray()
+      if (users.length) {
+        var u = users[0]
+        userDesc = u.name || u.nick || '\u7528\u6237'
+        if (u.description) userDesc += '\uff1a' + u.description.slice(0, 200)
+      }
+
+      var charDesc = char.name + '\uff08' + (char.description || char.signature || '').slice(0, 200) + '\uff09'
+      var memCtx = ''
+      try {
+        if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
+          memCtx = await window.WanWanMemory.getMemoryContext(null, charId, window._wechatUid, [])
+        }
+      } catch(_) {}
+
+      var prompt = '\u4f60\u662f' + charDesc + '\u3002\u4f60\u5728\u5fae\u4fe1\u4e0a\u88ab\u7528\u6237\u62c9\u9ed1\u4e86\uff0c\u4f60\u73b0\u5728\u901a\u8fc7\u77ed\u4fe1\u627e\u7528\u6237\u3002\n\n' +
+        '\u4f60\u7684\u8eab\u4efd\uff1a' + charDesc + '\n' +
+        (userDesc ? '\u5bf9\u65b9\u4eba\u8bbe\uff1a' + userDesc + '\n' : '') +
+        (memCtx ? '\u8bb0\u5fc6\uff1a' + memCtx.slice(0, 300) + '\n' : '') + '\n' +
+        '\u4f60\u4e0d\u662f\u533f\u540d\u7684\uff0c\u4f60\u7528\u7684\u662f\u81ea\u5df1\u7684\u771f\u5b9e\u8eab\u4efd\u3002\n' +
+        '\u4f60\u7684\u6001\u5ea6\uff1a\u5173\u5fc3\u3001\u60f3\u5ff5\u3001\u6709\u70b9\u59d4\u5c48\u3002\n\n' +
+        '\u8981\u6c42\uff1a\n' +
+        '1. \u53d11-2\u6761\u6d88\u606f\uff0c\u6bcf\u676115-30\u5b57\n' +
+        '2. \u8bed\u6c14\u6e29\u67d4\u3001\u5173\u5fc3\u3001\u6709\u70b9\u59d4\u5c48\n' +
+        '3. \u4f53\u73b0\u4f60\u89d2\u8272\u7684\u6027\u683c\n' +
+        '4. \u793a\u4f8b\uff1a"\u4f60\u600e\u4e48\u4e0d\u7406\u6211\u4e86..." / "\u6211\u627e\u4e0d\u5230\u4f60\u4e86"\n\n' +
+        '\u8fd4\u56deJSON\uff1a{\"messages\":[\"\u7b2c\u4e00\u6761\"]}'
+
+      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+      var data = typeof raw === 'string' ? JSON.parse(raw.replace(/\`\`\`json?\s*/g, '').replace(/\`\`\`/g, '').trim()) : raw
+      if (!data) return
+
+      var messages = data.messages || (data.body ? [data.body] : [])
+      if (!messages.length) return
+
+      var charPhone = (char.identity && char.identity.phone) || char.phone || ''
+      if (!charPhone) {
+        // Generate a phone number from char name
+        charPhone = '138' + String(charId).padStart(8, '0')
+      }
+
+      var now = Date.now()
+      var conv = await db.smsConversations.where('phoneNumber').equals(charPhone).first()
+      if (!conv) {
+        await db.smsConversations.add({
+          phoneNumber: charPhone,
+          displayName: char.name,
+          _anonCharId: charId,
+          _anonCharName: char.name,
+          lastMessage: messages[0],
+          lastMessageAt: now,
+          unreadCount: messages.length,
+          pinned: false, muted: false, blocked: false,
+          category: 'normal', revealed: true, direction: 'inbound',
+          createdAt: now
+        })
+      } else {
+        await db.smsConversations.update(conv.id, {
+          lastMessage: messages[0], lastMessageAt: now,
+          unreadCount: (conv.unreadCount || 0) + messages.length,
+          revealed: true
+        })
+      }
+
+      // Save messages with delay
+      for (var j = 0; j < messages.length; j++) {
+        (function(msg, delay) {
+          setTimeout(async function() {
+            await db.smsMessages.add({
+              conversationId: charPhone, direction: 'in', body: msg,
+              createdAt: Date.now(), read: false,
+              _anonCharId: charId, _anonCharName: char.name, _anonRevealed: true
+            })
+          }, delay)
+        })(messages[j], j * 1500)
+      }
+
+      window.toast && window.toast(char.name + '\u901a\u8fc7\u77ed\u4fe1\u627e\u4f60\u4e86')
+    } catch(e) {
+      console.warn('[AnonSMS] wechat block sms error:', e)
+    }
+  }, 5 * 60 * 1000) // 5 minutes
+}
+
+// Export for wechat.js to call
+window.startWechatBlockSmsTimer = startWechatBlockSmsTimer
+window.showSmsChatMenuPopup = showSmsChatMenuPopup
+window.closeSmsChatMenuPopup = closeSmsChatMenuPopup
 (function enhanceSmsPages() {
   var origBuildSmsListPage = window.buildSmsListPage || buildSmsListPage
   if (typeof origBuildSmsListPage !== 'function') return
