@@ -17,6 +17,26 @@
   var ROLE_SUBTITLE_DEFAULT = '于是我们建立羁绊'
   var _launchFilter = null
 
+  // --- imprint-memory dual-write helper ---
+  var IMPRINT_SOURCE_MAP = { wechat: 'events', x: 'events', sms: 'events', moments: 'events', offline: 'events', manual: 'facts', offlineMeet: 'events', ensemble: 'events' }
+  function syncToImprintMemory(memory) {
+    try {
+      var content = (memory.title || '') + '\n' + (memory.content || '')
+      var category = IMPRINT_SOURCE_MAP[memory.sourceType] || 'facts'
+      fetch('/api/memory/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: content.trim(),
+          category: category,
+          source: 'wanwan-' + (memory.sourceType || 'manual'),
+          importance: memory.importance || 5
+        })
+      }).catch(function() {})
+    } catch(e) {}
+  }
+
+
   function esc(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
@@ -1266,6 +1286,7 @@ ${lines}`
           accessCount: 0
         }, patch))
       }
+        syncToImprintMemory(Object.assign({ createdAt: now }, patch))
       close()
       await renderMemoryPage(page)
     })
@@ -2088,6 +2109,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       })
     } else {
       await db.memories.add(row)
+      syncToImprintMemory(row)
     }
     await db.memoryRuns.update(runId, { status: 'success', memoryCount: 1, failReason: null, updatedAt: Date.now() })
     window.toast && window.toast('重新总结成功')
