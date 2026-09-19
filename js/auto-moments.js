@@ -263,6 +263,14 @@ function stopScheduler() {
 async function catchUpMoments(count) {
   console.log('[AutoMoments] catchUpMoments count=' + count);
   if (!window.callAI) { console.warn('[AutoMoments] callAI不可用'); return 0; }
+
+  // 记忆联通：加载角色记忆
+  var memCtx = '';
+  try {
+    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
+      memCtx = await window.WanWanMemory.getMemoryContext(null, char.id, window._wechatUid, []);
+    }
+  } catch(e) {}
   var charIds = await getCfg(AM.chars) || [];
   if (!charIds.length) { console.warn('[AutoMoments] 未配置发帖角色'); return 0; }
   var mode = await getCfg(AM.mode) || 'daily';
@@ -291,6 +299,7 @@ async function catchUpMoments(count) {
 
 try {
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
+  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = parseJSON(raw);
     if (!data || !Array.isArray(data.posts)) {
       console.warn('[AutoMoments] AI返回格式错误:', raw ? raw.slice(0, 100) : 'null');
@@ -652,6 +661,7 @@ async function batchPostMoments(charIds, countPerChar) {
   window.toast && window.toast('正在生成' + totalCount + '条朋友圈...');
   try {
     var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
+  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
     if (!data || !data.posts || !data.posts.length) { window.toast && window.toast('AI未返回内容'); return 0; }
 

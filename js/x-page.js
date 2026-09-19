@@ -2043,6 +2043,7 @@ async function generateAIProfile(char, page) {
       '{"bio":"一句话简介(20字以内)","ipLocation":"省份或城市","handle":"@英文账号"}';
 
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
+    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
     if (!data) return;
 
@@ -2177,6 +2178,7 @@ async function generate5PostsForChar(char) {
       '{"posts":[{"content":"帖子","tags":["标签"],"category":1,"comments":[{"name":"NPC","content":"评论","replyToIndex":-1},{"name":"' + char.name + '","content":"回复","replyToIndex":0,"isAuthorReply":true}]}]}';
 
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
+    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
 
     var allPosts = xLoadPosts();
@@ -2600,6 +2602,7 @@ async function generatePostsForChar(char, preference) {
       '{"posts":[{"content":"帖子","tags":["标签"],"comments":[{"name":"NPC","content":"评论","replyToIndex":-1},{"name":"' + char.name + '","content":"回复","replyToIndex":0,"isAuthorReply":true}]}]}';
 
     var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
+    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
 
     if (!data.posts || !data.posts.length) throw new Error('AI未返回帖子');
@@ -2809,6 +2812,7 @@ async function autoPostTick(user) {
       '返回JSON：{"content":"帖子内容"}';
 
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
+    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
 
     var post = {
