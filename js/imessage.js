@@ -371,47 +371,18 @@ async function openSmsChat(conversationId, listPage) {
           }
           var prompt = (charDesc ? '\u4f60\u662f' + charDesc + '\uff0c\u6b63\u5728\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n\u4f60\u7684\u4eba\u8bbe\uff1a' + charDesc + '\n' : '\u4f60\u662f\u4e00\u4e2a\u771f\u4eba\uff0c\u6b63\u5728\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n') +
             '\u6700\u8fd1\u804a\u5929\uff1a\n' + chatHistory + '\n' +
-            '\u8981\u6c42\uff1a\u751f\u6210\u4e00\u53e5\u56de\u590d\u77ed\u4fe1\uff0c\u7b80\u77ed\u81ea\u7136\u3002'
-          var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
+            '\u8981\u6c42\uff1a\u751f\u62101-3\u6761\u56de\u590d\u77ed\u4fe1\uff0c\u50cf\u771f\u4eba\u8fde\u53d1\u3002\u6bcf\u676120-40\u5b57\u3002\u8fd4\u56deJSON\uff1a{\"messages\":[\"\u7b2c1\u6761\",\"\u7b2c2\u6761\"]}'
+          var reply = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true})
           if (reply) {
-            await db.smsMessages.add({
-              conversationId: conversationId,
-              direction: 'in',
-              body: reply.trim(),
-              createdAt: Date.now(),
-              read: false
-            })
-            await loadSmsChatMessages(page, conversationId)
-          }
-        } catch(e) { console.error('[imessage] ai gen:', e) }
-        finally { sendPending = false; aiBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>' }
-      })
-    }
-    var aiBtn = page.querySelector('#imessage-ai-btn')
-    if (aiBtn) {
-      aiBtn.addEventListener('click', async function() {
-        if (sendPending) return
-        sendPending = true
-        aiBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'
-        try {
-          var recentMsgs = await db.smsMessages.where('conversationId').equals(conversationId).reverse().limit(10).toArray()
-          recentMsgs.reverse()
-          var chatHistory = recentMsgs.map(function(m) {
-            var who = m.direction === 'out' ? '\u7528\u6237' : '\u5bf9\u65b9'
-            return who + '\uff1a' + (m.body || '')
-          }).join('\n')
-          var convData = await db.smsConversations.get(conversationId)
-          var charDesc = ''
-          if (convData && convData._anonCharId) {
-            var ch = await window.getCharacter(convData._anonCharId)
-            if (ch) charDesc = ch.name + '\uff08' + (ch.description || '').slice(0, 200) + '\uff09'
-          }
-          var prompt = (charDesc ? '\u4f60\u662f' + charDesc + '\uff0c\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n\u4eba\u8bbe\uff1a' + charDesc + '\n' : '\u4f60\u662f\u4e00\u4e2a\u771f\u4eba\uff0c\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n') +
-            '\u6700\u8fd1\u804a\u5929\uff1a\n' + chatHistory + '\n' +
-            '\u751f\u6210\u4e00\u53e5\u56de\u590d\u3002'
-          var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
-          if (reply) {
-            await db.smsMessages.add({conversationId:conversationId, direction:'in', body:reply.trim(), createdAt:Date.now(), read:false})
+            var msgs = []
+            try {
+              var data = typeof reply === 'string' ? JSON.parse(reply.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : reply
+              msgs = data.messages || (data.body ? [data.body] : [])
+            } catch(e) { msgs = [reply] }
+            if (!msgs.length && typeof reply === 'string') msgs = [reply]
+            for (var mi = 0; mi < msgs.length; mi++) {
+              await db.smsMessages.add({conversationId:conversationId, direction:'in', body:String(msgs[mi]).trim(), createdAt:Date.now()+mi, read:false})
+            }
             await loadSmsChatMessages(page, conversationId)
           }
         } catch(e) { console.error('[imessage] ai gen:', e) }
