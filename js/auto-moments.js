@@ -482,8 +482,42 @@ async function buildPrompt(char, mode, commentsOn, relations, isManual) {
   var p = '你是一个真实的人，正在发朋友圈。你的朋友圈必须有真人感、活人感。\n\n';
   p += '【你的信息】\n';
   p += '名字：' + char.name + '\n';
-  if (char.description) p += '人设：' + char.description.slice(0, 300) + '\n';
+  if (char.description) p += '人设：' + char.description.slice(0, 500) + '\n';
   if (char.personality) p += '性格：' + char.personality.slice(0, 150) + '\n';
+
+  // 从人设中提取有名字的人物
+  var personaPeople = [];
+  try {
+    var desc = char.description || '';
+    var namePatterns = desc.match(/(?:闺蜜|朋友|同学|同事|室友|兄弟|姐妹|哥哥|姐姐|弟弟|妹妹|妈妈|爸爸|老师|师傅|老板|上司|邻居|青梅竹马|男朋友|女朋友|老公|老婆|前任|暗恋对象|死党|好友)[叫是名为]?\s*([\u4e00-\u9fa5]{2,4})/g);
+    if (namePatterns) {
+      namePatterns.forEach(function(m) {
+        var name = m.replace(/^[^\u4e00-\u9fa5]+/, '').trim();
+        if (name && name.length >= 2 && personaPeople.indexOf(name) === -1) personaPeople.push(name);
+      });
+    }
+  } catch(_) {}
+
+  // 获取其他AI角色
+  var otherChars = [];
+  try {
+    var allChars = await window.db.characters.where('type').equals('char').toArray();
+    otherChars = allChars.filter(function(c) { return c.id !== char.id; }).slice(0, 5);
+  } catch(_) {}
+
+  // 从relations中获取关系角色
+  var relChars = [];
+  if (char.relations && char.relations.length) {
+    for (var ri = 0; ri < char.relations.length; ri++) {
+      var r = char.relations[ri];
+      if (r.charId) {
+        try {
+          var rc = await window.db.characters.get(parseInt(r.charId));
+          if (rc && rc.name && relChars.indexOf(rc.name) === -1) relChars.push(rc.name);
+        } catch(_) {}
+      }
+    }
+  }
 
   p += '\n【发朋友圈规则】\n';
   if (mode === 'daily') {
@@ -496,105 +530,37 @@ async function buildPrompt(char, mode, commentsOn, relations, isManual) {
   p += '- 必须像真人发的！口语化、随意、有时候打错字也正常\n';
   p += '- 不要哲理、不要总结、不要AI味\n';
   p += '- 长度1-3句话，不超过80字\n';
-  p += '- 可以有emoji但自然使用不要堆砌\n';
-  p += '- 配图描述要具体（"今天的拿铁拉花"而不是"咖啡"）\n';
 
-  // 获取其他AI角色作为评论人
-  var otherChars = [];
-  try {
-    var allChars = await window.db.characters.where('type').equals('char').toArray();
-    otherChars = allChars.filter(function(c) { return c.id !== char.id; }).slice(0, 5);
-  } catch(_) {}
-
-  // 始终生成评论
   p += '\n【评论规则】\n';
   p += '- 生成5条评论\n';
-  if (relations.length) {
-    p += '- 评论人必须从这些关系人中选：' + relations.join('、') + '\n';
+
+  var allCommenters = personaPeople.concat(relChars.filter(function(n) { return personaPeople.indexOf(n) === -1; }));
+  if (allCommenters.length) {
+    p += '- 【评论人必须从以下人设中的真实人物中选取】：' + allCommenters.join('、') + '\n';
+    p += '- 这些人都是' + char.name + '人设里提到的真实存在的人\n';
+    p += '- 根据他们与' + char.name + '的关系写评论（闺蜜→亲密调侃，同事→吐槽，家人→关心）\n';
   }
   if (otherChars.length) {
     var otherInfo = otherChars.map(function(oc) {
       var rel = (char.relations || []).find(function(r) { return parseInt(r.charId) === oc.id; });
-      var relText = rel ? (rel.type || '') + (rel.desc ? '（' + rel.desc.slice(0, 30) + '）' : '') : '未设定关系';
-      return oc.name + '（人设：' + (oc.description || '').slice(0, 30) + '，与' + char.name + '的关系：' + relText + '）';
+      return oc.name + (rel && rel.type ? '（' + rel.type + '）' : '');
     }).join('、');
-    p += '- 其他AI角色也可以来评论：' + otherInfo + '\n';
-    p += '- 这些AI角色评论时要体现自己的性格特点\n';
+    p += '- 其他AI角色也会来评论：' + otherInfo + '\n';
   }
-  if (!relations.length && !otherChars.length) {
-    p += '- 用其他AI角色名字评论，体现各自性格\n';
-  }
-  p += '- 评论必须根据评论人与发帖人的关系来写：朋友→友好调侃，敌人→冷淡/讽刺/挑行，暗恋→昧撒关心，陌生人→礼貌客套\n';
-  p += '- 【极其重要】评论中带"to"字段的（即回复别人的评论），from必须是' + char.name + '（发帖人本人）！绝对不能让其他AI代替发帖人回复！\n';
-  p += '- ' + char.name + '（发帖人）必须回复其中2-3条评论，每条回复的from字段必须是"' + char.name + '"\n';
-  p += '- 被回复的评论人可以再回复' + char.name + '，形成对话\n';
-  p += '- 绝对不要生成"用户"的评论\n';
-  p += '- 评论人优先从发帖人的关系人中选取，体现与发帖人的关系\n';
+  p += '- 【极其重要】回复别人的评论，from必须是' + char.name + '（发帖人本人）\n';
+  p += '- ' + char.name + '必须回复其中2-3条评论\n';
+  p += '- 被回复的人可以再回复' + char.name + '，形成2层对话\n';
 
   if (isManual) {
     p += '\n- 这是用户主动让你发的，内容可以更丰富一点\n';
   }
 
   p += '\n【输出JSON格式】\n';
-  p += '{"text":"文案","imagesDesc":["配图描述"],"likes":["点赞人"],"comments":[{"from":"人","to":null,"text":"评论"},{"from":"' + char.name + '","to":"人","text":"回复"}]}';
+  p += '{"text":"文案","imagesDesc":["配图描述"],"likes":["点赞人"],"comments":[{"from":"人名","to":null,"text":"评论"},{"from":"' + char.name + '","to":"人名","text":"回复"}]}';
 
   return p;
 }
 
-async function getRecentChat(charId, charName) {
-  try {
-    var uid = window._wechatUid;
-    if (!uid) return '';
-    var chat = await window.db.chats.where({ charId: charId, ownerUid: uid }).first();
-    if (!chat) return '';
-    var msgs = await window.db.messages.where('chatId').equals(chat.id).reverse().limit(8).toArray();
-    return msgs.reverse().map(function (m) {
-      return (m.role === 'user' ? '用户' : charName) + '：' + (m.content || '').slice(0, 60);
-    }).join('\n');
-  } catch (_) { return ''; }
-}
-
-/* ── 配图 ───────────────────────────────────────── */
-async function genImages(char, data) {
-  try {
-    var url   = await getCfg('imageGenApiUrl');
-    var key   = await getCfg('imageGenApiKey');
-    var model = await getCfg('imageGenModel');
-    if (!url || !key) return;
-
-    var descs = (data.imagesDesc || []).slice(0, 3); /* 最多3张 */
-    if (!descs.length) return;
-
-    var imgKeys = [];
-    for (var i = 0; i < descs.length; i++) {
-      try {
-        var prompt = '生活照片风格，' + descs[i] + '，手机拍摄，自然光';
-        var resp = await fetch(url.replace(/\/*$/, '') + '/images/generations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-          body: JSON.stringify({
-            model: model || 'dall-e-3',
-            prompt: prompt,
-            n: 1,
-            size: '1024x1024',
-            response_format: 'b64_json'
-          })
-        });
-        if (!resp.ok) continue;
-        var r = await resp.json();
-        if (r.data && r.data[0] && r.data[0].b64_json) {
-          var imgKey = 'am_img_' + Date.now() + '_' + i;
-          localStorage.setItem(imgKey, 'data:image/png;base64,' + r.data[0].b64_json);
-          imgKeys.push(imgKey);
-        }
-      } catch (_) {}
-    }
-    /* 把图片key列表挂到 data 上，postMoment 会持久化到 DB */
-    if (imgKeys.length) data._imgKeys = imgKeys;
-  } catch (e) { console.warn('[AutoMoments] 配图失败:', e); }
-}
-
-/* ── 刷新朋友圈页面（v3：多重降级策略）──────────── */
 function refreshMomentsPage() {
   console.log('[AutoMoments] refreshMomentsPage 调用');
   try {
