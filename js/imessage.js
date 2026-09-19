@@ -178,15 +178,29 @@ function buildSmsListPage() {
   var activeUser = _smsUserPhones.find(function(p) { return p.phone === _smsActivePhone }) || _smsUserPhones[0]
 
   page.innerHTML =
-    '<div class="sms-header">' +
-      '<button class="sms-header-back" id="sms-list-back">' +
+    '<div class="sms-list-topbar">' +
+      '<button class="sms-list-back" id="sms-list-back">' +
         '<i class="fa fa-angle-left"></i>' +
       '</button>' +
-      '<div class="sms-header-center" id="sms-header-center">' +
-        '<span class="sms-header-phone-text">' + escSmsHtml(activeUser.phone) + '</span>' +
+      '<div class="sms-list-topbar-right">' +
+        '<button class="sms-list-search-btn" id="sms-list-search-btn">' +
+          '<i class="fa-solid fa-magnifying-glass"></i>' +
+        '</button>' +
+        '<button class="sms-list-menu-btn" id="sms-list-menu-btn">' +
+          '<i class="fa-solid fa-ellipsis-vertical"></i>' +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="sms-list-large-title">' +
+      '<span>\u6d88\u606f</span>' +
+    '</div>' +
+    '<div class="sms-list-phone-bar" id="sms-list-phone-bar">' +
+      '<div class="sms-list-phone-info" id="sms-header-center">' +
+        '<img class="sms-list-phone-avatar" src="' + escSmsHtml(activeUser.avatar || SMS_DEFAULT_AVATAR) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
+        '<span class="sms-list-phone-text">' + escSmsHtml(activeUser.charName || activeUser.phone) + '</span>' +
         (_smsUserPhones.length > 1 ? ' <i class="fa fa-chevron-down sms-chevron"></i>' : '') +
       '</div>' +
-      '<button class="sms-header-new-btn" id="sms-new-btn">' +
+      '<button class="sms-list-new-btn" id="sms-new-btn">' +
         '<i class="fa-solid fa-square-pen"></i>' +
       '</button>' +
       (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +

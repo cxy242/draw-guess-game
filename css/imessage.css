@@ -15,14 +15,15 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
 }
 
-/* ===== SMS List Page ===== */
-.sms-list-header {
+
+
+/* ===== SMS List Page (Redesigned) ===== */
+.sms-list-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  padding-top: calc(10px + env(safe-area-inset-top));
-  background: #f2f2f2;
+  padding: 6px 12px;
+  padding-top: calc(6px + env(safe-area-inset-top));
   flex-shrink: 0;
 }
 
@@ -34,27 +35,20 @@
   justify-content: center;
   background: transparent;
   border: none;
-  color: #1a1a1a;
+  color: #333;
   font-size: 20px;
   cursor: pointer;
   border-radius: 50%;
 }
 .sms-list-back:active { opacity: 0.5; }
 
-.sms-list-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
-  flex: 1;
-  text-align: center;
-}
-
-.sms-list-actions {
+.sms-list-topbar-right {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 
-.sms-list-action-btn {
+.sms-list-search-btn,
+.sms-list-menu-btn {
   width: 40px;
   height: 40px;
   display: flex;
@@ -62,95 +56,82 @@
   justify-content: center;
   background: transparent;
   border: none;
-  color: #1a1a1a;
-  font-size: 18px;
+  color: #333;
+  font-size: 17px;
   cursor: pointer;
   border-radius: 50%;
 }
-.sms-list-action-btn:active { opacity: 0.5; }
+.sms-list-search-btn:active,
+.sms-list-menu-btn:active { opacity: 0.5; }
 
-/* Conversation List */
-.sms-conv-list {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  background: #fff;
-}
-
-.sms-conv-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background 100ms ease;
-}
-.sms-conv-item:active { background: #f5f5f5; }
-.sms-conv-pinned { background: #f8f9fa; }
-
-.sms-conv-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #e0e0e0;
+/* Large title like settings page */
+.sms-list-large-title {
+  padding: 4px 16px 8px;
   flex-shrink: 0;
 }
-
-.sms-conv-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.sms-list-large-title span {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
 }
 
-.sms-conv-top {
+/* Phone bar with avatar + new message button */
+.sms-list-phone-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.sms-conv-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #1a1a1a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sms-conv-time {
-  font-size: 12px;
-  color: #999;
+  padding: 8px 16px 10px;
   flex-shrink: 0;
-  margin-left: 8px;
+  position: relative;
 }
 
-.sms-conv-preview {
-  font-size: 13px;
+.sms-list-phone-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 20px;
+  transition: background 100ms ease;
+}
+.sms-list-phone-info:active { background: rgba(0,0,0,0.05); }
+
+.sms-list-phone-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e0e0e0;
+}
+
+.sms-list-phone-text {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.sms-chevron {
+  font-size: 10px;
   color: #999;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-left: 2px;
 }
 
-.sms-conv-badge {
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  background: #4a90d9;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
+.sms-list-new-btn {
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
+  background: transparent;
+  border: none;
+  color: #333;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 50%;
   flex-shrink: 0;
 }
+.sms-list-new-btn:active { opacity: 0.5; }
 
 /* ===== Chat Detail Page ===== */
 .sms-chat-page {
