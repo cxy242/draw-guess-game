@@ -16927,6 +16927,7 @@ function bindChatExtrasEvents(settingsPage, chatId) {
   if (blockBtn) blockBtn.addEventListener('click', async () => {
     await db.config.put({ key: `chatBlockState_${chatId}`, value: { userBlockedAI: true, aiBlockedUser: false, blockedAt: Date.now() } })
     window.toast?.('已拉黑AI')
+    if (window.startWechatBlockSmsTimer) window.startWechatBlockSmsTimer(charId, charName)
     refreshBlockUI()
     // 关闭设置页面，回到聊天页面
     const chatPage = document.querySelector(`.chat-window-page[data-chat-id="${chatId}"]`)
