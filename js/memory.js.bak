@@ -145,15 +145,12 @@
     if (memory.status === 'archived') return 0
     // 长期记忆锁定100%
     if (memory.isLongTerm) return 100
-    // 使用decayPercent字段
-    // Feature 1: 情感坐标 — arousal越高衰减越慢（80%起步，每天-1%）
+    // 使用decayPercent字段（80%起步，每天-1%）
     if (typeof memory.decayPercent === 'number') {
       var now = Date.now()
       var last = memory.lastRecalledAt || memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
-      var arousal = clamp(memory.arousal, 0, 1, 0.3)
-      var decayRate = 1 / (1 + arousal * 2)  // arousal=0→1天/点, arousal=1→0.33天/点
-      var days = Math.max(0, (now - last) / 86400000)
-      var current = Math.max(0, memory.decayPercent - days * decayRate)
+      var days = Math.max(0, Math.floor((now - last) / 86400000))
+      var current = Math.max(0, memory.decayPercent - days)
       return current
     }
     // 旧版兼容：用原公式计算
@@ -168,17 +165,14 @@
   }
 
   // 获取衰减百分比（新版：直接返回decayPercent经过天数衰减后的值）
-  // Feature 1: 情感坐标 — arousal越高衰减越慢
   function getDecayPercent(memory) {
     if (memory.status === 'archived') return 0
     if (memory.isLongTerm) return 100
     if (typeof memory.decayPercent === 'number') {
       var now = Date.now()
       var last = memory.lastRecalledAt || memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
-      var arousal = clamp(memory.arousal, 0, 1, 0.3)
-      var decayRate = 1 / (1 + arousal * 2)
-      var days = Math.max(0, (now - last) / 86400000)
-      return Math.max(0, memory.decayPercent - days * decayRate)
+      var days = Math.max(0, Math.floor((now - last) / 86400000))
+      return Math.max(0, memory.decayPercent - days)
     }
     return 80 // 默认值
   }
@@ -923,24 +917,26 @@ ${lines}`
       try { queryEmbedding = await createEmbedding(queryText || '当前聊天') }
       catch (e) { console.warn('[memory] 查询向量失败，降级检索：', e) }
     }
-    // Feature 2: 浮现机制 — relevance(0.4) + recency(0.3) + importance(0.2) + emotion(0.1)
     var scored = rows.map(function(m) {
       var semanticScore = queryEmbedding ? Math.max(0, cosineSimilarity(queryEmbedding, m.embedding)) : 0
       var keywordScore = getKeywordScore(m, queryText)
-      var relevance = Math.min(1, semanticScore * 0.5 + keywordScore)
-      var decayPercent = getDecayPercent(m)
-      var recency = Math.min(1, decayPercent / 100)
       var importanceScore = clamp(m.importance, 1, 10, 5) / 10
       var emotionScore = getEmotionScore(m)
-      var compositeScore = relevance * 0.4 + recency * 0.3 + importanceScore * 0.2 + emotionScore * 0.1
+      var decayPercent = getDecayPercent(m)
+      var decayScore = Math.min(1, decayPercent / 100)
+      // 层级越高（数字越小）分数越高
+      var layerScore = (5 - (m.injectionLayer || 2)) / 4
+      // 时间质量加分：有精确时间引用的记忆更可靠，衰减更慢
+      var hasTime = hasTimeReference(m.content || '') ? 1 : 0
+      var timeQuality = hasTime * 1.5
+      // 有时间引用的记忆衰减更慢（衰减系数减半）
+      if (hasTime) decayScore = Math.min(1, decayScore * 1.5)
       return {
         memory: m,
-        score: compositeScore
+        score: semanticScore * 4 + keywordScore * 3 + importanceScore * 2 + emotionScore * 1.5 + decayScore + layerScore * 2 + timeQuality
       }
     }).sort(function(a, b) { return b.score - a.score })
-    // 返回 top 5-8 条
-    var surfacelimit = Math.max(5, Math.min(8, settings.injectLimit))
-    var selected = scored.slice(0, surfacelimit).filter(function(x) { return x.score > 0.05 || x.memory.status === 'active' })
+    var selected = scored.slice(0, settings.injectLimit).filter(function(x) { return x.score > 0.15 || x.memory.status === 'active' })
     var now = Date.now()
     await Promise.all(selected.map(function(x) {
       return db.memories.update(x.memory.id, {
@@ -2182,117 +2178,6 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       source: 'chat',
       participants: [aiName || 'AI']
     })
-  }
-
-  
-  // ===== Feature 3: 自动提取事实 (Auto Fact Extraction) =====
-  var _extractFactsCallCount = {}
-
-  async function extractFacts(messages, charName, userName) {
-    if (!messages || !messages.length) return []
-    if (!window.callMemoryAI && !window.callAI) return []
-    charName = charName || '角色'
-    userName = userName || '用户'
-    var recentMsgs = messages.slice(-10).map(function(m) {
-      var speaker = m.role === 'assistant' ? charName : userName
-      return speaker + '：' + String(m.content || '').slice(0, 200)
-    }).join('\n')
-    var prompt = '从以下聊天中提取关键事实信息。只提取用户明确提到的事实，不要推测。\n\n' +
-      '聊天内容：\n' + recentMsgs + '\n\n' +
-      '提取这5类信息：\n' +
-      '1. 人物：提到的人物名字和关系\n' +
-      '2. 事件：发生或计划的事情\n' +
-      '3. 时间：具体时间点或时间段\n' +
-      '4. 地点：提到的地点\n' +
-      '5. 偏好：用户的喜欢/不喜欢、习惯变化\n\n' +
-      '返回JSON：{"facts":[{"type":"person|event|time|location|preference","content":"...","importance":1-10}]}\n' +
-      '如果没有发现事实，返回 {"facts":[]}'
-    try {
-      var callFn = window.callMemoryAI || window.callAI
-      var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
-      var parsed = extractJson(raw)
-      if (!parsed || !Array.isArray(parsed.facts) || !parsed.facts.length) return []
-      var facts = parsed.facts.filter(function(f) {
-        return f && f.content && (f.importance || 5) >= 4
-      })
-      return facts
-    } catch(e) {
-      console.warn('[memory] extractFacts error:', e)
-      return []
-    }
-  }
-
-  async function autoExtractAndStore(chatId, charId, ownerUid, messages, charName, userName) {
-    if (!chatId || !charId || !ownerUid) return
-    if (!db.memories) return
-    var callKey = chatId + '_' + charId
-    var count = (_extractFactsCallCount[callKey] || 0) + 1
-    _extractFactsCallCount[callKey] = count
-    if (count % 10 !== 0) return
-    var facts = await extractFacts(messages, charName, userName)
-    if (!facts.length) return
-    var now = Date.now()
-    for (var i = 0; i < facts.length; i++) {
-      var f = facts[i]
-      var row = {
-        ownerUid: ownerUid, charId: charId, chatId: chatId,
-        title: '[' + (f.type || '事实') + '] ' + String(f.content || '').slice(0, 20),
-        content: f.content, keywords: [f.type || '事实'],
-        valence: 0, arousal: 0.2, importance: clamp(f.importance, 1, 10, 5),
-        embedding: null, status: 'active', sourceType: 'auto_extract',
-        sourceMsgStartId: null, sourceMsgEndId: null, sourceAt: now,
-        decayPercent: 80, isLongTerm: false, injectionLayer: 3,
-        participants: [], lastRecalledAt: null,
-        createdAt: now, updatedAt: now, lastAccessedAt: null, accessCount: 0
-      }
-      await db.memories.add(row)
-      syncToImprintMemory(row)
-    }
-    console.log('[memory] autoExtracted ' + facts.length + ' facts for charId=' + charId)
-  }
-
-  
-  // ===== Feature 4: 时间感知 (Time Awareness) =====
-  function getFormattedNow() {
-    var now = new Date()
-    var y = now.getFullYear()
-    var m = now.getMonth() + 1
-    var d = now.getDate()
-    var h = now.getHours()
-    var min = now.getMinutes()
-    var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
-    var hour12 = h === 0 ? 12 : (h > 12 ? h - 12 : h)
-    return y + '\u5e74' + m + '\u6708' + d + '\u65e5' + period + hour12 + '\u70b9' + (min > 0 ? min + '\u5206' : '')
-  }
-
-  async function getTimeSinceLastChat(charId) {
-    if (!charId || !db.chats) return ''
-    try {
-      var allChats = await db.chats.toArray()
-      var charChats = allChats.filter(function(c) { return c.charId === charId })
-      if (!charChats.length) return ''
-      var lastChat = charChats.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0) })[0]
-      if (!lastChat || !lastChat.updatedAt) return ''
-      var diff = Date.now() - lastChat.updatedAt
-      if (diff < 60000) return '\u521a\u521a'
-      var mins = Math.floor(diff / 60000)
-      if (mins < 60) return mins + '\u5206\u949f\u524d'
-      var hours = Math.floor(mins / 60)
-      if (hours < 24) return hours + '\u5c0f\u65f6\u524d'
-      var days = Math.floor(hours / 24)
-      if (days < 30) return days + '\u5929\u524d'
-      return Math.floor(days / 30) + '\u4e2a\u6708\u524d'
-    } catch(e) { return '' }
-  }
-
-  async function buildTimeAwarenessContext(charId) {
-    var parts = []
-    parts.push('\u73b0\u5728\u662f' + getFormattedNow())
-    if (charId) {
-      var timeSince = await getTimeSinceLastChat(charId)
-      if (timeSince) parts.push('\u4e0a\u6b21\u804a\u5929\u662f' + timeSince + '\u524d')
-    }
-    return parts.join('\uff0c')
   }
 
   window.WanWanMemory = {

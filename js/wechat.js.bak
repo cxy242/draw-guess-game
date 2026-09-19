@@ -8239,10 +8239,6 @@ async function generateAIReply(chatId, charId, options = {}) {
   const memoryPanelCtx = window.WanWanMemory?.getMemoryPanelContext
     ? await window.WanWanMemory.getMemoryPanelContext(chatId, charId, _wechatUid)
     : ''
-  // Feature 4: 时间感知
-  const _timeAwarenessCtx = window.WanWanMemory?.buildTimeAwarenessContext
-    ? await window.WanWanMemory.buildTimeAwarenessContext(charId)
-    : ''
   const mcp = await runWechatMcpPrefetch(options.allowMcp === true, {
     scope: 'chat',
     conversationId: chatId
@@ -8421,7 +8417,7 @@ async function buildChatSystem(char, loreCtx, charName, userName, userNick, stic
   let system = buildSystemPart5(charName, userName, thoughtTemplate, blockSettings, blockState) +
     buildSystemBilingualPart(bilingualSettings) +
     buildSystemPart1(char, charName, loreSeg.middle, loreSeg.before) +
-    buildSystemMemoryPart(memoryCtx, memoryPanelCtx, _timeAwarenessCtx) +
+    buildSystemMemoryPart(memoryCtx, memoryPanelCtx) +
     part2 +
     loreAfterBlock +
     buildSystemPart3(charName, userName, stickerNames, imageGenEnabled) +
@@ -8537,14 +8533,9 @@ function buildBilingualCorrectionPrompt(bilingualSettings) {
   return `系统纠错：上一条 reply 没有遵守当前聊天已开启的双语模式。请重新输出同一个 JSON 对象结构。reply 字段中，外语普通文字消息和外语语音消息必须使用 [{${sourceLabel}原文}「{${targetLabel}翻译}」] 格式；如果角色按人设主动说中文，可以使用纯中文普通消息或中文语音消息，不需要翻译。禁止解释规则。`
 }
 
-function buildSystemMemoryPart(memoryCtx, memoryPanelCtx, timeAwarenessCtx) {
-  if (!memoryCtx && !memoryPanelCtx && !timeAwarenessCtx) return ''
+function buildSystemMemoryPart(memoryCtx, memoryPanelCtx) {
+  if (!memoryCtx && !memoryPanelCtx) return ''
   var parts = []
-  if (timeAwarenessCtx) {
-    parts.push('# 【时间感知】')
-    parts.push(timeAwarenessCtx)
-    parts.push('')
-  }
   parts.push('# 【长期记忆】')
   parts.push('以下记忆只属于当前微信账号与当前角色之间的关系。请自然参考这些事实，不要机械复述，也不要提到“记忆系统”。')
   parts.push('')

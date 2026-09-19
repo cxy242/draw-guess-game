@@ -508,15 +508,6 @@ async function buildGroupPrompt(chars, mode, scriptData) {
   var narrText = { first: '第一人称（以"我"的视角叙述）', second: '第二人称（以"你"的视角叙述）', third: '第三人称' };
   p += '## 叙述视角：' + (narrText[narrative] || '第三人称') + '\n\n';
 
-  // Feature 4: 时间感知 — 注入当前时间
-  try {
-    if (window.WanWanMemory && window.WanWanMemory.buildTimeAwarenessContext) {
-      var firstCharId = chars && chars.length > 0 ? chars[0].char.id : 0
-      var timeCtx = await window.WanWanMemory.buildTimeAwarenessContext(firstCharId)
-      if (timeCtx) p += '## 时间感知\n' + timeCtx + '\n\n'
-    }
-  } catch(e) { /* ignore */ }
-
   // Load memories
   var memCtx = '';
   try { memCtx = await loadMemoriesForChars(chars, _state.uid); } catch(e) { /* ignore */ }
