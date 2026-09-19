@@ -524,6 +524,16 @@ async function buildGroupPrompt(chars, mode, scriptData) {
     if (ch.personality) p += '性格：' + ch.personality.slice(0, 150) + '\n';
     if (ch.first_mes) p += '第一句话风格参考：' + ch.first_mes.slice(0, 100) + '\n';
     p += '\n';
+    // Add relationships with other characters
+    if (ch.relations && ch.relations.length) {
+      p += '\u4e0e\u5176\u4ed6\u89d2\u8272\u7684\u5173\u7cfb\uff1a';
+      ch.relations.forEach(function(r) {
+        var relName = r.charName || r.name || '';
+        var relDesc = r.desc || r.type || '';
+        if (relName) p += relName + '\uff08' + relDesc + '\uff09\u3001';
+      });
+      p += '\n';
+    }
   });
 
   p += '## 用户\n用户（我）正在与这些角色互动。\n\n';
