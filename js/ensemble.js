@@ -907,28 +907,100 @@ async function saveChatMsg(role, text) {
 async function loadChatHistory(page) {
   try {
     if (!_state.uid || !db.offlineChats) return;
-    if (_state._historyLoaded) return; // 防止重复加载
+    if (_state._historyLoaded) return;
     _state._loading = true;
     _state._historyLoaded = true;
 
+    var log = page.querySelector('#ens-log');
+    if (!log) { _state._loading = false; return; }
+
+    var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
     var all = await db.offlineChats.toArray();
     var rows = all.filter(function(m) {
-      return m.ownerUid === _state.uid && m.mode === 'ensemble';
+      return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
     }).sort(function(a, b) { return (a.createdAt||0) - (b.createdAt||0); });
 
-    // 填充 _state.history 以保持AI上下文
+    if (!rows.length) { _state._loading = false; return; }
+
     _state.history = [];
+    var userName = _state.userName || '\u6211';
+    var chars = _state.current || [];
+    var charNames = chars.map(function(c) { return chName(c.char); }).join('\u3001');
+
+    log.innerHTML = rows.map(function(m, i) {
+      var isUser = m.role === 'user';
+      var name = isUser ? userName : charNames;
+      var avHtml = '';
+      if (isUser) {
+        avHtml = userAvatarHtml(null);
+      } else if (chars.length > 0) {
+        var ch = chars[0].char;
+        avHtml = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
+      }
+      var time = formatTime(m.createdAt || 0);
+      var rank = '#' + (i + 1);
+
+      if (!isUser) {
+        var segments = parseNarrationSegments(m.content || '', chars);
+        var charsHTML = '';
+        segments.forEach(function(seg) {
+          charsHTML += '<div class="ens-char-unit">' +
+            '<div class="ens-char-head">' +
+              '<div class="ens-char-avatar">' + seg.avatarHtml + '</div>' +
+              '<div class="ens-char-name">' + esc(seg.name) + '</div>' +
+            '</div>' +
+            seg.bodyHtml +
+          '</div>';
+        });
+        if (!charsHTML) charsHTML = '<div class="ens-text-env">' + esc(m.content || '') + '</div>';
+        return '<article class="miss-entry is-char" data-msg-idx="' + i + '">' +
+          '<button class="miss-entry-head" type="button">' +
+            '<div class="miss-entry-person">' +
+              '<div class="miss-msg-avatar">' + avHtml + '</div>' +
+              '<div class="miss-entry-nameblock">' +
+                '<div class="miss-msg-name">' + esc(name) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="miss-entry-floor">' + esc(rank) + '</div>' +
+          '</button>' +
+          '<div class="miss-entry-card">' +
+            '<div class="ens-narr-body">' + charsHTML + '</div>' +
+            '<div class="miss-entry-footer">' +
+              '<span>' + esc(time) + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</article>';
+      }
+
+      return '<article class="miss-entry is-user" data-msg-idx="' + i + '">' +
+        '<button class="miss-entry-head" type="button">' +
+          '<div class="miss-entry-person">' +
+            '<div class="miss-msg-avatar">' + avHtml + '</div>' +
+            '<div class="miss-entry-nameblock">' +
+              '<div class="miss-msg-name">' + esc(name) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="miss-entry-floor">' + esc(rank) + '</div>' +
+        '</button>' +
+        '<div class="miss-entry-card">' +
+          '<div class="miss-msg-text">' + esc(m.content || '') + '</div>' +
+          '<div class="miss-entry-footer">' +
+            '<span>' + esc(time) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+
+    log.scrollTop = log.scrollHeight;
+
     rows.forEach(function(m) {
       if (m.role === 'user') {
-        addMsg(page, 'user', m.content);
         _state.history.push({ role: 'user', content: m.content });
       } else if (m.role === 'assistant' || m.role === 'ai') {
-        addMsg(page, 'ai', m.content);
         _state.history.push({ role: 'assistant', content: m.content });
-      } else if (m.role === 'system') {
-        addSysMsg(page, m.content);
       }
     });
+
     _state._loading = false;
   } catch(e) {
     _state._loading = false;
