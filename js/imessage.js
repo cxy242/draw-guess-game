@@ -279,6 +279,15 @@ async function openSmsChat(conversationId, listPage) {
   var sendBtn = page.querySelector('#imessage-send-btn')
   var inputField = page.querySelector('#imessage-chat-input-field')
   if (sendBtn && inputField) {
+    // Toggle send button active state on input
+    inputField.addEventListener('input', function() {
+      if (inputField.value.trim()) {
+        sendBtn.classList.add('active')
+      } else {
+        sendBtn.classList.remove('active')
+      }
+    })
+
     var sendPending = false
     var doSend = async function() {
       if (sendPending) return

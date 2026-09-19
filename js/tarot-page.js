@@ -663,6 +663,64 @@ function renderFanSelect(root){
     card.style.zIndex = i + 10;
   });
 
+  // Add touch/drag scrolling to rotate the fan
+  var fanOffset = 0;
+  var touchStartX = 0;
+  var touchStartOffset = 0;
+  var isDragging = false;
+
+  function updateFanPositions(offset) {
+    cards.forEach(function(card, i){
+      var angle = -angleSpread/2 + (angleSpread/(total-1))*i + offset;
+      var rad = (angle - 90) * Math.PI / 180;
+      var x = Math.cos(rad) * radius;
+      var y = Math.sin(rad) * radius + radius;
+      card.style.transform = 'rotate('+angle+'deg) translateY('+(-radius)+'px)';
+    });
+  }
+
+  if (container) {
+    container.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartOffset = fanOffset;
+        isDragging = false;
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', function(e) {
+      if (e.touches.length === 1) {
+        var dx = e.touches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 5) isDragging = true;
+        fanOffset = touchStartOffset + dx * 0.3;
+        updateFanPositions(fanOffset);
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchend', function(e) {
+      // Momentum not needed, just keep the offset
+    }, { passive: true });
+
+    // Also support mouse drag
+    var mouseDown = false;
+    var mouseStartX = 0;
+    container.addEventListener('mousedown', function(e) {
+      mouseDown = true;
+      mouseStartX = e.clientX;
+      touchStartOffset = fanOffset;
+      isDragging = false;
+    });
+    container.addEventListener('mousemove', function(e) {
+      if (!mouseDown) return;
+      var dx = e.clientX - mouseStartX;
+      if (Math.abs(dx) > 5) isDragging = true;
+      fanOffset = touchStartOffset + dx * 0.3;
+      updateFanPositions(fanOffset);
+    });
+    container.addEventListener('mouseup', function() { mouseDown = false; });
+    container.addEventListener('mouseleave', function() { mouseDown = false; });
+  }
+
   // Bind card clicks
   cards.forEach(function(card){
     card.addEventListener('click', function(e){
