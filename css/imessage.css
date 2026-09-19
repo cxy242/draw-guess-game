@@ -266,10 +266,24 @@
 }
 .sms-out {
   align-self: flex-end;
-  background: #34c759;
+  background: #007aff;
   color: #fff;
   border-bottom-right-radius: 4px;
 }
+
+/* ===== AI生成按钮 ===== */
+.imessage-ai-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: none;
+  color: #007aff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  border: 1px solid #007aff;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.imessage-ai-btn:active { opacity: 0.6; }
 
 /* ===== 底部输入栏 ===== */
 .imessage-chat-input {
