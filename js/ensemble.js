@@ -339,6 +339,7 @@ function renderChat(page) {
         '<button class="miss-end-meet" id="ens-phone" type="button" title="\u624b\u673a"><i class="fa fa-mobile-screen"></i></button>' +
         '<button class="miss-end-meet" id="ens-cast" type="button" title="\u73b0\u573a\u4eba\u5458"><i class="fa-solid fa-users"></i></button>' +
         '<textarea class="miss-input" id="ens-input" rows="1" placeholder="\u8bf4\u70b9\u4ec0\u4e48..."></textarea>' +
+        '<button class="miss-continue" id="ens-ai-gen" type="button" title="AI\u751f\u6210"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' +
         '<button class="miss-send" id="ens-send" type="button" title="\u53d1\u9001"><i class="fa-solid fa-paper-plane"></i></button>' +
       '</div>' +
     '</div>';
@@ -383,6 +384,9 @@ function renderChat(page) {
     };
   }
   if (sendBtn) sendBtn.onclick = function() { doSend(page); };
+
+  var aiGenBtn = body.querySelector('#ens-ai-gen');
+  if (aiGenBtn) aiGenBtn.onclick = function() { doAIGenerate(page); };
 }
 
 // ===== 发送 =====
@@ -1061,6 +1065,8 @@ async function loadChatHistory(page) {
             '<div class="ens-narr-body">' + charsHTML + '</div>' +
             '<div class="miss-entry-footer">' +
               '<span>' + esc(time) + '</span>' +
+              '<button type="button" class="miss-entry-more" data-idx="' + i + '" title="\u66f4\u591a"><i class="fa-solid fa-ellipsis"></i></button>' +
+              '<button type="button" class="miss-entry-delete" data-idx="' + i + '" title="\u5220\u9664"><i class="fa-regular fa-trash-can"></i></button>' +
             '</div>' +
           '</div>' +
         '</article>';
@@ -1080,6 +1086,8 @@ async function loadChatHistory(page) {
           '<div class="miss-msg-text">' + esc(m.content || '') + '</div>' +
           '<div class="miss-entry-footer">' +
             '<span>' + esc(time) + '</span>' +
+              '<button type="button" class="miss-entry-more" data-idx="' + i + '" title="\u66f4\u591a"><i class="fa-solid fa-ellipsis"></i></button>' +
+              '<button type="button" class="miss-entry-delete" data-idx="' + i + '" title="\u5220\u9664"><i class="fa-regular fa-trash-can"></i></button>' +
           '</div>' +
         '</div>' +
       '</article>';
