@@ -465,8 +465,13 @@ function normalizeComments(raw, charName) {
   return raw.filter(function (c) {
     return c && typeof c.from === 'string' && typeof c.text === 'string';
   }).map(function (c) {
+    var from = c.from;
+    // If this is a reply (has 'to'), force from to be the poster
+    if (c.to && from !== charName) {
+      from = charName;
+    }
     return {
-      from: c.from,
+      from: from,
       to:   c.to || null,
       text: String(c.text).slice(0, 120)
     };
@@ -520,9 +525,11 @@ async function buildPrompt(char, mode, commentsOn, relations, isManual) {
     p += '- 用其他AI角色名字评论，体现各自性格\n';
   }
   p += '- 评论必须根据评论人与发帖人的关系来写：朋友→友好调侃，敌人→冷淡/讽刺/挑行，暗恋→昧撒关心，陌生人→礼貌客套\n';
-  p += '- 【重要】' + char.name + '（发帖人）必须回复其中2-3条评论，体现角色性格\n';
+  p += '- 【极其重要】评论中带"to"字段的（即回复别人的评论），from必须是' + char.name + '（发帖人本人）！绝对不能让其他AI代替发帖人回复！\n';
+  p += '- ' + char.name + '（发帖人）必须回复其中2-3条评论，每条回复的from字段必须是"' + char.name + '"\n';
   p += '- 被回复的评论人可以再回复' + char.name + '，形成对话\n';
   p += '- 绝对不要生成"用户"的评论\n';
+  p += '- 评论人优先从发帖人的关系人中选取，体现与发帖人的关系\n';
 
   if (isManual) {
     p += '\n- 这是用户主动让你发的，内容可以更丰富一点\n';

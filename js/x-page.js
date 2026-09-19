@@ -195,8 +195,31 @@ function xLoadPosts() {
 }
 
 function xSavePosts(posts) {
-  try { localStorage.setItem(X_POSTS_KEY, JSON.stringify(posts)); } catch(e) {
-    try { window.toast && window.toast('存储空间不足'); } catch(_) {}
+  try {
+    // Cleanup: remove old image keys before saving to free space
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('wanwan_x_img_') === 0) keys.push(k);
+      }
+      // Keep only last 30 images, remove older ones
+      if (keys.length > 30) {
+        keys.slice(0, keys.length - 30).forEach(function(k) { localStorage.removeItem(k); });
+      }
+    } catch(_) {}
+    localStorage.setItem(X_POSTS_KEY, JSON.stringify(posts));
+  } catch(e) {
+    // If still full, try removing ALL images and retry
+    try {
+      for (var j = localStorage.length - 1; j >= 0; j--) {
+        var k2 = localStorage.key(j);
+        if (k2 && k2.indexOf('wanwan_x_img_') === 0) localStorage.removeItem(k2);
+      }
+      localStorage.setItem(X_POSTS_KEY, JSON.stringify(posts));
+    } catch(_) {
+      try { window.toast && window.toast('存储空间不足'); } catch(__) {}
+    }
   }
 }
 
