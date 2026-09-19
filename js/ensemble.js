@@ -41,9 +41,64 @@ function setTitle(page, t) {
 }
 
 // ===== 返回 =====
+
+function showExitModal(page) {
+  var overlay = document.createElement('div');
+  overlay.className = 'sheet-overlay show';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;';
+  var modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;background:#fff;border-radius:12px;padding:24px;width:280px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.15);';
+  modal.innerHTML =
+    '<div style="font-size:16px;font-weight:600;margin-bottom:16px;color:#111">\u9000\u51fa\u804a\u5929</div>' +
+    '<button id="exit-temp" style="width:100%;height:44px;margin-bottom:10px;border:1px solid #dedbd6;border-radius:6px;background:#fff;font-size:14px;font-weight:500;cursor:pointer">\u4e34\u65f6\u9000\u51fa\uff08\u91cd\u8fdb\u76f4\u63a5\u8df3\u56de\uff09</button>' +
+    '<button id="exit-save" style="width:100%;height:44px;margin-bottom:10px;border:1px solid #dedbd6;border-radius:6px;background:#fff;font-size:14px;font-weight:500;cursor:pointer">\u76f4\u63a5\u9000\u51fa\uff08\u5b58\u5386\u53f2\u8bb0\u5f55\uff09</button>' +
+    '<button id="exit-cancel" style="width:100%;height:36px;border:none;background:none;font-size:13px;color:#999;cursor:pointer">\u53d6\u6d88</button>';
+  document.body.appendChild(overlay);
+  document.body.appendChild(modal);
+
+  function close() { overlay.remove(); modal.remove(); }
+
+  modal.querySelector('#exit-cancel').onclick = close;
+  overlay.onclick = close;
+
+  modal.querySelector('#exit-temp').onclick = function() {
+    // Temporary exit: go back to modes, keep _state intact
+    close();
+    renderModes(page, _state.uid, _state.chars);
+  };
+
+  modal.querySelector('#exit-save').onclick = async function() {
+    // Save to history and exit
+    close();
+    try {
+      if (_state.uid && db.offlineChats) {
+        var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
+        var charNames = (_state.current || []).map(function(c) { return chName(c.char); }).join('\u3001');
+        var now = Date.now();
+        // Save session metadata
+        await db.config.put({
+          key: 'ensemble_history_' + now,
+          value: {
+            uid: _state.uid,
+            chars: (_state.current || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
+            mode: _state.mode || 'meet',
+            charNames: charNames,
+            endedAt: now,
+            msgCount: (_state.history || []).length
+          }
+        });
+      }
+    } catch(e) { console.error('[ensemble] save history:', e); }
+    _state._historyLoaded = false;
+    window.closePage('ens-page');
+  };
+}
+
 function handleBack(page) {
   if (_state.view === 'chat') {
-    renderModes(page, _state.uid, _state.chars);
+    // Show exit modal
+    showExitModal(page);
+    return;
   } else if (_state.view === 'modes') {
     renderChars(page, _state.uid);
   } else if (_state.view === 'chars') {
@@ -239,9 +294,20 @@ async function renderModes(page, uid, chars) {
       '</button>' +
     '</div>';
 
+    '<div style="padding:0 16px 16px">' +
+      '<button class="ens-mode-card" data-mode="history" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dedbd6;border-radius:8px;cursor:pointer">' +
+        '<div style="font-size:18px;color:#7b7b78"><i class="fa-solid fa-clock-rotate-left"></i></div>' +
+        '<div>' +
+          '<div style="font-size:14px;font-weight:600;color:#111">\u5386\u53f2\u8bb0\u5f55</div>' +
+          '<div style="font-size:12px;color:#999">\u67e5\u770b\u4e4b\u524d\u7684\u7ebf\u4e0b\u804a\u5929</div>' +
+        '</div>' +
+      '</button>' +
+    '</div>';
+
   body.querySelectorAll('.ens-mode-card').forEach(function(c) {
     c.onclick = function() {
       if (c.dataset.mode === 'meet') enterMeet(page, uid, chars);
+      else if (c.dataset.mode === 'history') showHistory(page, uid, chars);
       else openScriptSettings(page, uid, chars);
     };
   });
