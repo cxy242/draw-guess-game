@@ -567,6 +567,114 @@
 /* Focus visible */
 *:focus-visible { outline: 2px solid #4a90d9; outline-offset: 2px; }
 
+
+/* ===== New Header: info + plus ===== */
+.sms-list-topbar-new {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--sms-surface, #fff);
+  flex-shrink: 0;
+  min-height: 50px;
+}
+.sms-info-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--sms-text, #1a1a1a);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 4px 0;
+  font-family: -apple-system, 'Noto Sans SC', 'PingFang SC', 'Helvetica Neue', sans-serif;
+}
+.sms-info-title:active {
+  opacity: 0.6;
+}
+.sms-list-plus-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sms-text, #1a1a1a);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 18px;
+  transition: background 0.15s;
+}
+.sms-list-plus-btn:active {
+  background: var(--sms-surface-2, #f0f0f0);
+}
+
+/* ===== Search bar ===== */
+.sms-list-search-bar {
+  padding: 4px 16px 8px;
+  background: var(--sms-surface, #fff);
+  flex-shrink: 0;
+}
+.sms-list-search-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: var(--sms-surface-2, #f0f0f0);
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 36px;
+}
+.sms-list-search-icon {
+  color: var(--sms-text-hint, #999);
+  font-size: 14px;
+}
+.sms-list-search-placeholder {
+  font-size: 14px;
+  color: var(--sms-text-hint, #999);
+}
+
+/* ===== Anonymous Message: no avatar, small bubble ===== */
+.sms-bubble-anon {
+  padding: 7px 11px !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  max-width: 70%;
+}
+
+/* ===== Revealed Message: avatar + name + smaller bubble ===== */
+.sms-revealed-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 80%;
+  align-self: flex-start;
+  padding: 2px 0;
+}
+.sms-revealed-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+.sms-revealed-body {
+  display: flex;
+  flex-direction: column;
+}
+.sms-revealed-name {
+  font-size: 11px;
+  color: var(--sms-text-secondary, #999);
+  margin-bottom: 2px;
+  padding-left: 2px;
+}
+.sms-bubble-revealed {
+  padding: 6px 10px !important;
+  font-size: 12.5px !important;
+  line-height: 1.35 !important;
+  max-width: 100%;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .sms-loading-dots span { animation: none; opacity: 0.5; }

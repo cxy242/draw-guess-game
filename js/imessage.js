@@ -175,35 +175,18 @@ function buildSmsListPage() {
   page.id = 'imessage-page'
   page.className = 'full-page imessage-main'
 
-  var activeUser = _smsUserPhones.find(function(p) { return p.phone === _smsActivePhone }) || _smsUserPhones[0]
-
   page.innerHTML =
-    '<div class="sms-list-topbar">' +
-      '<button class="sms-list-back" id="sms-list-back">' +
-        '<i class="fa fa-angle-left"></i>' +
+    '<div class="sms-list-topbar sms-list-topbar-new">' +
+      '<span class="sms-info-title" id="sms-list-back">\u4fe1\u606f</span>' +
+      '<button class="sms-list-plus-btn" id="sms-new-btn">' +
+        '<i class="fa-solid fa-plus"></i>' +
       '</button>' +
-      '<div class="sms-list-topbar-right">' +
-        '<button class="sms-list-search-btn" id="sms-list-search-btn">' +
-          '<i class="fa-solid fa-magnifying-glass"></i>' +
-        '</button>' +
-        '<button class="sms-list-menu-btn" id="sms-list-menu-btn">' +
-          '<i class="fa-solid fa-ellipsis-vertical"></i>' +
-        '</button>' +
-      '</div>' +
     '</div>' +
-    '<div class="sms-list-large-title">' +
-      '<span>\u6d88\u606f</span>' +
-    '</div>' +
-    '<div class="sms-list-phone-bar" id="sms-list-phone-bar">' +
-      '<div class="sms-list-phone-info" id="sms-header-center">' +
-        '<img class="sms-list-phone-avatar" src="' + escSmsHtml(activeUser.avatar || SMS_DEFAULT_AVATAR) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
-        '<span class="sms-list-phone-text">' + escSmsHtml(activeUser.charName || activeUser.phone) + '</span>' +
-        (_smsUserPhones.length > 1 ? ' <i class="fa fa-chevron-down sms-chevron"></i>' : '') +
+    '<div class="sms-list-search-bar">' +
+      '<div class="sms-list-search-inner" id="sms-list-search-btn">' +
+        '<i class="fa-solid fa-magnifying-glass sms-list-search-icon"></i>' +
+        '<span class="sms-list-search-placeholder">\u641c\u7d22\u77ed\u4fe1...</span>' +
       '</div>' +
-      '<button class="sms-list-new-btn" id="sms-new-btn">' +
-        '<i class="fa-solid fa-square-pen"></i>' +
-      '</button>' +
-      (_smsUserPhones.length > 1 ? buildPhoneDropdownHTML() : '') +
     '</div>' +
     '<div class="sms-list" id="sms-list"></div>'
 
@@ -228,58 +211,25 @@ function buildPhoneDropdownHTML() {
 }
 
 function bindSmsListEvents(page) {
+  // info title = back
   page.querySelector('#sms-list-back').addEventListener('click', function() {
     var p = document.getElementById('anon-sms-settings-panel')
     if (p) p.remove()
     window.closePage('imessage-page')
   })
 
-  var center = page.querySelector('#sms-header-center')
-  var dropdown = page.querySelector('#sms-phone-dropdown')
-
-  if (dropdown && _smsUserPhones.length > 1) {
-    center.addEventListener('click', function() {
-      var isOpen = dropdown.classList.contains('show')
-      if (isOpen) {
-        dropdown.classList.remove('show')
-        center.classList.remove('open')
-      } else {
-        dropdown.classList.add('show')
-        center.classList.add('open')
-      }
-    })
-
-    dropdown.addEventListener('click', async function(e) {
-      var option = e.target.closest('.sms-phone-option')
-      if (!option) return
-      var phone = option.getAttribute('data-phone')
-      if (phone === _smsActivePhone) {
-        dropdown.classList.remove('show')
-        center.classList.remove('open')
-        return
-      }
-      _smsActivePhone = phone
-      var activeUser = _smsUserPhones.find(function(p) { return p.phone === _smsActivePhone })
-      center.querySelector('.sms-header-phone-text').textContent = activeUser.phone
-
-      dropdown.innerHTML = ''
-      var tmp = document.createElement('div')
-      tmp.innerHTML = buildPhoneDropdownHTML()
-      var newDropdown = tmp.querySelector('.sms-phone-dropdown')
-      dropdown.innerHTML = newDropdown.innerHTML
-
-      dropdown.classList.remove('show')
-      center.classList.remove('open')
-
-      await seedWelcomeSMS(_smsActivePhone)
-      loadSmsConversations(page)
-    })
-  }
-
-  // New message button → Page 5
+  // + button = new message
   page.querySelector('#sms-new-btn').addEventListener('click', function() {
     openNewMessagePage(page)
   })
+
+  // search
+  var searchBtn = page.querySelector('#sms-list-search-btn')
+  if (searchBtn) {
+    searchBtn.addEventListener('click', function() {
+      showSmsSearchOverlay(page)
+    })
+  }
 }
 
 async function loadSmsConversations(page) {
@@ -584,12 +534,21 @@ async function loadSmsChatMessages(page, conversationId, conv) {
     var bubbleClass = isOut ? 'sms-bubble sms-bubble-out' : 'sms-bubble sms-bubble-in'
     var isAnon = m._anonCharId && !m._anonRevealed && revealedIds.indexOf(m.id) === -1
 
-    // Show avatar for revealed AI messages
-    if (!isOut && revealed && m._anonCharId) {
+    if (isAnon && !isOut) {
+      // anon: no avatar, small bubble
+      html += '<div class="sms-msg-row sms-msg-row-in">' +
+        '<div class="sms-bubble sms-bubble-in sms-bubble-anon">' + escSmsHtml(m.body) + '</div>' +
+      '</div>'
+    } else if (!isOut && revealed && m._anonCharId) {
+      // revealed: avatar + name + smaller bubble
       var charAvatar = (conv && conv._anonCharAvatar) || SMS_DEFAULT_AVATAR
-      html += '<div class="sms-msg-row sms-msg-row-with-avatar">' +
-        '<img class="sms-msg-avatar" src="' + escSmsHtml(charAvatar) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
-        '<div class="' + bubbleClass + '">' + escSmsHtml(m.body) + '</div>' +
+      var charName = m._anonCharName || (conv && conv.remoteName) || 'AI'
+      html += '<div class="sms-revealed-msg">' +
+        '<img class="sms-revealed-avatar" src="' + escSmsHtml(charAvatar) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
+        '<div class="sms-revealed-body">' +
+          '<div class="sms-revealed-name">' + escSmsHtml(charName) + '</div>' +
+          '<div class="sms-bubble sms-bubble-in sms-bubble-revealed">' + escSmsHtml(m.body) + '</div>' +
+        '</div>' +
       '</div>'
     } else {
       html += '<div class="sms-msg-row' + (isOut ? ' sms-msg-row-out' : ' sms-msg-row-in') + '">' +
@@ -1565,7 +1524,10 @@ window.revealAnonSms = async function(msgId) {
   var msg = await db.smsMessages.get(msgId)
   if (!msg || !msg._anonCharId) return
 
-  await db.smsMessages.update(msgId, { _anonRevealed: true })
+  var char = await db.characters.get(msg._anonCharId)
+  var avatar = char ? (char.avatar || SMS_DEFAULT_AVATAR) : SMS_DEFAULT_AVATAR
+
+  await db.smsMessages.update(msgId, { _anonRevealed: true, _anonCharAvatar: avatar })
 
   var revealed = JSON.parse(localStorage.getItem(ANON_SMS_REVEAL_KEY) || '[]')
   if (revealed.indexOf(msgId) === -1) revealed.push(msgId)
