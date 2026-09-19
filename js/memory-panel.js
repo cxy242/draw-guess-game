@@ -28,6 +28,15 @@
     var start = memory.sourceStartTime || null;
     var end = memory.sourceEndTime || memory.sourceAt || memory.createdAt || null;
     if (start && end && start !== end) {
+      var sd = new Date(Number(start));
+      var ed = new Date(Number(end));
+      if (sd.getFullYear() === ed.getFullYear() && sd.getMonth() === ed.getMonth() && sd.getDate() === ed.getDate()) {
+        var sh = sd.getHours(), sm = sd.getMinutes();
+        var sp = sh < 6 ? '\u51cc\u6668' : sh < 11 ? '\u4e0a\u5348' : sh < 13 ? '\u4e2d\u5348' : sh < 18 ? '\u4e0b\u5348' : sh < 22 ? '\u665a\u4e0a' : '\u6df1\u591c';
+        var eh = ed.getHours(), em = ed.getMinutes();
+        var ep = eh < 6 ? '\u51cc\u6668' : eh < 11 ? '\u4e0a\u5348' : eh < 13 ? '\u4e2d\u5348' : eh < 18 ? '\u4e0b\u5348' : eh < 22 ? '\u665a\u4e0a' : '\u6df1\u591c';
+        return sd.getFullYear() + '\u5e74' + (sd.getMonth()+1) + '\u6708' + sd.getDate() + '\u65e5' + sp + sh + ':' + (sm < 10 ? '0' : '') + sm + ' - ' + ep + eh + ':' + (em < 10 ? '0' : '') + em;
+      }
       return formatTimePeriod(start) + ' - ' + formatTimePeriod(end);
     }
     if (end) return formatTimePeriod(end);
@@ -177,7 +186,7 @@
       cards = memories.map(function(m) {
         const id = m.id || m._id || '';
         const title = escMemHtml(m.title || '无标题');
-        const content = escMemHtml((m.content || '').substring(0, 80) + ((m.content || '').length > 80 ? '...' : ''));
+        const content = escMemHtml((m.content || '').substring(0, 200) + ((m.content || '').length > 200 ? '...' : ''));
         const sourceType = escMemHtml(m.sourceType || 'unknown');
         const time = escMemHtml(formatMemoryTimeRange(m) || m.time || '');
         const isRecalled = recalled.indexOf(id) !== -1;
@@ -372,7 +381,7 @@
                 var mem = await db.memories.get(isNaN(Number(memId)) ? memId : Number(memId));
                 if (mem) {
                   var contentEl = card.querySelector('.mp-memory-content');
-                  if (contentEl) contentEl.textContent = (mem.content || '').substring(0, 80) + ((mem.content || '').length > 80 ? '...' : '');
+                  if (contentEl) contentEl.textContent = (mem.content || '').substring(0, 200) + ((mem.content || '').length > 200 ? '...' : '');
                   var timeEl = card.querySelector('.mp-memory-time');
                   if (timeEl) timeEl.textContent = formatMemoryTimeRange(mem) || '';
                 }

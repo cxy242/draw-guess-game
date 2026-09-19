@@ -922,7 +922,7 @@ async function loadChatHistory(page) {
       if (m.role === 'user') {
         addMsg(page, 'user', m.content);
         _state.history.push({ role: 'user', content: m.content });
-      } else if (m.role === 'assistant') {
+      } else if (m.role === 'assistant' || m.role === 'ai') {
         addMsg(page, 'ai', m.content);
         _state.history.push({ role: 'assistant', content: m.content });
       } else if (m.role === 'system') {
