@@ -210,7 +210,6 @@ async function renderAccounts(page) {
       var u = users.find(function(x) { return x.id === uid; });
       _state.userName = u ? (u.name || '我') : '我';
       _state.userAvatar = u ? (u.avatar || '') : '';
-      _state.userAvatar = u ? u.avatar : null;
       renderChars(page, uid);
     };
   });
