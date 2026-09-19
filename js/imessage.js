@@ -357,8 +357,8 @@ async function openSmsChat(conversationId, listPage) {
     '<div class="sms-chat-input-bar">' +
       '<button class="sms-plus-btn" id="sms-plus-btn"><i class="fa-solid fa-plus"></i></button>' +
       '<button class="sms-ai-btn" id="sms-ai-btn" title="AI生成回复"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' +
-      '<input class="sms-chat-input" placeholder="短信" id="sms-chat-input-field">' +
-      '<button class="sms-send-btn" id="sms-send-btn"><i class="fa fa-arrow-up"></i></button>' +
+      '<input class="sms-chat-input" placeholder="5G消息" id="sms-chat-input-field">' +
+      '<button class="sms-send-btn" id="sms-send-btn"><i class="fa-solid fa-paper-plane"></i></button>' +
     '</div>'
 
   // Back button
@@ -421,6 +421,17 @@ async function openSmsChat(conversationId, listPage) {
         })
 
         var convRefreshed = await db.smsConversations.get(conversationId)
+        // Show loading dots (AI is thinking)
+        var msgsEl = page.querySelector('#sms-chat-msgs')
+        if (msgsEl) {
+          var ld = document.createElement('div')
+          ld.className = 'sms-msg-row sms-msg-row-in'
+          ld.id = 'sms-loading-dots'
+          ld.innerHTML = '<div class="sms-bubble sms-bubble-in"><div class="sms-loading-dots"><span></span><span></span><span></span></div></div>'
+          msgsEl.appendChild(ld)
+          msgsEl.scrollTop = msgsEl.scrollHeight
+        }
+        var ld2 = page.querySelector('#sms-loading-dots'); if (ld2) ld2.remove()
         await loadSmsChatMessages(page, conversationId, convRefreshed)
 
         // Detect emotion
