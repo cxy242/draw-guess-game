@@ -3764,10 +3764,10 @@ async function openPrivateChat(wechatPage, charId, chatId) {
                 var d = new Date(ts)
                 var h = d.getHours()
                 var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
-                var dateStr = (d.getMonth()+1) + '月' + d.getDate() + '日'
+                var dateStr = d.getFullYear() + 年 + (d.getMonth()+1) + '月' + d.getDate() + '日'
                 var timeStr = period + h + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes()
                 // 检测事件模式
-                var eventPatterns = /(?:去了|到了|在|吃了|买了|看了|做了|玩了|学了|写了|画了|唱了|跑了|打了|修了|搬了|回来了|出发了|到达了|开始了|结束了|完成了|考了|面试了|见了|遇到|碰到了|约了|订了|去医院|上学|上班|下课|下班|出门|回家|起床|睡觉)/
+                var eventPatterns = /(?:去了|到了|在|吃了|买了|看了|做了|玩了|学了|写了|画了|唱了|跑了|打了|修了|搬了|回来了|出发了|到达了|开始了|结束了|完成了|考了|面试了|见了|遇到|碰到了|约了|订了|去医院|上学|上班|下课|下班|出门|回家|起床|睡觉|\u804a\u4e86|\u8c08\u4e86|\u8bf4\u4e86|\u544a\u8bc9|\u95ee\u4e86|\u7b54\u5e94|\u62d2\u7edd|\u5f00\u5fc3|\u96be\u8fc7|\u751f\u6c14|\u60f3\u5ff5|\u9053\u6b49|\u5e26\u7740|\u9001\u4e86|\u6536\u5230|\u53d1\u73b0|\u51b3\u5b9a|\u8ba8\u8bba|\u5546\u91cf|\u89e3\u51b3)/
                 if (eventPatterns.test(msg)) {
                   var eventText = msg.slice(0, 60).replace(/^[我你他她它们]\s*/,'')
                   if (eventText.length >= 3) {
