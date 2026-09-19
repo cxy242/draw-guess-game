@@ -348,47 +348,74 @@ async function openSmsChat(conversationId, listPage) {
       finally { sendPending = false; sendBtn.disabled = false }
     }
     sendBtn.addEventListener('click', doSend)
-
-    // AI generate reply button
     var aiBtn = page.querySelector('#imessage-ai-btn')
     if (aiBtn) {
       aiBtn.addEventListener('click', async function() {
         if (sendPending) return
         sendPending = true
-        aiBtn.style.opacity = '0.4'
+        aiBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'
         try {
+          // Get recent chat history
+          var recentMsgs = await db.smsMessages.where('conversationId').equals(conversationId).reverse().limit(10).toArray()
+          recentMsgs.reverse()
+          var chatHistory = recentMsgs.map(function(m) {
+            var who = m.direction === 'out' ? '\u7528\u6237' : '\u5bf9\u65b9'
+            return who + '\uff1a' + (m.body || '')
+          }).join('\n')
+          // Get character info if available
           var convData = await db.smsConversations.get(conversationId)
-          if (convData && convData._anonCharId && window.callAI) {
-            var char = await window.getCharacter(convData._anonCharId)
-            if (char) {
-              var charDesc = char.name + '\uff08' + (char.description || '').slice(0, 200) + '\uff09'
-              var recentMsgs = await db.smsMessages.where('conversationId').equals(conversationId).reverse().limit(10).toArray()
-              recentMsgs.reverse()
-              var chatHistory = recentMsgs.map(function(m) {
-                var who = m.direction === 'out' ? '\u7528\u6237' : '\u964c\u751f\u4eba'
-                return who + '\uff1a' + (m.body || '')
-              }).join('\n')
-              var prompt = '\u4f60\u662f' + charDesc + '\uff0c\u6b63\u5728\u4ee5\u964c\u751f\u4eba\u8eab\u4efd\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n' +
-                '\u4f60\u7684\u4eba\u8bbe\uff1a' + (char.description || '').slice(0, 300) + '\n' +
-                '\u6700\u8fd1\u804a\u5929\uff1a\n' + chatHistory + '\n' +
-                '\u8981\u6c42\uff1a\u4ee5\u964c\u751f\u4eba\u8eab\u4efd\u751f\u6210\u4e00\u53e5\u77ed\u4fe1\uff0c\u7b26\u5408\u4eba\u8bbe\uff0c\u7b80\u77ed\u81ea\u7136\u3002'
-              var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
-              if (reply) {
-                await db.smsMessages.add({
-                  conversationId: conversationId,
-                  direction: 'in',
-                  body: reply.trim(),
-                  createdAt: Date.now(),
-                  read: false,
-                  _anonCharId: convData._anonCharId,
-                  _anonCharName: char.name
-                })
-                await loadSmsChatMessages(page, conversationId)
-              }
-            }
+          var charDesc = ''
+          if (convData && convData._anonCharId) {
+            var ch = await window.getCharacter(convData._anonCharId)
+            if (ch) charDesc = ch.name + '\uff08' + (ch.description || '').slice(0, 200) + '\uff09'
           }
-        } catch(e) { console.error('[imessage] ai gen error:', e) }
-        finally { sendPending = false; aiBtn.style.opacity = '1' }
+          var prompt = (charDesc ? '\u4f60\u662f' + charDesc + '\uff0c\u6b63\u5728\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n\u4f60\u7684\u4eba\u8bbe\uff1a' + charDesc + '\n' : '\u4f60\u662f\u4e00\u4e2a\u771f\u4eba\uff0c\u6b63\u5728\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n') +
+            '\u6700\u8fd1\u804a\u5929\uff1a\n' + chatHistory + '\n' +
+            '\u8981\u6c42\uff1a\u751f\u6210\u4e00\u53e5\u56de\u590d\u77ed\u4fe1\uff0c\u7b80\u77ed\u81ea\u7136\u3002'
+          var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
+          if (reply) {
+            await db.smsMessages.add({
+              conversationId: conversationId,
+              direction: 'in',
+              body: reply.trim(),
+              createdAt: Date.now(),
+              read: false
+            })
+            await loadSmsChatMessages(page, conversationId)
+          }
+        } catch(e) { console.error('[imessage] ai gen:', e) }
+        finally { sendPending = false; aiBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>' }
+      })
+    }
+    var aiBtn = page.querySelector('#imessage-ai-btn')
+    if (aiBtn) {
+      aiBtn.addEventListener('click', async function() {
+        if (sendPending) return
+        sendPending = true
+        aiBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'
+        try {
+          var recentMsgs = await db.smsMessages.where('conversationId').equals(conversationId).reverse().limit(10).toArray()
+          recentMsgs.reverse()
+          var chatHistory = recentMsgs.map(function(m) {
+            var who = m.direction === 'out' ? '\u7528\u6237' : '\u5bf9\u65b9'
+            return who + '\uff1a' + (m.body || '')
+          }).join('\n')
+          var convData = await db.smsConversations.get(conversationId)
+          var charDesc = ''
+          if (convData && convData._anonCharId) {
+            var ch = await window.getCharacter(convData._anonCharId)
+            if (ch) charDesc = ch.name + '\uff08' + (ch.description || '').slice(0, 200) + '\uff09'
+          }
+          var prompt = (charDesc ? '\u4f60\u662f' + charDesc + '\uff0c\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n\u4eba\u8bbe\uff1a' + charDesc + '\n' : '\u4f60\u662f\u4e00\u4e2a\u771f\u4eba\uff0c\u548c\u7528\u6237\u53d1\u77ed\u4fe1\u3002\n') +
+            '\u6700\u8fd1\u804a\u5929\uff1a\n' + chatHistory + '\n' +
+            '\u751f\u6210\u4e00\u53e5\u56de\u590d\u3002'
+          var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
+          if (reply) {
+            await db.smsMessages.add({conversationId:conversationId, direction:'in', body:reply.trim(), createdAt:Date.now(), read:false})
+            await loadSmsChatMessages(page, conversationId)
+          }
+        } catch(e) { console.error('[imessage] ai gen:', e) }
+        finally { sendPending = false; aiBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>' }
       })
     }
     inputField.addEventListener('keydown', function(e) {
