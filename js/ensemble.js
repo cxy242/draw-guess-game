@@ -521,30 +521,45 @@ function parseNarrationSegments(text, chars) {
     currentLines = [];
   }
 
+  // Build name->char map
+  var nameMap = {};
+  chars.forEach(function(c) {
+    var name = chName(c.char);
+    if (name) nameMap[name] = c.char;
+  });
+  var nameList = Object.keys(nameMap).sort(function(a,b) { return b.length - a.length; });
+
+  function findCharInLine(t) {
+    for (var i = 0; i < nameList.length; i++) {
+      var name = nameList[i];
+      var idx = t.indexOf(name);
+      if (idx !== -1) {
+        var after = t.charAt(idx + name.length);
+        if (!after || after === ' ' || after === '\u3001' || after === ',' || after === '\uff0c' || after === '\u3002' || after === '\uff1a' || after === '\uff01' || after === '\uff1f' || after === '\u201c' || after === '\u201d') {
+          return nameMap[name];
+        }
+      }
+    }
+    return null;
+  }
+
   lines.forEach(function(line) {
     var t = line.trim();
-    // 检查是否是新角色开始
-    var matchedChar = null;
-    chars.forEach(function(c) {
-      var name = chName(c.char);
-      if (t.indexOf(name) === 0 && (t.charAt(name.length) === ' ' || t.charAt(name.length) === '、' || t.charAt(name.length) === ',')) {
-        matchedChar = c.char;
-      }
-    });
-    if (matchedChar) {
+    var matchedChar = findCharInLine(t);
+    if (matchedChar && matchedChar !== currentChar) {
       flushSegment();
       currentChar = matchedChar;
-      // 去掉角色名前缀
-      var nameLen = chName(matchedChar).length;
-      t = t.substring(nameLen).replace(/^\s*[\u3001,，]?\s*/, '');
+      var name = chName(matchedChar);
+      var idx = t.indexOf(name);
+      if (idx === 0) {
+        t = t.substring(name.length).replace(/^\\s*[\\u3001,\\uff0c]?\\s*/, '');
+      }
       if (t) currentLines.push(t);
     } else {
       currentLines.push(line);
     }
   });
   flushSegment();
-
-  // 如果没有解析出任何段落，用默认角色
   if (segments.length === 0 && currentLines.length > 0) {
     var ch = chars.length > 0 ? chars[0].char : null;
     if (ch) {
