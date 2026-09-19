@@ -21,6 +21,24 @@ window.showEnsemblePage = async function() {
     var backBtn = page.querySelector('#ens-back');
     if (backBtn) backBtn.onclick = function() { handleBack(page); };
     window.openPage(page);
+
+    // Check for active session (temporary exit auto-resume)
+    var activeSession = null;
+    try { activeSession = JSON.parse(localStorage.getItem('ensemble_active_session') || 'null'); } catch(e) {}
+    if (activeSession && activeSession.uid && activeSession.chars && activeSession.chars.length) {
+      // Auto-resume: reload characters and enter chat
+      var reloadedChars = [];
+      try {
+        var fullChars = await Promise.all(activeSession.chars.map(function(c) { return window.getCharacter(c.id); }));
+        reloadedChars = fullChars.filter(Boolean).map(function(ch) { return { char: ch }; });
+      } catch(e) {}
+      if (reloadedChars.length) {
+        _state._historyLoaded = false;
+        enterMeet(page, activeSession.uid, reloadedChars);
+        return;
+      }
+    }
+
     await renderAccounts(page);
   } catch(e) {
     console.error('[ensemble] open error:', e);
@@ -44,38 +62,46 @@ function setTitle(page, t) {
 
 function showExitModal(page) {
   var overlay = document.createElement('div');
-  overlay.className = 'sheet-overlay show';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;';
   var modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;background:#fff;border-radius:12px;padding:24px;width:280px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.15);';
   modal.innerHTML =
     '<div style="font-size:16px;font-weight:600;margin-bottom:16px;color:#111">\u9000\u51fa\u804a\u5929</div>' +
-    '<button id="exit-temp" style="width:100%;height:44px;margin-bottom:10px;border:1px solid #dedbd6;border-radius:6px;background:#fff;font-size:14px;font-weight:500;cursor:pointer">\u4e34\u65f6\u9000\u51fa\uff08\u91cd\u8fdb\u76f4\u63a5\u8df3\u56de\uff09</button>' +
-    '<button id="exit-save" style="width:100%;height:44px;margin-bottom:10px;border:1px solid #dedbd6;border-radius:6px;background:#fff;font-size:14px;font-weight:500;cursor:pointer">\u76f4\u63a5\u9000\u51fa\uff08\u5b58\u5386\u53f2\u8bb0\u5f55\uff09</button>' +
+    '<button id="exit-temp" style="width:100%;height:44px;margin-bottom:10px;border:1px solid #dedbd6;border-radius:6px;background:#fff;font-size:14px;font-weight:500;cursor:pointer">\u4e34\u65f6\u9000\u51fa</button>' +
+    '<div style="font-size:11px;color:#999;margin-bottom:12px">\u9000\u51fa\u540e\u91cd\u65b0\u6253\u5f00\u76f4\u63a5\u8fdb\u5165\u804a\u5929</div>' +
+    '<button id="exit-save" style="width:100%;height:44px;margin-bottom:10px;border:1px solid #dedbd6;border-radius:6px;background:#fff;font-size:14px;font-weight:500;cursor:pointer">\u76f4\u63a5\u9000\u51fa</button>' +
+    '<div style="font-size:11px;color:#999;margin-bottom:12px">\u4fdd\u5b58\u5230\u5386\u53f2\u8bb0\u5f55\uff0c\u91cd\u65b0\u6253\u5f00\u8fdb\u9009\u62e9\u9875\u9762</div>' +
     '<button id="exit-cancel" style="width:100%;height:36px;border:none;background:none;font-size:13px;color:#999;cursor:pointer">\u53d6\u6d88</button>';
   document.body.appendChild(overlay);
   document.body.appendChild(modal);
 
   function close() { overlay.remove(); modal.remove(); }
-
   modal.querySelector('#exit-cancel').onclick = close;
   overlay.onclick = close;
 
   modal.querySelector('#exit-temp').onclick = function() {
-    // Temporary exit: go back to modes, keep _state intact
+    // Temporary exit: save session to localStorage, close page
+    // Re-opening will auto-resume
     close();
-    renderModes(page, _state.uid, _state.chars);
+    try {
+      localStorage.setItem('ensemble_active_session', JSON.stringify({
+        uid: _state.uid,
+        chars: (_state.current || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
+        mode: _state.mode || 'meet'
+      }));
+    } catch(e) {}
+    window.closePage('ens-page');
   };
 
   modal.querySelector('#exit-save').onclick = async function() {
-    // Save to history and exit
+    // Direct exit: save to history, close page
+    // Re-opening goes to account selection
     close();
     try {
+      localStorage.removeItem('ensemble_active_session');
       if (_state.uid && db.offlineChats) {
-        var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
         var charNames = (_state.current || []).map(function(c) { return chName(c.char); }).join('\u3001');
         var now = Date.now();
-        // Save session metadata
         await db.config.put({
           key: 'ensemble_history_' + now,
           value: {
@@ -294,13 +320,12 @@ async function renderModes(page, uid, chars) {
       '</button>' +
     '</div>';
 
-    '<div style="padding:0 16px 16px">' +
-      '<button class="ens-mode-card" data-mode="history" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dedbd6;border-radius:8px;cursor:pointer">' +
-        '<div style="font-size:18px;color:#7b7b78"><i class="fa-solid fa-clock-rotate-left"></i></div>' +
-        '<div>' +
-          '<div style="font-size:14px;font-weight:600;color:#111">\u5386\u53f2\u8bb0\u5f55</div>' +
-          '<div style="font-size:12px;color:#999">\u67e5\u770b\u4e4b\u524d\u7684\u7ebf\u4e0b\u804a\u5929</div>' +
-        '</div>' +
+    '</div>' +
+    '<div class="ens-mode-grid" style="padding:0 16px 16px">' +
+      '<button class="ens-mode-card" data-mode="history">' +
+        '<div class="ens-mode-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>' +
+        '<div class="ens-mode-title">\u5386\u53f2\u8bb0\u5f55</div>' +
+        '<div class="ens-mode-desc">\u67e5\u770b\u4e4b\u524d\u7684\u7ebf\u4e0b\u804a\u5929</div>' +
       '</button>' +
     '</div>';
 
@@ -1103,11 +1128,159 @@ async function loadChatHistory(page) {
       }
     });
 
+    // Bind three-dot menu actions
+    bindMsgActions(page);
+
     _state._loading = false;
   } catch(e) {
     _state._loading = false;
     console.error('[ensemble] load:', e);
   }
+}
+
+function bindMsgActions(page) {
+  var log = page.querySelector('#ens-log');
+  if (!log) return;
+
+  // Delete button
+  log.querySelectorAll('.miss-entry-delete').forEach(function(btn) {
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      var article = btn.closest('.miss-entry');
+      if (!article) return;
+      var idx = parseInt(btn.dataset.idx);
+      // Show confirm
+      if (confirm('\u786e\u5b9a\u5220\u9664\u8fd9\u6761\u6d88\u606f\uff1f')) {
+        article.remove();
+        // Remove from db
+        try {
+          var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
+          db.offlineChats.toArray().then(function(all) {
+            var rows = all.filter(function(m) {
+              return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
+            }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
+            if (rows[idx]) db.offlineChats.delete(rows[idx].id);
+          });
+        } catch(e) {}
+      }
+    };
+  });
+
+  // More button - show edit/regenerate popup
+  log.querySelectorAll('.miss-entry-more').forEach(function(btn) {
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      var article = btn.closest('.miss-entry');
+      if (!article) return;
+      var idx = parseInt(btn.dataset.idx);
+      var isUser = article.classList.contains('is-user');
+
+      // Remove any existing popup
+      var oldPopup = document.getElementById('ens-msg-popup');
+      if (oldPopup) oldPopup.remove();
+
+      var popup = document.createElement('div');
+      popup.id = 'ens-msg-popup';
+      popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;background:#fff;border-radius:12px;padding:16px;width:240px;box-shadow:0 8px 40px rgba(0,0,0,0.15);';
+      popup.innerHTML =
+        '<button style="width:100%;height:40px;border:none;background:none;text-align:left;font-size:14px;cursor:pointer;border-bottom:1px solid #eee" id="popup-edit"><i class="fa-regular fa-pen-to-square" style="margin-right:8px"></i>\u7f16\u8f91</button>' +
+        (isUser ? '' : '<button style="width:100%;height:40px;border:none;background:none;text-align:left;font-size:14px;cursor:pointer;border-bottom:1px solid #eee" id="popup-regen"><i class="fa-solid fa-rotate-right" style="margin-right:8px"></i>\u91cd\u65b0\u751f\u6210</button>') +
+        '<button style="width:100%;height:40px;border:none;background:none;text-align:left;font-size:14px;cursor:pointer;color:#c41c1c" id="popup-delete"><i class="fa-regular fa-trash-can" style="margin-right:8px"></i>\u5220\u9664</button>';
+      document.body.appendChild(popup);
+
+      var overlay2 = document.createElement('div');
+      overlay2.style.cssText = 'position:fixed;inset:0;z-index:1000;';
+      document.body.appendChild(overlay2);
+
+      function closePopup() { popup.remove(); overlay2.remove(); }
+      overlay2.onclick = closePopup;
+
+      // Edit
+      var editBtn = popup.querySelector('#popup-edit');
+      if (editBtn) editBtn.onclick = function() {
+        closePopup();
+        var textEl = article.querySelector('.miss-msg-text, .ens-narr-body');
+        if (!textEl) return;
+        var oldText = textEl.textContent;
+        var newText = prompt('\u7f16\u8f91\u6d88\u606f', oldText);
+        if (newText && newText !== oldText) {
+          textEl.textContent = newText;
+          // Update in db
+          try {
+            var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
+            db.offlineChats.toArray().then(function(all) {
+              var rows = all.filter(function(m) {
+                return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
+              }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
+              if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: newText });
+            });
+          } catch(e) {}
+        }
+      };
+
+      // Regenerate
+      var regenBtn = popup.querySelector('#popup-regen');
+      if (regenBtn) regenBtn.onclick = async function() {
+        closePopup();
+        if (_state.sending) return;
+        _state.sending = true;
+        showTyping(page);
+        try {
+          var sys = await buildGroupPrompt(_state.current, _state.mode, _state.scriptData);
+          var msgs = [{ role: 'system', content: sys }];
+          var hist = (_state.history || []).slice(-20);
+          msgs = msgs.concat(hist);
+          msgs.push({ role: 'user', content: '\u91cd\u65b0\u751f\u6210\u4e0a\u4e00\u6761\u56de\u590d\u3002' });
+          var reply = await window.callAI(msgs, { charAntiDrift: true });
+          _state.history.pop(); // Remove old AI reply
+          _state.history.push({ role: 'assistant', content: reply });
+          hideTyping(page);
+          // Replace the card content
+          var narrBody = article.querySelector('.ens-narr-body');
+          if (narrBody) {
+            var segments = parseNarrationSegments(reply, _state.current || []);
+            var charsHTML = '';
+            segments.forEach(function(seg) {
+              charsHTML += '<div class="ens-char-unit"><div class="ens-char-head"><div class="ens-char-avatar">' + seg.avatarHtml + '</div><div class="ens-char-name">' + esc(seg.name) + '</div></div>' + seg.bodyHtml + '</div>';
+            });
+            if (!charsHTML) charsHTML = '<div class="ens-text-env">' + esc(reply) + '</div>';
+            narrBody.innerHTML = charsHTML;
+          }
+          // Update in db
+          try {
+            var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
+            db.offlineChats.toArray().then(function(all) {
+              var rows = all.filter(function(m) {
+                return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
+              }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
+              if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: reply });
+            });
+          } catch(e) {}
+        } catch(e) {
+          hideTyping(page);
+          window.toast && window.toast('\u91cd\u65b0\u751f\u6210\u5931\u8d25');
+        } finally { _state.sending = false; }
+      };
+
+      // Delete
+      var delBtn = popup.querySelector('#popup-delete');
+      if (delBtn) delBtn.onclick = function() {
+        closePopup();
+        if (confirm('\u786e\u5b9a\u5220\u9664\u8fd9\u6761\u6d88\u606f\uff1f')) {
+          article.remove();
+          try {
+            var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
+            db.offlineChats.toArray().then(function(all) {
+              var rows = all.filter(function(m) {
+                return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
+              }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
+              if (rows[idx]) db.offlineChats.delete(rows[idx].id);
+            });
+          } catch(e) {}
+        }
+      };
+    };
+  });
 }
 
 async function clearChatHistory() {
