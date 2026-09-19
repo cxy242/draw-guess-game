@@ -561,13 +561,13 @@ async function loadSmsChatMessages(page, conversationId, conv) {
 
     // Show avatar for revealed AI messages
     if (!isOut && revealed && m._anonCharId) {
-      var charAvatar = (conv && conv.remoteAvatar) || SMS_DEFAULT_AVATAR
+      var charAvatar = (conv && conv._anonCharAvatar) || SMS_DEFAULT_AVATAR
       html += '<div class="sms-msg-row sms-msg-row-with-avatar">' +
         '<img class="sms-msg-avatar" src="' + escSmsHtml(charAvatar) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
         '<div class="' + bubbleClass + '">' + escSmsHtml(m.body) + '</div>' +
       '</div>'
     } else {
-      html += '<div class="sms-msg-row' + (isOut ? ' sms-msg-row-out' : '') + '">' +
+      html += '<div class="sms-msg-row' + (isOut ? ' sms-msg-row-out' : ' sms-msg-row-in') + '">' +
         '<div class="' + bubbleClass + '">' + escSmsHtml(m.body) + '</div>' +
       '</div>'
     }
@@ -688,6 +688,7 @@ async function handleSmsMenuAction(action, conversationId, chatPage) {
 
     case 'reveal':
       await db.smsConversations.update(conversationId, { revealed: true })
+      try { var _char = await db.characters.get(conv._anonCharId); if (_char) await db.smsConversations.update(conversationId, { _anonCharAvatar: _char.avatar || SMS_DEFAULT_AVATAR }) } catch(_) {}
       try {
         var msgs = await db.smsMessages.where('conversationId').equals(conversationId).toArray()
         for (var i = 0; i < msgs.length; i++) {
