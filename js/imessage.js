@@ -356,6 +356,7 @@ async function openSmsChat(conversationId, listPage) {
     '<div class="sms-chat-messages" id="sms-chat-msgs"></div>' +
     '<div class="sms-chat-input-bar">' +
       '<button class="sms-plus-btn" id="sms-plus-btn"><i class="fa-solid fa-plus"></i></button>' +
+      '<button class="sms-ai-btn" id="sms-ai-btn" title="AI生成回复"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' +
       '<input class="sms-chat-input" placeholder="短信" id="sms-chat-input-field">' +
       '<button class="sms-send-btn" id="sms-send-btn"><i class="fa fa-arrow-up"></i></button>' +
     '</div>'
@@ -571,10 +572,7 @@ async function loadSmsChatMessages(page, conversationId, conv) {
       '</div>'
     }
 
-    // Anonymous reveal button
-    if (isAnon && !isOut) {
-      html += '<div class="sms-reveal-row"><button class="sms-reveal-btn" data-msg-id="' + m.id + '"><i class="fa-solid fa-eye"></i> 解除匿名</button></div>'
-    }
+    // 解除匿名只在三点菜单
 
     // Revealed tag
     if (m._anonCharId && (m._anonRevealed || revealedIds.indexOf(m.id) !== -1)) {
