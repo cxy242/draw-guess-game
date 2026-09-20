@@ -673,8 +673,9 @@ function closeXPage(id) {
 }
 
 // ===== Main Page (4 Tabs) =====
-function renderXMainPage(user) {
+async function renderXMainPage(user) {
   try {
+    await _xInitCache();
     var existing = document.getElementById('x-page');
     if (existing) existing.remove();
 
@@ -922,13 +923,11 @@ function bindPostCardEvents(container, user) {
         lpTimer = setTimeout(function() {
           var postId = card.dataset.postId;
           if (!postId) return;
-          if (confirm('删除这条帖子？')) {
-            xDeletePost(postId);
-            card.style.transition = 'opacity 0.3s';
-            card.style.opacity = '0';
-            setTimeout(function() { card.remove(); }, 300);
-            showToast('已删除');
-          }
+          xDeletePost(postId);
+          card.style.transition = 'opacity 0.3s';
+          card.style.opacity = '0';
+          setTimeout(function() { card.remove(); }, 300);
+          showToast('已删除');
         }, 600);
       }
       function onEnd() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }
