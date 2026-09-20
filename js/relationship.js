@@ -6,6 +6,22 @@
 
   try {
 
+
+  // Pre-define showRelationshipPage so icon always works
+  var _realShowPage = null;
+  window.showRelationshipPage = function() {
+    if (_realShowPage) { try { _realShowPage(); } catch(e) { window.toast && window.toast("Error: "+e.message); } return; }
+    try {
+      var p = document.createElement("div");
+      p.id = "relationship-page";
+      p.className = "full-page rel-page";
+      p.style.cssText = "position:fixed;inset:0;z-index:999;background:#fff;overflow:auto;padding:20px";
+      p.innerHTML = "<h2>关系网</h2><p>模块加载中...</p>";
+      if (window.openPage) window.openPage(p); else document.body.appendChild(p);
+      window.toast && window.toast("模块正在加载");
+    } catch(e) { window.toast && window.toast("Error: "+e.message); }
+  };
+
   var PAGE_ID = 'relationship-page';
 
   // ===== Safe HTML escape =====
@@ -1770,6 +1786,7 @@
       window.toast && window.toast('关系网打开失败: ' + e.message);
     }
   }
+  _realShowPage = showRelationshipPage;
 
   // =============================================================
   //  EXPOSE PUBLIC API
