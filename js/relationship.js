@@ -1,4 +1,3 @@
-// relationship.js — 关系网模块 (v2 重写)
 // 照着 ensemble.js 模式写的，不用IIFE
 // 依赖：db.js, force-graph.min.js, anime.min.js
 
