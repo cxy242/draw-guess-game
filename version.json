@@ -1,5 +1,1 @@
-{
-  "version": "4.1.2",
-  "date": "2026-09-20",
-  "note": "关系网终于能打开了！var->window覆盖stub"
-}
+{"version": "4.2.0", "date": "2026-09-20", "note": "关系网v3完全重写 照ensemble模式 零IIFE"}
