@@ -2726,11 +2726,10 @@ async function generatePostsForChar(char, preference) {
 
     if (!data.posts || !data.posts.length) throw new Error('AI未返回帖子');
 
-    var allPosts = xLoadPosts();
     var p = data.posts[0];
     var postId = xGenId();
 
-    allPosts.unshift({
+    var newPost = {
       id: postId,
       authorId: String(char.id),
       authorName: char.nick || char.name,
@@ -2742,7 +2741,10 @@ async function generatePostsForChar(char, preference) {
       isAnonymous: false,
       engagement: generateEngagement(),
       createdAt: new Date().toISOString()
-    });
+    };
+
+    xSavePost(newPost);
+    console.log('[X] Post saved:', postId, newPost.content.slice(0, 30));
 
     if (p.comments && p.comments.length) {
       var comments = [];
@@ -2772,7 +2774,7 @@ async function generatePostsForChar(char, preference) {
       xSaveComments(postId, comments);
     }
 
-    xSavePosts(allPosts);
+    console.log('[X] generatePostsForChar done, total posts in cache:', xLoadPosts().length);
   } catch(e) { console.error('[X] generatePostsForChar error:', e); throw e; }
 }
 
