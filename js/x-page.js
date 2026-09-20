@@ -338,14 +338,20 @@ function xSaveComment(comment) {
 }
 
 function xSaveComments(postId, comments) {
-  if (!_xCommentsCache[postId]) _xCommentsCache[postId] = [];
+  // Replace entire cache for this post (not merge)
+  _xCommentsCache[postId] = [];
   for (var i = 0; i < comments.length; i++) {
     comments[i].postId = postId;
-    var arr = _xCommentsCache[postId];
-    var idx = arr.findIndex(function(c) { return c.id === comments[i].id; });
-    if (idx >= 0) arr[idx] = comments[i]; else arr.push(comments[i]);
+    _xCommentsCache[postId].push(comments[i]);
     try { db.xComments.put(comments[i]).catch(function() {}); } catch(_) {}
   }
+  // Remove old comments from IndexedDB that are no longer in the list
+  try {
+    var ids = comments.map(function(c) { return c.id; });
+    db.xComments.where('postId').equals(postId).each(function(c) {
+      if (ids.indexOf(c.id) === -1) db.xComments.delete(c.id).catch(function() {});
+    }).catch(function() {});
+  } catch(_) {}
 }
 
 function xLoadNotifications() {
@@ -916,27 +922,7 @@ function bindPostCardEvents(container, user) {
       };
     });
 
-    // Long-press to delete post (600ms)
-    container.querySelectorAll('.x-post').forEach(function(card) {
-      var lpTimer = null;
-      function onStart(e) {
-        lpTimer = setTimeout(function() {
-          var postId = card.dataset.postId;
-          if (!postId) return;
-          xDeletePost(postId);
-          card.style.transition = 'opacity 0.3s';
-          card.style.opacity = '0';
-          setTimeout(function() { card.remove(); }, 300);
-          showToast('已删除');
-        }, 600);
-      }
-      function onEnd() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }
-      card.addEventListener('touchstart', onStart, { passive: true });
-      card.addEventListener('touchend', onEnd);
-      card.addEventListener('touchmove', onEnd);
-      card.addEventListener('mousedown', onStart);
-      card.addEventListener('mouseup', onEnd);
-    });
+    // Long-press handled by NPC post handler below
 
     // Reveal anonymous
     container.querySelectorAll('.x-reveal-anon').forEach(function(btn) {
@@ -961,29 +947,35 @@ function bindPostCardEvents(container, user) {
         _longPressTimer = setTimeout(function() {
           try {
             var overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;inset:0;background:var(--x-overlay);z-index:10001;display:flex;align-items:center;justify-content:center';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10001;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:0;transition:opacity 200ms cubic-bezier(0.23,1,0.32,1)';
             var box = document.createElement('div');
-            box.style.cssText = 'background:var(--x-bg);border-radius:12px;padding:20px;max-width:280px;text-align:center;box-shadow:var(--x-shadow-elevated)';
-            box.innerHTML = '<p style="margin:0 0 16px;font-size:15px;color:var(--x-text)">确定删除这条帖子吗?</p>' +
-              '<div style="display:flex;gap:12px;justify-content:center">' +
-              '<button id="x-del-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid var(--x-border);background:var(--x-bg);color:var(--x-text-muted);font-size:14px;cursor:pointer">取消</button>' +
-              '<button id="x-del-confirm" style="padding:8px 20px;border-radius:8px;border:none;background:var(--x-like);color:#fff;font-size:14px;cursor:pointer">删除</button>' +
+            box.style.cssText = 'background:var(--x-surface,#fff);border-radius:16px;padding:24px;max-width:280px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform 200ms cubic-bezier(0.23,1,0.32,1)';
+            box.innerHTML = '<div style="font-size:16px;font-weight:600;color:var(--x-text,#1a1a1a);margin-bottom:8px">删除帖子</div>' +
+              '<div style="font-size:13px;color:var(--x-text-muted,#999);margin-bottom:20px;line-height:1.4">删除后将无法恢复，确定要删除吗？</div>' +
+              '<div style="display:flex;gap:10px">' +
+              '<button id="x-del-cancel" style="flex:1;padding:10px 0;border-radius:10px;border:1px solid var(--x-border,#e0e0e0);background:transparent;color:var(--x-text,#1a1a1a);font-size:14px;font-weight:500;cursor:pointer;transition:background 150ms">取消</button>' +
+              '<button id="x-del-confirm" style="flex:1;padding:10px 0;border-radius:10px;border:none;background:#e05555;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:opacity 150ms">删除</button>' +
               '</div>';
             overlay.appendChild(box);
             document.body.appendChild(overlay);
-            box.querySelector('#x-del-cancel').onclick = function() { overlay.remove(); };
+            requestAnimationFrame(function() {
+              overlay.style.opacity = '1';
+              box.style.transform = 'scale(1)';
+            });
+            function closePopup() {
+              overlay.style.opacity = '0';
+              box.style.transform = 'scale(0.95)';
+              setTimeout(function() { overlay.remove(); }, 200);
+            }
+            box.querySelector('#x-del-cancel').onclick = closePopup;
             box.querySelector('#x-del-confirm').onclick = function() {
-              try {
-                var allPosts = xLoadPosts().filter(function(p) { return p.id !== postId; });
-                xSavePosts(allPosts);
-                try { localStorage.removeItem(X_COMMENTS_PREFIX + postId); } catch(_) {}
-                overlay.remove();
-                window.toast && window.toast('已删除');
-                var _xp = document.getElementById('x-page');
-                if (_xp) renderXHomeTab(_xp, user);
-              } catch(err) {}
+              xDeletePost(postId);
+              closePopup();
+              window.toast && window.toast('已删除');
+              var _xp = document.getElementById('x-page');
+              if (_xp) renderXHomeTab(_xp, user);
             };
-            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+            overlay.onclick = function(e) { if (e.target === overlay) closePopup(); };
           } catch(err) {}
         }, 600);
       });
@@ -2162,7 +2154,6 @@ async function generateAIProfile(char, page) {
       '{"bio":"一句话简介(20字以内)","ipLocation":"省份或城市","handle":"@英文账号"}';
 
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
-    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
     if (!data) return;
 
@@ -2281,7 +2272,7 @@ async function generate5PostsForChar(char) {
   try {
     if (!window.callAI) return;
 
-    var npcSample = X_NPC_TYPES.sort(function() { return Math.random() - 0.5; }).slice(0, 6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')'; }).join('\n');
+    var npcSample = X_NPC_TYPES.slice().sort(function() { return Math.random() - 0.5; }).slice(0, 6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')'; }).join('\n');
 
     var prompt = '你是社交媒体内容生成器。为以下角色生成5条帖子，每条帖子都要有完整的评论互动。\n\n' +
       '发帖人：' + char.name + '（' + ((char.description || (char.identity && char.identity.bio) || char.signature || '普通用户')) + '）\n\n' +
@@ -2297,7 +2288,6 @@ async function generate5PostsForChar(char) {
       '{"posts":[{"content":"帖子","tags":["标签"],"category":1,"comments":[{"name":"NPC","content":"评论","replyToIndex":-1},{"name":"' + char.name + '","content":"回复","replyToIndex":0,"isAuthorReply":true}]}]}';
 
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
-    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
 
     var allPosts = xLoadPosts();
@@ -2700,7 +2690,7 @@ async function generatePostsForChar(char, preference) {
   try {
     if (!window.callAI) throw new Error('AI服务未配置');
 
-    var npcSample = X_NPC_TYPES.sort(function() { return Math.random() - 0.5; }).slice(0, 5).map(function(n) {
+    var npcSample = X_NPC_TYPES.slice().sort(function() { return Math.random() - 0.5; }).slice(0, 5).map(function(n) {
       return n.id + '.' + n.name + '(' + n.style + ')';
     }).join('\n');
 
@@ -2825,7 +2815,7 @@ async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
     var pickedChars = [];
     for (var i = 0; i < count; i++) pickedChars.push(randomPick(chars));
 
-    var npcSample = X_NPC_TYPES.sort(function() { return Math.random() - 0.5; }).slice(0, 6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')'; }).join('\n');
+    var npcSample = X_NPC_TYPES.slice().sort(function() { return Math.random() - 0.5; }).slice(0, 6).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')'; }).join('\n');
     var charDescs = pickedChars.map(function(c, i) { return (i+1) + '. ' + c.name + '（' + (((c.identity && c.identity.bio) || c.signature || '普通用户')).slice(0, 30) + '）'; }).join('\n');
     var categories = X_CATEGORIES.map(function(c) { return c.id + '.' + c.name; }).join('\n');
 
@@ -2932,7 +2922,6 @@ async function autoPostTick(user) {
       '返回JSON：{"content":"帖子内容"}';
 
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
-    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
 
     var post = {
