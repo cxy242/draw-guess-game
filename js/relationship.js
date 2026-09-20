@@ -1760,8 +1760,15 @@
   // =============================================================
 
   function showRelationshipPage() {
-    var page = createPage();
-    renderSelectPage(page);
+    try {
+      console.log('[Relationship] showRelationshipPage called');
+      var page = createPage();
+      renderSelectPage(page);
+      console.log('[Relationship] page opened successfully');
+    } catch(e) {
+      console.error('[Relationship] showRelationshipPage error:', e);
+      window.toast && window.toast('关系网打开失败: ' + e.message);
+    }
   }
 
   // =============================================================
@@ -1816,10 +1823,36 @@
 
   window.showRelationshipPage = showRelationshipPage;
 
+  // Auto-refresh: check if 2 days passed since last generation
+  (function checkAutoRefresh() {
+    try {
+      var lastGen = localStorage.getItem('rel_last_gen_time');
+      var now = Date.now();
+      var TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
+      if (!lastGen || (now - parseInt(lastGen)) > TWO_DAYS) {
+        console.log('[Relationship] Auto-refresh triggered');
+        if (window.db && window.db.characters) {
+          generateAllRelationships().then(function() {
+            localStorage.setItem('rel_last_gen_time', String(now));
+            console.log('[Relationship] Auto-refresh done');
+          }).catch(function(e) {
+            console.warn('[Relationship] Auto-refresh failed:', e);
+          });
+        }
+      }
+    } catch(e) {}
+  })();
+
   console.log('[Relationship] Module loaded successfully');
 
   } catch (e) {
     console.error('[Relationship] Module init error:', e);
+    // Fallback: expose a basic version even if init failed
+    if (!window.showRelationshipPage) {
+      window.showRelationshipPage = function() {
+        window.toast && window.toast('关系网模块加载失败: ' + e.message);
+      };
+    }
   }
 
 })();
