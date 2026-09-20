@@ -2656,9 +2656,9 @@ async function showXGenPostsDialog(user, genBtn, page) {
           selectedIds.push(parseInt(cb.dataset.id));
         });
 
+        // If no character selected, generate from all characters + anonymous
         if (!selectedIds.length) {
-          showToast('请至少选择一个角色');
-          return;
+          selectedIds = chars.map(function(c) { return c.id; });
         }
 
         var btn = dialog.querySelector('.x-gen-confirm');
@@ -2666,19 +2666,16 @@ async function showXGenPostsDialog(user, genBtn, page) {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 生成中...';
 
         try {
-          for (var ci = 0; ci < selectedIds.length; ci++) {
-            var char = chars.find(function(c) { return c.id === selectedIds[ci]; });
-            if (!char) continue;
-            await generatePostsForChar(char, pref);
-          }
+          var selectedChars = selectedIds.map(function(id) { return chars.find(function(c) { return c.id === id; }); }).filter(Boolean);
+          await generatePostsForChar(selectedChars, pref);
           dialog.classList.add('closing');
           setTimeout(function() { dialog.remove(); }, 200);
           renderXHomeTab(page, user);
-          showToast(selectedIds.length + '个角色的帖子已生成！');
+          showToast('5条帖子已生成！');
         } catch(err) {
           console.error('[X] post gen failed:', err);
           btn.disabled = false;
-          btn.innerHTML = '立即生成';
+          btn.innerHTML = '生成5条帖子';
           showToast('生成失败：' + (err.message || '未知错误'));
         }
       } catch(err) {}
@@ -2686,84 +2683,101 @@ async function showXGenPostsDialog(user, genBtn, page) {
   } catch(e) { console.error('[X] showXGenPostsDialog error:', e); }
 }
 
-async function generatePostsForChar(char, preference) {
+async function generatePostsForChar(chars, preference) {
   try {
     if (!window.callAI) throw new Error('AI服务未配置');
+    if (!Array.isArray(chars)) chars = [chars];
 
-    var npcSample = X_NPC_TYPES.slice().sort(function() { return Math.random() - 0.5; }).slice(0, 5).map(function(n) {
-      return n.id + '.' + n.name + '(' + n.style + ')';
+    // Build character info
+    var charInfos = chars.map(function(char) {
+      var desc = (char.description || (char.identity && char.identity.bio) || char.signature || '').slice(0, 100);
+      var rels = (char.relations || []).map(function(r) { return r.desc || r.type || ''; }).filter(Boolean).join('、');
+      var personaPeople = [];
+      try {
+        var m = (char.description || '').match(/(?:闺蜜|朋友|同学|同事|室友|兄弟|姐妹|哥哥|姐姐|弟弟|妹妹|妈妈|爸爸|老师|师傅|老板|上司|邻居|青梅竹马|男朋友|女朋友|老公|老婆|前任|暗恋对象|死党|好友)[叫是名为]?\s*([\u4e00-\u9fa5]{2,4})/g);
+        if (m) m.forEach(function(s) { var n = s.replace(/^[^\u4e00-\u9fa5]+/, '').trim(); if (n && n.length >= 2 && personaPeople.indexOf(n) === -1) personaPeople.push(n); });
+      } catch(_) {}
+      return { id: char.id, name: char.name, nick: char.nick, desc: desc, rels: rels, people: personaPeople, avatar: char.avatar, identity: char.identity };
+    });
+
+    var charListStr = charInfos.map(function(c, i) {
+      return (i+1) + '. ' + c.name + (c.desc ? '（' + c.desc + '）' : '') + (c.rels ? ' 关系：' + c.rels : '') + (c.people.length ? ' 人设中人物：' + c.people.join('、') : '');
     }).join('\n');
 
-    var charDesc = char.name + '（' + ((char.description || (char.identity && char.identity.bio) || char.signature || '普通用户')).slice(0, 50) + '）';
-    var relations = (char.relations || []).map(function(r) { return r.desc || r.type || ''; }).filter(Boolean).join('、');
-
-    var prompt = '你是社交媒体内容生成器。请为角色 ' + char.name + ' 生成1条帖子，带完整评论互动。\n\n' +
-      '发帖人：' + charDesc + '\n' +
-      (relations ? '角色关系：' + relations + '\n' : '') +
-      (preference ? '风格倾向：' + preference + '\n' : '') +
-      '可用NPC人设：\n' + npcSample + '\n\n' +
+    var prompt = '你是社交媒体内容生成器。请生成5条帖子，每条来自不同的角色，每条都要有完整评论互动。\n\n' +
+      '发帖角色列表：\n' + charListStr + '\n\n' +
+      (preference ? '风格倾向：' + preference + '\n\n' : '') +
       '要求：\n' +
-      '1. 帖子30-80字，体现角色性格\n' +
-      '2. 5条一级评论，来自不同NPC\n' +
-      '3. 发帖人回复2-3条\n' +
-      '4. 形成3层对话链\n\n' +
+      '1. 每条帖子30-80字，体现该角色的性格特点\n' +
+      '2. 每条帖子5条评论，评论人优先从该角色人设中提到的真实人物中选\n' +
+      '3. 每条帖子的发帖人必须回复其中2-3条评论（from字段必须是发帖人名字）\n' +
+      '4. 被回复的评论人可以再回复，形成2层对话\n' +
+      '5. 如果角色人设中没有提到人物，可以用NPC类型评论\n' +
+      '6. 其中1条可以是匿名帖子（isAnonymous:true）\n\n' +
       '返回JSON：\n' +
-      '{"posts":[{"content":"帖子","tags":["标签"],"comments":[{"name":"NPC","content":"评论","replyToIndex":-1},{"name":"' + char.name + '","content":"回复","replyToIndex":0,"isAuthorReply":true}]}]}';
+      '{"posts":[{"authorIndex":0,"content":"帖子","tags":["标签"],"isAnonymous":false,"comments":[{"from":"人名","to":null,"text":"评论"},{"from":"发帖人名","to":"人名","text":"回复"}]}]}';
 
     var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
 
     if (!data.posts || !data.posts.length) throw new Error('AI未返回帖子');
 
-    var p = data.posts[0];
-    var postId = xGenId();
+    var savedCount = 0;
+    data.posts.forEach(function(p) {
+      if (!p || !p.content) return;
+      var ci = (typeof p.authorIndex === 'number' && p.authorIndex >= 0 && p.authorIndex < charInfos.length) ? p.authorIndex : 0;
+      var cInfo = charInfos[ci];
+      var postId = xGenId();
+      var isAnon = !!p.isAnonymous;
 
-    var newPost = {
-      id: postId,
-      authorId: String(char.id),
-      authorName: char.nick || char.name,
-      authorHandle: '@' + ((char.identity && char.identity.account) || char.name),
-      authorAvatar: char.avatar || null,
-      content: p.content || '',
-      tags: p.tags || [],
-      category: p.category || randomPick(X_CATEGORIES).id,
-      isAnonymous: false,
-      engagement: generateEngagement(),
-      createdAt: new Date().toISOString()
-    };
+      var newPost = {
+        id: postId,
+        authorId: isAnon ? ('anon_' + xGenId()) : String(cInfo.id),
+        authorName: isAnon ? '匿名用户' : (cInfo.nick || cInfo.name),
+        authorHandle: isAnon ? '' : ('@' + ((cInfo.identity && cInfo.identity.account) || cInfo.name)),
+        authorAvatar: isAnon ? null : (cInfo.avatar || null),
+        content: p.content || '',
+        tags: p.tags || [],
+        category: p.category || randomPick(X_CATEGORIES).id,
+        isAnonymous: isAnon,
+        engagement: generateEngagement(),
+        createdAt: new Date().toISOString()
+      };
+      xSavePost(newPost);
+      savedCount++;
 
-    xSavePost(newPost);
-    console.log('[X] Post saved:', postId, newPost.content.slice(0, 30));
+      if (p.comments && p.comments.length) {
+        var comments = [];
+        p.comments.forEach(function(c, ci2) {
+          var isAuthorReply = !isAnon && c.from === cInfo.name;
+          var commentObj = {
+            id: xGenId(),
+            authorId: isAuthorReply ? String(cInfo.id) : ('npc_' + xGenId()),
+            authorName: c.from || '路人',
+            authorHandle: isAuthorReply ? ('@' + ((cInfo.identity && cInfo.identity.account) || cInfo.name)) : ('@user-' + String(ci2).slice(-4)),
+            authorAvatar: isAuthorReply ? (cInfo.avatar || null) : null,
+            isNpc: !isAuthorReply,
+            npcType: isAuthorReply ? null : randomPick(X_NPC_TYPES),
+            content: c.text || c.content || '',
+            stats: generateCommentStats(),
+            createdAt: new Date(Date.now() + ci2 * 60000).toISOString(),
+            isReply: false
+          };
+          if (c.to && comments.length > 0) {
+            var parent = comments.find(function(pc) { return pc.authorName === c.to; });
+            if (parent) {
+              commentObj.replyTo = parent.id;
+              commentObj.replyToName = parent.authorName;
+              commentObj.isReply = true;
+            }
+          }
+          comments.push(commentObj);
+        });
+        xSaveComments(postId, comments);
+      }
+    });
 
-    if (p.comments && p.comments.length) {
-      var comments = [];
-      p.comments.forEach(function(c, ci) {
-        var isAuthorReply = c.isAuthorReply || false;
-        var npcType = randomPick(X_NPC_TYPES);
-        var commentObj = {
-          id: xGenId(),
-          authorId: isAuthorReply ? String(char.id) : ('npc_' + xGenId()),
-          authorName: isAuthorReply ? (char.nick || char.name) : (c.name || npcType.name),
-          authorHandle: isAuthorReply ? ('@' + ((char.identity && char.identity.account) || char.name)) : ('@user-' + String(ci).slice(-4)),
-          authorAvatar: isAuthorReply ? (char.avatar || null) : null,
-          isNpc: !isAuthorReply,
-          npcType: isAuthorReply ? null : npcType,
-          content: c.content || '',
-          stats: generateCommentStats(),
-          createdAt: new Date(Date.now() + ci * 60000).toISOString(),
-          isReply: false
-        };
-        if (c.replyToIndex >= 0 && c.replyToIndex < comments.length) {
-          commentObj.replyTo = comments[c.replyToIndex].id;
-          commentObj.replyToName = comments[c.replyToIndex].authorName;
-          commentObj.isReply = true;
-        }
-        comments.push(commentObj);
-      });
-      xSaveComments(postId, comments);
-    }
-
-    console.log('[X] generatePostsForChar done, total posts in cache:', xLoadPosts().length);
+    console.log('[X] Generated ' + savedCount + ' posts, total in cache:', xLoadPosts().length);
   } catch(e) { console.error('[X] generatePostsForChar error:', e); throw e; }
 }
 
