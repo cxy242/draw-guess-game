@@ -7,16 +7,14 @@
 
 // Pre-define showRelationshipPage so icon always works
 window.showRelationshipPage = function() {
-  try {
-    var p = document.createElement("div");
-    p.id = "relationship-page";
-    p.className = "full-page rel-page";
-    p.style.cssText = "position:fixed;inset:0;z-index:999;background:#fff;overflow:auto;padding:20px";
-    p.innerHTML = "<h2>关系网</h2><p>模块加载中...</p>";
-    if (window.openPage) window.openPage(p); else document.body.appendChild(p);
-    window.toast && window.toast("模块正在加载");
-  } catch(e) { window.toast && window.toast("Error: "+e.message); }
-};
+    if (typeof _relShowPage === "function") {
+      try { _relShowPage(); return; } catch(e) {
+        window.toast && window.toast("\u5173\u7cfb\u7f51\u9519\u8bef: " + e.message);
+        return;
+      }
+    }
+    window.toast && window.toast("\u6a21\u5757\u52a0\u8f7d\u4e2d...");
+  };
 
 var PAGE_ID = 'relationship-page';
 
@@ -1833,7 +1831,7 @@ window.getRelationBetween = async function(charId, targetNameOrId) {
   } catch(e) { return null; }
 };
 
-window.showRelationshipPage = showRelationshipPage;
+  var _relShowPage = showRelationshipPage;
 
 // Auto-refresh: check if 2 days passed since last generation
 (function checkAutoRefresh() {
