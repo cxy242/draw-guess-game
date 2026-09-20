@@ -681,16 +681,26 @@ async function handleSmsMenuAction(action, conversationId, chatPage) {
 }
 
 function showVirtualNumberPopup(conv) {
+  // Remove old popup if exists
+  var old = document.getElementById('sms-vn-overlay')
+  if (old) old.remove()
+
+  var realPhone = conv.phoneNumber || _smsActivePhone || '未知'
+  var displayName = conv.displayName || conv.remoteName || '未知'
+  var isRevealed = conv.revealed || false
+  var realName = isRevealed && conv._anonCharName ? conv._anonCharName : null
+
   var overlay = document.createElement('div')
-  overlay.className = 'sms-virtual-number-overlay'
+  overlay.id = 'sms-vn-overlay'
+  overlay.className = 'sms-vn-overlay'
   overlay.innerHTML =
-    '<div class="sms-virtual-number-popup">' +
+    '<div class="sms-vn-popup">' +
       '<div class="sms-vn-title">通知号信息</div>' +
-      '<div class="sms-vn-row"><span class="sms-vn-label">虚拟号码</span><span class="sms-vn-value">' + escSmsHtml(conv.phoneNumber || '未知') + '</span></div>' +
-      '<div class="sms-vn-row"><span class="sms-vn-label">显示名称</span><span class="sms-vn-value">' + escSmsHtml(conv.displayName || conv.remoteName || '未知') + '</span></div>' +
-      '<div class="sms-vn-row"><span class="sms-vn-label">匿名状态</span><span class="sms-vn-value">' + (conv.revealed ? '已解除' : '匿名中') + '</span></div>' +
-      (conv.revealed && conv._anonCharName ? '<div class="sms-vn-row"><span class="sms-vn-label">真实身份</span><span class="sms-vn-value">' + escSmsHtml(conv._anonCharName) + '</span></div>' : '') +
-      '<button class="sms-vn-close-btn" id="sms-vn-close">确定</button>' +
+      '<div class="sms-vn-row"><span class="sms-vn-label">手机号码</span><span class="sms-vn-value">' + escSmsHtml(realPhone) + '</span></div>' +
+      '<div class="sms-vn-row"><span class="sms-vn-label">显示名称</span><span class="sms-vn-value">' + escSmsHtml(displayName) + '</span></div>' +
+      '<div class="sms-vn-row"><span class="sms-vn-label">匿名状态</span><span class="sms-vn-value">' + (isRevealed ? '已解除' : '匿名中') + '</span></div>' +
+      (realName ? '<div class="sms-vn-row"><span class="sms-vn-label">真实身份</span><span class="sms-vn-value">' + escSmsHtml(realName) + '</span></div>' : '') +
+      '<button class="sms-vn-close" id="sms-vn-close">关闭</button>' +
     '</div>'
   document.body.appendChild(overlay)
   requestAnimationFrame(function() { overlay.classList.add('show') })
