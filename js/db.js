@@ -339,6 +339,10 @@ function initDB() {
     xPosts:            'id, authorId, createdAt',
     xComments:         '++id, postId, createdAt'
   })
+  db.version(17).stores({
+    relationships:     '++id, charId, targetId, [charId+targetId], type, updatedAt',
+    npcCharacters:     '++id, name, source, charId'
+  })
   installWanWanDBRecovery()
 }
 

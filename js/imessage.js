@@ -479,6 +479,14 @@ async function generateAnonReply(conversationId, char, userText, page) {
       '用户刚发：' + userText + '\n' +
       '要求：以陌生人身份回复一句，符合人设，简短自然，20-40字。'
 
+    // Inject relationship context
+    if (window.getRelationshipContext && conv && conv.charId) {
+      try {
+        var relCtx = await window.getRelationshipContext(conv.charId);
+        if (relCtx) prompt += relCtx;
+      } catch(_) {}
+    }
+    
     var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
     if (reply) {
       await db.smsMessages.add({

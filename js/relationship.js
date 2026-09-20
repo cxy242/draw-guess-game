@@ -1,5 +1,5 @@
 // relationship.js — 关系网模块
-// 依赖：db.js, force-graph.min.js
+// 依赖：db.js, force-graph.min.js, anime.min.js
 // ===== IIFE =====
 ;(function() {
   'use strict';
@@ -29,14 +29,101 @@
     return '<div class="' + c + '"><span>' + esc(getInitial(name)) + '</span></div>';
   }
 
-  // ===== Toast helper =====
+  // ===== Anime.js helper =====
+  var _anime = function() { return window.anime; };
+  function hasAnime() { return typeof window.anime === 'function'; }
+
+  // ===== Page transition animation =====
+  function animatePageIn(container) {
+    if (!hasAnime()) { container.style.opacity = '1'; return; }
+    window.anime({
+      targets: container,
+      translateX: [30, 0],
+      opacity: [0, 1],
+      duration: 350,
+      easing: 'easeOutCubic'
+    });
+  }
+
+  function animatePageOut(container, callback) {
+    if (!hasAnime()) { if (callback) callback(); return; }
+    window.anime({
+      targets: container,
+      translateX: [0, -30],
+      opacity: [1, 0],
+      duration: 250,
+      easing: 'easeInCubic',
+      complete: callback
+    });
+  }
+
+  // ===== Stagger animation for list/grid items =====
+  function animateStaggerItems(selector, parentEl) {
+    if (!hasAnime()) {
+      var items = (parentEl || document).querySelectorAll(selector);
+      items.forEach(function(el) { el.style.opacity = '1'; });
+      return;
+    }
+    var items = (parentEl || document).querySelectorAll(selector);
+    if (!items.length) return;
+    window.anime({
+      targets: items,
+      translateY: [16, 0],
+      opacity: [0, 1],
+      scale: [0.95, 1],
+      duration: 400,
+      delay: window.anime.stagger(50, { start: 80 }),
+      easing: 'easeOutCubic'
+    });
+  }
+
+  // ===== Toast with anime.js =====
   function relToast(msg) {
     if (typeof window.toast === 'function') { window.toast(msg); return; }
     var el = document.createElement('div');
     el.className = 'rel-toast';
     el.textContent = msg;
     document.body.appendChild(el);
-    setTimeout(function() { el.remove(); }, 2000);
+
+    if (hasAnime()) {
+      window.anime({
+        targets: el,
+        scale: [0.85, 1],
+        opacity: [0, 1],
+        duration: 300,
+        easing: 'easeOutBack'
+      });
+      window.anime({
+        targets: el,
+        scale: [1, 0.85],
+        opacity: [1, 0],
+        duration: 250,
+        delay: 1600,
+        easing: 'easeInBack',
+        complete: function() { el.remove(); }
+      });
+    } else {
+      el.style.opacity = '1';
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
+      setTimeout(function() { el.remove(); }, 2000);
+    }
+  }
+
+  // ===== Floating particles background =====
+  function spawnParticles(container, count) {
+    if (!container) return;
+    for (var i = 0; i < (count || 12); i++) {
+      var p = document.createElement('div');
+      p.className = 'rel-particle';
+      p.style.left = (Math.random() * 100) + '%';
+      p.style.top = (60 + Math.random() * 40) + '%';
+      p.style.width = (2 + Math.random() * 4) + 'px';
+      p.style.height = p.style.width;
+      p.style.opacity = '0';
+      p.style.animationDuration = (8 + Math.random() * 12) + 's';
+      p.style.animationDelay = (Math.random() * 6) + 's';
+      container.appendChild(p);
+    }
   }
 
   // ===== DB Version 17 Upgrade =====
@@ -169,31 +256,24 @@
       var msgs = await db.messages.where('chatId').equals(chats[i].id).toArray();
       for (var j = 0; j < msgs.length; j++) {
         var m = msgs[j];
-        // Count positive signals: message length, frequency
-        // This is a simplified affinity - real one would use AI
         var ownerUid = chats[i].ownerUid || 'default';
         if (!result[ownerUid]) result[ownerUid] = { count: 0, totalLen: 0 };
         result[ownerUid].count++;
         result[ownerUid].totalLen += (m.content || '').length;
       }
     }
-    // Normalize: 0-100
     var scores = {};
     for (var uid in result) {
       var d = result[uid];
-      // More messages and longer = higher affinity, cap at 100
       scores[uid] = Math.min(100, Math.round(d.count * 2 + d.totalLen / 50));
     }
     return scores;
   }
 
   async function getAffinityForTarget(charId, targetId) {
-    // Check stored relationship first
     var rel = await getRelationshipBetween(charId, targetId);
     if (rel && typeof rel.affinity === 'number') return rel.affinity;
-    // Fallback: calculate from chat data (if target is user)
     var affinities = await calculateAffinity(charId);
-    // Return the max affinity found (for display purposes)
     var max = 0;
     for (var uid in affinities) {
       if (affinities[uid] > max) max = affinities[uid];
@@ -215,7 +295,6 @@
     if (char.role) charInfo += 'Role: ' + char.role + '\n';
     if (char.description) charInfo += 'Description:\n' + char.description + '\n';
 
-    // Include existing relations from char.relations
     var existingRels = char.relations || [];
     if (existingRels.length) {
       charInfo += '\nExisting known relations:\n';
@@ -228,7 +307,6 @@
       }
     }
 
-    // Get all other characters for reference
     var allChars = await getAllChars();
     var otherChars = allChars.filter(function(c) { return c.id !== char.id; });
     var otherList = otherChars.map(function(c) {
@@ -263,7 +341,6 @@
       parsed = [];
     }
 
-    // Enrich with targetIds from name matching
     for (var j = 0; j < parsed.length; j++) {
       if (!parsed[j].targetId && parsed[j].targetName) {
         var match = otherChars.find(function(c) {
@@ -272,7 +349,6 @@
         });
         if (match) parsed[j].targetId = match.id;
       }
-      // Normalize affinity
       parsed[j].affinity = Math.max(0, Math.min(100, parseInt(parsed[j].affinity) || 50));
     }
 
@@ -330,7 +406,6 @@
       throw new Error('Failed to parse AI response');
     }
 
-    // Resolve targetIds and save
     var charMap = {};
     allChars.forEach(function(c) { charMap[c.id] = c; });
 
@@ -338,7 +413,6 @@
     for (var i = 0; i < parsed.length; i++) {
       var r = parsed[i];
       if (!r.charId) continue;
-      // Resolve targetId from name if missing
       if (!r.targetId && r.targetName) {
         var match = allChars.find(function(c) {
           return (c.name || '').toLowerCase() === r.targetName.toLowerCase();
@@ -351,7 +425,6 @@
       toSave.push(r);
     }
 
-    // Clear old data and save new
     await db.relationships.clear();
     if (toSave.length) {
       await saveRelationshipsBatch(toSave);
@@ -375,7 +448,6 @@
     var nodeIds = new Set();
     var RADIUS = 160;
 
-    // Center node
     nodes.push({
       id: center.id,
       name: center.name || '?',
@@ -387,7 +459,6 @@
     });
     nodeIds.add(center.id);
 
-    // Collect unique targets
     var targets = [];
     var targetSeen = new Set();
     for (var i = 0; i < relationships.length; i++) {
@@ -398,13 +469,12 @@
       targets.push(r);
     }
 
-    // Position targets radially
     var angleStep = targets.length > 0 ? (2 * Math.PI / targets.length) : 0;
     for (var j = 0; j < targets.length; j++) {
       var rel = targets[j];
       var tChar = charMap[rel.targetId];
-      var angle = angleStep * j - Math.PI / 2; // Start from top
-      var dist = RADIUS + (100 - (rel.affinity || 50)) * 1.2; // Closer = higher affinity
+      var angle = angleStep * j - Math.PI / 2;
+      var dist = RADIUS + (100 - (rel.affinity || 50)) * 1.2;
 
       nodes.push({
         id: rel.targetId,
@@ -427,11 +497,9 @@
       });
     }
 
-    // Add inter-target links if they exist in relationships
     for (var k = 0; k < relationships.length; k++) {
       var r2 = relationships[k];
       if (nodeIds.has(r2.charId) && nodeIds.has(r2.targetId) && r2.charId !== charId) {
-        // Avoid duplicate links
         var exists = links.find(function(l) {
           return (l.source === r2.charId && l.target === r2.targetId) ||
                  (l.source === r2.targetId && l.target === r2.charId);
@@ -458,7 +526,6 @@
     if (!window.db) return '';
     var rels = await getAllRelationships(charId);
     if (!rels.length) {
-      // Fallback to char.relations
       var char = await getChar(charId);
       if (!char || !char.relations || !char.relations.length) return '';
       var lines = [];
@@ -487,13 +554,11 @@
   // =============================================================
 
   async function getRelationBetween(charId, targetNameOrId) {
-    // Try as ID first
     var numericId = parseInt(targetNameOrId);
     if (!isNaN(numericId)) {
       var byId = await getRelationshipBetween(charId, numericId);
       if (byId) return byId;
     }
-    // Try by name
     return await getRelationshipBetween(charId, String(targetNameOrId));
   }
 
@@ -518,9 +583,31 @@
 
     loadSelectGrid(grid, '');
 
+    // Search bar focus animation
+    searchInput.addEventListener('focus', function() {
+      if (!hasAnime()) return;
+      window.anime({
+        targets: searchInput,
+        scale: [1, 1.01],
+        duration: 200,
+        easing: 'easeOutCubic'
+      });
+    });
+    searchInput.addEventListener('blur', function() {
+      if (!hasAnime()) return;
+      window.anime({
+        targets: searchInput,
+        scale: [1.01, 1],
+        duration: 200,
+        easing: 'easeOutCubic'
+      });
+    });
+
     searchInput.addEventListener('input', function() {
       loadSelectGrid(grid, searchInput.value.trim());
     });
+
+    animatePageIn(body);
   }
 
   async function loadSelectGrid(grid, query) {
@@ -547,6 +634,9 @@
     }
     grid.innerHTML = html;
 
+    // Stagger card entrance
+    animateStaggerItems('.rel-char-card', grid);
+
     grid.querySelectorAll('.rel-char-card').forEach(function(card) {
       card.addEventListener('click', function() {
         var charId = parseInt(card.dataset.charId);
@@ -561,6 +651,8 @@
 
   var _graphInstance = null;
   var _graphResizeHandler = null;
+  var _linkPulseRAF = null;
+  var _graphParticles = [];
 
   function showGraphPage(charId) {
     var page = document.getElementById(PAGE_ID);
@@ -591,9 +683,11 @@
       '<button class="rel-header-btn" id="rel-graph-refresh" title="Refresh"><i class="fa fa-arrows-rotate"></i></button>'
     );
 
+    // Animate tool buttons entrance
+    animateStaggerItems('.rel-graph-tool-btn', body);
+
     renderGraph(charId);
 
-    // Tool buttons
     body.querySelector('#rel-graph-zoom-in').addEventListener('click', function() {
       if (_graphInstance) _graphInstance.zoom(1.3, 400);
     });
@@ -633,13 +727,17 @@
       window.removeEventListener('resize', _graphResizeHandler);
       _graphResizeHandler = null;
     }
+    if (_linkPulseRAF) {
+      cancelAnimationFrame(_linkPulseRAF);
+      _linkPulseRAF = null;
+    }
+    _graphParticles = [];
 
     if (loading) loading.style.display = 'flex';
 
     var allChars = await getAllChars();
     var rels = await getAllRelationships(charId);
 
-    // If no stored relationships, try to build from char.relations
     if (!rels.length) {
       var center = await getChar(charId);
       if (center && center.relations && center.relations.length) {
@@ -672,7 +770,7 @@
       .backgroundColor('#ffffff')
       .width(wrap.clientWidth)
       .height(wrap.clientHeight)
-      .nodeLabel(function() { return ''; }) // We render our own labels
+      .nodeLabel(function() { return ''; })
       .nodeVal(function(node) { return node.type === 'center' ? 30 : 20; })
       .linkColor(function(link) {
         var aff = link.affinity || 50;
@@ -696,6 +794,18 @@
       var size = node.type === 'center' ? 24 : 18;
       var fontSize = 12 / globalScale;
 
+      // Center node breathing glow
+      if (node.type === 'center') {
+        var t = (Date.now() % 3000) / 3000;
+        var glowSize = size + 4 + Math.sin(t * Math.PI * 2) * 3;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, glowSize, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(91,154,255,' + (0.08 + Math.sin(t * Math.PI * 2) * 0.04) + ')';
+        ctx.fill();
+        ctx.restore();
+      }
+
       // Draw circular avatar
       ctx.save();
       ctx.beginPath();
@@ -711,7 +821,6 @@
         }
       } else {
         drawFallbackCircle(ctx, node, size);
-        // Load image async
         if (node.avatar && !node._imgLoading) {
           node._imgLoading = true;
           var img = new Image();
@@ -762,6 +871,15 @@
 
     _graphInstance = graph;
 
+    // Initialize floating particles on the graph canvas
+    initGraphParticles(graph);
+
+    // Start link pulse animation loop
+    startLinkPulse(graph);
+
+    // BFS stagger node entrance animation
+    animateGraphEntrance(graph, graphData, charId);
+
     // Center on the center node
     setTimeout(function() {
       centerGraph();
@@ -774,6 +892,166 @@
       }
     };
     window.addEventListener('resize', _graphResizeHandler);
+  }
+
+  // ===== Floating particles on graph canvas background =====
+  function initGraphParticles(graph) {
+    _graphParticles = [];
+    for (var i = 0; i < 20; i++) {
+      _graphParticles.push({
+        x: (Math.random() - 0.5) * 800,
+        y: (Math.random() - 0.5) * 800,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        r: 1 + Math.random() * 2,
+        alpha: 0.08 + Math.random() * 0.12
+      });
+    }
+  }
+
+  // ===== Link pulse animation: draw moving dots along connections =====
+  function startLinkPulse(graph) {
+    if (!graph) return;
+    var linkPulses = [];
+    var lastBuild = 0;
+
+    function buildPulses() {
+      var data = graph.graphData();
+      if (!data || !data.links) return;
+      linkPulses = [];
+      for (var i = 0; i < data.links.length; i++) {
+        var link = data.links[i];
+        linkPulses.push({
+          link: link,
+          t: Math.random(),
+          speed: 0.003 + Math.random() * 0.004,
+          color: (link.affinity || 50) >= 70 ? 'rgba(91,154,255,0.6)' : 'rgba(91,154,255,0.3)'
+        });
+      }
+    }
+
+    function animate() {
+      _linkPulseRAF = requestAnimationFrame(animate);
+
+      var now = Date.now();
+      if (now - lastBuild > 5000) {
+        buildPulses();
+        lastBuild = now;
+      }
+
+      // Draw particles and link pulses on the graph's canvas
+      try {
+        var canvas = graph.canvas();
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+
+        // Draw floating particles
+        for (var p = 0; p < _graphParticles.length; p++) {
+          var pt = _graphParticles[p];
+          pt.x += pt.vx;
+          pt.y += pt.vy;
+          if (pt.x > 400 || pt.x < -400) pt.vx *= -1;
+          if (pt.y > 400 || pt.y < -400) pt.vy *= -1;
+
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(91,154,255,' + pt.alpha + ')';
+          ctx.fill();
+        }
+
+        // Draw link pulse dots
+        for (var i = 0; i < linkPulses.length; i++) {
+          var lp = linkPulses[i];
+          var link = lp.link;
+          var src = typeof link.source === 'object' ? link.source : null;
+          var tgt = typeof link.target === 'object' ? link.target : null;
+          if (!src || !tgt || src.x == null || tgt.x == null) continue;
+
+          lp.t += lp.speed;
+          if (lp.t > 1) lp.t -= 1;
+
+          var px = src.x + (tgt.x - src.x) * lp.t;
+          var py = src.y + (tgt.y - src.y) * lp.t;
+
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fillStyle = lp.color;
+          ctx.fill();
+        }
+      } catch (e) {
+        // Canvas may not be ready
+      }
+    }
+
+    buildPulses();
+    lastBuild = Date.now();
+    animate();
+  }
+
+  // ===== BFS stagger node entrance animation =====
+  function animateGraphEntrance(graph, graphData, centerCharId) {
+    if (!hasAnime() || !graphData || !graphData.nodes.length) return;
+
+    // BFS from center node
+    var adjacency = {};
+    graphData.links.forEach(function(l) {
+      var sid = typeof l.source === 'object' ? l.source.id : l.source;
+      var tid = typeof l.target === 'object' ? l.target.id : l.target;
+      if (!adjacency[sid]) adjacency[sid] = [];
+      if (!adjacency[tid]) adjacency[tid] = [];
+      adjacency[sid].push(tid);
+      adjacency[tid].push(sid);
+    });
+
+    var visited = {};
+    var queue = [centerCharId];
+    var order = [];
+    visited[centerCharId] = true;
+    var depth = {};
+    depth[centerCharId] = 0;
+
+    while (queue.length) {
+      var curr = queue.shift();
+      order.push({ id: curr, depth: depth[curr] });
+      var neighbors = adjacency[curr] || [];
+      for (var i = 0; i < neighbors.length; i++) {
+        if (!visited[neighbors[i]]) {
+          visited[neighbors[i]] = true;
+          depth[neighbors[i]] = depth[curr] + 1;
+          queue.push(neighbors[i]);
+        }
+      }
+    }
+
+    // Animate each node with a delay based on BFS depth
+    var nodeMap = {};
+    graphData.nodes.forEach(function(n) { nodeMap[n.id] = n; });
+
+    order.forEach(function(item, idx) {
+      var node = nodeMap[item.id];
+      if (!node) return;
+      var delay = 100 + item.depth * 200 + idx * 30;
+
+      // Temporarily set node opacity to 0 by flagging it
+      node._enterDelay = delay;
+      node._entering = true;
+
+      setTimeout(function() {
+        node._entering = false;
+        if (graph && typeof graph.refresh === 'function') graph.refresh();
+      }, delay);
+    });
+
+    // Refresh graph periodically during entrance
+    var entranceStart = Date.now();
+    var entranceDuration = 100 + order.length * 50 + 400;
+    function entranceLoop() {
+      if (Date.now() - entranceStart < entranceDuration) {
+        if (graph && typeof graph.refresh === 'function') graph.refresh();
+        requestAnimationFrame(entranceLoop);
+      }
+    }
+    requestAnimationFrame(entranceLoop);
   }
 
   function drawFallbackCircle(ctx, node, size) {
@@ -817,14 +1095,11 @@
       rel = await getRelationshipBetween(centerCharId, targetId);
     }
 
-    // Get all relationships of this target
     var targetRels = await getAllRelationships(targetId);
-    // Also get relationships pointing to this target
     var allStored = await db.relationships.toArray();
     var incomingRels = allStored.filter(function(r) { return r.targetId === targetId && r.charId !== targetId; });
     var allRels = targetRels.concat(incomingRels);
 
-    // Deduplicate
     var seenPairs = {};
     var uniqueRels = [];
     for (var i = 0; i < allRels.length; i++) {
@@ -909,22 +1184,88 @@
 
     document.body.appendChild(overlay);
 
+    // Animate overlay and card entrance with anime.js
+    if (hasAnime()) {
+      window.anime({
+        targets: overlay,
+        opacity: [0, 1],
+        duration: 250,
+        easing: 'easeOutCubic'
+      });
+      window.anime({
+        targets: overlay.querySelector('.rel-detail-card'),
+        scale: [0.88, 1],
+        opacity: [0, 1],
+        translateY: [12, 0],
+        duration: 400,
+        delay: 80,
+        easing: 'easeOutBack'
+      });
+      // Stagger relation rows
+      var relRows = overlay.querySelectorAll('.rel-detail-relation-row');
+      if (relRows.length) {
+        window.anime({
+          targets: relRows,
+          translateX: [-10, 0],
+          opacity: [0, 1],
+          duration: 300,
+          delay: window.anime.stagger(40, { start: 250 }),
+          easing: 'easeOutCubic'
+        });
+      }
+    } else {
+      overlay.style.opacity = '1';
+      overlay.querySelector('.rel-detail-card').style.opacity = '1';
+      overlay.querySelector('.rel-detail-card').style.transform = 'none';
+    }
+
     // Close handlers
     overlay.querySelector('#rel-detail-close').addEventListener('click', function() {
-      overlay.remove();
+      closeDetailOverlay(overlay);
     });
     overlay.addEventListener('click', function(e) {
-      if (e.target === overlay) overlay.remove();
+      if (e.target === overlay) closeDetailOverlay(overlay);
     });
 
-    // Click on related character: navigate to their graph
+    // Click on related character
     overlay.querySelectorAll('.rel-detail-relation-row').forEach(function(row) {
       row.addEventListener('click', function() {
         var charId = parseInt(row.dataset.charId);
-        overlay.remove();
-        if (charId) showGraphPage(charId);
+        closeDetailOverlay(overlay, function() {
+          if (charId) showGraphPage(charId);
+        });
       });
     });
+  }
+
+  function closeDetailOverlay(overlay, callback) {
+    if (!overlay) return;
+    if (hasAnime()) {
+      window.anime({
+        targets: overlay,
+        opacity: [1, 0],
+        duration: 200,
+        easing: 'easeInCubic',
+        complete: function() {
+          overlay.remove();
+          if (callback) callback();
+        }
+      });
+      var card = overlay.querySelector('.rel-detail-card');
+      if (card) {
+        window.anime({
+          targets: card,
+          scale: [1, 0.92],
+          opacity: [1, 0],
+          translateY: [0, 12],
+          duration: 200,
+          easing: 'easeInCubic'
+        });
+      }
+    } else {
+      overlay.remove();
+      if (callback) callback();
+    }
   }
 
   // =============================================================
@@ -947,9 +1288,8 @@
       '<div class="rel-analysis-body" id="rel-analysis-body"></div>';
 
     var analysisBody = body.querySelector('#rel-analysis-body');
-
-    // Render existing results if any
     renderAnalysisContent(analysisBody, charId);
+    animatePageIn(body);
   }
 
   async function renderAnalysisContent(container, charId) {
@@ -979,12 +1319,13 @@
 
     var resultsDiv = container.querySelector('#rel-ai-results');
 
-    // Show existing relationships
     if (existingRels.length) {
       resultsDiv.innerHTML = '<div class="rel-analysis-card-title" style="margin-bottom:8px;font-size:13px;color:#888">Stored Relationships (' + existingRels.length + ')</div>';
       for (var i = 0; i < existingRels.length; i++) {
         resultsDiv.innerHTML += buildAnalysisRelRow(existingRels[i]);
       }
+      // Stagger animate the relation rows
+      animateStaggerItems('.rel-analysis-rel-row', resultsDiv);
     }
 
     // Extract button
@@ -1003,7 +1344,6 @@
           return;
         }
 
-        // Save extracted relationships
         var toSave = extracted.map(function(r) {
           return {
             charId: charId,
@@ -1016,7 +1356,6 @@
           };
         }).filter(function(r) { return r.targetId || r.targetName; });
 
-        // Check for existing entries and merge
         var existing = await getAllRelationships(charId);
         var existingMap = {};
         existing.forEach(function(e) { existingMap[e.targetId] = e; });
@@ -1024,14 +1363,13 @@
         for (var j = 0; j < toSave.length; j++) {
           var existingEntry = existingMap[toSave[j].targetId];
           if (existingEntry) {
-            toSave[j].id = existingEntry.id; // Update existing
+            toSave[j].id = existingEntry.id;
           }
         }
 
         await saveRelationshipsBatch(toSave);
         relToast('Extracted ' + toSave.length + ' relationships');
 
-        // Re-render
         renderAnalysisContent(container, charId);
       } catch (e) {
         console.error('[Relationship] extract error:', e);
@@ -1088,8 +1426,8 @@
 
     body.innerHTML = '<div class="rel-manage-body" id="rel-manage-body"></div>';
     loadManageList(charId);
+    animatePageIn(body);
 
-    // Add button
     page.querySelector('#rel-add-rel-btn').addEventListener('click', function() {
       showEditRelationModal(charId, null);
     });
@@ -1106,7 +1444,6 @@
 
     var html = '';
 
-    // Button to add from existing char.relations
     var char = await getChar(charId);
     if (char && char.relations && char.relations.length) {
       var unlinked = char.relations.filter(function(r) {
@@ -1145,6 +1482,9 @@
     }
 
     container.innerHTML = html;
+
+    // Stagger animate list items
+    animateStaggerItems('.rel-manage-item', container);
 
     // Bind events
     container.querySelectorAll('.rel-manage-item').forEach(function(item) {
@@ -1204,7 +1544,6 @@
   // =============================================================
 
   async function showEditRelationModal(charId, relId, targetId) {
-    // Remove existing modal
     var old = document.getElementById('rel-edit-modal');
     if (old) old.remove();
 
@@ -1259,6 +1598,25 @@
 
     document.body.appendChild(modal);
 
+    // Animate modal entrance with anime.js
+    if (hasAnime()) {
+      window.anime({
+        targets: modal,
+        opacity: [0, 1],
+        duration: 250,
+        easing: 'easeOutCubic'
+      });
+      window.anime({
+        targets: modal.querySelector('.rel-modal-sheet'),
+        translateY: ['100%', '0%'],
+        duration: 400,
+        easing: 'easeOutCubic'
+      });
+    } else {
+      modal.style.opacity = '1';
+      modal.querySelector('.rel-modal-sheet').style.transform = 'translateY(0)';
+    }
+
     // Affinity slider live update
     var affSlider = modal.querySelector('#rel-edit-affinity');
     var affVal = modal.querySelector('#rel-aff-val');
@@ -1268,12 +1626,12 @@
 
     // Cancel
     modal.querySelector('#rel-edit-cancel').addEventListener('click', function() {
-      modal.remove();
+      closeModalAnimated(modal);
     });
 
     // Click outside to close
     modal.addEventListener('click', function(e) {
-      if (e.target === modal) modal.remove();
+      if (e.target === modal) closeModalAnimated(modal);
     });
 
     // Delete
@@ -1283,8 +1641,7 @@
         if (relId) {
           await deleteRelationship(relId);
           relToast('Deleted');
-          modal.remove();
-          // Refresh manage page
+          closeModalAnimated(modal);
           loadManageList(charId);
         }
       });
@@ -1311,9 +1668,33 @@
 
       await saveRelationship(newRel);
       relToast('Saved');
-      modal.remove();
+      closeModalAnimated(modal);
       loadManageList(charId);
     });
+  }
+
+  function closeModalAnimated(modal) {
+    if (!modal) return;
+    if (hasAnime()) {
+      window.anime({
+        targets: modal,
+        opacity: [1, 0],
+        duration: 200,
+        easing: 'easeInCubic',
+        complete: function() { modal.remove(); }
+      });
+      var sheet = modal.querySelector('.rel-modal-sheet');
+      if (sheet) {
+        window.anime({
+          targets: sheet,
+          translateY: ['0%', '100%'],
+          duration: 300,
+          easing: 'easeInCubic'
+        });
+      }
+    } else {
+      modal.remove();
+    }
   }
 
   // =============================================================
@@ -1336,6 +1717,9 @@
         '<div class="rel-header-right" id="rel-header-right"></div>' +
       '</div>' +
       '<div id="rel-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>';
+
+    // Spawn floating particles
+    spawnParticles(page, 10);
 
     // Back button
     page.querySelector('#rel-back').addEventListener('click', function() {
@@ -1361,10 +1745,15 @@
     var currentTitle = title ? title.textContent : '';
 
     if (currentTitle === '关系图') {
-      // Go back to select
-      renderSelectPage(page);
+      var body = page.querySelector('#rel-body');
+      if (body && hasAnime()) {
+        animatePageOut(body, function() {
+          renderSelectPage(page);
+        });
+      } else {
+        renderSelectPage(page);
+      }
       _currentCharId = null;
-      // Cleanup graph
       if (_graphInstance) {
         try { _graphInstance._destructor && _graphInstance._destructor(); } catch(e) {}
         _graphInstance = null;
@@ -1373,15 +1762,28 @@
         window.removeEventListener('resize', _graphResizeHandler);
         _graphResizeHandler = null;
       }
+      if (_linkPulseRAF) {
+        cancelAnimationFrame(_linkPulseRAF);
+        _linkPulseRAF = null;
+      }
     } else if (currentTitle === 'AI Analysis' || currentTitle === 'Manage') {
-      // Go back to graph
-      if (_currentCharId) {
-        showGraphPage(_currentCharId);
+      var body2 = page.querySelector('#rel-body');
+      if (body2 && hasAnime()) {
+        animatePageOut(body2, function() {
+          if (_currentCharId) {
+            showGraphPage(_currentCharId);
+          } else {
+            renderSelectPage(page);
+          }
+        });
       } else {
-        renderSelectPage(page);
+        if (_currentCharId) {
+          showGraphPage(_currentCharId);
+        } else {
+          renderSelectPage(page);
+        }
       }
     } else {
-      // On select page: close
       window.closePage(PAGE_ID);
       _currentCharId = null;
       if (_graphInstance) {
@@ -1391,6 +1793,10 @@
       if (_graphResizeHandler) {
         window.removeEventListener('resize', _graphResizeHandler);
         _graphResizeHandler = null;
+      }
+      if (_linkPulseRAF) {
+        cancelAnimationFrame(_linkPulseRAF);
+        _linkPulseRAF = null;
       }
     }
   }
@@ -1426,6 +1832,34 @@
   };
 
   // Also expose entry point globally for home screen icon
+  // Global helper: get relationship context for a character
+  window.getRelationshipContext = async function(charId) {
+    try {
+      if (!window.db || !window.db.relationships) return '';
+      var rels = await db.relationships.where('charId').equals(charId).toArray();
+      if (!rels || !rels.length) return '';
+      var lines = rels.map(function(r) {
+        var target = r.targetName || r.targetId;
+        return '- ' + target + '：' + (r.type || '认识') + (r.desc ? '（' + r.desc.slice(0, 30) + '）' : '');
+      });
+      return '\n【你的人际关系】\n' + lines.join('\n');
+    } catch(e) { return ''; }
+  };
+
+  // Global helper: get specific relationship between two characters
+  window.getRelationBetween = async function(charId, targetNameOrId) {
+    try {
+      if (!window.db || !window.db.relationships) return null;
+      var rels = await db.relationships.where('charId').equals(charId).toArray();
+      for (var i = 0; i < rels.length; i++) {
+        if (rels[i].targetName === targetNameOrId || String(rels[i].targetId) === String(targetNameOrId)) {
+          return rels[i];
+        }
+      }
+      return null;
+    } catch(e) { return null; }
+  };
+
   window.showRelationshipPage = showRelationshipPage;
 
   console.log('[Relationship] Module loaded successfully');

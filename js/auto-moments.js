@@ -361,6 +361,13 @@ async function postMoment(opts) {
 
   /* 构建 prompt */
   var sys = await buildPrompt(char, mode, commentsOn, relations, opts.manual);
+  // Inject relationship context
+  if (window.getRelationshipContext) {
+    try {
+      var relCtx = await window.getRelationshipContext(charId);
+      if (relCtx) sys += relCtx;
+    } catch(_) {}
+  }
   var msgs = [{ role: 'system', content: sys }];
   var userMsg = opts.userMsg || '请生成一条朋友圈动态。';
   if (chatCtx) userMsg += '\n\n最近聊天参考：\n' + chatCtx;

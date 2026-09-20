@@ -1551,6 +1551,11 @@ async function generateAIComments(post, user) {
     var npcSample = X_NPC_TYPES.slice(0, 5).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')'; }).join('\n');
     var isAnon = post.isAnonymous || (post.authorId && post.authorId.indexOf('anon_') === 0);
 
+    var relCtx = '';
+    if (window.getRelationshipContext && post.authorId) {
+      try { relCtx = await window.getRelationshipContext(parseInt(post.authorId)); } catch(_) {}
+    }
+
     var prompt = '你是一个社交媒体评论生成器。根据以下帖子内容，生成评论互动。\n\n' +
       '帖子内容："' + post.content.slice(0, 200) + '"\n\n' +
       '可用NPC人设：\n' + npcSample + '\n\n' +
@@ -2704,8 +2709,20 @@ async function generatePostsForChar(chars, preference) {
       return (i+1) + '. ' + c.name + (c.desc ? '（' + c.desc + '）' : '') + (c.rels ? ' 关系：' + c.rels : '') + (c.people.length ? ' 人设中人物：' + c.people.join('、') : '');
     }).join('\n');
 
+    // Inject relationship context for all selected characters
+    var relCtxStr = '';
+    if (window.getRelationshipContext) {
+      try {
+        for (var ri = 0; ri < charInfos.length; ri++) {
+          var rc = await window.getRelationshipContext(charInfos[ri].id);
+          if (rc) relCtxStr += '\n' + charInfos[ri].name + '的关系网：' + rc;
+        }
+      } catch(_) {}
+    }
+
     var prompt = '你是社交媒体内容生成器。请生成5条帖子，每条来自不同的角色，每条都要有完整评论互动。\n\n' +
       '发帖角色列表：\n' + charListStr + '\n\n' +
+      (relCtxStr ? '角色关系网：' + relCtxStr + '\n\n' : '') +
       (preference ? '风格倾向：' + preference + '\n\n' : '') +
       '要求：\n' +
       '1. 每条帖子30-80字，体现该角色的性格特点\n' +
