@@ -934,14 +934,14 @@ function bindPostCardEvents(container, user) {
       };
     });
 
-    // Long press to delete NPC posts
+    // Long press to delete posts
     var _longPressTimer = null;
     container.querySelectorAll('.x-post').forEach(function(postEl) {
       var postId = postEl.dataset.postId;
       if (!postId) return;
       var posts = xLoadPosts();
       var post = posts.find(function(p) { return p.id === postId; });
-      if (!post || (!post.isNpc && !(post.authorId && post.authorId.indexOf('npc_') === 0))) return;
+      
 
       postEl.addEventListener('touchstart', function(e) {
         _longPressTimer = setTimeout(function() {
