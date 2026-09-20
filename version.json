@@ -1,5 +1,5 @@
 {
-  "version": "4.1.1",
+  "version": "4.1.2",
   "date": "2026-09-20",
-  "note": "关系网终于能打开了！修复了alert字符串未加引号导致整个JS崩溃"
+  "note": "关系网终于能打开了！var->window覆盖stub"
 }
