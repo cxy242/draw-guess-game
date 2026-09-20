@@ -136,7 +136,7 @@
   background: var(--rel-bg);
   color: var(--rel-text);
   font-family: -apple-system, 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  position: relative;
+  position: absolute;
   overflow: hidden;
 }
 
@@ -169,7 +169,7 @@
 }
 
 .rel-page > * {
-  position: relative;
+  position: absolute;
   z-index: 1;
 }
 
@@ -369,7 +369,7 @@
 /* ===== Graph Page ===== */
 .rel-graph-body {
   flex: 1;
-  position: relative;
+  position: absolute;
   overflow: hidden;
   background: var(--rel-bg);
 }
@@ -392,7 +392,7 @@
 .rel-graph-canvas-wrap {
   width: 100%;
   height: 100%;
-  position: relative;
+  position: absolute;
   z-index: 1;
 }
 
@@ -659,7 +659,7 @@
   border-radius: 3px;
   background: linear-gradient(90deg, var(--rel-accent-light), var(--rel-accent));
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
+  position: absolute;
 }
 
 /* Shimmer on affinity bar */
