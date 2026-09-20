@@ -2721,7 +2721,6 @@ async function generatePostsForChar(char, preference) {
       '{"posts":[{"content":"帖子","tags":["标签"],"comments":[{"name":"NPC","content":"评论","replyToIndex":-1},{"name":"' + char.name + '","content":"回复","replyToIndex":0,"isAuthorReply":true}]}]}';
 
     var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
-    if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
 
     if (!data.posts || !data.posts.length) throw new Error('AI未返回帖子');
