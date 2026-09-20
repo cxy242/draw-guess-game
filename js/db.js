@@ -335,6 +335,10 @@ function initDB() {
     mcpServers:        '&id, name, enabled, updatedAt',
     mcpToolTraces:     '++id, scope, conversationId, [scope+conversationId], turnId, createdAt'
   })
+  db.version(16).stores({
+    xPosts:            'id, authorId, createdAt',
+    xComments:         '++id, postId, createdAt'
+  })
   installWanWanDBRecovery()
 }
 

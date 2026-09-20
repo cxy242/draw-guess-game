@@ -189,38 +189,93 @@ function getXAvatarHTML(char) {
   } catch(e) { return buildXDefaultAvatar(''); }
 }
 
-// ===== Data Layer =====
+// ===== Data Layer (IndexedDB + Memory Cache) =====
+var _xPostsCache = null;
+var _xCommentsCache = {};
+var _xCacheLoaded = false;
+
+// Load from IndexedDB into memory cache (once)
+async function _xInitCache() {
+  if (_xCacheLoaded) return;
+  _xCacheLoaded = true;
+  try {
+    // Migrate old localStorage posts
+    var oldPosts = localStorage.getItem(X_POSTS_KEY);
+    if (oldPosts) {
+      var arr = JSON.parse(oldPosts);
+      if (arr && arr.length) {
+        for (var i = 0; i < arr.length; i++) {
+          try { await db.xPosts.put(arr[i]); } catch(_) {}
+        }
+        console.log('[X] Migrated ' + arr.length + ' posts to IndexedDB');
+      }
+      localStorage.removeItem(X_POSTS_KEY);
+    }
+    // Migrate old localStorage comments
+    var keysToRemove = [];
+    for (var j = 0; j < localStorage.length; j++) {
+      var k = localStorage.key(j);
+      if (k && k.indexOf(X_COMMENTS_PREFIX) === 0) keysToRemove.push(k);
+    }
+    for (var ki = 0; ki < keysToRemove.length; ki++) {
+      var pk = keysToRemove[ki];
+      var postId = pk.replace(X_COMMENTS_PREFIX, '');
+      try {
+        var cmts = JSON.parse(localStorage.getItem(pk));
+        if (cmts && cmts.length) {
+          for (var ci = 0; ci < cmts.length; ci++) {
+            cmts[ci].postId = postId;
+            try { await db.xComments.put(cmts[ci]); } catch(_) {}
+          }
+        }
+      } catch(_) {}
+      localStorage.removeItem(pk);
+    }
+    // Load all into memory
+    _xPostsCache = await db.xPosts.toArray();
+    _xPostsCache.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+    var allComments = await db.xComments.toArray();
+    _xCommentsCache = {};
+    allComments.forEach(function(c) {
+      if (!c.postId) return;
+      if (!_xCommentsCache[c.postId]) _xCommentsCache[c.postId] = [];
+      _xCommentsCache[c.postId].push(c);
+    });
+    console.log('[X] Cache loaded: ' + _xPostsCache.length + ' posts');
+  } catch(e) { console.warn('[X] Cache init error:', e); _xPostsCache = []; }
+}
+
+// Initialize on load
+_xInitCache();
+
 function xLoadPosts() {
-  try { return JSON.parse(localStorage.getItem(X_POSTS_KEY)) || []; } catch(e) { return []; }
+  return _xPostsCache || [];
+}
+
+function xSavePost(post) {
+  if (!_xPostsCache) _xPostsCache = [];
+  var idx = _xPostsCache.findIndex(function(p) { return p.id === post.id; });
+  if (idx >= 0) _xPostsCache[idx] = post; else _xPostsCache.unshift(post);
+  try { db.xPosts.put(post).catch(function() {}); } catch(_) {}
 }
 
 function xSavePosts(posts) {
-  try {
-    // Cleanup: remove old image keys before saving to free space
-    try {
-      var keys = [];
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf('wanwan_x_img_') === 0) keys.push(k);
-      }
-      // Keep only last 30 images, remove older ones
-      if (keys.length > 30) {
-        keys.slice(0, keys.length - 30).forEach(function(k) { localStorage.removeItem(k); });
-      }
-    } catch(_) {}
-    localStorage.setItem(X_POSTS_KEY, JSON.stringify(posts));
-  } catch(e) {
-    // If still full, try removing ALL images and retry
-    try {
-      for (var j = localStorage.length - 1; j >= 0; j--) {
-        var k2 = localStorage.key(j);
-        if (k2 && k2.indexOf('wanwan_x_img_') === 0) localStorage.removeItem(k2);
-      }
-      localStorage.setItem(X_POSTS_KEY, JSON.stringify(posts));
-    } catch(_) {
-      try { window.toast && window.toast('存储空间不足'); } catch(__) {}
-    }
+  if (!_xPostsCache) _xPostsCache = [];
+  for (var i = 0; i < posts.length; i++) {
+    var idx = _xPostsCache.findIndex(function(p) { return p.id === posts[i].id; });
+    if (idx >= 0) _xPostsCache[idx] = posts[i]; else _xPostsCache.push(posts[i]);
+    try { db.xPosts.put(posts[i]).catch(function() {}); } catch(_) {}
   }
+  _xPostsCache.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+}
+
+function xDeletePost(postId) {
+  if (_xPostsCache) {
+    _xPostsCache = _xPostsCache.filter(function(p) { return p.id !== postId; });
+  }
+  delete _xCommentsCache[postId];
+  try { db.xPosts.delete(postId).catch(function() {}); } catch(_) {}
+  try { db.xComments.where('postId').equals(postId).delete().catch(function() {}); } catch(_) {}
 }
 
 function xSaveImage(key, dataUrl) {
@@ -268,11 +323,29 @@ function xPickImage(callback, maxSize) {
 }
 
 function xLoadComments(postId) {
-  try { return JSON.parse(localStorage.getItem(X_COMMENTS_PREFIX + postId)) || []; } catch(e) { return []; }
+  return (_xCommentsCache[postId] || []).slice().sort(function(a, b) {
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
+}
+
+function xSaveComment(comment) {
+  if (!comment.postId) return;
+  if (!_xCommentsCache[comment.postId]) _xCommentsCache[comment.postId] = [];
+  var arr = _xCommentsCache[comment.postId];
+  var idx = arr.findIndex(function(c) { return c.id === comment.id; });
+  if (idx >= 0) arr[idx] = comment; else arr.push(comment);
+  try { db.xComments.put(comment).catch(function() {}); } catch(_) {}
 }
 
 function xSaveComments(postId, comments) {
-  try { localStorage.setItem(X_COMMENTS_PREFIX + postId, JSON.stringify(comments)); } catch(e) {}
+  if (!_xCommentsCache[postId]) _xCommentsCache[postId] = [];
+  for (var i = 0; i < comments.length; i++) {
+    comments[i].postId = postId;
+    var arr = _xCommentsCache[postId];
+    var idx = arr.findIndex(function(c) { return c.id === comments[i].id; });
+    if (idx >= 0) arr[idx] = comments[i]; else arr.push(comments[i]);
+    try { db.xComments.put(comments[i]).catch(function() {}); } catch(_) {}
+  }
 }
 
 function xLoadNotifications() {
@@ -840,6 +913,30 @@ function bindPostCardEvents(container, user) {
           if (charId && charId.indexOf('npc_') !== 0) showXCharacterProfile(charId, user);
         } catch(err) {}
       };
+    });
+
+    // Long-press to delete post (600ms)
+    container.querySelectorAll('.x-post').forEach(function(card) {
+      var lpTimer = null;
+      function onStart(e) {
+        lpTimer = setTimeout(function() {
+          var postId = card.dataset.postId;
+          if (!postId) return;
+          if (confirm('删除这条帖子？')) {
+            xDeletePost(postId);
+            card.style.transition = 'opacity 0.3s';
+            card.style.opacity = '0';
+            setTimeout(function() { card.remove(); }, 300);
+            showToast('已删除');
+          }
+        }, 600);
+      }
+      function onEnd() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }
+      card.addEventListener('touchstart', onStart, { passive: true });
+      card.addEventListener('touchend', onEnd);
+      card.addEventListener('touchmove', onEnd);
+      card.addEventListener('mousedown', onStart);
+      card.addEventListener('mouseup', onEnd);
     });
 
     // Reveal anonymous
