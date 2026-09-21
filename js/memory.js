@@ -18,6 +18,41 @@
   var ROLE_SUBTITLE_DEFAULT = '于是我们建立羁绊'
   var _launchFilter = null
 
+  // --- Early assignment: ensure window.WanWanMemory is always available ---
+  // All functions below are hoisted declarations, so refs resolve here
+  window.WanWanMemory = {
+    getSettings: getSettings,
+    saveSettings: saveSettings,
+    summarizeIfNeeded: summarizeIfNeeded,
+    summarizeNow: summarizeNow,
+    summarizeMeeting: summarizeMeeting,
+    getMemoryContext: getMemoryContext,
+    getMemoryPanelContext: getMemoryPanelContext,
+    listMemories: listMemories,
+    testEmbedding: testEmbedding,
+    getDecayScore: getDecayScore,
+    getDecayPercent: getDecayPercent,
+    recallMemory: recallMemory,
+    autoRecallMemories: autoRecallMemories,
+    getFailedRuns: getFailedRuns,
+    retrySummary: retrySummary,
+    logStructuredEvent: logStructuredEvent,
+    getStructuredEvents: getStructuredEvents,
+    getStructuredEventContext: getStructuredEventContext,
+    detectAndLogEvent: detectAndLogEvent,
+    extractFacts: extractFacts,
+    autoExtractAndStore: autoExtractAndStore,
+    getFormattedNow: getFormattedNow,
+    getTimeSinceLastChat: getTimeSinceLastChat,
+    buildTimeAwarenessContext: buildTimeAwarenessContext,
+    saveConversationProgress: saveConversationProgress,
+    getConversationProgress: getConversationProgress,
+    getConversationProgressContext: getConversationProgressContext,
+    dreamConsolidate: dreamConsolidate,
+    detectEmotion: detectEmotion,
+    resolveConflict: resolveConflict
+  }
+
   // --- imprint-memory dual-write helper ---
   var IMPRINT_SOURCE_MAP = { wechat: 'events', x: 'events', sms: 'events', moments: 'events', offline: 'events', manual: 'facts', offlineMeet: 'events', ensemble: 'events' }
   function syncToImprintMemory(memory) {
@@ -2296,37 +2331,5 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     return parts.join('\uff0c')
   }
 
-  window.WanWanMemory = {
-    getSettings: getSettings,
-    saveSettings: saveSettings,
-    summarizeIfNeeded: summarizeIfNeeded,
-    summarizeNow: summarizeNow,
-    summarizeMeeting: summarizeMeeting,
-    getMemoryContext: getMemoryContext,
-    getMemoryPanelContext: getMemoryPanelContext,
-    listMemories: listMemories,
-    testEmbedding: testEmbedding,
-    getDecayScore: getDecayScore,
-    getDecayPercent: getDecayPercent,
-    recallMemory: recallMemory,
-    autoRecallMemories: autoRecallMemories,
-    getFailedRuns: getFailedRuns,
-    retrySummary: retrySummary,
-    logStructuredEvent: logStructuredEvent,
-    getStructuredEvents: getStructuredEvents,
-    getStructuredEventContext: getStructuredEventContext,
-    detectAndLogEvent: detectAndLogEvent,
-    extractFacts: extractFacts,
-    autoExtractAndStore: autoExtractAndStore,
-    getFormattedNow: getFormattedNow,
-    getTimeSinceLastChat: getTimeSinceLastChat,
-    buildTimeAwarenessContext: buildTimeAwarenessContext,
-    saveConversationProgress: saveConversationProgress,
-    getConversationProgress: getConversationProgress,
-    getConversationProgressContext: getConversationProgressContext,
-    dreamConsolidate: dreamConsolidate,
-    detectEmotion: detectEmotion,
-    resolveConflict: resolveConflict
-  }
   } catch(e) { console.error('[Memory] IIFE error:', e); }
 })()

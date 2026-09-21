@@ -29,7 +29,7 @@ var DESKTOP_ICONS = [
   { id: 'instagram', svg: SVG_ICONS.instagram,          label: 'Instagram', action: function() { window.showIGPage && showIGPage() } },
   { id: 'miss-you',  fa: 'fa-solid fa-fire-flame-curved', label: '想见你',  action: function() { window.showMissYouPage && showMissYouPage() } },
   { id: 'ensemble',  fa: 'fa-solid fa-users', label: '群像',  action: function() { window.showEnsemblePage && showEnsemblePage() } },
-  { id: "relationship", svg: SVG_ICONS.relationship, label: "关系网", action: function() { window.showRelationshipPage && showRelationshipPage() } },
+  { id: "relationship", svg: SVG_ICONS.relationship, label: "关系网", action: function() { try { if (window.showRelationshipPage) showRelationshipPage(); else window.toast && window.toast("关系网模块未加载"); } catch(e) { console.error("[Rel] Error:", e); window.toast && window.toast("关系网错误: " + e.message); } } },
   { id: 'memory',    fa: 'fa-brands fa-deezer',         label: '记忆',     action: function() { window.showMemoryPage && showMemoryPage() } },
   { id: 'wallet',    fa: 'fa-brands fa-apple-pay',      label: '钱迹',     action: function() { window.showWalletApp && showWalletApp() } },
   { id: 'taobao',    svg: SVG_ICONS.taobao,             label: '淘宝',     action: function() { window.showTaobaoPage && showTaobaoPage() } },
