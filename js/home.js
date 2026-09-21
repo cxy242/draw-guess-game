@@ -64,11 +64,7 @@ if (!window.showRelationshipPage) {
             el.onclick = function() {
               var cid = parseInt(el.dataset.charId);
               window.toast && window.toast('\u6253\u5f00 ' + el.querySelector('div > div').textContent + ' \u7684\u5173\u7cfb\u7f51...');
-              if (window.RelationshipModule && window.RelationshipModule.renderGraph) {
-                window.RelationshipModule.renderGraph(page, cid);
-              } else if (typeof _relRenderGraph === 'function') {
-                _relRenderGraph(page, cid);
-              }
+              _relOpenCharGraph(page, cid);
             };
           });
         }).catch(function() {});
@@ -77,6 +73,106 @@ if (!window.showRelationshipPage) {
   };
 }
 
+
+
+// Full graph rendering with AI generation for relationship module
+function _relOpenCharGraph(page, charId) {
+  var body = page.querySelector('#rel-top-body');
+  if (!body) return;
+  body.innerHTML = '<div style="text-align:center;padding:40px;color:#999"><i class="fa fa-spinner fa-spin"></i> \u52a0\u8f7d\u4e2d...</div>';
+  db.relationships.where('charId').equals(charId).toArray().then(function(existing) {
+    if (existing && existing.length > 0) { _relShowGraph(page, charId, existing); }
+    else { _relAiGen(page, charId); }
+  }).catch(function() { _relAiGen(page, charId); });
+}
+
+function _relAiGen(page, charId) {
+  if (!window.callAI) { var b=page.querySelector('#rel-top-body'); if(b) b.innerHTML='<div style="text-align:center;padding:40px;color:#e74c3c">AI\u670d\u52a1\u672a\u914d\u7f6e</div>'; return; }
+  var body = page.querySelector('#rel-top-body');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:#5b9aff"><i class="fa fa-wand-magic-sparkles"></i> AI\u6b63\u5728\u5206\u6790\u4eba\u8bbe\u751f\u6210\u5173\u7cfb\u7f51...</div>';
+  db.characters.get(charId).then(function(char) {
+    if (!char) return;
+    var prompt = '\u4f60\u662f\u5173\u7cfb\u7f51\u7edc\u5206\u6790\u5668\u3002\u6839\u636e\u4ee5\u4e0b\u89d2\u8272\u4eba\u8bbe\uff0c\u63d0\u53d6\u6240\u6709\u63d0\u5230\u7684\u4eba\u7269\u548c\u4ed6\u4eec\u4e0e\u89d2\u8272\u7684\u5173\u7cfb\u3002\n\n\u89d2\u8272\u540d\uff1a' + char.name + '\n\u4eba\u8bbe\uff1a\n' + (char.description || '\u6682\u65e0') + '\n\n\u8fd4\u56deJSON\uff1a{"relations":[{"name":"\u4eba\u540d","type":"\u5173\u7cfb\u7c7b\u578b","desc":"\u7b80\u77ed\u63cf\u8ff0"}]}';
+    return window.callAI([{role:'user', content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
+  }).then(function(raw) {
+    if (!raw) return;
+    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
+    if (!data || !data.relations || !data.relations.length) { var b=page.querySelector('#rel-top-body'); if(b) b.innerHTML='<div style="text-align:center;padding:40px;color:#999">\u4eba\u8bbe\u4e2d\u672a\u627e\u5230\u76f8\u5173\u4eba\u7269</div>'; return; }
+    var promises = data.relations.map(function(r, i) {
+      if (!r.name) return Promise.resolve();
+      return db.relationships.add({charId:charId, targetId:'npc_'+Date.now()+'_'+i, targetName:r.name, targetAvatar:'', type:r.type||'\u8ba4\u8bc6', desc:r.desc||'', affinity:50, source:'ai', createdAt:Date.now(), updatedAt:Date.now()});
+    });
+    return Promise.all(promises).then(function() { return db.relationships.where('charId').equals(charId).toArray(); });
+  }).then(function(rels) {
+    if (rels && rels.length) _relShowGraph(page, charId, rels);
+  }).catch(function(e) {
+    console.error('[Rel] AI error:', e);
+    var b=page.querySelector('#rel-top-body'); if(b) b.innerHTML='<div style="text-align:center;padding:40px;color:#e74c3c">AI\u751f\u6210\u5931\u8d25: '+e.message+'</div>';
+  });
+}
+
+function _relShowGraph(page, charId, rels) {
+  var body = page.querySelector('#rel-top-body');
+  if (!body) return;
+  body.innerHTML = '<div id="rel-graph-wrap" style="flex:1;width:100%;height:100%"></div>';
+  var wrap = body.querySelector('#rel-graph-wrap');
+  if (!wrap) return;
+  if (!window.ForceGraph) { wrap.innerHTML = '<div style="text-align:center;padding:40px;color:#999">ForceGraph\u672a\u52a0\u8f7d</div>'; return; }
+  db.characters.toArray().then(function(allChars) {
+    var center = allChars.find(function(c){return c.id===charId;});
+    if (!center) return;
+    var nodes = [{id:'c'+charId, name:center.name, avatar:center.avatar, type:'center'}];
+    var links = [];
+    var seen = {};
+    rels.forEach(function(r) {
+      var nid = String(r.targetId).indexOf('npc_')===0 ? r.targetId : 'c'+r.targetId;
+      var nname = r.targetName || String(r.targetId);
+      var nav = r.targetAvatar || '';
+      if (!seen[nid]) {
+        seen[nid] = true;
+        var tc = allChars.find(function(c){return String(c.id)===String(r.targetId);});
+        if (tc) { nname=tc.name; nav=tc.avatar||''; }
+        nodes.push({id:nid, name:nname, avatar:nav, type:'related', relType:r.type});
+      }
+      links.push({source:'c'+charId, target:nid, type:r.type});
+    });
+    var w = wrap.clientWidth || 300;
+    var h = wrap.clientHeight || 400;
+    var graph = window.ForceGraph()(wrap)
+      .graphData({nodes:nodes, links:links})
+      .backgroundColor('#f7f7f8').width(w).height(h)
+      .nodeVal(function(n){return n.type==='center'?30:20;})
+      .linkColor(function(){return 'rgba(107,125,141,0.3)';})
+      .linkWidth(function(){return 1.5;})
+      .d3AlphaDecay(0.02).d3VelocityDecay(0.3).cooldownTime(3000)
+      .nodeCanvasObject(function(node, ctx, gs) {
+        var size = node.type==='center'?22:16;
+        var fs = 11/gs;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(node.x,node.y,size,0,2*Math.PI); ctx.closePath(); ctx.clip();
+        if (node._img && node._imgLoaded) {
+          try{ctx.drawImage(node._img,node.x-size,node.y-size,size*2,size*2);}catch(e){}
+        } else {
+          var grad = ctx.createRadialGradient(node.x,node.y,0,node.x,node.y,size);
+          grad.addColorStop(0,'#e8e8e8'); grad.addColorStop(1,'#ccc');
+          ctx.fillStyle=grad; ctx.fillRect(node.x-size,node.y-size,size*2,size*2);
+          if (node.avatar && !node._imgLoading) {
+            node._imgLoading=true;
+            var img=new Image(); img.crossOrigin='anonymous';
+            img.onload=function(){node._img=img;node._imgLoaded=true;graph.refresh();};
+            img.onerror=function(){node._imgLoading=false;};
+            img.src=node.avatar;
+          }
+        }
+        ctx.restore();
+        ctx.beginPath(); ctx.arc(node.x,node.y,size,0,2*Math.PI);
+        ctx.strokeStyle=node.type==='center'?'rgba(107,125,141,0.6)':'rgba(0,0,0,0.08)';
+        ctx.lineWidth=node.type==='center'?2:1; ctx.stroke();
+        if(fs>0){ctx.textAlign='center';ctx.textBaseline='top';ctx.font=(node.type==='center'?'bold ':'')+fs+'px -apple-system,sans-serif';ctx.fillStyle='#2d2b2e';ctx.fillText(node.name||'?',node.x,node.y+size+3);}
+      });
+    setTimeout(function(){graph.zoomToFit(400,50);},500);
+  });
+}
 
 // ===== 桌面图标配置 =====
 var DESKTOP_ICONS = [
