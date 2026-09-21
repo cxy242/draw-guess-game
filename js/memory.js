@@ -2,6 +2,7 @@
 // 依赖：db.js, settings.js, wechat.js 可选
 
 (function() {
+  try {
   var DEFAULT_SETTINGS = {
     enabled: true,
     summarizeEvery: 10,
@@ -2327,4 +2328,5 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     detectEmotion: detectEmotion,
     resolveConflict: resolveConflict
   }
+  } catch(e) { console.error('[Memory] IIFE error:', e); }
 })()

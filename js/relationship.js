@@ -1715,6 +1715,7 @@ window.relDelete = _relDelete;
 // =============================================================
 
 window.showRelationshipPage = async function() {
+  window.toast && window.toast('\u5173\u7cfb\u7f51v5\u52a0\u8f7d\u4e2d...');
   try {
     // Check auto-refresh
     var needsRefresh = _relCheckAutoRefresh();
