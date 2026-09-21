@@ -815,14 +815,14 @@ ${MISS_BEAUTY_CLASS_TEXT}`
         const summaryMessages = buildMeetingSummaryMessages(rows, settings)
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
-            summaryResult = await window.WanWanMemory.summarizeMeeting(
+            summaryResult = window.WanWanMemory ? await window.WanWanMemory.summarizeMeeting(
               state.chat.id,
               state.chat.charId,
               state.ownerUid,
               sessionId,
               summaryMessages,
               endedAt
-            )
+            ) : {ok: false}
             summaryError = null
             break
           } catch (error) {
@@ -1952,14 +1952,14 @@ ${memoryCtx}`
         if (!confirmed) return
         button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>'
         const summaryMessages = buildMeetingSummaryMessages(record.messages, settings)
-        const result = await window.WanWanMemory.summarizeMeeting(
+        const result = window.WanWanMemory ? await window.WanWanMemory.summarizeMeeting(
           chat.id,
           chat.charId,
           ownerUid,
           record.sessionId,
           summaryMessages,
           record.endedAt
-        )
+        ) : {ok: false}
         const summarizedAt = Date.now()
         await db.offlineChats.bulkPut(record.messages.map(message => ({
           ...message,
