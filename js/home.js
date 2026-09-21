@@ -102,7 +102,15 @@ function _relAiGen(page, charId) {
       if (!r.name) return Promise.resolve();
       return db.relationships.add({charId:charId, targetId:'npc_'+Date.now()+'_'+i, targetName:r.name, targetAvatar:'', type:r.type||'\u8ba4\u8bc6', desc:r.desc||'', affinity:50, source:'ai', createdAt:Date.now(), updatedAt:Date.now()});
     });
-    return Promise.all(promises).then(function() { return db.relationships.where('charId').equals(charId).toArray(); });
+    return Promise.all(promises).then(function(results) {
+              console.log('[Rel] Saved', results.length, 'relationships');
+              window.toast && window.toast('\u5df2\u751f\u6210 ' + results.length + ' \u6761\u5173\u7cfb');
+              return db.relationships.where('charId').equals(charId).toArray();
+            }).catch(function(e) {
+              console.error('[Rel] Save error:', e);
+              window.toast && window.toast('\u4fdd\u5b58\u5931\u8d25: ' + e.message);
+              return [];
+            });
   }).then(function(rels) {
     if (rels && rels.length) _relShowGraph(page, charId, rels);
   }).catch(function(e) {
@@ -146,6 +154,7 @@ function _relShowGraph(page, charId, rels) {
       .linkWidth(function(){return 1.5;})
       .d3AlphaDecay(0.02).d3VelocityDecay(0.3).cooldownTime(3000)
       .nodeCanvasObject(function(node, ctx, gs) {
+        if (isNaN(node.x) || isNaN(node.y)) return;
         var size = node.type==='center'?22:16;
         var fs = 11/gs;
         ctx.save();

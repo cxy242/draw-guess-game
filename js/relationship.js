@@ -128,12 +128,12 @@ async function _relRenderGraph(page, charId) {
         try { ctx.drawImage(node._img, node.x - size, node.y - size, size * 2, size * 2); } catch(e) { _relDrawFallback(ctx, node, size); }
       } else {
         _relDrawFallback(ctx, node, size);
-        if (node.avatar && !node._imgLoading) {
+        if (node.avatar && !node._imgLoading && !node._imgFailed) {
           node._imgLoading = true;
           var img = new Image();
           img.crossOrigin = 'anonymous';
           img.onload = function() { node._img = img; node._imgLoaded = true; window._relGraph && window._relGraph.refresh(); };
-          img.onerror = function() { node._imgLoading = false; };
+          img.onerror = function() { node._imgLoading = false; node._imgFailed = true; };
           img.src = node.avatar;
         }
       }
