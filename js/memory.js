@@ -512,7 +512,8 @@ function buildSummaryPrompt(messages, charName, userName) {
           var h = d.getHours()
           var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
           var min = d.getMinutes()
-          timeStr = '[' + d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h + '点' + (min > 0 ? min + '分' : '') + '] '
+          var h12 = h % 12 || 12
+          timeStr = '[' + d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + (min > 0 ? min + '分' : '') + '] '
         }
       }
       return timeStr + speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
@@ -760,7 +761,8 @@ ${lines}`
         fromMsgId: fromMsgId, toMsgId: toMsgId,
         sourceAt: sourceAt,
         sourceStartTime: sourceStartTime,
-        sourceEndTime: sourceAt
+        sourceEndTime: sourceAt,
+        createdAt: sourceStartTime || sourceAt // [v6.2.2] 记忆行createdAt=事情发生时刻（批次首条），不是总结时刻
       })
       if (!row) continue
       row.sourceType = 'wechat'
@@ -944,7 +946,7 @@ ${lines}`
   }
 
   async function getMemoryContext(chatId, charId, ownerUid, recentMessages) {
-    if (!db.memories || !ownerUid || !chatId || !charId) return ''
+    if (!db.memories || !ownerUid || !charId) return '' // [v6.2.2] chatId 可为 null（auto-moments 等跨模块调用），搜索本就不限 chatId
     var settings = await getSettings(chatId)
     if (!settings.enabled) return ''
     // 搜索该角色的所有记忆（不限chatId），让记忆跨聊天联通
@@ -974,7 +976,7 @@ ${lines}`
       }
     }).sort(function(a, b) { return b.score - a.score })
     // 返回 top 5-8 条
-    var surfacelimit = Math.max(5, Math.min(8, settings.injectLimit))
+    var surfacelimit = Math.max(1, Math.min(8, settings.injectLimit)) // [v6.2.2] 设置真生效：下限1(原钳死5-8致用户设置无效)，上限8留性能保护
     var selected = scored.slice(0, surfacelimit).filter(function(x) { return x.score > 0.05 || x.memory.status === 'active' })
     var now = Date.now()
     await Promise.all(selected.map(function(x) {
@@ -1092,7 +1094,8 @@ ${lines}`
     var h = d.getHours()
     var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
     var min = d.getMinutes()
-    return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h + ':' + (min < 10 ? '0' : '') + min
+    var h12 = h % 12 || 12
+    return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + (min > 0 ? min + '分' : '')
   }
 
   function formatRelativeTime(ts) {
@@ -2170,7 +2173,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
     events.push({
       timestamp: now,
-      timeStr: d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(),
+      timeStr: d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + (h % 12 || 12) + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(),
       event: String(eventData.event).slice(0, 200),
       location: eventData.location || '',
       participants: eventData.participants || [],
