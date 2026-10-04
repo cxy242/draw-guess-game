@@ -198,7 +198,6 @@ function bindPanelEvents(panel) {
    v3: 补回逻辑重写，确保 ownerUid 正确
    ══════════════════════════════════════════════════ */
 var _LAST_MOMENT_KEY = 'autoMomentsLastPost';
-var _inflight = false; /* [v1.1修复·竞态] tick 在途标志 */
 
 async function startScheduler() {
   stopScheduler();
@@ -240,12 +239,10 @@ async function startScheduler() {
   // 启动定时器
   _timer = setTimeout(async function tick() {
     console.log('[AutoMoments] 定时发帖触发');
-    _inflight = true; /* [v1.1修复·竞态] 发帖在途守卫：防 keepalive 兜底双发（克劳德遗留1） */
     try {
       var result = await postMoment();
       if (result) console.log('[AutoMoments] 发帖成功:', result.content ? result.content.slice(0, 20) : '');
     } catch (e) { console.warn('[AutoMoments] 发帖失败:', e); }
-    finally { _inflight = false; }
     localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
     var h = await getCfg(AM.interval) || 4;
     _timer = setTimeout(tick, h * 3600000);
@@ -263,69 +260,17 @@ function stopScheduler() {
    ══════════════════════════════════════════════════ */
 
 /* 补回：一次API生成N条朋友圈（省API！） */
-/* [v1.3修复·P0] getRecentChat 幽灵函数复活（.bak 原文完整搬回，单发三路救命）
-   祖传病：某次合并把定义弄丢，L366 裸调用 → postMoment 一进就 ReferenceError */
-/* [v1.3修复·P0] genImages 幽灵函数复活（同 getRecentChat 祖传合并事故，配图路径救命）
-   L404 裸调用，无定义时 imagesOn 开启必 ReferenceError */
-async function genImages(char, data) {
-  try {
-    var url   = await getCfg('imageGenApiUrl');
-    var key   = await getCfg('imageGenApiKey');
-    var model = await getCfg('imageGenModel');
-    if (!url || !key) return;
-
-    var descs = (data.imagesDesc || []).slice(0, 3); /* 最多3张 */
-    if (!descs.length) return;
-
-    var imgKeys = [];
-    for (var i = 0; i < descs.length; i++) {
-      try {
-        var prompt = '生活照片风格，' + descs[i] + '，手机拍摄，自然光';
-        var resp = await fetch(url.replace(/\/+$/, '') + '/images/generations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-          body: JSON.stringify({
-            model: model || 'dall-e-3',
-            prompt: prompt,
-            n: 1,
-            size: '1024x1024',
-            response_format: 'b64_json'
-          })
-        });
-        if (!resp.ok) continue;
-        var r = await resp.json();
-        if (r.data && r.data[0] && r.data[0].b64_json) {
-          var imgKey = 'am_img_' + Date.now() + '_' + i;
-          localStorage.setItem(imgKey, 'data:image/png;base64,' + r.data[0].b64_json);
-          imgKeys.push(imgKey);
-        }
-      } catch (_) {}
-    }
-    /* 把图片key列表挂到 data 上，postMoment 会持久化到 DB */
-    if (imgKeys.length) data._imgKeys = imgKeys;
-  } catch (e) { console.warn('[AutoMoments] 配图失败:', e); }
-}
-
-async function getRecentChat(charId, charName) {
-  try {
-    var uid = (window._wechatUid || await getCfg('currentUserId'));
-    if (!uid) return '';
-    var chat = await window.db.chats.where({ charId: charId, ownerUid: uid }).first();
-    if (!chat) return '';
-    var msgs = await window.db.messages.where('chatId').equals(chat.id).reverse().limit(8).toArray();
-    return msgs.reverse().map(function (m) {
-      return (m.role === 'user' ? '用户' : charName) + '：' + (m.content || '').slice(0, 60);
-    }).join('\n');
-  } catch (_) { return ''; }
-}
-
 async function catchUpMoments(count) {
   console.log('[AutoMoments] catchUpMoments count=' + count);
   if (!window.callAI) { console.warn('[AutoMoments] callAI不可用'); return 0; }
 
-  // [v1.1修复] 记忆联通段原在 char 定义前早引用（char.id → TypeError 被空catch吞，联通是摆设），
-  // 挪到 picked 确定后、callAI 之前（克劳德审查遗留2+3）
+  // 记忆联通：加载角色记忆
   var memCtx = '';
+  try {
+    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
+      memCtx = await window.WanWanMemory.getMemoryContext(null, char.id, window._wechatUid, []);
+    }
+  } catch(e) {}
   var charIds = await getCfg(AM.chars) || [];
   if (!charIds.length) { console.warn('[AutoMoments] 未配置发帖角色'); return 0; }
   var mode = await getCfg(AM.mode) || 'daily';
@@ -334,15 +279,9 @@ async function catchUpMoments(count) {
     var c = await window.db.characters.get(charIds[ci]);
     if (c) chars.push(c);
   }
-  if (!chars.length) { console.warn('[AutoMoments] 配置的角色均不可用'); return 0; }
+  if (!chars.length) return 0;
   var picked = [];
   for (var i = 0; i < count; i++) picked.push(chars[Math.floor(Math.random() * chars.length)]);
-  // [v1.1修复] 记忆加载：picked 确定后取首角记忆（原 L271 char.id 早引用已废）
-  try {
-    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext && picked[0]) {
-      memCtx = await window.WanWanMemory.getMemoryContext(null, picked[0].id, window._wechatUid, []);
-    }
-  } catch(e) { console.warn('[AutoMoments] 记忆上下文加载失败:', e); }
   var charDescs = picked.map(function(c, i) { return (i+1) + '. ' + c.name; }).join(', ');
   var modeDesc = mode === 'daily' ? '80%日常+20%提到用户' : '50%日常+50%提到用户';
   // 获取其他AI角色
@@ -359,9 +298,8 @@ async function catchUpMoments(count) {
     '\u8fd4\u56deJSON\uff1a{posts:[{text:\u6587\u6848,likes:[\u4eba\u540d],comments:[{from:\u4eba,to:null,text:\u8bc4\u8bba}]}]}';
 
 try {
-  // [v1.1修复] 记忆拼接必须在 callAI 之前（原 L302 拼接晚于调用，memCtx 永远进不了 AI）
-  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
+  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = parseJSON(raw);
     if (!data || !Array.isArray(data.posts)) {
       console.warn('[AutoMoments] AI返回格式错误:', raw ? raw.slice(0, 100) : 'null');
@@ -686,26 +624,12 @@ async function batchPostMoments(charIds, countPerChar) {
   // 获取所有AI角色信息
   var allAIChars = [];
   try { allAIChars = await window.db.characters.where('type').equals('char').toArray(); } catch(_) {}
-  var otherAI = allAIChars || []; /* [v1.3修复·P1] 原 L675 otherAI 未声明——就地取材 allAIChars */
-  /* [v1.3修复·P0] memCtx 未声明（原 L650 读未声明变量必炸，批量路径 100% 失败）——
-     多角记忆全带+角色名标签（清波2账：防 deep catch-up 串角） */
-  var memCtx = '';
-  try {
-    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
-      var memParts = [];
-      for (var mi = 0; mi < chars.length; mi++) {
-        var mc = await window.WanWanMemory.getMemoryContext(null, chars[mi].id, window._wechatUid, []);
-        if (mc) memParts.push('角色' + chars[mi].name + '的记忆：\n' + mc.slice(0, 400));
-      }
-      memCtx = memParts.join('\n\n');
-    }
-  } catch(e) { console.warn('[AutoMoments] 多角记忆加载失败:', e); }
 
   var prompt = '为以下' + chars.length + '个角色各生成' + countPerChar + '条朋友圈。\n\n' +
     '角色：\n' + charDescs + '\n\n' +
     '评论人可选（各有独特人设）：' + relStr + "\n\n" +
     '评论人人设：\n' + allAIChars.map(function(c){return c.name+"："+((c.description||c.persona||"").slice(0,50))}).join("\n") + "\n\n" +
-     '\n\n' +
+     + '\n\n' +
     '要求：\n' +
     '1. 每条1-3句，不超过80字，口语化自然\n' +
     '2. 每条配5条评论。评论人来源：角色的关系人 + 其他AI角色（' + allAIChars.map(function(c) { return c.name; }).filter(function(n) { return n; }).join('、') + '）\n' +
@@ -716,9 +640,8 @@ async function batchPostMoments(charIds, countPerChar) {
 
   window.toast && window.toast('正在生成' + totalCount + '条朋友圈...');
   try {
-  // [v1.2修复·第二现场] 记忆拼接必须在 callAI 之前（小艾终审抓的 L649-650 同款病，斩草除根）
-  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
+  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
     var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
     if (!data || !data.posts || !data.posts.length) { window.toast && window.toast('AI未返回内容'); return 0; }
 
@@ -984,26 +907,6 @@ if ('serviceWorker' in navigator) {
       if (typeof startScheduler === 'function') {
         startScheduler();
       }
-    }
-    /* [死链修复v1·A方案] sw.js 从不发 auto-moments-check（死链实锤 2026-10-04），
-       改为复用现成 keepalive-ping 心跳（sw.js 每 2 分钟发一次）顺带查发帖时机。
-       与 tick 共用 _LAST_MOMENT_KEY 的 elapsed 判断，天然防重：
-       页面开着时 tick 定时器管，页面重开/后台场景由心跳兜底。 */
-    if (e.data && e.data.type === 'keepalive-ping') {
-      (async function () {
-        try {
-          if (!await getCfg(AM.enabled)) return;
-          if (_inflight) { return; } /* [v1.1修复·竞态] 发帖在途，跳过防双发 */
-          var now = Date.now();
-          var last = parseInt(localStorage.getItem(_LAST_MOMENT_KEY) || '0');
-          var h = await getCfg(AM.interval) || 4;
-          var intervalMs = h * 3600000;
-          if (last && now - last >= intervalMs) {
-            console.log('[AutoMoments] keepalive 兜底检查：已到发帖时机，补发');
-            startScheduler(); /* 内部自带补回+tick，会更新 _LAST_MOMENT_KEY 防重 */
-          }
-        } catch (e) { console.warn('[AutoMoments] keepalive 兜底检查失败:', e); }
-      })();
     }
   });
 }
