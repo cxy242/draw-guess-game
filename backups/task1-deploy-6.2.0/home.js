@@ -17,15 +17,10 @@ var SVG_ICONS = {
 }
 
 
-// Fallback: ensure showRelationshipPage always exists
-if (!window.showRelationshipPage) {
-  window.showRelationshipPage = async function() {
-    window.toast && window.toast('关系图谱未加载，显示简化列表');
-    /* [XSS修复v1.1] 兜底自包含本地 esc（与 relmap.js MINIMAL 同款） */
-    var _fbEsc = function (s) {
-      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    };
+// Fallback: ensure showRelmapPage always exists
+if (!window.showRelmapPage) {
+  window.showRelmapPage = async function() {
+    window.toast && window.toast('关系图谱加载中...');
     try {
       var old = document.getElementById('rel-page');
       if (old) old.remove();
@@ -55,8 +50,8 @@ if (!window.showRelationshipPage) {
           var html = '';
           chars.forEach(function(c) {
             html += '<div style="display:flex;align-items:center;padding:14px 16px;margin-bottom:10px;background:#fff;border:1px solid rgba(107,125,141,0.12);border-radius:12px;cursor:pointer" data-id="' + c.id + '">';
-            html += '<div style="width:44px;height:44px;border-radius:50%;background:rgba(107,125,141,0.1);display:flex;align-items:center;justify-content:center;font-weight:700;color:#6b7d8d">' + _fbEsc((c.name||'?')[0]) + '</div>';
-            html += '<div style="flex:1;margin-left:12px;font-size:15px;font-weight:600">' + _fbEsc(c.name||'') + '</div></div>';
+            html += '<div style="width:44px;height:44px;border-radius:50%;background:rgba(107,125,141,0.1);display:flex;align-items:center;justify-content:center;font-weight:700;color:#6b7d8d">' + (c.name||'?')[0] + '</div>';
+            html += '<div style="flex:1;margin-left:12px;font-size:15px;font-weight:600">' + (c.name||'') + '</div></div>';
           });
           body.innerHTML = html;
         });
@@ -77,7 +72,7 @@ var DESKTOP_ICONS = [
   { id: 'instagram', svg: SVG_ICONS.instagram,          label: 'Instagram', action: function() { window.showIGPage && showIGPage() } },
   { id: 'miss-you',  fa: 'fa-solid fa-fire-flame-curved', label: '想见你',  action: function() { window.showMissYouPage && showMissYouPage() } },
   { id: 'ensemble',  fa: 'fa-solid fa-users', label: '群像',  action: function() { window.showEnsemblePage && showEnsemblePage() } },
-  { id: "relmap", svg: SVG_ICONS.relmap, label: "关系图谱", action: function() { try { if (window.showRelationshipPage) showRelationshipPage(); else window.toast && window.toast("关系图谱未加载"); } catch(e) { window.toast && window.toast("关系图谱错误: " + e.message); } } },
+  { id: "relmap", svg: SVG_ICONS.relmap, label: "关系图谱", action: function() { try { if (window.showRelmapPage) showRelmapPage(); else window.toast && window.toast("关系图谱未加载"); } catch(e) { window.toast && window.toast("关系图谱错误: " + e.message); } } },
   { id: 'memory',    fa: 'fa-brands fa-deezer',         label: '记忆',     action: function() { window.showMemoryPage && showMemoryPage() } },
   { id: 'wallet',    fa: 'fa-brands fa-apple-pay',      label: '钱迹',     action: function() { window.showWalletApp && showWalletApp() } },
   { id: 'taobao',    svg: SVG_ICONS.taobao,             label: '淘宝',     action: function() { window.showTaobaoPage && showTaobaoPage() } },
