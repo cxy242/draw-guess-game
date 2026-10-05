@@ -267,7 +267,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     var realLine = _el('div', 'tw-reality-line', _fmtRealLine(Date.now()));
     sheet.appendChild(realLine);
     var vDayLine = _el('div', 'tw-virtual-today', '虚拟今天 ' + TW.getDayString());
-    vDayLine.style.display = TW.isEnabled() ? '' : 'none';
+    vDayLine.style.display = '';   // [6.2.6] 虚拟钟常显（未启用也走表）
     sheet.appendChild(vDayLine);
 
     /* 5 总开关行 */
@@ -282,8 +282,8 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       TW.setEnabled(next);
       sw.classList.toggle('on', next);
       realTag.style.display = next ? 'none' : '';
-      vDayLine.style.display = next ? '' : 'none';
-      if (next) vDayLine.textContent = '虚拟今天 ' + TW.getDayString();
+      vDayLine.style.display = '';   // [6.2.6] 常显
+      vDayLine.textContent = '虚拟今天 ' + TW.getDayString() + (next ? '' : '（未启用·仅显示）');   // [6.2.6]
       clock.classList.add('tw-flip-wrap');   // 翻牌动画 300ms
       setTimeout(function () { clock.classList.remove('tw-flip-wrap'); }, 300);
       _toast(next ? '虚拟时间已开启' : '虚拟时间已关闭（偏移保留）');
@@ -522,6 +522,12 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     plusDay.addEventListener('click', function () { TW.addOffset(86400000); _refreshDual(); _toast('虚拟时间+1天'); });
     todayBtn.addEventListener('click', function () { TW.reset(); _refreshDual(); _toast('已回到现实时间'); });
 
+    /* [6.2.6] 精确跳转=滚轮选择器（年/月/日/时/分），替代叠加时间 */
+    var pickerBtn = _el('button', 'tw-quick-btn', '⏱ 精确跳转');
+    pickerBtn.addEventListener('click', function () { _openTimePicker(); });
+    if (todayBtn.parentNode) todayBtn.parentNode.appendChild(pickerBtn);
+
+
     /* ④ 精确调整（时/分/秒 stepper，长按 500ms 后 120ms 连拨） */
     var s4 = _el('div', 'tw-card');
     s4.appendChild(_el('div', 'tw-card-title', '精确调整'));
@@ -630,7 +636,8 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       left.appendChild(_el('div', 'tw-scope-name', row[0]));
       left.appendChild(_el('div', 'tw-scope-desc', row[1]));
       r.appendChild(left);
-      r.appendChild(_el('div', 'tw-scope-dot' + (TW.isEnabled() ? ' on' : ''), TW.isEnabled() ? '跟随中' : '跟随现实'));
+      r.appendChild(_el('div', 'tw-scope-dot' + (TW.isEnabled() ? ' on' : '')));
+      r.appendChild(_el('div', 'tw-scope-label', TW.isEnabled() ? '跟随中' : '跟随现实'));
       s6.appendChild(r);
     });
     /* 行数令⑤：时区说明卡 */
@@ -761,6 +768,83 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       }
       return localStorage.getItem('tw_ball_visible') !== 'false';
     } catch (e) { return true; }
+  }
+
+
+  /* ================= [6.2.6] 滚轮时间选择器 ================= */
+  function _openTimePicker() {
+    TW = TW || window.TimeWorld;
+    if (!TW || typeof TW.getNow !== 'function') { _toast('时间引擎未就绪'); return; }
+    if (document.getElementById('tw-picker')) return;
+    var now = new Date(TW.getNow());
+    var mask = _el('div', 'tw-dialog-mask open');
+    var box = _el('div', 'tw-picker');
+    box.id = 'tw-picker';
+    box.appendChild(_el('div', 'tw-picker-title', '精确跳转到'));
+    var colsWrap = _el('div', 'tw-picker-cols');
+    var conf = [
+      { key: 'y', range: [now.getFullYear() - 50, now.getFullYear() + 50], cur: now.getFullYear() },
+      { key: 'm', range: [1, 12], cur: now.getMonth() + 1 },
+      { key: 'd', range: [1, 31], cur: now.getDate() },
+      { key: 'h', range: [0, 23], cur: now.getHours() },
+      { key: 'min', range: [0, 59], cur: now.getMinutes() }
+    ];
+    var picks = {};
+    conf.forEach(function (c) {
+      var col = _el('div', 'tw-picker-col');
+      col.dataset.key = c.key;
+      for (var v = c.range[0]; v <= c.range[1]; v++) {
+        var it = _el('div', 'tw-picker-item', (c.key === 'y' ? v + '年' : c.key === 'm' ? v + '月' : c.key === 'd' ? v + '日' : c.key === 'h' ? (v < 10 ? '0' : '') + v + '时' : (v < 10 ? '0' : '') + v + '分'));
+        it.dataset.val = v;
+        col.appendChild(it);
+      }
+      colsWrap.appendChild(col);
+      picks[c.key] = c.cur;
+      /* 滚动停定取值（scroll-snap 居中） */
+      var tmr = null;
+      col.addEventListener('scroll', function () {
+        if (tmr) clearTimeout(tmr);
+        tmr = setTimeout(function () {
+          var idx = Math.round(col.scrollTop / 44);
+          var items = col.children;
+          if (items[idx]) {
+            picks[col.dataset.key] = parseInt(items[idx].dataset.val, 10);
+            items[idx].classList.add('sel');
+            for (var i = 0; i < items.length; i++) if (i !== idx) items[i].classList.remove('sel');
+          }
+        }, 120);
+      });
+    });
+    box.appendChild(colsWrap);
+    box.appendChild(_el('div', 'tw-picker-note', '选好年月日时分，一步跳到那一刻'));
+    var acts = _el('div', 'tw-picker-actions');
+    var cancel = _el('button', 'tw-quick-btn', '取消');
+    cancel.addEventListener('click', function () { mask.remove(); });
+    var ok = _el('button', 'tw-quick-btn tw-danger-btn', '⚡ 跳转');
+    ok.addEventListener('click', function () {
+      var target = new Date(picks.y, picks.m - 1, picks.d, picks.h, picks.min, 0, 0).getTime();
+      if (isNaN(target)) { _toast('时间格式不对'); return; }
+      var delta = target - Date.now();
+      if (TW.setOffset) TW.setOffset(delta);
+      _toast('已跳到 ' + picks.y + '年' + picks.m + '月' + picks.d + '日 ' + (picks.h < 10 ? '0' : '') + picks.h + ':' + (picks.min < 10 ? '0' : '') + picks.min);
+      mask.remove();
+      if (typeof _refreshDual === 'function') _refreshDual();
+    });
+    acts.appendChild(cancel);
+    acts.appendChild(ok);
+    box.appendChild(acts);
+    mask.appendChild(box);
+    mask.addEventListener('click', function (e) { if (e.target === mask) mask.remove(); });
+    document.body.appendChild(mask);
+    /* 初始滚动到当前值 */
+    setTimeout(function () {
+      colsWrap.querySelectorAll('.tw-picker-col').forEach(function (col, ci) {
+        var c = conf[ci];
+        var idx = c.cur - c.range[0];
+        col.scrollTop = idx * 44;
+        if (col.children[idx]) col.children[idx].classList.add('sel');
+      });
+    }, 40);
   }
 
   async function setBallVisible(on) {

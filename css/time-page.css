@@ -2262,3 +2262,110 @@
     background: Highlight;
   }
 }
+
+
+/* ===== [6.2.6] scope-label（bug2 修复：文字不进圆点） ===== */
+.tw-scope-label {
+  flex-shrink: 0;
+  font-family: var(--tw-font, inherit);
+  font-size: 11px;
+  color: #7a6a58;
+  white-space: nowrap;
+  letter-spacing: 1px;
+}
+
+.tw-scope-dot { flex-shrink: 0; }
+
+/* ===== [6.2.6] 滚轮时间选择器 ===== */
+.tw-picker {
+  width: min(92vw, 420px);
+  background: #f7f2e7;
+  border-radius: 14px;
+  padding: 18px 16px 14px;
+  box-shadow: 0 14px 40px rgba(52, 32, 18, 0.32);
+  text-align: center;
+}
+
+.tw-picker-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #4a3b2f;
+  margin-bottom: 10px;
+}
+
+.tw-picker-cols {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  background-image: linear-gradient(180deg, rgba(74, 59, 47, 0.06), rgba(74, 59, 47, 0.02));
+  border-radius: 10px;
+  padding: 4px 2px;
+}
+
+.tw-picker-cols::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 50%;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 8px;
+  background: rgba(201, 162, 39, 0.12);
+  border-top: 1px solid rgba(201, 162, 39, 0.35);
+  border-bottom: 1px solid rgba(201, 162, 39, 0.35);
+  pointer-events: none;
+}
+
+.tw-picker-col {
+  height: 132px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 44px 0;
+  min-width: 58px;
+}
+
+.tw-picker-col::-webkit-scrollbar { display: none; }
+
+.tw-picker-item {
+  height: 44px;
+  line-height: 44px;
+  scroll-snap-align: center;
+  font-size: 16px;
+  color: #a89a86;
+  font-variant-numeric: tabular-nums;
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+.tw-picker-item.sel {
+  color: #4a3b2f;
+  font-weight: 700;
+  transform: scale(1.04);
+}
+
+.tw-picker-note {
+  font-size: 11px;
+  color: #a89a86;
+  margin: 10px 0 2px;
+  letter-spacing: 1px;
+}
+
+.tw-picker-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.tw-picker-actions .tw-quick-btn {
+  min-width: 110px;
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-picker-item { transition-duration: 1ms !important; }
+}
