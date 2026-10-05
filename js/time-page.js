@@ -106,6 +106,16 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     if (document.getElementById('tw-ball')) return;
     var ball = _el('div', 'tw-ball' + (TW.isEnabled() ? '' : ' is-off'));   // CSS 契约：.tw-ball.is-off
     ball.id = 'tw-ball';
+    /* 图案子件（图纸§1：纯 CSS 绘制件）[v6.2.4] */
+    var _art = _el('div', 'tw-ball-art');
+    _art.appendChild(_el('div', 'tw-ball-dial'));
+    _art.appendChild(_el('div', 'tw-ball-moon'));
+    _art.appendChild(_el('div', 'tw-ball-star'));
+    ball.appendChild(_el('div', 'tw-ball-glow'));
+    ball.appendChild(_el('div', 'tw-ball-sweep'));
+    ball.appendChild(_art);
+    ball.appendChild(_el('div', 'tw-ball-dot'));
+    ball.appendChild(_el('div', 'tw-ball-ripple'));
     /* 行数令⑥：无障碍 */
     ball.setAttribute('role', 'button');
     ball.setAttribute('aria-label', '虚拟时间快捷面板');
