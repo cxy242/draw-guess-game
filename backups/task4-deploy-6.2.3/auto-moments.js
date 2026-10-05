@@ -374,7 +374,7 @@ try {
       var p = data.posts[pi];
       if (!p || !p.text) continue;
       var char = picked[pi] || picked[0];
-      var ts = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now());
+      var ts = Date.now();
       var moment = {
         charId: char.id,
         ownerUid: ownerUid || String(char.id),
@@ -384,8 +384,7 @@ try {
         comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
           return { id: 'cmt_' + ts + '_' + ci + '_' + pi, uid: c.from === char.name ? 'char_' + char.id : 'npc_' + ci, name: c.from, replyToId: c.to ? 'cmt_prev' : '', replyToName: c.to || '', text: c.text, createdAt: ts + ci * 1000 };
         }),
-        createdAt: ts - (count - pi) * 60000,
-        realCreatedAt: Date.now(),
+        createdAt: ts - (count - pi) * 60000
       };
       // 确保至少有一条评论
       if (!moment.comments.length) {
@@ -449,7 +448,7 @@ async function postMoment(opts) {
     /* 构造 moment 并持久化（格式匹配 buildMomentCardHTML） */
     var ownerUid = window._wechatUid || null;
     console.log('[AutoMoments] postMoment ownerUid=' + ownerUid);
-    var ts = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now());
+    var ts = Date.now();
     var moment = {
       charId:    charId,
       ownerUid:  ownerUid || String(charId),
@@ -468,12 +467,10 @@ async function postMoment(opts) {
           replyToId: c.to ? 'cmt_prev' : '',
           replyToName: c.to || '',
           text:      c.text,
-          createdAt: ts + i * 1000,
-          realCreatedAt: Date.now(),
+          createdAt: ts + i * 1000
         };
       }),
-      createdAt: ts,
-      realCreatedAt: Date.now(),
+      createdAt: ts
     };
     // 确保至少有一条评论
     if (!moment.comments.length) {
@@ -732,7 +729,7 @@ async function batchPostMoments(charIds, countPerChar) {
       if (!p || !p.text) continue;
       var charIdx = (typeof p.charIndex === 'number') ? p.charIndex : (pi % chars.length);
       var char = chars[charIdx] || chars[0];
-      var ts = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now());
+      var ts = Date.now();
       var moment = {
         charId: char.id,
         ownerUid: ownerUid || String(char.id),
@@ -742,8 +739,7 @@ async function batchPostMoments(charIds, countPerChar) {
         comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
           return {id:'cmt_'+ts+'_'+ci+'_'+pi, uid:c.from===char.name?'char_'+char.id:'npc_'+ci, name:c.from, replyToId:c.to?'cmt_prev':'', replyToName:c.to||'', text:c.text, createdAt:ts+ci*1000};
         }),
-        createdAt: ts - (data.posts.length - pi) * 60000,
-        realCreatedAt: Date.now(),
+        createdAt: ts - (data.posts.length - pi) * 60000
       };
       if (!moment.comments.length) {
         moment.comments = [{id:'cmt_'+ts+'_d_'+pi, uid:'npc_0', name:(otherAI[0] && otherAI[0].name) || '小美', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];

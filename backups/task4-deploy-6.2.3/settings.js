@@ -272,12 +272,6 @@ function buildAppearanceSection() {
       '<div class="row-body"><div class="row-label">悬浮球</div></div>' +
       '<i class="fa fa-angle-right row-chevron"></i>' +
     '</div>' +
-    '<div class="list-row" data-action="toggle">' +
-      '<div class="row-icon-box"><i class="fa-solid fa-clock-rotate-left"></i></div>' +
-      '<div class="row-body"><div class="row-label">虚拟时间悬浮球</div><div class="row-sub">点开快捷调整世界时间</div></div>' +
-      '<label class="toggle-wrap"><input type="checkbox" id="toggle-tw-ball">' +
-        '<div class="toggle-track"></div><div class="toggle-thumb"></div></label>' +
-    '</div>' +
   '</div>'
 }
 
@@ -3782,19 +3776,6 @@ async function loadSettingsValues(page) {
   page.querySelector('#row-font').addEventListener('click', openFontPage)
   page.querySelector('#row-wallpaper').addEventListener('click', openWallpaperPage)
   page.querySelector('#row-floating-ball').addEventListener('click', openFloatingBallPage)
-  /* 虚拟时间悬浮球开关（图纸§3，主人点名） */
-  var twBallToggle = page.querySelector('#toggle-tw-ball')
-  if (twBallToggle) {
-    if (window.TimePage && window.TimePage.getBallVisible) {
-      window.TimePage.getBallVisible().then(function (v) { twBallToggle.checked = v !== false })
-    }
-    twBallToggle.addEventListener('change', function () {
-      if (window.TimePage && window.TimePage.setBallVisible) {
-        window.TimePage.setBallVisible(twBallToggle.checked)
-        window.toast && window.toast(twBallToggle.checked ? '虚拟时间悬浮球已显示' : '虚拟时间悬浮球已隐藏')
-      }
-    })
-  }
   page.querySelector('#row-online-config').addEventListener('click', openOnlineConfigPage)
   if (window.injectDataButtons) window.injectDataButtons(page)
 }

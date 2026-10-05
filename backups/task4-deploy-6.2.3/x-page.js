@@ -490,12 +490,11 @@ window.checkAndFlushBatchMemory = async function(source, charId) {
           valence: 0, arousal: 0.3, importance: 5,
           embedding: null, status: 'active',
           sourceMsgStartId: null, sourceMsgEndId: null,
-          sourceAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
-          realCreatedAt: Date.now(),
+          sourceAt: Date.now(),
           sourceType: source,
           decayPercent: 80, isLongTerm: false, injectionLayer: 2,
           participants: [], lastRecalledAt: null,
-          createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+          createdAt: Date.now(), updatedAt: Date.now(),
           lastAccessedAt: null, accessCount: 0
         });
       });
@@ -1366,8 +1365,7 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
       authorAvatar: xLoadImage('avatar_' + user.id) || user.avatar || null,
       content: text,
       stats: generateCommentStats(),
-      createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())).toISOString(),
-      realCreatedAt: Date.now(),
+      createdAt: new Date().toISOString(),
       replies: []
     };
     if (replyToId) {
@@ -1394,8 +1392,7 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
         userName: getXUserName(user),
         postId: postId,
         postPreview: text.slice(0, 30),
-        createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())).toISOString(),
-        realCreatedAt: Date.now(),
+        createdAt: new Date().toISOString()
       });
       xSaveNotifications(notifs);
       showNotifyDot();
@@ -1509,8 +1506,7 @@ async function publishXPost(user, content, isAnonymous) {
       category: randomPick(X_CATEGORIES).id,
       isAnonymous: isAnonymous,
       engagement: generateEngagement(),
-      createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())).toISOString(),
-      realCreatedAt: Date.now(),
+      createdAt: new Date().toISOString()
     };
 
     var posts = xLoadPosts();
@@ -1532,8 +1528,7 @@ async function publishXPost(user, content, isAnonymous) {
           userName: randomPick(X_NPC_NAMES),
           postId: post.id,
           postPreview: content.slice(0, 30),
-          createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())).toISOString(),
-          realCreatedAt: Date.now(),
+          createdAt: new Date().toISOString()
         });
         xSaveNotifications(notifs);
         showNotifyDot();
@@ -1591,8 +1586,7 @@ async function generateAIComments(post, user) {
         id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name,
         authorHandle: '@xx_love', authorAvatar: null, isSystem: true,
         content: xxText || '我老婆说得对！',
-        stats: generateCommentStats(), createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())).toISOString(), replies: [],
-        realCreatedAt: Date.now(),
+        stats: generateCommentStats(), createdAt: new Date().toISOString(), replies: []
       });
     } catch(e) {
       comments.push({

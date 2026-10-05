@@ -178,7 +178,7 @@
     // 使用decayPercent字段
     // Feature 1: 情感坐标 — arousal越高衰减越慢（80%起步，每天-1%）
     if (typeof memory.decayPercent === 'number') {
-      var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+      var now = Date.now()
       var last = memory.lastRecalledAt || memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
       var arousal = clamp(memory.arousal, 0, 1, 0.3)
       var decayRate = 1 / (1 + arousal * 2)  // arousal=0→1天/点, arousal=1→0.33天/点
@@ -187,7 +187,7 @@
       return current
     }
     // 旧版兼容：用原公式计算
-    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    var now = Date.now()
     var last = memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
     var days = Math.max(0, (now - last) / 86400000)
     var lambda = LAMBDA_MAP[settings?.decayStrength] || LAMBDA_MAP.medium
@@ -203,7 +203,7 @@
     if (memory.status === 'archived') return 0
     if (memory.isLongTerm) return 100
     if (typeof memory.decayPercent === 'number') {
-      var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+      var now = Date.now()
       var last = memory.lastRecalledAt || memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
       var arousal = clamp(memory.arousal, 0, 1, 0.3)
       var decayRate = 1 / (1 + arousal * 2)
@@ -216,7 +216,7 @@
   // 回忆：将记忆恢复到80%
   function recallMemory(memory) {
     memory.decayPercent = 80
-    memory.lastRecalledAt = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    memory.lastRecalledAt = Date.now()
     if (memory.status === 'sleeping') memory.status = 'active'
     return memory
   }
@@ -251,7 +251,7 @@
         return m.ownerUid === ownerUid && m.status !== 'archived'
       }).toArray()
       if (!rows.length) return
-      var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+      var now = Date.now()
       rows.forEach(function(m) {
         var score = getKeywordScore(m, aiReplyText)
         if (score > 0.25) {
@@ -513,7 +513,7 @@ function buildSummaryPrompt(messages, charName, userName) {
           var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
           var min = d.getMinutes()
           var h12 = h % 12 || 12
-          timeStr = '[' + d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + ((min < 10 ? '0' : '') + min + '分') + '] '
+          timeStr = '[' + d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + (min > 0 ? min + '分' : '') + '] '
         }
       }
       return timeStr + speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
@@ -632,7 +632,7 @@ ${lines}`
     var title = String(raw?.title || '').trim().slice(0, 30) || '未命名记忆'
     var content = String(raw?.content || '').trim()
     if (!content) return null
-    var now = isValidTimestamp(meta.createdAt) ? Number(meta.createdAt) : (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    var now = isValidTimestamp(meta.createdAt) ? Number(meta.createdAt) : Date.now()
     return {
       ownerUid: meta.ownerUid,
       charId: meta.charId,
@@ -658,7 +658,6 @@ ${lines}`
       lastRecalledAt: null,
       createdAt: now,
       updatedAt: now,
-      realCreatedAt: Date.now(),
       lastAccessedAt: null,
       accessCount: 0
     }
@@ -793,7 +792,7 @@ ${lines}`
       messageCount: fresh.length
     })
     await saveSettings(chatId, { lastSummarizedMessageId: toMsgId })
-    await db.config.put({ key: 'memoryLastSummaryAt', value: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+    await db.config.put({ key: 'memoryLastSummaryAt', value: Date.now() })
     return { ok: true, skipped: false, memoryCount: rows.length, messageCount: fresh.length, embeddingFailed: embeddingFailed }
   }
 
@@ -937,7 +936,7 @@ ${lines}`
       originalText: originalText,
       messageCount: source.length
     })
-    await db.config.put({ key: 'memoryLastSummaryAt', value: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+    await db.config.put({ key: 'memoryLastSummaryAt', value: Date.now() })
     return { ok: true, skipped: false, memoryCount: rows.length, messageCount: source.length, embeddingFailed: embeddingFailed }
   }
 
@@ -979,7 +978,7 @@ ${lines}`
     // 返回 top 5-8 条
     var surfacelimit = Math.max(1, Math.min(8, settings.injectLimit)) // [v6.2.2] 设置真生效：下限1(原钳死5-8致用户设置无效)，上限8留性能保护
     var selected = scored.slice(0, surfacelimit).filter(function(x) { return x.score > 0.05 || x.memory.status === 'active' })
-    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    var now = Date.now()
     await Promise.all(selected.map(function(x) {
       return db.memories.update(x.memory.id, {
         accessCount: (parseInt(x.memory.accessCount || 0, 10) || 0) + 1,
@@ -1096,12 +1095,12 @@ ${lines}`
     var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
     var min = d.getMinutes()
     var h12 = h % 12 || 12
-    return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + ((min < 10 ? '0' : '') + min + '分')
+    return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + (min > 0 ? min + '分' : '')
   }
 
   function formatRelativeTime(ts) {
     if (!isValidTimestamp(ts)) return ''
-    var diff = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - Number(ts)
+    var diff = Date.now() - Number(ts)
     if (diff < 0) return '刚刚'
     var mins = Math.floor(diff / 60000)
     if (mins < 1) return '刚刚'
@@ -1138,8 +1137,7 @@ ${lines}`
     var isNew = !memory
     var m = memory || {
       title: '', content: '', keywords: [], valence: 0, arousal: 0.3, importance: 5,
-      status: 'active', sourceType: 'wechat', sourceAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
-      realCreatedAt: Date.now(),
+      status: 'active', sourceType: 'wechat', sourceAt: Date.now(),
       decayPercent: 80, isLongTerm: false, injectionLayer: 2,
       participants: [], lastRecalledAt: null
     }
@@ -1300,7 +1298,7 @@ ${lines}`
         valence: parseFloat(getPillVal('mem-pills-valence', '0')) || 0,
         arousal: parseFloat(getPillVal('mem-pills-arousal', '0.3')) || 0.3,
         importance: parseInt(getPillVal('mem-pills-importance', '5')) || 5,
-        sourceAt: m.sourceAt || (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+        sourceAt: m.sourceAt || Date.now(),
         sourceType: getPillVal('mem-pills-source', 'wechat'),
         status: getPillVal('mem-pills-status', 'active'),
         decayPercent: parseInt(getPillVal('mem-pills-decay', '80')) || 80,
@@ -1311,13 +1309,13 @@ ${lines}`
           modal.querySelectorAll('.memory-participant-cb:checked').forEach(function(cb) { selected.push(parseInt(cb.dataset.id)) })
           return selected
         })(),
-        updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+        updatedAt: Date.now()
       }
       if (!patch.content) { window.toast && window.toast('请填写内容'); return }
       if (m.id) {
         await db.memories.update(m.id, patch)
       } else {
-        var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+        var now = Date.now()
         await db.memories.add(Object.assign({
           ownerUid: identity.ownerUid,
           charId: identity.charId,
@@ -1680,7 +1678,7 @@ ${lines}`
 
   function formatRecallTime(ts) {
     if (!ts) return '从未'
-    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    var now = Date.now()
     var diff = now - ts
     if (diff < 600000) return '刚刚想起来' // 10分钟内
     return formatMemoryDateTime(ts) + '想起来'
@@ -1783,10 +1781,10 @@ ${lines}`
           if (action === 'edit') return openEditor(m, page)
           if (action === 'recall') {
             // 回忆：将衰减恢复到80%，更新上次回忆时间
-            await db.memories.update(id, { decayPercent: 80, lastRecalledAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), status: m.status === 'sleeping' ? 'active' : m.status, updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+            await db.memories.update(id, { decayPercent: 80, lastRecalledAt: Date.now(), status: m.status === 'sleeping' ? 'active' : m.status, updatedAt: Date.now() })
             window.toast && window.toast('已回忆，记忆恢复到80%')
           }
-          if (action === 'toggle') await db.memories.update(id, { status: m.status === 'archived' ? 'active' : 'archived', updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+          if (action === 'toggle') await db.memories.update(id, { status: m.status === 'archived' ? 'active' : 'archived', updatedAt: Date.now() })
           if (action === 'delete') await db.memories.delete(id)
           await renderMemoryPage(page)
         })
@@ -1876,7 +1874,7 @@ ${lines}`
       }).toArray()
       if (!rows.length) return ''
 
-      var now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+      var now = new Date()
       var today = formatDateStr(now)
       var yesterday = formatDateStr(new Date(now - 86400000))
       var dayBefore = formatDateStr(new Date(now - 172800000))
@@ -2169,7 +2167,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     var key = EVENT_LOG_KEY + charId
     var events = []
     try { events = JSON.parse(localStorage.getItem(key) || '[]') } catch(e) {}
-    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    var now = Date.now()
     var d = new Date(now)
     var h = d.getHours()
     var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
@@ -2271,7 +2269,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     if (count % 10 !== 0) return
     var facts = await extractFacts(messages, charName, userName)
     if (!facts.length) return
-    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    var now = Date.now()
     for (var i = 0; i < facts.length; i++) {
       var f = facts[i]
       var row = {
@@ -2294,7 +2292,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
   
   // ===== Feature 4: 时间感知 (Time Awareness) =====
   function getFormattedNow() {
-    var now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+    var now = new Date()
     var y = now.getFullYear()
     var m = now.getMonth() + 1
     var d = now.getDate()
@@ -2302,7 +2300,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     var min = now.getMinutes()
     var period = h < 6 ? '凌晨' : h < 11 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : h < 22 ? '晚上' : '深夜'
     var hour12 = h === 0 ? 12 : (h > 12 ? h - 12 : h)
-    return y + '\u5e74' + m + '\u6708' + d + '\u65e5' + period + hour12 + '\u70b9' + ((min < 10 ? '0' : '') + min + '\u5206')
+    return y + '\u5e74' + m + '\u6708' + d + '\u65e5' + period + hour12 + '\u70b9' + (min > 0 ? min + '\u5206' : '')
   }
 
   async function getTimeSinceLastChat(charId) {
@@ -2313,7 +2311,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       if (!charChats.length) return ''
       var lastChat = charChats.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0) })[0]
       if (!lastChat || !lastChat.updatedAt) return ''
-      var diff = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - lastChat.updatedAt
+      var diff = Date.now() - lastChat.updatedAt
       if (diff < 60000) return '\u521a\u521a'
       var mins = Math.floor(diff / 60000)
       if (mins < 60) return mins + '\u5206\u949f\u524d'

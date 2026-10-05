@@ -304,9 +304,8 @@ ${MISS_BEAUTY_CLASS_TEXT}`
       id: String(preset?.id || ''),
       name: String(preset?.name || ''),
       css: String(preset?.css || ''),
-      createdAt: preset?.createdAt || (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
-      realCreatedAt: preset?.realCreatedAt || Date.now(),
-      updatedAt: preset?.updatedAt || (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+      createdAt: preset?.createdAt || Date.now(),
+      updatedAt: preset?.updatedAt || Date.now()
     }
   }
 
@@ -334,7 +333,7 @@ ${MISS_BEAUTY_CLASS_TEXT}`
       ...presets[index],
       name: updates.name ?? presets[index].name,
       css: updates.css ?? presets[index].css,
-      updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+      updatedAt: Date.now()
     }
     await saveMissBeautyPresets(presets)
     return true

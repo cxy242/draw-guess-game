@@ -38,7 +38,7 @@ function escSmsHtml(str) {
 function formatSmsTime(ts) {
   if (!ts) return ''
   var d = new Date(ts)
-  var now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  var now = new Date()
   var diff = now - d
   if (diff < 86400000 && d.getDate() === now.getDate()) {
     return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0')
@@ -371,8 +371,7 @@ async function openSmsChat(conversationId, listPage) {
           conversationId: conversationId,
           direction: 'out',
           body: text,
-          createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
-          realCreatedAt: Date.now(),
+          createdAt: Date.now(),
           read: true
         })
         inputField.value = ''
@@ -381,8 +380,8 @@ async function openSmsChat(conversationId, listPage) {
         // Update conversation
         await db.smsConversations.update(conversationId, {
           lastMessage: text,
-          lastMessageAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
-          updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+          lastMessageAt: Date.now(),
+          updatedAt: Date.now()
         })
 
         var convRefreshed = await db.smsConversations.get(conversationId)
@@ -1623,8 +1622,8 @@ window.summarizeSmsToMemory = async function(conversationId) {
     }
   }
 
-  var firstTime = msgs[0] ? new Date(msgs[0].createdAt) : new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
-  var lastTime = msgs[msgs.length-1] ? new Date(msgs[msgs.length-1].createdAt) : new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  var firstTime = msgs[0] ? new Date(msgs[0].createdAt) : new Date()
+  var lastTime = msgs[msgs.length-1] ? new Date(msgs[msgs.length-1].createdAt) : new Date()
   var timeRange = (firstTime.getMonth()+1) + '/' + firstTime.getDate() + ' ' +
     firstTime.getHours().toString().padStart(2,'0') + ':' + firstTime.getMinutes().toString().padStart(2,'0') +
     '~' + lastTime.getHours().toString().padStart(2,'0') + ':' + lastTime.getMinutes().toString().padStart(2,'0')

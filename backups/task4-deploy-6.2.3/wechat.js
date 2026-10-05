@@ -1018,7 +1018,7 @@ async function syncRolePhoneWechatData(ownerUid, charId) {
     .where('[ownerUid+charId]').equals([charId, ownerUid])
     .first()
   if (!targetChat) {
-    const createdAt = sourceChat.createdAt || (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    const createdAt = sourceChat.createdAt || Date.now()
     const id = await db.chats.add({
       charId: ownerUid,
       ownerUid: charId,
@@ -1028,7 +1028,7 @@ async function syncRolePhoneWechatData(ownerUid, charId) {
     targetChat = { id, charId: ownerUid, ownerUid: charId, createdAt, unread: 0 }
   } else {
     await db.chats.update(targetChat.id, {
-      createdAt: sourceChat.createdAt || targetChat.createdAt || (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+      createdAt: sourceChat.createdAt || targetChat.createdAt || Date.now(),
       unread: 0
     })
   }
@@ -2195,7 +2195,7 @@ function formatWechatSmartTime(ts, options = {}) {
   if (!ts) return ''
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ''
-  const now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  const now = new Date()
   const timeZone = options.timeZone || ''
   const p = getSmartTimeParts(d, timeZone, options.weekdayStyle || 'short')
   const n = getSmartTimeParts(now, timeZone, options.weekdayStyle || 'short')
@@ -3668,7 +3668,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
         '6. mem_health_ai：角色的身体状况。如果受伤或生病，必须写明：哪个部位+什么时候开始的+当前状态+预计恢复。如果健康，写具体感受，如"身体状态不错，就是坐久了腰有点酸，等下起来活动活动"。\n' +
         '7. mem_health_user：用户的身体状况。根据用户提到的信息详细填写。如果没提到写"用户近期未提及身体状况"。\n' +
         '8. mem_schedule_past：从聊天记录和记忆中提取过去3天发生的所有事件。每个事件必须有完整日期和时间段。格式：[{date:\'2026年9月12日\',events:[{time:\'下午3点\',event:\'和用户视频通话了半小时，聊了学校的事\'}]}]。【强制】必须从聊天记录中提取所有事件，至少记录3条，不能返回空数组。\n' +
-        '【重要】今天是' + (function(){var n=new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()));return n.getFullYear()+'年'+(n.getMonth()+1)+'月'+n.getDate()+'日'})() + '。过去3天的日期依次是：' + (function(){var r=[];var base=new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()));for(var i=3;i>=1;i--){var d=new Date(base.getTime());d.setDate(d.getDate()-i);r.push(d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日')}return r.join('、')})() + '。所有日期必须用真实年份，禁止凭感觉编日期。\n' +
+        '【重要】今天是' + (function(){var n=new Date();return n.getFullYear()+'年'+(n.getMonth()+1)+'月'+n.getDate()+'日'})() + '。过去3天的日期依次是：' + (function(){var r=[];for(var i=3;i>=1;i--){var d=new Date(Date.now()-i*86400000);r.push((d.getMonth()+1)+'月'+d.getDate()+'日')}return r.join('、')})() + '。所有日期必须用真实年份，禁止凭感觉编日期。\n' +
         '9. mem_schedule_today：从聊天记录中提取今天发生的所有活动。每项必须有时间段。格式：[{time:\'下午3点\',event:\'和用户讨论了周末计划\'}]。【强制】至少记录2条，不能返回空数组。\n' +
         '10. mem_schedule_tomorrow：从聊天记录中提取明天的计划。每项必须有时间段。如果聊天中提到明天要做的事，必须记录。\n' +
         '11. mem_agreements：与用户之间的约定或承诺。必须写明：约定内容+时间+当前状态。\n\n' +
@@ -3706,7 +3706,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
               return m.status !== 'archived'
             }).toArray()
             if (_memRows.length) {
-              var _now2 = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+              var _now2 = new Date()
               var _todayStr = _now2.getFullYear() + '年' + (_now2.getMonth()+1) + '月' + _now2.getDate() + '日'
               var _scheduleMap = {} // date -> [{time, event}]
               _memRows.forEach(function(m) {
@@ -6876,7 +6876,7 @@ function normalizeWechatAIFields(parsed) {
 function buildAIErrorDiagnostic(errMsg, raw) {
   const meta = window._lastAIResponseMeta || {}
   const lines = [
-    '时间：' + (window.TimeWorld ? window.TimeWorld.getFormattedNow() : new Date().toLocaleString()),
+    '时间：' + new Date().toLocaleString(),
     '错误：' + (errMsg || '未知')
   ]
   if (meta.model) lines.push('模型：' + meta.model)
@@ -8383,7 +8383,7 @@ async function buildChatSystem(char, loreCtx, charName, userName, userNick, stic
     : { before: '', middle: loreCtx || '', after: '' }
   const currentRelationText = buildCurrentRelationText(char)
   const userDesc = _wechatUser?.description || '(未设定)'
-  const now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  const now = new Date()
   const timeAwarenessEnabled = !!timeSettings?.awareness
 
   let part2
@@ -10534,7 +10534,7 @@ async function showCharThoughtsHistory(charId, chatId) {
 function formatThoughtTime(ts) {
   if (!ts) return ''
   const d = new Date(ts)
-  const now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  const now = new Date()
   const sameDay = d.toDateString() === now.toDateString()
   const yest = new Date(now); yest.setDate(now.getDate() - 1)
   const isYest = d.toDateString() === yest.toDateString()
@@ -13178,7 +13178,7 @@ image_desc 字段：当 images > 0 时，用一句话描述配图内容。`
 }
 
 async function getMomentVirtualTimeText(charId) {
-  const now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  const now = new Date()
   const chat = await db.chats
     .where('[ownerUid+charId]').equals([_wechatUid, charId])
     .first()
@@ -15681,7 +15681,7 @@ async function buildGroupDirectorSystem(group, groupId, members, userChar, userU
   const userPersona = userChar?.description || '（未设定）'
   const groupName = group.name || '群聊'
 
-  const now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  const now = new Date()
   const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
   const timeContextLine = `- **当前时间**：${timeStr}（${getTimeOfDay(now.getHours())}）`
 
@@ -20570,7 +20570,7 @@ async function getCallDisplayFor(ownerUid, charId) {
 // ===== System Prompt 共享构建函数 =====
 
 function buildCallTimePart(tzConfig, charName, userName) {
-  const now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  const now = new Date()
   if (tzConfig?.enabled && tzConfig.charTimezone && tzConfig.userTimezone) {
     const charTimeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tzConfig.charTimezone })
     const userTimeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tzConfig.userTimezone })

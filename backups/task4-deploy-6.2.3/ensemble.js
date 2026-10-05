@@ -623,7 +623,7 @@ function addMsg(page, role, text) {
       '<div class="miss-entry-card">' +
         '<div class="miss-msg-text">' + esc(text) + '</div>' +
         '<div class="miss-entry-footer">' +
-          '<span>' + formatTime((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())) + '</span>' +
+          '<span>' + formatTime(Date.now()) + '</span>' +
         '</div>' +
       '</div>';
   } else {
@@ -1097,8 +1097,7 @@ async function saveChatMsg(role, text) {
       mode: 'ensemble',
       role: role,
       content: text,
-      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
-      realCreatedAt: Date.now(),
+      createdAt: Date.now()
     });
   } catch(e) { console.error('[ensemble] save:', e); }
 }
@@ -1515,7 +1514,7 @@ async function summarizeAndEnd(page) {
       await db.offlineChats.add({
         ownerUid: uid, chatId: 0, charId: 0,
         mode: 'ensemble', role: 'system',
-        content: '见面结束 · ' + (window.TimeWorld ? window.TimeWorld.getFormattedNow() : new Date().toLocaleString()),
+        content: '见面结束 · ' + new Date().toLocaleString(),
         createdAt: Date.now()
       });
     }

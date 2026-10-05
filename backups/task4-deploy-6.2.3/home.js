@@ -946,7 +946,7 @@ function buildDesktopIconButton(item, area) {
 }
 
 function formatAngelStatusDate(date) {
-  var d = date || new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  var d = date || new Date()
   var weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
   var month = String(d.getMonth() + 1).padStart(2, '0')
   var day = String(d.getDate()).padStart(2, '0')
@@ -954,13 +954,13 @@ function formatAngelStatusDate(date) {
 }
 
 function formatPhotoBoardWeekday(date) {
-  var d = date || new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  var d = date || new Date()
   var weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
   return '#' + weekdays[d.getDay()]
 }
 
 function formatPhotoBoardDate(date) {
-  var d = date || new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
+  var d = date || new Date()
   var month = String(d.getMonth() + 1).padStart(2, '0')
   var day = String(d.getDate()).padStart(2, '0')
   return d.getFullYear() + '年' + month + '月' + day + '日'
@@ -2318,7 +2318,7 @@ function buildDesktopWidgetInner(widget) {
     return '<div class="angel-status-top"' + (topBgImage ? ' style="--angel-top-image:url(' + escapeMainHtml(topBgImage) + ')"' : '') + '>' +
       '<div class="angel-avatar-card"><img src="' + escapeMainHtml(avatar) + '" alt=""></div>' +
       '<div class="angel-status-main"><div class="angel-status-title">' + escapeMainHtml(data.title || '爱上一个天使的缺点') + '</div><div class="angel-status-handle">' + escapeMainHtml(data.handle || '@Wanwan_046') + '</div></div>' +
-      '<div class="angel-status-date">' + escapeMainHtml(formatAngelStatusDate(new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())))) + '</div>' +
+      '<div class="angel-status-date">' + escapeMainHtml(formatAngelStatusDate(new Date())) + '</div>' +
       '</div><span class="angel-status-triangle"></span><div class="angel-status-bubble"><span class="angel-status-message">' + escapeMainHtml(data.message || '你對我來說是宇宙，但我對你來說只是一顆星嗎？') + '</span></div>'
   }
   if (widget.templateId === 'profile') {

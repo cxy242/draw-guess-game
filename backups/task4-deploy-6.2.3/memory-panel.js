@@ -321,7 +321,7 @@
             var memId = isNaN(Number(id)) ? id : Number(id);
             await db.memories.update(memId, {
               decayPercent: 80,
-              lastRecalledAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+              lastRecalledAt: Date.now(),
               status: 'active'
             });
           } catch(e) { console.warn('[MemoryPanel] recall update failed:', e); }
