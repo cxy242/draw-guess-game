@@ -356,6 +356,10 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     mask.addEventListener('click', function (e) { if (e.target === mask) { stopTicks(); mask.remove(); } });
     mask.appendChild(sheet);
     document.body.appendChild(mask);
+    /* [v6.2.5] A4 修：补挂 open 状态类（此前漏挂→面板停在屏外=点击没反应） */
+    void sheet.offsetHeight;
+    mask.classList.add('open');
+    sheet.classList.add('open');
   }
 
   /* ================= §4 全屏高级页（tw-page，七分区） ================= */
@@ -743,6 +747,9 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
 
     if (window.openPage) window.openPage(page);
     else document.body.appendChild(page);
+    /* [v6.2.5] A4 修：补挂 open（同款漏挂） */
+    void page.offsetHeight;
+    page.classList.add('open');
   }
 
   /* ================= 设置页开关行（图纸 §3，挂设置页用） ================= */
