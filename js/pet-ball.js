@@ -317,10 +317,15 @@ function buildPopupHTML() {
 async function createPetBall() {
   var existing = document.getElementById('global-floating-ball');
   if (existing) existing.remove();
-  var existing2 = document.querySelector('.pet-ball-wrap');
-  if (existing2) existing2.remove();
-  var popup = document.querySelector('.pet-popup');
-  if (popup) popup.remove();
+  // 单例铁律：清掉所有旧球/旧弹窗（含被复活守护塞回的残留），并解除复活守护
+  var staleWraps = document.querySelectorAll('.pet-ball-wrap');
+  for (var si = 0; si < staleWraps.length; si++) {
+    staleWraps[si]._petIntentionalRemove = true;
+    if (staleWraps[si]._petObserver) staleWraps[si]._petObserver.disconnect();
+    staleWraps[si].remove();
+  }
+  var stalePopups = document.querySelectorAll('.pet-popup');
+  for (var pi = 0; pi < stalePopups.length; pi++) stalePopups[pi].remove();
 
   var app = document.getElementById('app');
   if (!app) return;
@@ -380,6 +385,7 @@ async function createPetBall() {
   var appEl = document.getElementById('app');
   if (appEl) {
     var petObserver = new MutationObserver(function(mutations) {
+      if (wrap._petIntentionalRemove) return;   // 主动移除不复活
       for (var i = 0; i < mutations.length; i++) {
         var removed = mutations[i].removedNodes;
         for (var j = 0; j < removed.length; j++) {
@@ -395,6 +401,7 @@ async function createPetBall() {
       }
     });
     petObserver.observe(appEl, { childList: true });
+    wrap._petObserver = petObserver;
   }
 }
 
@@ -586,10 +593,14 @@ window.PetBall = {
   poke: function(){ var w = document.querySelector('.pet-ball-wrap'); if (w) poke(w); },
   surprised: function(){ var w = document.querySelector('.pet-ball-wrap'); if (w) surprised(w); },
   hide: function() {
-    var w = document.querySelector('.pet-ball-wrap');
-    if (w) w.remove();
-    var p = document.querySelector('.pet-popup');
-    if (p) p.remove();
+    var ws = document.querySelectorAll('.pet-ball-wrap');
+    for (var i = 0; i < ws.length; i++) {
+      ws[i]._petIntentionalRemove = true;
+      if (ws[i]._petObserver) ws[i]._petObserver.disconnect();
+      ws[i].remove();
+    }
+    var ps = document.querySelectorAll('.pet-popup');
+    for (var j = 0; j < ps.length; j++) ps[j].remove();
     _petState.visible = false;
   },
   isVisible: function(){ return _petState.visible; }

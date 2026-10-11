@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.cn/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="apple-touch-icon" id="app-apple-touch-icon" href="img/wanwan.png">
+  <link rel="icon" id="app-favicon" type="image/png" href="img/wanwan.png">
+  <link rel="manifest" id="app-manifest" href="manifest.json">
+  <title>月月机</title>
+
+  <!-- Font Awesome 7.2.0 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css">
+
+  <!-- Flaticon UIcons -->
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-brands/css/uicons-brands.css">
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-thin-rounded/css/uicons-thin-rounded.css">
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-thin-straight/css/uicons-thin-straight.css">
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.4.2/uicons-regular-rounded/css/uicons-regular-rounded.css">
+
+  <!-- Dexie 多CDN备用加载 -->
+  <script>
+  (function() {
+    var cdns = [
+      'https://cdn.jsdelivr.net/npm/dexie@4.4.3/dist/dexie.min.js',
+      'https://unpkg.com/dexie@4.4.3/dist/dexie.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/dexie/4.4.3/dexie.min.js'
+    ]
+    var loaded = false
+    function tryLoad(i) {
+      if (i >= cdns.length || loaded) return
+      var s = document.createElement('script')
+      s.src = cdns[i]
+      s.onload = function() { loaded = true }
+      s.onerror = function() { tryLoad(i + 1) }
+      document.head.appendChild(s)
+    }
+    tryLoad(0)
+  })()
+  </script>
+
+  <!-- JSZip -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.12.6/dist/jszip.min.js"></script>
+
+  <!-- CSS 引用顺序 -->
+  <link rel="stylesheet" href="css/base.css?v=6.2.6">
+  <link rel="stylesheet" href="css/home.css?v=6.2.6">
+  <link rel="stylesheet" href="css/settings.css?v=6.2.6">
+  <link rel="stylesheet" href="css/tutorial.css?v=6.2.6">
+  <link rel="stylesheet" href="css/tutorial-chatgenerator.css?v=6.2.6">
+  <link rel="stylesheet" href="css/character.css?v=6.2.6">
+  <link rel="stylesheet" href="css/lorebook.css?v=6.2.6">
+  <link rel="stylesheet" href="css/wechat.css?v=6.2.6">
+  <link rel="stylesheet" href="css/chill-thought.css?v=6.2.6">
+  <link rel="stylesheet" href="css/pet-ball.css?v=6.2.6">
+  <link rel="stylesheet" href="css/memory.css?v=6.2.6">
+  <link rel="stylesheet" href="css/miss-you.css?v=6.2.6">
+    <link rel="stylesheet" href="css/relmap.css?v=6.2.6">
+  <link rel="stylesheet" href="css/ensemble.css?v=6.2.6">
+  <link rel="stylesheet" href="css/phone.css?v=6.2.6">
+  <link rel="stylesheet" href="css/music-page.css?v=6.2.6">
+  <link rel="stylesheet" href="css/wallet.css?v=6.2.6">
+  <link rel="stylesheet" href="css/work.css?v=6.2.6">
+  <link rel="stylesheet" href="css/x-page.css?v=6.2.6">
+  <link rel="stylesheet" href="css/ig-page.css?v=6.2.6">
+  <link rel="stylesheet" href="css/ins-page.css?v=6.2.6">
+  <link rel="stylesheet" href="css/icity.css?v=6.2.6">
+  <link rel="stylesheet" href="css/imessage.css?v=6.2.6">
+  <link rel="stylesheet" href="css/memory-panel.css?v=6.2.6">
+  <link rel="stylesheet" href="css/bank.css?v=6.2.6">
+  <link rel="stylesheet" href="css/taobao.css?v=6.2.6">
+  <link rel="stylesheet" href="css/bookstore.css?v=6.2.6">
+  <link rel="stylesheet" href="css/yumyum.css?v=6.2.6">
+  <link rel="stylesheet" href="css/wechat-login-modal.css?v=6.2.6">
+  <link rel="stylesheet" href="css/anywhere-door.css?v=6.2.6">
+  <link rel="stylesheet" href="css/game-hall.css?v=6.2.6">
+  <link rel="stylesheet" href="css/tarot-page.css?v=6.2.6">
+  <link rel="stylesheet" href="css/werewolf-game.css?v=6.2.6">
+  <link rel="stylesheet" href="css/spicy-monopoly.css?v=6.2.6">
+  <link rel="stylesheet" href="css/avg.css?v=6.2.6">
+  <link rel="stylesheet" href="css/terminal.css?v=6.2.6">
+  <link rel="stylesheet" href="css/tarot-page.css?v=6.2.6">
+</head>
+<body>
+  <!-- MoonScape 开屏页 -->
+  <div id="loading">
+    <canvas id="splash-canvas"></canvas>
+    <div class="splash-text" id="splash-text">
+      <div class="text-en" id="text-en"></div>
+      <div class="text-zh" id="text-zh"></div>
+    </div>
+    <div class="splash-brand" id="splash-brand">
+      <span>MoonScape</span>
+    </div>
+    <div class="splash-tap" id="splash-tap">
+      <span>轻触进入</span>
+    </div>
+  </div>
+
+  <!-- 主容器 -->
+  <div id="app"></div>
+
+  <!-- 强力保活音频元素 -->
+  <audio id="keepalive-audio" loop preload="auto" style="display:none;">
+    <source src="audio/blank.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- JS 加载顺序 -->
+  <script src="js/db.js?v=6.2.6"></script>
+  <script src="js/chill-thought.js?v=6.2.6"></script>
+  <script src="js/auto-moments.js?v=6.2.6"></script>
+  <link rel="stylesheet" href="css/auto-moments.css?v=6.2.6">
+  <script src="js/pet-ball.js?v=6.2.6"></script>
+  <script src="js/main.js?v=6.2.6"></script>
+  <script src="js/home.js?v=6.2.6"></script>
+  <script src="js/settings.js?v=6.2.6"></script>
+  <script src="js/about.js?v=6.2.6"></script>
+  <script src="js/data.js?v=6.2.6"></script>
+  <script src="js/export-stream.js?v=6.2.6"></script>
+  <script src="js/data-stream.js?v=6.2.6"></script>
+  <script src="js/sync.js?v=6.2.6"></script>
+  <script src="js/tutorial.js?v=6.2.6"></script>
+  <script src="js/character.js?v=6.2.6"></script>
+  <script src="js/lorebook.js?v=6.2.6"></script>
+  <script src="js/memory.js?v=6.2.6"></script>
+  <script src="js/chill-thought.js?v=6.2.6"></script>
+  <script src="js/wechat.js?v=6.2.6"></script>
+  <script src="js/tutorial-chatgenerator.js?v=6.2.6"></script>
+  <script src="js/online.js?v=6.2.6"></script>
+  <script src="js/miss-you.js?v=6.2.6"></script>
+  <script src="js/ensemble.js?v=6.2.6"></script>
+  <script src="js/icity.js?v=6.2.6"></script>
+  <script src="js/phone.js?v=6.2.6"></script>
+  <script src="js/phone-wechat.js?v=6.2.6"></script>
+  <script src="js/phone-apps.js?v=6.2.6"></script>
+  <script src="js/music-page.js?v=6.2.6"></script>
+  <script src="js/music-invite.js?v=6.2.6"></script>
+  <script src="js/tarot-page.js?v=6.2.6"></script>
+  <script src="js/wallet.js?v=6.2.6"></script>
+  <script src="js/x-page.js?v=6.2.6"></script>
+  <script src="js/ig-page.js?v=6.2.6"></script>
+  <script src="js/ins-page.js?v=6.2.6"></script>
+  <script src="js/work.js?v=6.2.6"></script>
+  <script src="js/bank.js?v=6.2.6"></script>
+  <script src="js/imessage.js?v=6.2.6"></script>
+    <script src="js/relmap.js?v=6.2.6"></script>
+  <script src="js/force-graph.min.js?v=6.2.6"></script>
+  <script src="js/anime.min.js?v=6.2.6"></script>
+  <script src="js/memory-panel.js?v=6.2.6"></script>
+  <script src="js/wechat-login-modal.js?v=6.2.6"></script>
+  <script src="js/taobao.js?v=6.2.6"></script>
+  <script src="js/bookstore.js?v=6.2.6"></script>
+  <script src="js/yumyum.js?v=6.2.6"></script>
+  <script src="js/anywhere-door.js?v=6.2.6"></script>
+  <script src="js/game-hall.js?v=6.2.6"></script>
+  <script src="js/werewolf-game.js?v=6.2.6"></script>
+  <script src="js/spicy-ai-thinking.js?v=6.2.6"></script>
+  <script src="js/spicy-modals.js?v=6.2.6"></script>
+  <script src="js/spicy-invite.js?v=6.2.6"></script>
+  <script src="js/spicy-loading.js?v=6.2.6"></script>
+  <script src="js/spicy-assets.js?v=6.2.6"></script>
+  <script src="js/spicy-settlement.js?v=6.2.6"></script>
+  <script src="js/spicy-memory.js?v=6.2.6"></script>
+  <script src="js/spicy-task.js?v=6.2.6"></script>
+  <script src="js/spicy-data.js?v=6.2.6"></script>
+  <script src="js/spicy-offline.js?v=6.2.6"></script>
+  <script src="js/spicy-monopoly.js?v=6.2.6"></script>
+  <script src="js/avg.js?v=6.2.6"></script>
+  <script src="js/terminal.js?v=6.2.6"></script>
+  <!-- MoonScape 星盘动画 -->
+  <script>
+  (function(){
+    var c = document.getElementById('splash-canvas');
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var W, H, t = 0;
+    var stars = [];
+    var textGroup = 0;
+    var textOpacity = 0;
+    var brandOpacity = 0;
+    var chartColor = [255,255,255];
+    var centerBrightness = 0.5;
+    var chartAngle = 0;
+    var chartSpeed = 0.006;
+    var chartTargetSpeed = 0.006;
+    var decelerating = false;
+    var chartVisible = 0;
+    var finished = false;
+
+    // 四组文案
+    var texts = [
+      {en: 'FATE DID NOT TIE US TOO TIGHTLY', zh: '命运不肯把我们绑得太紧'},
+      {en: 'I ONLY SAW YOU ONCE IN THE CROWD', zh: '只让我在人群里多看你一眼'},
+      {en: 'THAT GLANCE WAS THE ANSWER', zh: '那一眼就是答案'},
+      {en: 'YOU DID NOT COME, I ALREADY MISS YOU', zh: '你没有来，我却已经开始想念'}
+    ];
+
+    function resize() { W = c.width = window.innerWidth; H = c.height = window.innerHeight; initStars(); }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // 星光
+    function initStars() {
+      stars = [];
+      var count = ~~(W * H / 8000);
+      for (var i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * W, y: Math.random() * H,
+          r: Math.random() * 0.8 + 0.2,
+          a: 0, maxA: Math.random() * 0.3 + 0.05,
+          speed: Math.random() * 0.003 + 0.001
+        });
+      }
+    }
+
+    // 绘制星光
+    function drawStars(globalA) {
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        if (s.a < s.maxA * globalA) s.a += s.speed * globalA;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,' + (s.a * globalA) + ')';
+        ctx.fill();
+      }
+    }
+
+    // 绘制星盘单个元素
+    function drawLine(x1, y1, x2, y2, alpha) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + alpha + ')';
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+    }
+
+    function drawCircle(x, y, r, alpha, fill) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      if (fill) {
+        ctx.fillStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + alpha + ')';
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + alpha + ')';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+      }
+    }
+
+    function drawDashedCircle(x, y, r, alpha) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + alpha + ')';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 绘制完整星盘 - 从外到内逐步浮现
+    // 绘制完整星盘 - 从中心向外扩散出现
+    function drawChart(progress) {
+      var cx = W / 2;
+      var cy = H / 2;
+      var R = Math.min(W, H) * 0.35;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(chartAngle);
+      ctx.translate(-cx, -cy);
+
+      var a = progress;
+
+      // 中心发光扩散效果（从内向外）
+      var glowR = R * 1.2 * a;
+      var grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+      grd.addColorStop(0, 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (a * 0.15) + ')');
+      grd.addColorStop(0.6, 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (a * 0.05) + ')');
+      grd.addColorStop(1, 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 所有元素统一用progress控制透明度
+      // 1. 中心光点（最先出现）
+      var dotA = Math.min(a * 3, 1);
+      var breathe = 0.5 + Math.sin(t * 2) * 0.3;
+      var brightness = dotA * (0.4 + breathe * centerBrightness);
+      var grd2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.06);
+      grd2.addColorStop(0, 'rgba(255,255,255,' + (brightness * 0.6) + ')');
+      grd2.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grd2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,' + brightness + ')';
+      ctx.fill();
+
+      // 2. 十字线（从内向外延伸）
+      var crossLen = R * 0.85 * Math.min(a * 2, 1);
+      ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (a * 0.3) + ')';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(cx - crossLen, cy);
+      ctx.lineTo(cx + crossLen, cy);
+      ctx.moveTo(cx, cy - crossLen);
+      ctx.lineTo(cx, cy + crossLen);
+      ctx.stroke();
+
+      // 3. 内层齿纹（从内向外）
+      if (a > 0.15) {
+        var innerA = (a - 0.15) / 0.85;
+        ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (innerA * 0.5) + ')';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R * 0.4, 0, Math.PI * 2);
+        ctx.stroke();
+        for (var i = 0; i < 72; i++) {
+          var angle = (Math.PI * 2 / 72) * i;
+          var ix1 = cx + Math.cos(angle) * R * 0.38;
+          var iy1 = cy + Math.sin(angle) * R * 0.38;
+          var ix2 = cx + Math.cos(angle) * R * 0.42;
+          var iy2 = cy + Math.sin(angle) * R * 0.42;
+          ctx.beginPath();
+          ctx.moveTo(ix1, iy1);
+          ctx.lineTo(ix2, iy2);
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+
+      // 4. 中层轨道 + 副圆盘
+      if (a > 0.3) {
+        var midA = (a - 0.3) / 0.7;
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (midA * 0.5) + ')';
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (midA * 0.35) + ')';
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.7, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.6, 0, Math.PI * 2); ctx.stroke();
+
+        // 刻度
+        ctx.lineWidth = 0.6;
+        for (var i = 0; i < 60; i++) {
+          var angle = (Math.PI * 2 / 60) * i;
+          var ix1 = cx + Math.cos(angle) * R * 0.73;
+          var iy1 = cy + Math.sin(angle) * R * 0.73;
+          var ix2 = cx + Math.cos(angle) * R * 0.77;
+          var iy2 = cy + Math.sin(angle) * R * 0.77;
+          ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (midA * 0.3) + ')';
+          ctx.beginPath(); ctx.moveTo(ix1, iy1); ctx.lineTo(ix2, iy2); ctx.stroke();
+        }
+
+        // 4个副圆盘
+        var subPos = [{angle:0,r:R*0.75},{angle:Math.PI/2,r:R*0.7},{angle:Math.PI,r:R*0.75},{angle:Math.PI*1.5,r:R*0.7}];
+        for (var i = 0; i < 4; i++) {
+          var sp = subPos[i];
+          var sx = cx + Math.cos(sp.angle) * sp.r;
+          var sy = cy + Math.sin(sp.angle) * sp.r;
+          ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (midA * 0.5) + ')';
+          ctx.lineWidth = 1.0;
+          ctx.beginPath(); ctx.arc(sx, sy, R * 0.07, 0, Math.PI * 2); ctx.stroke();
+          for (var j = 0; j < 12; j++) {
+            var sa = (Math.PI * 2 / 12) * j;
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (midA * 0.3) + ')';
+            ctx.beginPath();
+            ctx.moveTo(sx + Math.cos(sa) * R * 0.05, sy + Math.sin(sa) * R * 0.05);
+            ctx.lineTo(sx + Math.cos(sa) * R * 0.07, sy + Math.sin(sa) * R * 0.07);
+            ctx.stroke();
+          }
+          ctx.fillStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (midA * 0.6) + ')';
+          ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // 5. 外层环带
+      if (a > 0.5) {
+        var ringA = (a - 0.5) / 0.5;
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (ringA * 0.6) + ')';
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 1.0;
+        ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (ringA * 0.3) + ')';
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.95, 0, Math.PI * 2); ctx.stroke();
+
+        // 矩形块
+        for (var i = 0; i < 24; i++) {
+          var angle = (Math.PI * 2 / 24) * i;
+          var rx = cx + Math.cos(angle) * R * 0.975;
+          var ry = cy + Math.sin(angle) * R * 0.975;
+          ctx.save();
+          ctx.translate(rx, ry);
+          ctx.rotate(angle + Math.PI / 2);
+          ctx.fillStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (ringA * 0.25) + ')';
+          ctx.fillRect(-3, -1.5, 6, 3);
+          ctx.restore();
+        }
+
+        // 节点
+        for (var i = 0; i < 8; i++) {
+          var angle = (Math.PI * 2 / 8) * i;
+          var nx = cx + Math.cos(angle) * R * 0.975;
+          var ny = cy + Math.sin(angle) * R * 0.975;
+          ctx.fillStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (ringA * 0.7) + ')';
+          ctx.beginPath(); ctx.arc(nx, ny, 2.5, 0, Math.PI * 2); ctx.fill();
+          var na = (Math.PI * 2 / 8) * ((i + 1) % 8);
+          ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (ringA * 0.15) + ')';
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(nx, ny);
+          ctx.lineTo(cx + Math.cos(na) * R * 0.975, cy + Math.sin(na) * R * 0.975);
+          ctx.stroke();
+        }
+      }
+
+      // 6. 最外层虚线 + 引线
+      if (a > 0.7) {
+        var outerA = (a - 0.7) / 0.3;
+        ctx.setLineDash([4, 6]);
+        ctx.lineWidth = 0.8;
+        ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (outerA * 0.4) + ')';
+        ctx.beginPath(); ctx.arc(cx, cy, R * 1.1, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 引线和标记
+        ctx.lineWidth = 0.8;
+        for (var i = 0; i < 16; i++) {
+          var angle = (Math.PI * 2 / 16) * i;
+          var len = R * (0.1 + Math.sin(i * 2.3) * 0.05);
+          var x1 = cx + Math.cos(angle) * R * 1.05;
+          var y1 = cy + Math.sin(angle) * R * 1.05;
+          var x2 = cx + Math.cos(angle) * (R * 1.05 + len);
+          var y2 = cy + Math.sin(angle) * (R * 1.05 + len);
+          ctx.strokeStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (outerA * 0.4) + ')';
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+          if (i % 3 === 0) {
+            ctx.fillStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (outerA * 0.5) + ')';
+            ctx.beginPath(); ctx.arc(x2, y2, 2, 0, Math.PI * 2); ctx.fill();
+          } else if (i % 3 === 1) {
+            ctx.fillStyle = 'rgba(' + chartColor[0] + ',' + chartColor[1] + ',' + chartColor[2] + ',' + (outerA * 0.4) + ')';
+            ctx.fillRect(x2 - 1.5, y2 - 1.5, 3, 3);
+          }
+        }
+      }
+
+      ctx.restore();
+    }
+
+
+    // 文字控制
+    var textEl = {en: document.getElementById('text-en'), zh: document.getElementById('text-zh')};
+    var brandEl = document.getElementById('splash-brand');
+    var textContainer = document.getElementById('splash-text');
+
+    function showText(group) {
+      if (group >= texts.length) return;
+      textEl.en.textContent = texts[group].en;
+      textEl.zh.textContent = texts[group].zh;
+      textEl.en.style.opacity = '1';
+      textEl.zh.style.opacity = '1';
+      textContainer.style.opacity = '1';
+    }
+
+    function hideText() {
+      textEl.en.style.opacity = "0";
+      textEl.zh.style.opacity = "0";
+      textContainer.style.opacity = "0";
+    }
+
+    function showBrand() {
+      brandEl.style.opacity = '1';
+    }
+
+    // 点击进入
+    var loading = document.getElementById('loading');
+    function enterApp() {
+      if (finished) return;
+      finished = true;
+      loading.classList.add('hidden');
+      setTimeout(function() { loading.remove(); }, 1500);
+      if (window.startWanWanApp) window.startWanWanApp();
+    }
+    window._enterApp = enterApp; // 允许main.js提前跳过开屏
+
+    // 时间轴
+    var timeline = [
+      {time: 0, fn: function() {}},
+      {time: 0.3, fn: function() { chartVisible = 0.001; }},
+      {time: 2.5, fn: function() { showText(0); chartColor = [130,130,130]; centerBrightness = 0.8; }},
+      {time: 4.0, fn: function() { hideText(); }},
+      {time: 4.5, fn: function() { showText(1); chartColor = [130,130,130]; centerBrightness = 0.8; }},
+      {time: 6.0, fn: function() { hideText(); }},
+      {time: 6.5, fn: function() { showText(2); chartColor = [130,130,130]; centerBrightness = 0.9; }},
+      {time: 8.0, fn: function() { hideText(); }},
+      {time: 8.5, fn: function() { showText(3); chartColor = [130,130,130]; centerBrightness = 1.0; }},
+      {time: 10.0, fn: function() { explodeText(); hideText(); startWhiteSpread(); decelerating = true; chartTargetSpeed = 0.002; }},
+      {time: 11.0, fn: function() { chartTargetSpeed = 0.0005; showBrand(); }},
+      {time: 13.0, fn: function() { chartTargetSpeed = 0; document.getElementById('splash-tap').classList.add('ready'); loading.addEventListener('click', enterApp); }}
+    ];
+    var timelineIdx = 0;
+
+
+    // 文字炸开成星星
+    var explodeParticles = [];
+    function explodeText() {
+      var cx = W / 2;
+      var cy = H / 2;
+      // 生成50个粒子从中心炸开
+      for (var i = 0; i < 50; i++) {
+        var angle = Math.random() * Math.PI * 2;
+        var speed = Math.random() * 4 + 2;
+        explodeParticles.push({
+          x: cx + (Math.random() - 0.5) * 100,
+          y: cy + (Math.random() - 0.5) * 30,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          r: Math.random() * 2.5 + 0.5,
+          life: 1,
+          decay: Math.random() * 0.01 + 0.005
+        });
+      }
+    }
+
+
+    // 从内向外白色扩散
+    var whiteSpread = 0;
+    var spreading = false;
+    function startWhiteSpread() { spreading = true; whiteSpread = 0; }
+    function updateWhiteSpread() {
+      if (!spreading) return;
+      whiteSpread = Math.min(whiteSpread + 0.008, 1);
+      // 从中心向外扩散变白
+      var cx = W / 2;
+      var cy = H / 2;
+      var R = Math.min(W, H) * 0.35;
+      var spreadR = R * 1.2 * whiteSpread;
+      var grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, spreadR);
+      grd.addColorStop(0, 'rgba(255,255,255,' + (whiteSpread * 0.15) + ')');
+      grd.addColorStop(0.7, 'rgba(255,255,255,' + (whiteSpread * 0.05) + ')');
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(cx, cy, spreadR, 0, Math.PI * 2);
+      ctx.fill();
+      // 同时提升chartColor亮度
+      var gray = 130 + (125 * whiteSpread);
+      chartColor = [gray, gray, gray];
+    }
+
+    function drawExplodeParticles() {
+      for (var i = explodeParticles.length - 1; i >= 0; i--) {
+        var p = explodeParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        p.life -= p.decay;
+        if (p.life <= 0) { explodeParticles.splice(i, 1); continue; }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,' + (p.life * 0.8) + ')';
+        ctx.fill();
+        // 小发光
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * p.life * 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,' + (p.life * 0.1) + ')';
+        ctx.fill();
+      }
+    }
+
+    function draw() {
+      t += 0.016;
+      ctx.clearRect(0, 0, W, H);
+
+      // 星光
+      drawStars(Math.min(t / 0.6, 1));
+
+      // 星盘淡入
+      if (chartVisible) {
+        chartVisible = Math.min(chartVisible + 0.008, 1);
+        drawChart(chartVisible);
+      }
+
+      // 旋转
+      if (decelerating) { chartSpeed += (chartTargetSpeed - chartSpeed) * 0.02; }
+      chartAngle += chartSpeed;
+      if (t > 10.0 && chartSpeed > 0.0002) { chartSpeed *= 0.997; }
+
+      // 时间轴
+      if (timelineIdx < timeline.length && t >= timeline[timelineIdx].time) {
+        timeline[timelineIdx].fn();
+        timelineIdx++;
+      }
+
+      drawExplodeParticles();
+      updateWhiteSpread();
+      if (!finished) requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+  </script>
+<link rel="stylesheet" href="css/time-page.css?v=6.2.6">
+<script src="js/time.js?v=6.2.6"></script>
+<script src="js/time-page.js?v=6.2.6"></script>
+</body>
+</html>

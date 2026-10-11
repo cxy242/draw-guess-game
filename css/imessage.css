@@ -565,7 +565,8 @@
 .sms-chat-messages::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
 
 /* Focus visible */
-*:focus-visible { outline: 2px solid #4a90d9; outline-offset: 2px; }
+*:focus-visible:not(input):not(textarea):not([contenteditable]) { outline: 2px solid #4a90d9; outline-offset: 2px; }
+input:focus-visible, textarea:focus-visible, [contenteditable]:focus-visible { outline: none !important; }
 
 
 /* ===== New Header: info + plus ===== */

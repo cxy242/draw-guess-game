@@ -103,6 +103,12 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       _toast('时间引擎未就绪，请刷新重试');
       return;
     }
+    // 清理退场淡出中的残留球（关→开180ms竞态），全局严格单例
+    var staleBalls = document.querySelectorAll('.tw-ball.hiding');
+    for (var sbi = 0; sbi < staleBalls.length; sbi++) {
+      try { if (staleBalls[sbi]._docCleanup) staleBalls[sbi]._docCleanup(); } catch (e0) {}
+      staleBalls[sbi].remove();
+    }
     if (document.getElementById('tw-ball')) return;
     var ball = _el('div', 'tw-ball' + (TW.isEnabled() ? '' : ' is-off'));   // CSS 契约：.tw-ball.is-off
     ball.id = 'tw-ball';
@@ -222,12 +228,15 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
   }
 
   function _unmountBall() {
-    var b = document.getElementById('tw-ball');
-    if (b) {
-      if (b._docCleanup) b._docCleanup();   // P3-⑥
-      if (b._onChangeOff) b._onChangeOff();   // P2-7
+    var bs = document.querySelectorAll('.tw-ball');
+    for (var bi = 0; bi < bs.length; bi++) {
+      var b = bs[bi];
+      try {
+        if (b._docCleanup) b._docCleanup();   // P3-⑥
+        if (b._onChangeOff) b._onChangeOff();   // P2-7
+      } catch (e0) {}
       b.classList.add('hiding');
-      setTimeout(function () { b.remove(); }, 180);   // 180ms 缩小淡出（图纸 §1）
+      (function (el) { setTimeout(function () { el.remove(); }, 180); })(b);   // 180ms 缩小淡出（图纸 §1）
     }
   }
 

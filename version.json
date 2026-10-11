@@ -1,5 +1,5 @@
 {
-  "version": "6.2.6",
-  "date": "2026-10-05",
-  "note": "三bug热修：滚轮时间选择器+标签溢出+虚拟钟常显"
+  "version": "6.2.7",
+  "date": "2026-10-11",
+  "note": "四bug修复：微信聊天_timeAwarenessCtx崩溃+doc/docx/txt导入+输入框蓝框+悬浮球单例"
 }

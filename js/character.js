@@ -485,11 +485,146 @@ async function importDescriptionFromFile(file, page) {
 }
 
 async function readCharacterDescriptionFile(file) {
-  const name = (file.name || '').toLowerCase()
-  if (name.endsWith('.docx')) return readDocxText(file)
-  if (name.endsWith('.txt')) return file.text()
-  if (name.endsWith('.doc')) return readLegacyDocText(file)
-  throw new Error('仅支持 doc、docx、txt 文件')
+  if (file.type && file.type.indexOf('image/') === 0) throw new Error('这是图片文件，请选择 doc、docx、txt 文档')
+  const buf = await file.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+  const hexHead = Array.from(bytes.slice(0, 8)).map(function(b) {
+    return b.toString(16).padStart(2, '0')
+  }).join('')
+  // 按文件头嗅探，不看扩展名（WPS/微信传的文件扩展名经常名不副实）
+  // ZIP 容器 = docx（包括被改名成 .doc / .txt 的 docx）
+  if (hexHead.indexOf('504b0304') === 0 || hexHead.indexOf('504b0506') === 0 || hexHead.indexOf('504b0708') === 0) {
+    return readDocxText(file)
+  }
+  // OLE2 容器 = Word 97-2003 老版 .doc
+  if (hexHead.indexOf('d0cf11e0') === 0) {
+    return readLegacyDocText(file)
+  }
+  if (hexHead.indexOf('25504446') === 0) {
+    throw new Error('暂不支持 PDF，请先转成 doc、docx 或 txt')
+  }
+  const headText = new TextDecoder('latin1').decode(bytes.slice(0, 16))
+  // RTF 伪 doc
+  if (headText.indexOf('{\\rtf') === 0) return extractRtfText(bytes)
+  // 纯文本 / HTML 伪 doc / txt
+  return readPlainTextLikeDoc(bytes)
+}
+
+function readPlainTextLikeDoc(bytes) {
+  var text = ''
+  try { text = new TextDecoder('utf-8', { fatal: false }).decode(bytes) } catch (_) {}
+  var total = text.length || 1
+  var bad = (text.match(/\uFFFD/g) || []).length
+  // UTF-8 解码出来满是替换符说明原文是 GBK/ANSI
+  if (bad > total * 0.05) {
+    try { text = new TextDecoder('gbk').decode(bytes) } catch (_) {}
+  }
+  if (/<\s*(html|body|div|p|meta|head)\b/i.test(text)) return stripHtmlToText(text)
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g, ' ')
+}
+
+function stripHtmlToText(html) {
+  var t = String(html || '')
+  t = t.replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  t = t.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  t = t.replace(/<\s*(br|\/p|\/div|\/li|\/h[1-6]|\/tr)\s*\/?>/gi, '\n')
+  t = t.replace(/<[^>]+>/g, '')
+  t = t.replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/&amp;/gi, '&')
+  return t
+}
+
+function extractRtfText(bytes) {
+  var src = new TextDecoder('latin1').decode(bytes)
+  var out = []
+  var i = 0
+  var depth = 0
+  var skipDepth = -1
+  var ucSkip = 1
+  while (i < src.length) {
+    var ch = src[i]
+    if (ch === '{') {
+      depth++
+      // {\*\...} 是可丢弃的目标组（字体表、样式表等元数据）
+      if (src[i + 1] === '\\' && src[i + 2] === '*') skipDepth = depth
+      i++
+      continue
+    }
+    if (ch === '}') {
+      if (skipDepth === depth) skipDepth = -1
+      depth--
+      i++
+      continue
+    }
+    if (ch === '\\' && skipDepth < 0) {
+      var next = src[i + 1]
+      if (next === '\\' || next === '{' || next === '}') { out.push(next); i += 2; continue }
+      if (next === "'") { i += 4; continue }  // \'xx 代码页字节，中文文档多走 \uN，此处跳过
+      var m = /^\\([a-zA-Z]+)(-?\d+)?\s?/.exec(src.slice(i, i + 24))
+      if (!m) { i++; continue }
+      var word = m[1]
+      if (word === 'par' || word === 'line' || word === 'row') out.push('\n')
+      else if (word === 'tab') out.push('\t')
+      else if (word === 'uc' && m[2]) ucSkip = parseInt(m[2], 10)
+      else if (word === 'u' && m[2]) {
+        var code = parseInt(m[2], 10)
+        if (code < 0) code += 65536
+        out.push(String.fromCharCode(code))
+        i += m[0].length
+        // \uN 后面跟 ucSkip 个回退字符（兼容老阅读器用），跳过不输出
+        var skip = ucSkip
+        while (skip > 0 && i < src.length && src[i] !== '\\' && src[i] !== '{' && src[i] !== '}') {
+          i++
+          skip--
+        }
+        continue
+      }
+      i += m[0].length
+      continue
+    }
+    if (skipDepth < 0) out.push(ch)
+    i++
+  }
+  return out.join('')
+}
+
+function isReadableTextChar(ch) {
+  var code = ch.codePointAt(0)
+  return ch === '\n' || ch === '\t' ||
+    (code >= 0x20 && code <= 0x7e) ||
+    (code >= 0xa0 && code <= 0x24f) ||
+    (code >= 0x2000 && code <= 0x206f) ||
+    (code >= 0x3000 && code <= 0x303f) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xff00 && code <= 0xffef)
+}
+
+var _structuralRe = /[\s，。、！？：；""''（）()《》【】,.:;!?'"\-—…]/g
+
+function isQualityRun(r) {
+  var t = String(r || '').trim()
+  if (t.length < 20) return t.length >= 4
+  var structural = (t.match(_structuralRe) || []).length
+  return structural >= 2 && structural >= t.length / 50
+}
+
+function extractReadableTextRuns(text) {
+  var runs = []
+  var current = ''
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i]
+    if (isReadableTextChar(ch)) {
+      current += ch
+    } else {
+      if (current.trim().length >= 4) runs.push(current)
+      current = ''
+    }
+  }
+  if (current.trim().length >= 4) runs.push(current)
+  var kept = runs.filter(isQualityRun)
+  return kept.join('\n')
 }
 
 async function readDocxText(file) {
@@ -542,13 +677,35 @@ function extractWordXmlText(xml) {
   return chunks.join('')
 }
 
+function textQualityScore(text) {
+  const t = String(text || '')
+  const structural = (t.match(/[\s，。、！？：；""''（）()《》【】,.:;!?'"\-—…]/g) || []).length
+  return structural * 50 + Math.min(t.length, 800)
+}
+
 async function readLegacyDocText(file) {
   const buf = await file.arrayBuffer()
   const bytes = new Uint8Array(buf)
-  const utf16 = extractUtf16LeRuns(bytes)
-  if (utf16.length > 20) return utf16
-  const decoded = await file.text()
-  return decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g, ' ')
+  let best = ''
+  let bestScore = 0
+  let decoded = ''
+  const consider = function(text) {
+    const score = textQualityScore(text)
+    if (score > bestScore) { bestScore = score; best = text }
+  }
+  // 路线1：Word 的 Unicode 文本按 UTF-16LE 存
+  consider(extractUtf16LeRuns(bytes))
+  // 路线2：中文 .doc 正文常按 GBK/ANSI 存，整段转码后抽可读文字
+  // 双对齐解码（跳过0/1字节各试一次）取质量更好的一次，防字节配对错位丢字
+  try {
+    const dec = new TextDecoder('gbk')
+    consider(extractReadableTextRuns(dec.decode(bytes)))
+    consider(extractReadableTextRuns(dec.decode(bytes.subarray(1))))
+  } catch (_) {}
+  // 路线3：兜底按纯文本清理
+  decoded = await file.text()
+  consider(extractReadableTextRuns(decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g, ' ')))
+  return best || decoded
 }
 
 function extractUtf16LeRuns(bytes) {
@@ -560,11 +717,11 @@ function extractUtf16LeRuns(bytes) {
       if (isReadableDocChar(code)) {
         current += String.fromCharCode(code)
       } else {
-        if (current.trim().length >= 4) runs.push(current)
+        if (isQualityRun(current)) runs.push(current)
         current = ''
       }
     }
-    if (current.trim().length >= 4) runs.push(current)
+    if (isQualityRun(current)) runs.push(current)
   }
   return runs.join('\n')
 }

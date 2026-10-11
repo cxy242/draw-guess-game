@@ -8247,7 +8247,7 @@ async function generateAIReply(chatId, charId, options = {}) {
     scope: 'chat',
     conversationId: chatId
   }, context.textHistory || history)
-  const system = await buildChatSystem(char, loreSegments, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, memoryPanelCtx, bilingualSettings, imageGenEnabled, options.replyRequirement, idleContext, narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState)
+  const system = await buildChatSystem(char, loreSegments, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, memoryPanelCtx, _timeAwarenessCtx, bilingualSettings, imageGenEnabled, options.replyRequirement, idleContext, narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState)
   const avatarCtx = await buildWechatAvatarContext(charId)
   const nowTimestamp = Date.now()
   const gapContext = calculateWechatReplyGap(context.gapTimeline || context.timeline, options, nowTimestamp)
@@ -8377,7 +8377,7 @@ async function getPrivateReplyIdleContext(chatId, options = {}) {
 
 
 // 构建聊天系统提示词（loreCtx 可为字符串或 { before, middle, after } 分段对象）
-async function buildChatSystem(char, loreCtx, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, memoryPanelCtx, bilingualSettings, imageGenEnabled, replyRequirement = '', idleContext = null, narrativeSettings = null, patPatSettings = null, longDistSettings = null, blockSettings = null, blockState = null) {
+async function buildChatSystem(char, loreCtx, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, memoryPanelCtx, timeAwarenessCtx = '', bilingualSettings, imageGenEnabled, replyRequirement = '', idleContext = null, narrativeSettings = null, patPatSettings = null, longDistSettings = null, blockSettings = null, blockState = null) {
   const loreSeg = (loreCtx && typeof loreCtx === 'object')
     ? loreCtx
     : { before: '', middle: loreCtx || '', after: '' }
@@ -8421,7 +8421,7 @@ async function buildChatSystem(char, loreCtx, charName, userName, userNick, stic
   let system = buildSystemPart5(charName, userName, thoughtTemplate, blockSettings, blockState) +
     buildSystemBilingualPart(bilingualSettings) +
     buildSystemPart1(char, charName, loreSeg.middle, loreSeg.before) +
-    buildSystemMemoryPart(memoryCtx, memoryPanelCtx, _timeAwarenessCtx) +
+    buildSystemMemoryPart(memoryCtx, memoryPanelCtx, timeAwarenessCtx) +
     part2 +
     loreAfterBlock +
     buildSystemPart3(charName, userName, stickerNames, imageGenEnabled) +
