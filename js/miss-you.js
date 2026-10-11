@@ -1258,6 +1258,20 @@ ${MISS_BEAUTY_CLASS_TEXT}`
     const memoryBlock = buildOfflineMemoryBlock(memoryCtx)
     const antiRepeatBlock = buildAntiRepeatBlock(offlineAll)
     const narrativeRule = buildNarrativePersonRule(settings.narrativePerson, charName, userName)
+    // 当前时间（与线上同源：TimeWorld虚拟时间引擎 + memory 时间感知），线下AI不能再瞎猜时间
+    let timeCtxLine = ''
+    try {
+      if (window.WanWanMemory && window.WanWanMemory.buildTimeAwarenessContext) {
+        timeCtxLine = await window.WanWanMemory.buildTimeAwarenessContext(char && (char.id || char.charId))
+      }
+    } catch (e) {}
+    if (!timeCtxLine) {
+      try {
+        timeCtxLine = (window.TimeWorld && window.TimeWorld.getFormattedNow)
+          ? '\u73b0\u5728\u662f' + window.TimeWorld.getFormattedNow()
+          : '\u73b0\u5728\u662f' + new Date().toLocaleString()
+      } catch (e) {}
+    }
     return `# 想见你线下模式
 
 ${typeof _BUILTIN_ANTI_DRIFT_LORE !== 'undefined' ? _BUILTIN_ANTI_DRIFT_LORE : ''}
@@ -1286,6 +1300,10 @@ ${loreBlock}
 ${memoryBlock}
 
 ${antiRepeatBlock}
+
+## 当前时间
+- ${timeCtxLine || '\uff08\u65f6\u95f4\u672a\u77e5\uff0c\u81ea\u7136\u884c\u4e8b\uff09'}
+- \u8fd9\u5c31\u662f\u73b0\u5728\u552f\u4e00\u51c6\u786e\u7684\u65f6\u95f4\u3002\u56de\u7b54\u201c\u73b0\u5728\u51e0\u70b9\u201d\u201c\u4eca\u5929\u4ec0\u4e48\u65f6\u5019\u201d\u5fc5\u987b\u7528\u5b83\uff1b\u957f\u671f\u8bb0\u5fc6\u91cc\u51fa\u73b0\u7684\u65f6\u95f4\u90fd\u662f\u8fc7\u53bb\uff0c\u7edd\u4e0d\u80fd\u5f53\u6210\u73b0\u5728\u3002
 
 ## 上下文
 - 微信聊天和线下见面属于同一条连续时间线；记住两边发生过的事，自然承接最近上下文。
