@@ -1295,7 +1295,7 @@ ${lines}`
     modal.querySelector('#mem-edit-save').addEventListener('click', async function() {
       var patch = {
         title: modal.querySelector('#mem-edit-title').value.trim().slice(0, 30) || '未命名记忆',
-        content: modal.querySelector('#mem-edit-content').value.trim().slice(0, 150),
+        content: modal.querySelector('#mem-edit-content').value.trim().slice(0, 5000),
         keywords: modal.querySelector('#mem-edit-keywords').value.split(/[,，]/).map(function(k) { return k.trim() }).filter(Boolean),
         valence: parseFloat(getPillVal('mem-pills-valence', '0')) || 0,
         arousal: parseFloat(getPillVal('mem-pills-arousal', '0.3')) || 0.3,
