@@ -1015,7 +1015,7 @@ function renderReading(root){
 
   var old = root.querySelector('.tarot-reading-overlay');
   if(old) old.remove();
-  root.insertAdjacentHTML('beforeend', html);
+  root.querySelector('.tarot-phases').innerHTML = html;   /* 解读页换页不叠层（防覆盖问题） */
 
   root.querySelectorAll('.tarot-chip').forEach(function(chip){
     chip.addEventListener('click',function(){
