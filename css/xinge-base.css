@@ -69,8 +69,13 @@
 
   /* —— 缓动（快起慢停，禁弹跳）—— */
   --xg-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --xg-ease-in: cubic-bezier(0.55, 0.055, 0.675, 0.19);
   --xg-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --xg-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --xg-domino-delay: 0.06s;   /* 全局切换划线多米诺步进 */
+  --xg-seal-blue-hi: #D8E7F0; /* 天鹅火漆浅蓝（主人拍板色） */
+  --xg-seal-blue-mid: #B9D2E2;
+  --xg-seal-blue-lo: #93B2C8;
   --xg-dur-press: 140ms;
   --xg-dur-ui: 200ms;
   --xg-dur-panel: 320ms;
@@ -234,7 +239,7 @@
 /* 蓝蜡变体（信封火漆=天鹅章） */
 .xg-wax-blue {
   background:
-    radial-gradient(circle at 32% 28%, #D8E7F0 0%, #B9D2E2 45%, #93B2C8 100%);
+    radial-gradient(circle at 32% 28%, var(--xg-seal-blue-hi) 0%, var(--xg-seal-blue-mid) 45%, var(--xg-seal-blue-lo) 100%);
   box-shadow:
     inset 0 1px 2px rgba(255, 255, 255, 0.5),
     inset 0 -2px 4px rgba(70, 95, 120, 0.28),

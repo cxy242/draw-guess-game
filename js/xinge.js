@@ -849,6 +849,7 @@
   function runCompose(draft) {
     if (_inFlight) { toast('上一封还在写呢'); return; }
     Xinge.nav.composing();
+    var composeStart = nowTs(); // A1：生成动画最短 2.5s 不闪切
     var userPrompt = '';
     var memPromise;
     try {
@@ -901,7 +902,11 @@
           s.lastParams = { toName: draft.toName, presetKey: draft.presetKey };
           return setConfig('xinge:settings', s);
         });
-        Xinge.nav.envelope(newest && newest.id);
+        // A1：动画最短 2.5s，不足则补足再进 P6（不闪切）
+        var elapsed = nowTs() - composeStart;
+        var waitMs = Math.max(0, 2500 - elapsed);
+        if (waitMs > 0) later(function () { Xinge.nav.envelope(newest && newest.id); }, waitMs);
+        else Xinge.nav.envelope(newest && newest.id);
       });
     }).catch(function (err) {
       _inFlight = null;
@@ -1315,6 +1320,8 @@
       topbar('谁能给我写信', { dark: true }) +
       '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
         '<div class="xg-group-title">允许主动来信的人</div>' +
+        '<div class="xg-selectall-row"><span class="xg-selectall-label">全选 / 全不选</span>' +
+        '<button class="xg-wax-switch" data-xg-perm-all aria-label="全选"></button></div>' +
         '<div class="xg-group-card" id="xg-perm-list"></div>' +
       '</div></div>';
     var el = openPage('xg-page-perm', html);
@@ -1322,6 +1329,27 @@
     fillPerm(el);
     el.addEventListener('click', function (e) {
       if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var allBtn = e.target.closest('[data-xg-perm-all]');
+      if (allBtn) {
+        var turnOn = !allBtn.classList.contains('is-on');
+        allBtn.classList.toggle('is-on', turnOn);
+        getConfig('xinge:pool', { allow: {}, all: false }).then(function (pool) {
+          pool.all = turnOn;
+          pool.allow = pool.allow || {};
+          if (turnOn) {
+            el.querySelectorAll('[data-xg-perm-switch]').forEach(function (sw) {
+              sw.classList.add('is-on');
+              var cid = sw.getAttribute('data-xg-perm-switch');
+              pool.allow[cid] = pool.allow[cid] || '偶尔';
+            });
+          } else {
+            pool.allow = {};
+            el.querySelectorAll('[data-xg-perm-switch]').forEach(function (sw) { sw.classList.remove('is-on'); });
+          }
+          return setConfig('xinge:pool', pool);
+        });
+        return;
+      }
       var sw = e.target.closest('[data-xg-perm-switch]');
       if (sw) {
         var charId = sw.getAttribute('data-xg-perm-switch');

@@ -8092,6 +8092,46 @@ function createWechatMcpTraceObserver(traceContext, binding, turnId) {
   }
 }
 
+// ===== [C-3] MCP跑腿路由：可关 + 限时快失败 =====
+// 关闭或超时都不再拖住角色回复；超时的跑腿后台收尾（结果丢弃、执行台关闭）。
+async function getWechatMcpPrefetchConfig() {
+  try {
+    const row = await db.config.get('mcpPrefetch')
+    const v = (row && row.value) || {}
+    return {
+      mode: v.mode === 'off' ? 'off' : 'on',
+      timeoutSec: Number(v.timeoutSec) > 0 ? Number(v.timeoutSec) : 20
+    }
+  } catch (e) {
+    return { mode: 'on', timeoutSec: 20 }
+  }
+}
+
+async function runWechatMcpPrefetchBounded(allowMcp, traceContext = {}, history = []) {
+  const off = { enabled: false, noticeText: '', close: async () => {} }
+  try {
+    const cfg = await getWechatMcpPrefetchConfig()
+    if (cfg.mode === 'off') return off
+    const prefetch = runWechatMcpPrefetch(allowMcp, traceContext, history)
+    let timer = null
+    const gate = new Promise(function (resolve) {
+      timer = setTimeout(function () { resolve(null) }, cfg.timeoutSec * 1000)
+    })
+    const winner = await Promise.race([prefetch, gate])
+    clearTimeout(timer)
+    if (winner === null) {
+      // 超时：回复先走；跑腿后台收尾（结果丢弃、执行台关闭防泄漏）
+      prefetch.then(function (m) {
+        if (m && typeof m.close === 'function') m.close()
+      }).catch(function () {})
+      return off
+    }
+    return winner
+  } catch (e) {
+    return off
+  }
+}
+
 // 前置跑腿：先让小模型判断并跑完工具，再由它把结果写成一段中文汇报。
 // 返回的 noticeText 是给角色看的纯文本纸条；角色请求本身不带任何 tools。
 async function runWechatMcpPrefetch(allowMcp, traceContext = {}, history = []) {
@@ -8263,7 +8303,7 @@ async function generateAIReply(chatId, charId, options = {}) {
   const _timeAwarenessCtx = window.WanWanMemory?.buildTimeAwarenessContext
     ? await window.WanWanMemory.buildTimeAwarenessContext(charId)
     : ''
-  const mcp = await runWechatMcpPrefetch(options.allowMcp === true, {
+  const mcp = await runWechatMcpPrefetchBounded(options.allowMcp === true, {
     scope: 'chat',
     conversationId: chatId
   }, context.textHistory || history)
@@ -15627,7 +15667,7 @@ async function buildGroupDirectorHistory(groupId, members, userChar, userUid) {
 async function generateGroupScript(groupId, group, members, userChar, userUid, options = {}) {
   assertGroupAIContextActive(group, userUid)
   const history = await buildGroupDirectorHistory(groupId, members, userChar, userUid)
-  const mcp = await runWechatMcpPrefetch(options.allowMcp === true, {
+  const mcp = await runWechatMcpPrefetchBounded(options.allowMcp === true, {
     scope: 'group',
     conversationId: groupId
   }, history)

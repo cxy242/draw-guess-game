@@ -1215,6 +1215,10 @@
     var cfg = window.loadMcpApiConfig
       ? await window.loadMcpApiConfig(true)
       : { url: '', key: '', model: '', complete: false }
+    var pfRow = await db.config.get('mcpPrefetch')
+    var pf = (pfRow && pfRow.value) || {}
+    var pfMode = pf.mode === 'off' ? 'off' : 'on'
+    var pfTimeout = Number(pf.timeoutSec) > 0 ? Number(pf.timeoutSec) : 20
     var html =
       '<div class="setting-section">' +
         '<div class="api-form memory-api-form">' +
@@ -1242,6 +1246,18 @@
           '<div class="api-test-row">' +
             '<button class="btn-ghost" id="mcp-api-test" type="button">连接测试</button>' +
           '</div>' +
+          '<label class="form-label">回复前置跑腿路由</label>' +
+          '<select class="input-field" id="mcp-prefetch-mode">' +
+            '<option value="on"' + (pfMode === 'on' ? ' selected' : '') + '>开启（先跑腿再回复，限时快失败）</option>' +
+            '<option value="off"' + (pfMode === 'off' ? ' selected' : '') + '>关闭（不跑腿，回复最快）</option>' +
+          '</select>' +
+          '<label class="form-label">跑腿等待上限（超时先回复，不干等）</label>' +
+          '<select class="input-field" id="mcp-prefetch-timeout">' +
+            '<option value="10"' + (pfTimeout === 10 ? ' selected' : '') + '>10 秒</option>' +
+            '<option value="20"' + (pfTimeout === 20 ? ' selected' : '') + '>20 秒</option>' +
+            '<option value="30"' + (pfTimeout === 30 ? ' selected' : '') + '>30 秒</option>' +
+          '</select>' +
+          '<button class="btn-pill btn-full" id="mcp-prefetch-save" type="button">保存跑腿路由设置</button>' +
           '<button class="btn-pill btn-full" id="mcp-api-save" type="button">保存 MCP API</button>' +
           '<button class="btn-ghost btn-full btn-text-danger memory-api-clear" id="mcp-api-clear" type="button">清除配置并使用主 API</button>' +
         '</div>' +
@@ -1314,6 +1330,24 @@
       } finally {
         btn.disabled = false
         btn.textContent = oldText
+      }
+    })
+    page.querySelector('#mcp-prefetch-save').addEventListener('click', async function(e) {
+      var btn = e.currentTarget
+      btn.disabled = true
+      try {
+        await db.config.put({
+          key: 'mcpPrefetch',
+          value: {
+            mode: page.querySelector('#mcp-prefetch-mode').value === 'off' ? 'off' : 'on',
+            timeoutSec: Number(page.querySelector('#mcp-prefetch-timeout').value) || 20
+          }
+        })
+        window.toast('跑腿路由设置已保存')
+      } catch (error) {
+        window.toast('保存失败：' + friendlyError(error))
+      } finally {
+        btn.disabled = false
       }
     })
     page.querySelector('#mcp-api-save').addEventListener('click', async function(e) {

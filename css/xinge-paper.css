@@ -1,0 +1,352 @@
+/* ============================================================
+   xinge-paper.css · 深化卷（信纸体系 + 划掉变体 + 页边装饰 + 响应式）
+   依 UI 方案 §1 P7/P8 + 信文纸/心里话纸规格
+   ============================================================ */
+
+/* ============================================================
+   N1. 信纸基底（羊皮纸纹 + 暖影 + 页边）
+   ============================================================ */
+.xg-paper-sheet {
+  position: relative;
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, rgba(238, 232, 218, 0.62), rgba(238, 232, 218, 0.62)),
+    url('img/xinge/xg-paper.png') repeat center / 280px auto,
+    var(--xg-ivory);
+  box-shadow:
+    0 1px 2px rgba(47, 53, 39, 0.12),
+    0 18px 42px rgba(47, 53, 39, 0.18);
+}
+.xg-paper-sheet.ps-letter {
+  background:
+    linear-gradient(180deg, rgba(238, 232, 218, 0.55), rgba(238, 232, 218, 0.55)),
+    url('img/xinge/09-paper-letter.png') center / cover no-repeat,
+    var(--xg-ivory);
+}
+.xg-paper-sheet.ps-heart {
+  background:
+    linear-gradient(180deg, rgba(238, 232, 218, 0.42), rgba(238, 232, 218, 0.42)),
+    url('img/xinge/09-paper-heart.png') center / cover no-repeat,
+    var(--xg-ivory);
+}
+/* 页边细线（印刷页缘） */
+.xg-paper-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1px solid rgba(137, 109, 89, 0.22);
+  pointer-events: none;
+}
+/* 左缘装订孔痕 */
+.xg-paper-sheet.ps-hole::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 18%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(137, 109, 89, 0.18);
+  box-shadow:
+    0 90px 0 rgba(137, 109, 89, 0.18),
+    0 180px 0 rgba(137, 109, 89, 0.18),
+    0 270px 0 rgba(137, 109, 89, 0.18);
+  pointer-events: none;
+}
+
+/* 页角折痕（右上角折角） */
+.xg-fold-corner {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(225deg, var(--xg-ivory-deep) 50%, rgba(47, 53, 39, 0.12) 50%, rgba(255, 255, 255, 0.5) 55%);
+  pointer-events: none;
+}
+
+/* ============================================================
+   N2. 心里话纸（第 3 张：灰玫瑰晕 + 玫瑰藤角）
+   ============================================================ */
+.xg-heart-paper {
+  background:
+    radial-gradient(ellipse at 8% 92%, rgba(199, 161, 155, 0.28), rgba(199, 161, 155, 0) 52%),
+    radial-gradient(ellipse at 92% 8%, rgba(199, 161, 155, 0.2), rgba(199, 161, 155, 0) 46%),
+    url('img/xinge/xg-paper.png') repeat center / 280px auto,
+    var(--xg-ivory);
+}
+.xg-heart-rose {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 74px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.xg-heart-rose img { width: 100%; height: auto; }
+.xg-heart-label {
+  position: absolute;
+  left: 18px;
+  top: 14px;
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 17px;
+  color: var(--xg-rose);
+  opacity: 0.8;
+}
+
+/* ============================================================
+   N3. 正文排印（段落/首行/行距/标点悬挂）
+   ============================================================ */
+.xg-letter-body {
+  padding: 26px 24px 20px;
+}
+.xg-letter-body .xg-letter-para {
+  text-indent: 2em;
+}
+.xg-letter-body .xg-letter-para.xg-para-quote {
+  margin-left: 1.4em;
+  padding-left: 12px;
+  border-left: 2px solid rgba(199, 161, 155, 0.55);
+  font-size: 16px;
+  color: var(--xg-clay);
+  text-indent: 0;
+}
+.xg-letter-body .xg-para-ellipsis {
+  text-align: center;
+  color: var(--xg-clay-pale);
+  letter-spacing: 0.6em;
+  text-indent: 0.6em;
+}
+
+/* ============================================================
+   N4. 划掉体系（三态变体）
+   N4a 轻划（细线 45%）：不好意思说的
+   N4b 重划（粗线 70%+多重线）：内心阴暗面，划得狠
+   N4c 圈涂（涂改圈）：写错划掉重写感
+   ============================================================ */
+.xg-strike-soft .xg-w {
+  text-decoration: line-through;
+  text-decoration-color: rgba(47, 53, 39, 0.4);
+  text-decoration-thickness: 1px;
+}
+.xg-strike-hard .xg-w {
+  text-decoration: line-through;
+  text-decoration-color: rgba(47, 53, 39, 0.7);
+  text-decoration-thickness: 2px;
+  text-decoration-style: solid;
+}
+.xg-strike-hard {
+  opacity: 0.88;
+}
+.xg-strike-scratch .xg-w {
+  text-decoration: line-through;
+  text-decoration-color: rgba(47, 53, 39, 0.55);
+  text-decoration-thickness: 1px;
+}
+.xg-strike-scratch .xg-w:nth-child(3n) {
+  text-decoration-thickness: 2px;
+}
+/* 涂改圈（手绘圈涂感） */
+.xg-scribble {
+  position: relative;
+  display: inline-block;
+}
+.xg-scribble::before {
+  content: "";
+  position: absolute;
+  inset: -4px -7px;
+  border: 1.5px solid rgba(47, 53, 39, 0.5);
+  border-radius: 48% 52% 50% 50% / 58% 42% 58% 42%;
+  transform: rotate(-3deg);
+  pointer-events: none;
+}
+/* 补写小字（划掉后旁边的小字补话） */
+.xg-rewritten {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 0 5px;
+  border: 1px dashed rgba(137, 109, 89, 0.5);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--xg-rose);
+  vertical-align: 1px;
+}
+
+/* 收线完成态 */
+.xg-letter-para.is-restored .xg-w {
+  text-decoration: none;
+  color: var(--xg-olive);
+}
+.xg-letter-para.is-restored {
+  font-style: normal;
+  color: var(--xg-olive);
+}
+
+/* 全局切换按钮态（页脚钮） */
+.xg-strike-toggle.is-hidden-strike .xg-letter-para.is-struck .xg-w {
+  text-decoration: none;
+}
+
+/* ============================================================
+   N5. 落款区（花体签名 + 日期 + 小火漆）
+   ============================================================ */
+.xg-sign-zone {
+  position: relative;
+  margin-top: 26px;
+  padding: 16px 24px 22px;
+  text-align: right;
+}
+.xg-sign-zone .xg-sign-vine {
+  width: 130px;
+  height: 22px;
+  margin-left: auto;
+  opacity: 0.6;
+}
+.xg-sign-zone .xg-sign-vine img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.xg-sign-seal {
+  position: absolute;
+  right: 22px;
+  bottom: 8px;
+  width: 38px;
+  height: 38px;
+  opacity: 0.85;
+}
+.xg-sign-seal img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: rotate(-8deg);
+}
+
+/* ============================================================
+   N6. 页码 / 装订线 / 页脚小字
+   ============================================================ */
+.xg-page-num {
+  text-align: center;
+  padding: 6px 0 2px;
+  font-family: 'XG-Serif', serif;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--xg-clay-pale);
+}
+.xg-binding-line {
+  position: absolute;
+  left: 34px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: rgba(199, 161, 155, 0.35);
+  pointer-events: none;
+}
+.xg-paper-foot-note {
+  padding: 0 24px 16px;
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+  text-align: center;
+}
+
+/* ============================================================
+   N7. 阅读页信纸容器（82% 宽 + 暖影 + 滚动渐隐）
+   ============================================================ */
+.xg-read-paper {
+  position: relative;
+  width: 82%;
+  max-width: 380px;
+  margin: 18px auto 0;
+  max-height: 64vh;
+  overflow-y: auto;
+  border-radius: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.xg-read-paper::-webkit-scrollbar { width: 0; }
+.xg-read-wrap {
+  position: relative;
+}
+.xg-read-wrap::before,
+.xg-read-wrap::after {
+  content: "";
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  height: 22px;
+  z-index: 2;
+  pointer-events: none;
+}
+.xg-read-wrap::before {
+  top: 18px;
+  background: linear-gradient(180deg, rgba(238, 232, 218, 0.65), rgba(238, 232, 218, 0));
+}
+.xg-read-wrap::after {
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(238, 232, 218, 0.65), rgba(238, 232, 218, 0));
+}
+
+/* ============================================================
+   N8. 邮票/邮戳贴纸感（微翘角+投影）
+   ============================================================ */
+.xg-sticker {
+  position: relative;
+  filter: drop-shadow(0 1px 2px rgba(47, 53, 39, 0.18));
+}
+.xg-sticker-tilt-a { transform: rotate(-2deg); }
+.xg-sticker-tilt-b { transform: rotate(-6deg); }
+.xg-sticker-tilt-c { transform: rotate(3deg); }
+.xg-sticker-lift:hover {
+  transform: rotate(-2deg) scale(1.06);
+  transition: transform 0.25s var(--xg-ease-out);
+}
+
+/* ============================================================
+   N9. 响应式收敛（多断点）
+   ============================================================ */
+@media (max-width: 430px) {
+  .xg-fan-paper { width: 200px; margin-left: -100px; }
+  .xg-fan-paper.is-locked.is-nudge {
+    animation: xg-lock-nudge-sm 0.32s var(--xg-ease-out);
+  }
+  @keyframes xg-lock-nudge-sm {
+    0% { margin-left: -100px; }
+    25% { margin-left: -104px; }
+    60% { margin-left: -96px; }
+    100% { margin-left: -100px; }
+  }
+}
+@media (max-width: 390px) {
+  .xg-read-paper { width: 88%; }
+  .xg-letter-body { padding: 22px 18px 16px; }
+  .xg-letter-body .xg-letter-para { font-size: 16px; }
+}
+@media (max-width: 360px) {
+  :root {
+    --xg-fs-script: 24px;
+    --xg-fs-letter: 16px;
+    --xg-gap-page: 16px;
+  }
+  .xg-fan-paper { width: 180px; margin-left: -90px; }
+  .xg-fan-paper.is-locked.is-nudge {
+    animation: xg-lock-nudge-xs 0.32s var(--xg-ease-out);
+  }
+  @keyframes xg-lock-nudge-xs {
+    0% { margin-left: -90px; }
+    25% { margin-left: -94px; }
+    60% { margin-left: -86px; }
+    100% { margin-left: -90px; }
+  }
+  .xg-btn-hero { width: 210px; height: 58px; }
+  .xg-rel-card { width: 126px; height: 168px; }
+  .xg-age-card { height: 158px; }
+}
+@media (max-width: 320px) {
+  .xg-fan-stage { height: 300px; }
+  .xg-letter-body .xg-letter-para { font-size: 15px; line-height: 1.85; }
+}
+/* 横屏手机（短视口）：阅读页收紧 */
+@media (max-height: 480px) and (orientation: landscape) {
+  .xg-read-paper { max-height: 52vh; }
+  .xg-fan-stage { height: 260px; }
+}
