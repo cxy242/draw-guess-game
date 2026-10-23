@@ -265,7 +265,8 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
 
     /* 3 大字时钟 */
     var clockBox = _el('div', 'tw-flip-wrap');
-    var clock = _el('div', 'tw-clock-big', TW && TW.getNow ? _fmtClock(TW.getNow()) : '--:--:--');   // P3-⑦
+    var clock = _el('div', 'tw-clock-big', ' ');   // [F修] 占位符初始值（绕过_flipTo同文早退）
+    _flipTo(clock, TW && TW.getNow ? _fmtClock(TW.getNow()) : '--:--:--');   // [F修] 首帧即美化：立即生成翻牌span，不再素颜1秒
     clockBox.appendChild(clock);
     var realTag = _el('div', 'tw-reality-tag', '现实时间');
     realTag.style.display = TW.isEnabled() ? 'none' : '';
@@ -312,7 +313,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
           TW.addOffset(item[1]);
           _toast('虚拟时间已前进' + item[0].replace('+', ''));
         }
-        clock.textContent = _fmtClock(TW.getNow());
+        _flipTo(clock, _fmtClock(TW.getNow()));   // [F修] 保持美化span
         vDayLine.textContent = '虚拟今天 ' + TW.getDayString();
       });
       grid.appendChild(b);

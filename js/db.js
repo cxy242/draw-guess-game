@@ -343,6 +343,10 @@ function initDB() {
     relationships:     '++id, charId, targetId, [charId+targetId], type, updatedAt',
     npcCharacters:     '++id, name, source, charId'
   })
+  db.version(18).stores({
+    xingeLetters:      '++id, senderKey, recipientType, status, createdAt, scheduledAt, readAt, favorite',
+    xingePresets:      '++id, kind, name'
+  })
   installWanWanDBRecovery()
 }
 
