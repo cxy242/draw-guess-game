@@ -10,7 +10,8 @@
 window.showTimeBook = async function () {          // 入口函数铁律（第一行）
   'use strict';
   if (document.getElementById('tb-root')) return;
-  _openBook();
+  if (window.TimeBook && typeof window.TimeBook.open === 'function') { window.TimeBook.open(); return; }
+  if (window.toast) window.toast('拾光未就绪，请刷新重试');
 };
 
 (function () {
@@ -115,7 +116,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
   function _updateBadge(badge) {
     if (!badge) return;
     if (TW.isEnabled()) {
-      var d = TW.getNow();
+      var d = new Date(TW.getNow());
       badge.textContent = '虚拟 ' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
       badge.classList.add('tb-badge-on');
     } else {

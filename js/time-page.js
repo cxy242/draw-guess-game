@@ -194,7 +194,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       if (moved) return;
       _lastTouchTs = Date.now();   // P1-4：记触屏时刻防合成 click 互踩
       if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; return; }
-      _dblTimer = setTimeout(function () { _dblTimer = null; _openSheet(); }, 260);
+      _dblTimer = setTimeout(function () { _dblTimer = null; if (window.showTimeBook) { window.showTimeBook(); } else { _openSheet(); } }, 260);
     });
     ball.addEventListener('mousedown', function (e) { _down(e.clientX, e.clientY); });
     var _docMove = function (e) { _move(e.clientX, e.clientY); };
@@ -211,7 +211,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       if (moved) return;
       if (Date.now() - _lastTouchTs < 500) return;   // P1-4：触屏后合成 click 直接让位
       if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; return; }
-      _dblTimer = setTimeout(function () { _dblTimer = null; _openSheet(); }, 260);
+      _dblTimer = setTimeout(function () { _dblTimer = null; if (window.showTimeBook) { window.showTimeBook(); } else { _openSheet(); } }, 260);
     });
     /* 行数令①：双击=一键回到现在 */
     ball.addEventListener('dblclick', function (e) {
