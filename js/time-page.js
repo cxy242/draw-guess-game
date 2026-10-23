@@ -194,7 +194,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       if (moved) return;
       _lastTouchTs = Date.now();   // P1-4：记触屏时刻防合成 click 互踩
       if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; return; }
-      _dblTimer = setTimeout(function () { _dblTimer = null; if (window.showTimeBook) { window.showTimeBook(); } else { _openSheet(); } }, 260);
+      _dblTimer = setTimeout(function () { _dblTimer = null; _openSheet(); }, 260);
     });
     ball.addEventListener('mousedown', function (e) { _down(e.clientX, e.clientY); });
     var _docMove = function (e) { _move(e.clientX, e.clientY); };
@@ -211,7 +211,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       if (moved) return;
       if (Date.now() - _lastTouchTs < 500) return;   // P1-4：触屏后合成 click 直接让位
       if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; return; }
-      _dblTimer = setTimeout(function () { _dblTimer = null; if (window.showTimeBook) { window.showTimeBook(); } else { _openSheet(); } }, 260);
+      _dblTimer = setTimeout(function () { _dblTimer = null; _openSheet(); }, 260);
     });
     /* 行数令①：双击=一键回到现在 */
     ball.addEventListener('dblclick', function (e) {
@@ -329,6 +329,11 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     var adv = _el('button', 'tw-adv-btn', '高级设置 →');
     adv.addEventListener('click', function () { stopTicks(); mask.remove(); _openFullPage(); });
     sheet.appendChild(adv);
+
+    /* 打开拾光·手账（主人要的app入口） */
+    var openBook = _el('button', 'tw-adv-btn', '打开拾光 · 手账');
+    openBook.addEventListener('click', function () { stopTicks(); mask.remove(); if (window.showTimeBook) { window.showTimeBook(); } });
+    sheet.appendChild(openBook);
 
     /* 跳秒 + 现实对照刷新（页面隐藏暂停） */
     var stopTicks = _startTicks(function () {
@@ -533,7 +538,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     todayBtn.addEventListener('click', function () { TW.reset(); _refreshDual(); _toast('已回到现实时间'); });
 
     /* [6.2.6] 精确跳转=滚轮选择器（年/月/日/时/分），替代叠加时间 */
-    var pickerBtn = _el('button', 'tw-quick-btn', '⏱ 精确跳转');
+    var pickerBtn = _el('button', 'tw-quick-btn', '精确跳转');
     pickerBtn.addEventListener('click', function () { _openTimePicker(); });
     if (todayBtn.parentNode) todayBtn.parentNode.appendChild(pickerBtn);
 

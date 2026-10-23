@@ -1170,6 +1170,13 @@ async function streamChat(root, bodyEl, messages, opts){
   var decoder = new TextDecoder();
   var buffer = '';
   var out = '';
+  var paintQueued = false;
+  var paint = function () {
+    paintQueued = false;
+    bodyEl.innerHTML = mdToHtml(out) + '<span class="tarot-cursor"></span>';
+    var sc = root.querySelector('.tarot-reading-scroll');
+    if (sc) sc.scrollTop = sc.scrollHeight;
+  };
 
   while(true){
     var result = await reader.read();
@@ -1187,9 +1194,7 @@ async function streamChat(root, bodyEl, messages, opts){
         var delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta;
         if(delta && delta.content){
           out += delta.content;
-          bodyEl.innerHTML = mdToHtml(out)+'<span class="tarot-cursor"></span>';
-          var scrollEl = root.querySelector('.tarot-reading-scroll');
-          if(scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+          if (!paintQueued) { paintQueued = true; requestAnimationFrame(paint); }
         }
       }catch(e){}
     }
