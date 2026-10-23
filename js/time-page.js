@@ -830,7 +830,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     var acts = _el('div', 'tw-picker-actions');
     var cancel = _el('button', 'tw-quick-btn', '取消');
     cancel.addEventListener('click', function () { mask.remove(); });
-    var ok = _el('button', 'tw-quick-btn tw-danger-btn', '⚡ 跳转');
+    var ok = _el('button', 'tw-quick-btn tw-danger-btn', '跳转');
     ok.addEventListener('click', function () {
       var target = new Date(picks.y, picks.m - 1, picks.d, picks.h, picks.min, 0, 0).getTime();
       if (isNaN(target)) { _toast('时间格式不对'); return; }

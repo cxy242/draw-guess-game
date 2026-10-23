@@ -354,7 +354,10 @@
   flex: 0 0 42dvh;
   min-height: 260px;
   border-radius: 0 0 22px 22px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   box-shadow: 0 14px 40px rgba(52, 32, 18, 0.4), inset 0 -30px 60px rgba(30, 16, 6, 0.35);
 }.tb-cover .tb-cover-grain {
   position: absolute;
@@ -797,7 +800,8 @@
   flex: 1;
   min-width: 0;
   padding: 22px 18px 18px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='pg'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23pg)' opacity='0.055'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='pg'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23pg)' opacity='0.055'/%3E%3C/svg%3E");
   background-size: 160px 160px, cover;
 }.tb-page-left {
   border-right: 1px solid rgba(74, 59, 47, 0.14);
@@ -972,10 +976,13 @@
   transform: rotate(-0.6deg);
   animation: tb-note-blink-in 620ms var(--tb-ease) both;
 }.tb-margin-note::before {
-  content: "✎";
+  content: "";
   position: absolute;
-  left: 0;
-  top: 0;
+  left: 1px;
+  top: 3px;
+  width: 11px;
+  height: 11px;
+  background: linear-gradient(135deg, transparent 43%, currentColor 43%, currentColor 57%, transparent 57%);
   color: var(--tb-ch3);
   opacity: 0.75;
   font-style: normal;
@@ -1229,7 +1236,8 @@
   padding: 0 18px;
   border: 1.5px solid rgba(74, 59, 47, 0.28);
   border-radius: var(--tb-r-btn);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='tb'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23tb)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='tb'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23tb)' opacity='0.05'/%3E%3C/svg%3E");
   font-family: var(--tb-font-serif);
   font-size: 13px;
   color: var(--tb-ink);
@@ -1343,7 +1351,8 @@
   padding: 0 20px;
   border: 1.5px solid rgba(74, 59, 47, 0.26);
   border-radius: var(--tb-r-btn);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='bn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23bn)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='bn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23bn)' opacity='0.05'/%3E%3C/svg%3E");
   font-family: var(--tb-font-serif);
   font-size: 14px;
   letter-spacing: 2px;
@@ -2567,7 +2576,8 @@
   z-index: 960;
   overflow: hidden;
   perspective: 1400px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='ab1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23ab1)' opacity='0.055'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='ab1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23ab1)' opacity='0.055'/%3E%3C/svg%3E");
   background-size: 160px 160px, cover;
 }.tb-closing {
   animation: tb-page-turn-out 380ms var(--tb-ease-page) both;
@@ -2687,7 +2697,8 @@
   cursor: pointer;
   touch-action: manipulation;
   transition: transform var(--tb-dur-mid) var(--tb-ease), box-shadow var(--tb-dur-mid) var(--tb-ease);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='ab4'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23ab4)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='ab4'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23ab4)' opacity='0.05'/%3E%3C/svg%3E");
 }.tb-toc-row:active {
   transform: scale(0.975);
   box-shadow: var(--tb-sh-press);
@@ -2748,6 +2759,7 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 6px 16px calc(20px + var(--tb-safe-bottom));
 }.tb-page-empty {
   display: flex;
@@ -2815,10 +2827,13 @@
   transform: rotate(-0.6deg);
   animation: tb-note-blink-in 620ms var(--tb-ease) both;
 }.tb-book-note::before {
-  content: "✎";
+  content: "";
   position: absolute;
-  left: 0;
-  top: 0;
+  left: 1px;
+  top: 3px;
+  width: 11px;
+  height: 11px;
+  background: linear-gradient(135deg, transparent 43%, currentColor 43%, currentColor 57%, transparent 57%);
   color: var(--tb-ch3);
   opacity: 0.75;
   font-style: normal;
@@ -3005,7 +3020,8 @@
   align-items: stretch;
   gap: 0;
   border-radius: 9px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='lt1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23lt1)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='lt1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23lt1)' opacity='0.05'/%3E%3C/svg%3E");
   box-shadow: var(--tb-sh-card);
   overflow: visible;
 }
@@ -3312,7 +3328,8 @@
 
 /* ============ 四、撕页日历：tb-cal ≡ tb-cal-tornbook 纸纹 ============ */
 .tb-cal {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='bv2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23bv2)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='bv2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23bv2)' opacity='0.05'/%3E%3C/svg%3E");
   box-shadow: var(--tb-sh-card);
 }
 
@@ -3540,7 +3557,8 @@
   border-radius: 2px 6px 6px 2px;
   padding: 22px 18px 18px;
   min-height: 380px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='b32'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23b32)' opacity='0.055'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='b32'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23b32)' opacity='0.055'/%3E%3C/svg%3E");
   background-size: 160px 160px, cover;
   box-shadow: var(--flip-shadow, 2px 0 10px rgba(80, 40, 10, 0.1));
 }
@@ -5073,17 +5091,15 @@
 }
 /* 选中角标（小勾） */
 .tb-stamp.tb-selected::after {
-  content: '✓';
+  content: '';
   position: absolute;
   top: -6px; right: -6px;
   width: 20px; height: 20px;
   border-radius: 50%;
-  background: var(--tb-ch-color, #7a9e7e);
-  color: #fffdf8;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background:
+    linear-gradient(45deg, transparent 42%, #fffdf8 42%, #fffdf8 58%, transparent 58%) 4px 10px / 5px 5px no-repeat,
+    linear-gradient(-45deg, transparent 42%, #fffdf8 42%, #fffdf8 58%, transparent 58%) 7px 6px / 9px 9px no-repeat,
+    var(--tb-ch-color, #7a9e7e);
   box-shadow: 0 2px 5px rgba(74, 59, 47, 0.22);
 }
 
@@ -5105,8 +5121,15 @@
   margin-top: 4px;
   padding-left: 2px;
 }.tb-field-error::before {
-  content: '⚠ ';
-  font-size: 10px;
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid currentColor;
+  margin-right: 5px;
+  vertical-align: -1px;
 }
 
 /* 卡片加载态（内容区刷新） */
@@ -5474,13 +5497,32 @@
 
 /* 错误态分级：网络/生成失败/权限 三档 */
 .tb-error-box.tb-error-net::before {
-  content: '⚡';
-  font-size: 18px;
+  content: '';
+  display: inline-block;
+  width: 11px;
+  height: 18px;
+  background: currentColor;
+  clip-path: polygon(55% 0, 15% 55%, 45% 55%, 35% 100%, 85% 42%, 52% 42%);
+  margin-right: 6px;
+  vertical-align: -3px;
 }.tb-error-box.tb-error-gen::before {
-  content: '✎';
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 5px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: rotate(-45deg);
+  margin-right: 5px;
 }.tb-error-box.tb-error-perm::before {
-  content: '🔒';
-  font-size: 16px;
+  content: '';
+  display: inline-block;
+  width: 13px;
+  height: 15px;
+  background: currentColor;
+  clip-path: polygon(50% 0, 100% 22%, 100% 58%, 50% 100%, 0 58%, 0 22%);
+  margin-right: 6px;
+  vertical-align: -2px;
 }
 
 /* 长按渐显（参考 StoryBook authHoldFadeIn 手法） */
@@ -5868,12 +5910,14 @@
   border: 1px dashed rgba(168, 152, 128, 0.4);
   position: relative;
 }.tb-empty-art::after {
-  content: '✎';
+  content: '';
   position: absolute;
   top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 24px;
-  color: rgba(168, 152, 128, 0.55);
+  width: 30px;
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(168, 152, 128, 0.55);
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 /* 确认弹层火漆印文（生成成功标题装饰） */
@@ -5885,15 +5929,13 @@
   font-size: 16px;
   color: #8b2635;
 }.tb-stamp-confirm-title::before {
-  content: '✓';
+  content: '';
   width: 30px; height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #c44545, #8b2635 70%);
-  color: #f7e8d8;
-  font-size: 15px;
+  background:
+    linear-gradient(45deg, transparent 42%, #f7e8d8 42%, #f7e8d8 58%, transparent 58%) 7px 16px / 8px 8px no-repeat,
+    linear-gradient(-45deg, transparent 42%, #f7e8d8 42%, #f7e8d8 58%, transparent 58%) 11px 9px / 13px 13px no-repeat,
+    radial-gradient(circle at 35% 30%, #c44545, #8b2635 70%);
   box-shadow: 0 2px 6px rgba(139, 38, 53, 0.35);
 }
 
@@ -6249,7 +6291,8 @@
   text-align: center;
   margin: 18px 0;
   border-radius: var(--tb-r-card);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='cbk'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23cbk)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='cbk'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23cbk)' opacity='0.05'/%3E%3C/svg%3E");
   box-shadow: var(--tb-sh-card);
 }.tb-chapter-break .tb-cb-orn {
   display: block;
@@ -6361,7 +6404,8 @@
 .tb-detail-shell {
   position: relative;
   border-radius: var(--tb-r-card);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='d1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='150' height='150' filter='url(%23d1)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='d1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='150' height='150' filter='url(%23d1)' opacity='0.05'/%3E%3C/svg%3E");
   box-shadow: var(--tb-sh-card);
   overflow: hidden;
 }.tb-detail-hero {
@@ -7276,7 +7320,8 @@
   gap: 13px;
   padding: 14px 15px;
   border-radius: var(--tb-r-card);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='mc1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23mc1)' opacity='0.05'/%3E%3C/svg%3E"), var(--tb-paper);
+  background-color: var(--tb-paper, #f7f2e7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='mc1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23mc1)' opacity='0.05'/%3E%3C/svg%3E");
   box-shadow: var(--tb-sh-card);
   align-items: flex-start;
 }.tb-memory-card .tb-mc-time {
@@ -9096,4 +9141,73 @@
   .tb-book .tb-toc-mid {
     padding-left: 2px;
   }
+}
+
+
+/* ============================================================
+   time-book.css · 补件 —— 退出键与信封图标（CSS手绘·禁emoji）
+   ============================================================ */
+
+/* ---------- 关闭键（× 手绘） ---------- */
+.tb-close {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: rgba(74, 59, 47, 0.08);
+  border-radius: 50%;
+  z-index: 40;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tb-close::before,
+.tb-close::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--tb-ink, #4a3b2f);
+}
+
+.tb-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.tb-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tb-close:hover {
+    background: rgba(74, 59, 47, 0.16);
+  }
+}
+
+/* ---------- 信封图标（矩形+火漆点） ---------- */
+.tb-envelope-icon {
+  width: 44px;
+  height: 30px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+  position: relative;
+  color: var(--tb-ch4, #c9884e);
+}
+
+.tb-envelope-icon::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
 }

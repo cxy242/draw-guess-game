@@ -230,6 +230,10 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     var book = _el('div', 'tb-book');
     book.appendChild(_renderCover(book));
     root.appendChild(book);
+    var closeBtn = _el('button', 'tb-close', '');
+    closeBtn.setAttribute('aria-label', '关闭');
+    closeBtn.addEventListener('click', function (e) { e.stopPropagation(); root.remove(); });
+    root.appendChild(closeBtn);
     /* 点遮罩合书 */
     root.addEventListener('click', function (e) {
       if (e.target === root) _closeToCover();
@@ -295,8 +299,10 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
           }
           cell.addEventListener('click', function () {
             cell.classList.add('tb-cal-torn');   // 撕页动画
+            var pickTs = new Date(cursor.getFullYear(), cursor.getMonth(), day, 12, 0, 0).getTime();   // 点击瞬间快照（防200ms内翻月跳错）
             setTimeout(function () {
-              onPick(new Date(cursor.getFullYear(), cursor.getMonth(), day, 12, 0, 0).getTime());
+              onPick(pickTs);
+              render();   // 撕页后重建日历（防格子永久消失）
             }, 200);
           });
           grid.appendChild(cell);
@@ -376,7 +382,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     var calCard = _el('div', 'tb-card');
     calCard.appendChild(_el('div', 'tb-card-title', '撕页日历 · 跳转'));
     calCard.appendChild(_tearCalendar(function (ts) {
-      TW.jumpTo(ts);
+      TW.addOffset(ts - TW.getNow());
       _toast('已跳到 ' + TW.getFormattedNow());
     }));
     body.appendChild(calCard);
@@ -401,7 +407,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     body.appendChild(speedCard);
 
     /* 罗盘·回到现在 */
-    var compass = _el('button', 'tb-compass', '🧭 回到现在');
+    var compass = _el('button', 'tb-compass', '回到现在');
     compass.addEventListener('click', function () {
       TW.reset();
       _toast('已回到现实时间');
@@ -846,7 +852,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     dateInput.type = 'date';
     body.appendChild(dateInput);
 
-    var sealBtn = _el('button', 'tb-wax-seal', '🔥 封缄');
+    var sealBtn = _el('button', 'tb-wax-seal', '封缄');
     sealBtn.addEventListener('click', function () {
       if (!paper.value.trim()) { window.toast && window.toast('信还是空的'); return; }
       if (!dateInput.value) { window.toast && window.toast('选个收信日期'); return; }
@@ -898,7 +904,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     }
     list.forEach(function (l, i) {
       var env = _el('div', 'tb-envelope' + (l.opened ? ' tb-envelope-open' : ''));
-      env.appendChild(_el('div', 'tb-envelope-icon', '✉'));
+      env.appendChild(_el('div', 'tb-envelope-icon', ''));
       env.appendChild(_el('div', 'tb-envelope-date', l.targetDate));
       env.appendChild(_el('div', 'tb-envelope-status', l.opened ? '已启封' : '待启封'));
       env.addEventListener('click', function () {
