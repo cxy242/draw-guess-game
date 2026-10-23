@@ -563,7 +563,7 @@ ${ctx.loreText ? `\n这是和你相关的背景设定（世界书），请把它
     const newPost = {
       id: makeICityId('post'),
       text: diary,
-      createdAt: now,
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
       authorType: 'role',
       authorId: ctx.friendId,
       liked: false,
@@ -1306,7 +1306,7 @@ ${ctx.loreText ? `\n这是和你相关的背景设定（世界书），请把它
       saveICityPosts(ownerUid, [{
         id: makeICityId('post'),
         text,
-        createdAt: now,
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
         ownerUid: Number(ownerUid) || null,
         ownerAccount: account,
         authorType: 'self',

@@ -354,7 +354,7 @@ window.EnsembleChat = (function() {
         mode: 'ensemble',
         role: role,
         content: content,
-        createdAt: Date.now()
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       });
     } catch (e) {
       console.error('[ensemble-chat] addOfflineMessage error:', e);

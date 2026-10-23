@@ -129,7 +129,7 @@ function showExitModal(page) {
             chars: (_state.current || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
             mode: _state.mode || 'meet',
             charNames: charNames,
-            endedAt: now,
+            endedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
             msgCount: (_state.history || []).length
           }
         });
@@ -1507,7 +1507,7 @@ async function summarizeAndEnd(page) {
       var sessionId = 'ensemble_' + uid + '_' + ch.id + '_' + Date.now();
       var summaryMsgs = history.map(function(m) { return { role: m.role, content: m.content }; });
       try {
-        await window.WanWanMemory.summarizeMeeting(ch.id, ch.id, uid, sessionId, summaryMsgs, Date.now());
+        await window.WanWanMemory.summarizeMeeting(ch.id, ch.id, uid, sessionId, summaryMsgs, (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()));
       } catch(e) { console.error('[ensemble] summarize ' + ch.name, e); }
     }
 
@@ -1516,7 +1516,7 @@ async function summarizeAndEnd(page) {
         ownerUid: uid, chatId: 0, charId: 0,
         mode: 'ensemble', role: 'system',
         content: '见面结束 · ' + (window.TimeWorld ? window.TimeWorld.getFormattedNow() : new Date().toLocaleString()),
-        createdAt: Date.now()
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       });
     }
 

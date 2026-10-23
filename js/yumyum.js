@@ -2525,7 +2525,7 @@ async function yhPayOrder(order, method, uid) {
   if ((Number(wd[field]) || 0) < amount) return { ok: false, msg: method === 'bank' ? '银行卡余额不足' : '微信零钱不足' }
   wd[field] = Math.round(((Number(wd[field]) || 0) - amount) * 100) / 100
   await db.config.put({ key: 'wechat_wallet_' + uid, value: wd })
-  await db.finance.add({ charId: uid, amount: amount, desc: desc, type: 'expense', source: source, createdAt: Date.now() })
+  await db.finance.add({ charId: uid, amount: amount, desc: desc, type: 'expense', source: source, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
   return { ok: true }
 }
 
@@ -3058,13 +3058,13 @@ async function yhSendYumDeal(order, friend, type) {
     : '__YUMDEAL__' + JSON.stringify(deal)
   var chat = await db.chats.where('[ownerUid+charId]').equals([ownerUid, friend.id]).first()
   if (!chat) {
-    var chatId = await db.chats.add({ charId: friend.id, ownerUid: ownerUid, createdAt: Date.now(), unread: 0 })
+    var chatId = await db.chats.add({ charId: friend.id, ownerUid: ownerUid, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), unread: 0 })
     chat = { id: chatId, charId: friend.id, ownerUid: ownerUid }
   }
   var totalText = (Math.round((Number(order.total) || 0) * 100) / 100).toString()
   var lastMessage = (dealType === 'gift' ? '[外卖赠送] ' : '[外卖代付] ') + (order.shopName || title) + ' ¥' + totalText
-  await db.messages.add({ chatId: chat.id, charId: friend.id, role: 'user', content: content, createdAt: Date.now() })
-  await db.chats.update(chat.id, { updatedAt: Date.now(), lastMessage: lastMessage })
+  await db.messages.add({ chatId: chat.id, charId: friend.id, role: 'user', content: content, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+  await db.chats.update(chat.id, { updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), lastMessage: lastMessage })
 }
 
 // 代付被好友付款时调用：以 deal payload 落地真实订单并生成时间线，返回补全字段供卡片回写

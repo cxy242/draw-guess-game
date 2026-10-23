@@ -791,7 +791,7 @@
             desc: job.name + ' 工资',
             type: 'income',
             source: 'checking',
-            createdAt: Date.now()
+            createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
           })
 
           var newExp = (freshState.exp || 0) + (job.exp || 0)
@@ -838,7 +838,7 @@
             desc: (hire.charName || '雇员') + ' 工资',
             type: 'income',
             source: 'checking',
-            createdAt: Date.now()
+            createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
           })
 
           var freshState = await getWorkState(uid)

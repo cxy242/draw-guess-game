@@ -494,7 +494,7 @@ async function generateAnonReply(conversationId, char, userText, page) {
         conversationId: conversationId,
         direction: 'in',
         body: reply.trim(),
-        createdAt: Date.now(),
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
         read: false,
         _anonCharId: char.id,
         _anonCharName: char.name
@@ -507,7 +507,7 @@ async function generateAnonReply(conversationId, char, userText, page) {
         lastMessage: reply.trim(),
         lastMessageAt: Date.now(),
         unreadCount: (convRefreshed.unreadCount || 0) + 1,
-        updatedAt: Date.now()
+        updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       })
     }
   } catch(e) { console.error('[SMS] reply error:', e) }
@@ -1032,7 +1032,7 @@ function openNewMessagePage(listPage) {
 
     var anonPhone = genAnonPhone()
     var anonName = genAnonName()
-    var now = Date.now()
+    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     var ownerPhone = _smsActivePhone || 'user_default'
 
     // Create conversation
@@ -1085,7 +1085,7 @@ async function seedWelcomeSMS(ownerPhone) {
     .first()
   if (existing) return
 
-  var now = Date.now()
+  var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   var convId = await db.smsConversations.add({
     ownerPhone: ownerPhone,
     remotePhone: SMS_WELCOME_REMOTE,
@@ -1149,7 +1149,7 @@ window.sendAppVerificationSMS = async function(opts) {
     body = '【淘宝】验证码 ' + code + '，您正在登录淘宝，5分钟内有效。请勿向任何人泄露，谨防诈骗。'
   }
 
-  var now = Date.now()
+  var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   var conv = await db.smsConversations
     .where('[ownerPhone+remotePhone]')
     .equals([ownerPhone, remotePhone])
@@ -1424,7 +1424,7 @@ async function sendAnonymousCharSMS(user) {
 
     var anonPhone = genAnonPhone()
     var anonName = genAnonName()
-    var now = Date.now()
+    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
 
     if (!_smsActivePhone) {
       try {
@@ -1509,8 +1509,8 @@ async function sendAnonymousCharSMS(user) {
             status: 'active',
             decayPercent: 80,
             injectionLayer: 2,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
+            createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+            updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
           })
           console.log('[AnonSMS] 已写入记忆库')
         }
@@ -1643,7 +1643,7 @@ window.summarizeSmsToMemory = async function(conversationId) {
         chatId: 'sms_' + conversationId,
         sourceType: 'sms',
         sourceAt: Date.now(),
-        createdAt: Date.now(),
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
         memoryCount: 0,
         mode: 'sms',
         status: 'failed',
@@ -1677,8 +1677,8 @@ window.summarizeSmsToMemory = async function(conversationId) {
     injectionLayer: 2,
     participants: [],
     lastRecalledAt: null,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+    updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
     lastAccessedAt: null,
     accessCount: 0
   }
@@ -1692,7 +1692,7 @@ window.summarizeSmsToMemory = async function(conversationId) {
       chatId: 'sms_' + conversationId,
       sourceType: 'sms',
       sourceAt: Date.now(),
-      createdAt: Date.now(),
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
       memoryCount: 1,
       mode: 'sms',
       status: 'success',
@@ -1763,7 +1763,7 @@ function startWechatBlockSmsTimer(charId, charName) {
         charPhone = '138' + String(charId).padStart(8, '0')
       }
 
-      var now = Date.now()
+      var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       var ownerPhone = _smsActivePhone || 'user_default'
 
       var conv = await db.smsConversations
@@ -1803,7 +1803,7 @@ function startWechatBlockSmsTimer(charId, charName) {
           setTimeout(async function() {
             await db.smsMessages.add({
               conversationId: convId, direction: 'in', body: msg,
-              createdAt: Date.now(), read: false,
+              createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), read: false,
               _anonCharId: charId, _anonCharName: char.name, _anonRevealed: true
             })
           }, delay)

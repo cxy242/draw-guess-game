@@ -5069,7 +5069,7 @@ function bindChatWindowEvents(page) {
     await addPrivateMessageIdempotently({
       chatId, charId, role: 'user',
       content: `__SYS__${displayText}`,
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     clearPrivateReplyVersions(chatId)
     await refreshChat(page, { scrollToBottom: true })
@@ -5979,7 +5979,7 @@ function bindMsgLongPress(container, charId) {
       await addPrivateMessageIdempotently({
         chatId, charId, role: 'user',
         content: `__SYS__${displayText}`,
-        createdAt: Date.now()
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       })
       clearPrivateReplyVersions(chatId)
       await refreshChat(cw, { scrollToBottom: true })
@@ -6009,7 +6009,7 @@ async function sendTextMessage(chatPage) {
   const lines = splitMessageLines(draft)
   if (!lines.length) return false
   const quoteState = chatPage._quoteState || null
-  const base = Date.now()
+  const base = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   for (let i = 0; i < lines.length; i++) {
     if (i > 0) await _sleep(SEND_BUBBLE_GAP_MS)
     const content = i === 0 && quoteState ? buildQuotedReplyContent(chatPage, quoteState, lines[i]) : lines[i]
@@ -6093,7 +6093,7 @@ async function addUserMsg(chatPage, content, createdAt, extra = null) {
   // 群聊：写入 db.groupMessages（senderId=用户），不走联机/私聊逻辑
   if (chatPage?.dataset?.groupId) {
     const groupId = parseInt(chatPage.dataset.groupId)
-    const row = { groupId, senderId: _wechatUid, role: 'user', content, createdAt: createdAt ?? Date.now() }
+    const row = { groupId, senderId: _wechatUid, role: 'user', content, createdAt: createdAt ?? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) }
     if (extra && typeof extra === 'object') Object.assign(row, extra)
     return await db.groupMessages.add(row)
   }
@@ -6106,7 +6106,7 @@ async function addUserMsg(chatPage, content, createdAt, extra = null) {
     : createPrivateMessageOperationId(chatId, 'user')
   const msg = {
     chatId, charId, role: 'user', content, clientMessageId,
-    createdAt: createdAt ?? Date.now()
+    createdAt: createdAt ?? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   }
   if (extra && typeof extra === 'object') Object.assign(msg, extra)
   if (isOnlineFriend) {
@@ -6230,7 +6230,7 @@ async function restorePrivateReplyVersion(chatPage, version) {
     return false
   }
   await deleteTrailingAssistantBatch(chatId)
-  const base = Date.now()
+  const base = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   for (let index = 0; index < version.messages.length; index++) {
     await addPrivateMessageIdempotently({
       ...clonePrivateReplyMessage(version.messages[index]),
@@ -6387,7 +6387,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       }
       await updateCharacterStatusFromAI(chatId, charId, status)
       const lines = splitMessageLines(reply)
-      const base = Date.now()
+      const base = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       for (let i = 0; i < lines.length; i++) {
         if (i > 0) await _sleep(SEND_BUBBLE_GAP_MS)
         const parsed = parseMsgType(lines[i])
@@ -6457,7 +6457,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
             chatId, charId, role: 'assistant',
             content: '__NARRATIVE__' + narrative,
             clientMessageId: createPrivateMessageOperationId(chatId, 'narrative'),
-            createdAt: Date.now() - 1
+            createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - 1
           })
         }
       }
@@ -6473,7 +6473,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
             chatId, charId, role: 'system',
             content: `__SYS__${displayText}`,
             clientMessageId: createPrivateMessageOperationId(chatId, 'system'),
-            createdAt: Date.now()
+            createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
           })
           const cw2 = _getVisibleChatWindow('chat', chatId)
           if (cw2) await refreshChat(cw2, { scrollToBottom: true })
@@ -6492,7 +6492,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
               chatId, charId, role: 'system',
               content: `__SYS__${charName || '对方'}已将你拉黑`,
               clientMessageId: createPrivateMessageOperationId(chatId, 'system'),
-              createdAt: Date.now()
+              createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
             })
           } else if (blockAction === 'unblock_user' && curState.aiBlockedUser) {
             curState.aiBlockedUser = false
@@ -6502,7 +6502,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
               chatId, charId, role: 'system',
               content: `__SYS__${charName || '对方'}已取消拉黑`,
               clientMessageId: createPrivateMessageOperationId(chatId, 'system'),
-              createdAt: Date.now()
+              createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
             })
           }
           const cw3 = _getVisibleChatWindow('chat', chatId)
@@ -7838,7 +7838,22 @@ function formatWechatOfflineMessage(row) {
   return `线下见面中，${speaker}：${text}`
 }
 
+function isFormatRetryableAIError(e) {
+  // 只有"API拒绝json_schema格式"这种快速失败才值得换宽松格式补一刀
+  if (!e) return false
+  const name = String(e.name || '')
+  if (name === 'TimeoutError' || name === 'AbortError') return false
+  const msg = String(e.detail || '') + ' ' + String(e.message || '')
+  const formatMention = /response_format|json_schema|json|schema|格式|结构化/i.test(msg)
+  const status = Number(e.status) || 0
+  if (status === 400 || status === 404 || status === 422) return formatMention
+  return /response_format|json_schema/i.test(msg)
+}
+
 async function callWechatAIWithFallback(primaryMessages, fallbackMessages, opts, hasFallbackMessages) {
+  // 慢回复修复C-2：砍掉双次JSON格式尝试。
+  // 只有"API秒拒json_schema"（10秒内的格式类快速失败）才用宽松格式补一刀；
+  // 超时/网络断/生成完但解析失败一律不再整轮重试，失败时不再耗时×2。
   const strictOpts = { ...opts, responseJsonSchema: _WECHAT_AI_JSON_SCHEMA }
   const jsonOpts = { ...opts }
   delete jsonOpts.responseJsonSchema
@@ -7848,13 +7863,18 @@ async function callWechatAIWithFallback(primaryMessages, fallbackMessages, opts,
   ]
 
   let lastError = null
-  for (const attempt of attempts) {
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i]
+    const startedAt = Date.now()
     try {
       const raw = await window.callAI(attempt.messages, attempt.opts)
       const normalized = parseWechatAIResponse(raw)
       return { normalized, messages: attempt.messages, opts: attempt.opts }
     } catch (e) {
       lastError = e
+      const elapsed = Date.now() - startedAt
+      const fastFormatReject = elapsed < 10000 && isFormatRetryableAIError(e)
+      if (i === 0 && !fastFormatReject) throw e
     }
   }
   throw lastError
@@ -9000,7 +9020,7 @@ function showListenTogetherSheet(chatPage) {
       songId: song.songId || '',
       senderName: _wechatUser?.nick || _wechatUser?.name || '我',
       status: 'waiting',
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     }
     try {
       await sendUserMsg(chatPage, '__MUSIC_TOGETHER__' + JSON.stringify(data))
@@ -9073,7 +9093,7 @@ async function sendRealPhotoFromUrl(chatPage, imageUrl, imageDesc = '') {
     await db.groupMessages.add({
       groupId: parseInt(chatPage.dataset.groupId), senderId: _wechatUid, role: 'user',
       content: `__IMG__${imageUrl}`,
-      imageDesc: normalizeImageSupplementDesc(imageDesc), createdAt: Date.now()
+      imageDesc: normalizeImageSupplementDesc(imageDesc), createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     await refreshChat(chatPage, { scrollToBottom: true })
     return
@@ -9088,7 +9108,7 @@ async function sendRealPhotoFromUrl(chatPage, imageUrl, imageDesc = '') {
     chatId, charId, role: 'user',
     content: `__IMG__${imageUrl}`,
     imageDesc: normalizeImageSupplementDesc(imageDesc),
-    createdAt: Date.now()
+    createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   })
   clearPrivateReplyVersions(chatId)
   await refreshChat(chatPage, { scrollToBottom: true })
@@ -9186,7 +9206,7 @@ function showTransferSheet(chatPage) {
           desc,
           type: 'expense',
           source: 'wechat',
-          createdAt: Date.now()
+          createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
         })
       }
 
@@ -9297,7 +9317,7 @@ async function sendStickerMessage(chatPage, sticker) {
     await db.groupMessages.add({
       groupId: parseInt(chatPage.dataset.groupId), senderId: _wechatUid, role: 'user',
       content: `[${me?.nick || me?.name || '我'}的表情包：${sticker.name}]`,
-      stickerImage: sticker.image, stickerId: sticker.id, createdAt: Date.now()
+      stickerImage: sticker.image, stickerId: sticker.id, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     await refreshChat(chatPage, { scrollToBottom: true })
     return
@@ -9374,7 +9394,7 @@ window.respondTransfer = async function(msgId, accept) {
       desc: `收到${senderName}的转账${noteDisplay}`,
       type: 'income',
       source: 'wechat',
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
   }
 
@@ -9389,7 +9409,7 @@ window.respondTransfer = async function(msgId, accept) {
     : `[${myName}退回${charName}的转账]`
   await addPrivateMessageIdempotently({
     chatId: msg.chatId, charId: msg.charId, role: 'user',
-    content: tipContent, createdAt: Date.now()
+    content: tipContent, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   })
   clearPrivateReplyVersions(msg.chatId)
 
@@ -9408,7 +9428,7 @@ async function recordTransferFinance(msg) {
     charId: msg.charId,
     amount: parseFloat(parsed.data.amount),
     desc: `来自转账：${parsed.data.note}`,
-    createdAt: Date.now()
+    createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   })
 }
 
@@ -9440,7 +9460,7 @@ async function updateSentTransferStatus(chatId, accepted) {
             desc: '转账被退回',
             type: 'income',
             source: 'wechat',
-            createdAt: Date.now()
+            createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
           })
         }
       }
@@ -9479,7 +9499,7 @@ window.respondTbDeal = async function(msgId, action) {
     await saveWalletData(walletData)
     await db.finance.add({
       charId: _wechatUid, amount, desc: `淘宝代付：${deal.title}`,
-      type: 'expense', source: 'wechat', createdAt: Date.now()
+      type: 'expense', source: 'wechat', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     status = 'paid'
     tip = `[${myName}帮${charName}付了淘宝代付]`
@@ -9499,7 +9519,7 @@ window.respondTbDeal = async function(msgId, action) {
   await updatePrivateMessageIdempotently(msgId, { cardStatus: status })
   await addPrivateMessageIdempotently({
     chatId: msg.chatId, charId: msg.charId, role: 'user',
-    content: tip, createdAt: Date.now()
+    content: tip, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   })
   clearPrivateReplyVersions(msg.chatId)
   const cw = _getVisibleChatWindow('chat', msg.chatId)
@@ -9536,7 +9556,7 @@ async function updateSentTbDealStatus(chatId, dealType, result) {
         await saveWalletData(walletData)
         await db.finance.add({
           charId: _wechatUid, amount, desc: `淘宝礼物被退回：${targetDeal.title}`,
-          type: 'income', source: 'wechat', createdAt: Date.now()
+          type: 'income', source: 'wechat', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
         })
       }
     }
@@ -9575,7 +9595,7 @@ window.respondYumDeal = async function(msgId, action) {
     await saveWalletData(walletData)
     await db.finance.add({
       charId: _wechatUid, amount, desc: `外卖代付：${deal.shopName || deal.title}`,
-      type: 'expense', source: 'wechat', createdAt: Date.now()
+      type: 'expense', source: 'wechat', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     if (typeof window.yumyumFinalizeProxyOrder === 'function' && !yumDealHasTimeline(deal)) {
       const fin = await window.yumyumFinalizeProxyOrder(deal)
@@ -9604,7 +9624,7 @@ window.respondYumDeal = async function(msgId, action) {
   await updatePrivateMessageIdempotently(msgId, patch)
   await addPrivateMessageIdempotently({
     chatId: msg.chatId, charId: msg.charId, role: 'user',
-    content: tip, createdAt: Date.now()
+    content: tip, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   })
   clearPrivateReplyVersions(msg.chatId)
   const cw = _getVisibleChatWindow('chat', msg.chatId)
@@ -9654,7 +9674,7 @@ async function updateSentYumDealStatus(chatId, dealType, result) {
         await saveWalletData(walletData)
         await db.finance.add({
           charId: _wechatUid, amount, desc: `外卖礼物被退回：${targetDeal.shopName || targetDeal.title}`,
-          type: 'income', source: 'wechat', createdAt: Date.now()
+          type: 'income', source: 'wechat', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
         })
       }
     }
@@ -12509,7 +12529,7 @@ async function toggleMomentLike(momentId, momentsPage, wechatPage) {
   const exists = likes.some(like => String(like.uid) === uid)
   const nextLikes = exists
     ? likes.filter(like => String(like.uid) !== uid)
-    : [...likes, { uid: _wechatUid, name: getMomentActorName(), createdAt: Date.now() }]
+    : [...likes, { uid: _wechatUid, name: getMomentActorName(), createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) }]
   await db.moments.update(momentId, { likes: nextLikes })
   await renderMomentsList(momentsPage, wechatPage)
   if (!exists) {
@@ -12596,7 +12616,7 @@ function showMomentCommentSheet(momentId, momentsPage, wechatPage, options = {})
       replyToUid: replyTo?.uid,
       replyToName: replyTo?.name || '',
       text,
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     await db.moments.update(momentId, { comments })
     await renderMomentsList(momentsPage, wechatPage)
@@ -13038,7 +13058,7 @@ async function publishAIMomentForCharacter(charId, momentsPage, wechatPage) {
       mentionIds: [],
       visibility: '公开',
       visibilityGroups: [],
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     await applyAIMomentComments(momentId, result, friends)
     await generateMomentLikesFromCharacters(momentId, friends, momentsPage, wechatPage)
@@ -13237,7 +13257,7 @@ async function applyAIMomentComments(momentId, result, friends) {
       uid: friend.id,
       name: friend.name,
       text,
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
   })
   if (comments.length) await db.moments.update(momentId, { comments })
@@ -13251,7 +13271,7 @@ async function generateMomentLikesFromCharacters(momentId, friends, momentsPage,
   const likes = chosen.map(friend => ({
     uid: friend.id,
     name: friend.name,
-    createdAt: Date.now()
+    createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   }))
   await db.moments.update(momentId, { likes })
   if (momentsPage && document.body.contains(momentsPage)) {
@@ -13277,7 +13297,7 @@ async function publishMomentFromPage(postPage, momentsPage, wechatPage) {
     mentionIds: Array.isArray(draft.mentionIds) ? draft.mentionIds.slice() : [],
     visibility: draft.visibility || '公开',
     visibilityGroups: Array.isArray(draft.visibilityGroups) ? draft.visibilityGroups.slice() : [],
-    createdAt: Date.now()
+    createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   })
   window.toast && window.toast('动态已发布')
   window.closePage('wechat-post-moment-page')
@@ -13314,7 +13334,7 @@ async function generateMomentLikes(momentId, draft, momentsPage, wechatPage) {
     if (!fresh) return
     const likes = normalizeMomentLikes(fresh.likes)
     if (likes.some(l => String(l.uid) === String(friend.id))) continue
-    likes.push({ uid: friend.id, name: getWechatDisplayName(friend), createdAt: Date.now() })
+    likes.push({ uid: friend.id, name: getWechatDisplayName(friend), createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
     await db.moments.update(momentId, { likes })
     if (momentsPage && document.body.contains(momentsPage)) {
       await renderMomentsList(momentsPage, wechatPage)
@@ -13340,7 +13360,7 @@ async function addRandomFriendLikes(momentId, momentsPage, wechatPage) {
     if (!fresh) return
     const likes = normalizeMomentLikes(fresh.likes)
     if (likes.some(l => String(l.uid) === String(friend.id))) continue
-    likes.push({ uid: friend.id, name: getWechatDisplayName(friend), createdAt: Date.now() })
+    likes.push({ uid: friend.id, name: getWechatDisplayName(friend), createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
     await db.moments.update(momentId, { likes })
     if (momentsPage && document.body.contains(momentsPage)) {
       await renderMomentsList(momentsPage, wechatPage)
@@ -13441,7 +13461,7 @@ async function appendGeneratedMomentComment(momentId, item, friendMap, momentsPa
     replyToUid: replyTarget?.uid,
     replyToName: replyTarget?.name || '',
     text,
-    createdAt: Date.now()
+    createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   })
   await db.moments.update(momentId, { comments })
   if (momentsPage && document.body.contains(momentsPage)) await renderMomentsList(momentsPage, wechatPage)
@@ -15079,7 +15099,7 @@ function showWechatPatModal(options = {}) {
         charId,
         role: 'user',
         content: `__SYS__${text}`,
-        createdAt: Date.now()
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       })
       clearPrivateReplyVersions(chatId)
     }
@@ -15465,7 +15485,7 @@ async function sendGroupMessage(chatPage, group) {
   chatPage._groupMentionState = null
   const mentionMenu = chatPage.querySelector('#group-mention-menu')
   if (mentionMenu) mentionMenu.style.display = 'none'
-  const base = Date.now()
+  const base = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   for (let i = 0; i < lines.length; i++) {
     if (i > 0) await _sleep(SEND_BUBBLE_GAP_MS)
     const content = i === 0 && quoteState ? buildQuotedReplyContent(chatPage, quoteState, lines[i]) : lines[i]
@@ -16023,10 +16043,10 @@ async function applyDirectorAction(action, group, groupId, nameToId, members, ai
 async function deliverPrivateMessagesFromGroup(charId, contents, ownerUid = _wechatUid) {
   let chat = await db.chats.where('[ownerUid+charId]').equals([ownerUid, charId]).first()
   if (!chat) {
-    const id = await db.chats.add({ charId, ownerUid, createdAt: Date.now(), unread: 0 })
+    const id = await db.chats.add({ charId, ownerUid, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), unread: 0 })
     chat = await db.chats.get(id)
   }
-  const base = Date.now()
+  const base = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   let n = 0
   for (const c of contents) {
     const t = String(c || '').trim()
@@ -16100,11 +16120,11 @@ function showGroupRedPacketSheet(chatPage, group) {
     if (wallet.wechatBalance < total) { window.toast('零钱余额不足'); return false }
     wallet.wechatBalance = Math.round((wallet.wechatBalance - total) * 100) / 100
     await saveWalletData(wallet)
-    await db.finance.add({ charId: _wechatUid, amount: total, desc: `群红包（${count}个）`, type: 'expense', source: 'wechat', createdAt: Date.now() })
+    await db.finance.add({ charId: _wechatUid, amount: total, desc: `群红包（${count}个）`, type: 'expense', source: 'wechat', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
     const myName = _wechatUser?.nick || _wechatUser?.name || '我'
     const data = { total, count, greeting, senderName: myName, senderId: _wechatUid, shares: splitLuckyMoney(total, count), claims: [] }
     const groupId = parseInt(chatPage.dataset.groupId)
-    await db.groupMessages.add({ groupId, senderId: _wechatUid, role: 'user', content: `__REDPACKET__${JSON.stringify(data)}`, createdAt: Date.now() })
+    await db.groupMessages.add({ groupId, senderId: _wechatUid, role: 'user', content: `__REDPACKET__${JSON.stringify(data)}`, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
     await refreshChat(chatPage, { scrollToBottom: true })
   })
 }
@@ -16131,7 +16151,7 @@ function showGroupPollSheet(chatPage) {
     await db.groupMessages.add({
       groupId, senderId: _wechatUid, role: 'user',
       content: `__POLL__${JSON.stringify({ question, options, votes: {} })}`,
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
     await refreshChat(chatPage, { scrollToBottom: true })
   })
@@ -16187,7 +16207,7 @@ async function claimGroupRedPacket(msgId) {
       desc: `抢到${data.senderName || '群成员'}的红包`,
       type: 'income',
       source: 'wechat',
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
   }
   await addGroupRow(
@@ -20060,8 +20080,8 @@ async function showWalletBalanceTransferSheet(direction) {
     await saveWalletData(wd)
 
     const desc = isIn ? 'CHECKING → 零钱 转入' : '零钱 → CHECKING 转出'
-    await db.finance.add({ charId: _wechatUid, amount, desc, type: isIn ? 'income' : 'expense', source: 'wechat', createdAt: Date.now() })
-    await db.finance.add({ charId: _wechatUid, amount, desc, type: isIn ? 'expense' : 'income', source: 'checking', createdAt: Date.now() })
+    await db.finance.add({ charId: _wechatUid, amount, desc, type: isIn ? 'income' : 'expense', source: 'wechat', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+    await db.finance.add({ charId: _wechatUid, amount, desc, type: isIn ? 'expense' : 'income', source: 'checking', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
     window.toast && window.toast('¥' + formatWalletAmount(amount) + (isIn ? ' 转入成功' : ' 转出成功'))
     window.closePage('wechat-wallet-page')
@@ -21590,7 +21610,7 @@ async function endCall() {
         role: msgRole,
         content: `[${typeLabel} ${durationStr}]`,
         ...(callRecordId ? { callRecordId } : {}),
-        createdAt: Date.now()
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       })
     } catch (e) {
       console.error('保存通话消息失败', e)

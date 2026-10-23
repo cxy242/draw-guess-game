@@ -963,8 +963,8 @@
       }
       await saveWalletData(user.id, wd)
 
-      await db.finance.add({ charId: user.id, amount: amount, desc: fromLabel + ' → ' + toLabel + ' 转账', type: 'expense', source: fromAccount, createdAt: Date.now() })
-      await db.finance.add({ charId: user.id, amount: amount, desc: fromLabel + ' → ' + toLabel + ' 转账', type: 'income', source: fromAccount === 'checking' ? 'saving' : 'checking', createdAt: Date.now() })
+      await db.finance.add({ charId: user.id, amount: amount, desc: fromLabel + ' → ' + toLabel + ' 转账', type: 'expense', source: fromAccount, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+      await db.finance.add({ charId: user.id, amount: amount, desc: fromLabel + ' → ' + toLabel + ' 转账', type: 'income', source: fromAccount === 'checking' ? 'saving' : 'checking', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
       modal.close()
       window.toast && window.toast('¥' + formatAmount(amount) + ' 转账成功')
@@ -1238,7 +1238,7 @@
 
       await saveHuabeiState(user.id, freshState)
 
-      await db.finance.add({ charId: user.id, amount: amount, desc: '花呗还款', type: 'expense', source: 'checking', createdAt: Date.now() })
+      await db.finance.add({ charId: user.id, amount: amount, desc: '花呗还款', type: 'expense', source: 'checking', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
       modal.close()
       window.toast && window.toast('还款成功 ¥' + formatAmount(amount))
@@ -1259,7 +1259,7 @@
     state.pendingCharges.push({ amount: amount, desc: desc, createdAt: Date.now() })
     await saveHuabeiState(userId, state)
 
-    await db.finance.add({ charId: userId, amount: amount, desc: desc, type: 'expense', source: 'huabei', createdAt: Date.now() })
+    await db.finance.add({ charId: userId, amount: amount, desc: desc, type: 'expense', source: 'huabei', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
     // 检查额度过低
     var newAvailable = state.creditLimit - state.usedCredit
@@ -1298,7 +1298,7 @@
 
     if (state.notified) state.notified.lowCredit = false
     await saveHuabeiState(userId, state)
-    await db.finance.add({ charId: userId, amount: amount, desc: desc || '花呗转账被退回', type: 'income', source: 'huabei', createdAt: Date.now() })
+    await db.finance.add({ charId: userId, amount: amount, desc: desc || '花呗转账被退回', type: 'income', source: 'huabei', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
     return { ok: true }
   }
 
@@ -1451,7 +1451,7 @@
 
       var shares = amount / investState.funds.currentNav
       investState.funds.shares = (investState.funds.shares || 0) + shares
-      investState.funds.transactions.unshift({ type: 'buy', amount: amount, shares: shares, nav: investState.funds.currentNav, ts: Date.now() })
+      investState.funds.transactions.unshift({ type: 'buy', amount: amount, shares: shares, nav: investState.funds.currentNav, ts: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
       if (investState.funds.transactions.length > 20) investState.funds.transactions.pop()
 
       // 首次购买通知
@@ -1465,7 +1465,7 @@
       }
 
       await saveInvestState(user.id, investState)
-      await db.finance.add({ charId: user.id, amount: amount, desc: '申购基金 ' + shares.toFixed(2) + '份', type: 'expense', source: 'saving', createdAt: Date.now() })
+      await db.finance.add({ charId: user.id, amount: amount, desc: '申购基金 ' + shares.toFixed(2) + '份', type: 'expense', source: 'saving', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
       modal.close()
       window.toast && window.toast('买入成功 ' + shares.toFixed(2) + ' 份')
@@ -1507,7 +1507,7 @@
       freshState.funds.shares -= sellShares
       if (freshState.funds.shares < 0.001) freshState.funds.shares = 0
 
-      freshState.funds.transactions.unshift({ type: 'sell', amount: amount, shares: sellShares, nav: freshState.funds.currentNav, ts: Date.now() })
+      freshState.funds.transactions.unshift({ type: 'sell', amount: amount, shares: sellShares, nav: freshState.funds.currentNav, ts: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
       if (freshState.funds.transactions.length > 20) freshState.funds.transactions.pop()
       await saveInvestState(user.id, freshState)
 
@@ -1515,7 +1515,7 @@
       wd.savingBalance = (wd.savingBalance || 0) + amount
       await saveWalletData(user.id, wd)
 
-      await db.finance.add({ charId: user.id, amount: amount, desc: '赎回基金 ' + sellShares.toFixed(2) + '份', type: 'income', source: 'saving', createdAt: Date.now() })
+      await db.finance.add({ charId: user.id, amount: amount, desc: '赎回基金 ' + sellShares.toFixed(2) + '份', type: 'income', source: 'saving', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
       modal.close()
       window.toast && window.toast('赎回成功 ¥' + formatAmount(amount))
@@ -1635,7 +1635,7 @@
         freshState.deposits.splice(idx, 1)
         await saveInvestState(user.id, freshState)
 
-        await db.finance.add({ charId: user.id, amount: total, desc: dep.term + '天定期到期 本金+利息', type: 'income', source: 'saving', createdAt: Date.now() })
+        await db.finance.add({ charId: user.id, amount: total, desc: dep.term + '天定期到期 本金+利息', type: 'income', source: 'saving', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
         window.toast && window.toast('领取成功 ¥' + formatAmount(total))
         await refreshVisibleBankSurfaces(user)
@@ -1682,7 +1682,7 @@
           if (latestIdx >= 0) latestState.deposits.splice(latestIdx, 1)
           await saveInvestState(user.id, latestState)
 
-          await db.finance.add({ charId: user.id, amount: total, desc: dep.term + '天定期提前支取', type: 'income', source: 'saving', createdAt: Date.now() })
+          await db.finance.add({ charId: user.id, amount: total, desc: dep.term + '天定期提前支取', type: 'income', source: 'saving', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
           confirmModal.close()
           window.toast && window.toast('提前支取 ¥' + formatAmount(total))
@@ -1786,7 +1786,7 @@
       })
       await saveInvestState(user.id, investState)
 
-      await db.finance.add({ charId: user.id, amount: amount, desc: '定期存款 ' + product.label, type: 'expense', source: 'saving', createdAt: Date.now() })
+      await db.finance.add({ charId: user.id, amount: amount, desc: '定期存款 ' + product.label, type: 'expense', source: 'saving', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
       modal.close()
       window.toast && window.toast('存入成功 ¥' + formatAmount(amount) + ' ' + product.label + '定期')
@@ -1956,7 +1956,7 @@
       gold.holdingGrams += grams
       gold.avgCostPerGram = gold.holdingGrams > 0 ? totalCost / gold.holdingGrams : 0
 
-      gold.transactions.unshift({ type: 'buy', grams: grams, price: gold.currentPrice, amount: amount, ts: Date.now() })
+      gold.transactions.unshift({ type: 'buy', grams: grams, price: gold.currentPrice, amount: amount, ts: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
       if (gold.transactions.length > 20) gold.transactions.pop()
 
       // 首次购买通知
@@ -1970,7 +1970,7 @@
       }
 
       await saveInvestState(user.id, investState)
-      await db.finance.add({ charId: user.id, amount: amount, desc: '买入黄金 ' + grams.toFixed(2) + 'g', type: 'expense', source: 'saving', createdAt: Date.now() })
+      await db.finance.add({ charId: user.id, amount: amount, desc: '买入黄金 ' + grams.toFixed(2) + 'g', type: 'expense', source: 'saving', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
       modal.close()
       window.toast && window.toast('买入成功 ' + grams.toFixed(2) + '克')
@@ -2023,7 +2023,7 @@
         freshState.gold.avgCostPerGram = 0
       }
 
-      freshState.gold.transactions.unshift({ type: 'sell', grams: grams, price: freshState.gold.currentPrice, amount: amount, ts: Date.now() })
+      freshState.gold.transactions.unshift({ type: 'sell', grams: grams, price: freshState.gold.currentPrice, amount: amount, ts: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
       if (freshState.gold.transactions.length > 20) freshState.gold.transactions.pop()
       await saveInvestState(user.id, freshState)
 
@@ -2031,7 +2031,7 @@
       wd.savingBalance = (wd.savingBalance || 0) + amount
       await saveWalletData(user.id, wd)
 
-      await db.finance.add({ charId: user.id, amount: amount, desc: '卖出黄金 ' + grams.toFixed(2) + 'g', type: 'income', source: 'saving', createdAt: Date.now() })
+      await db.finance.add({ charId: user.id, amount: amount, desc: '卖出黄金 ' + grams.toFixed(2) + 'g', type: 'income', source: 'saving', createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
 
       modal.close()
       window.toast && window.toast('卖出成功 ¥' + formatAmount(amount))

@@ -749,7 +749,7 @@ ${MISS_BEAUTY_CLASS_TEXT}`
   async function addOfflineMessage(ownerUid, chatId, charId, mode, role, content) {
     return await db.offlineChats.add({
       ownerUid, chatId, charId, mode, role, content,
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     })
   }
 
@@ -799,7 +799,7 @@ ${MISS_BEAUTY_CLASS_TEXT}`
     if (!action) return
     const char = await window.getCharacter(state.chat.charId)
     const display = await getWechatDisplayFor(state.ownerUid, char)
-    const endedAt = Date.now()
+    const endedAt = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     const sessionId = `meet_${state.ownerUid}_${state.chat.id}_${state.mode}_${endedAt}`
     const endedTitle = `${display.name} · ${state.mode === 'script' ? '剧本' : '见面'}`
     const settings = await getOfflineSettings(state.ownerUid, state.chat.id, state.mode)

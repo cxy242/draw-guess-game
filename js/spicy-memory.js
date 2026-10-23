@@ -94,7 +94,7 @@
           id: 'spicy_book_' + Date.now().toString(36),
           name: '星途财弈对局记录',
           entries: [],
-          createdAt: Date.now()
+          createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
         }
         books.push(gameBook)
       }
@@ -107,7 +107,7 @@
         keywords: ['星途财弈', gs.p2Name, gs.aiCharId ? String(gs.aiCharId) : ''],
         enabled: true,
         position: 'after',
-        createdAt: Date.now()
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       }
       // 关联角色ID
       if (gs.aiCharId) entry.charIds = [gs.aiCharId]

@@ -1306,8 +1306,8 @@ async function saveTarotMemory(){
       injectionLayer: 2,
       participants: [],
       lastRecalledAt: null,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+      updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
       lastAccessedAt: null,
       accessCount: 0
     });

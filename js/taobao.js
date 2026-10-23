@@ -778,8 +778,8 @@ function tbBuildOrderFromCart(kind) {
     kind: kind || 'buy',
     items: items,
     total: tbMoney(total),
-    createdAt: Date.now(),
-    updatedAt: Date.now()
+    createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+    updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   }
 }
 
@@ -954,7 +954,7 @@ async function tbPayOrder(order, method, payerUid, flow) {
     if ((Number(wd[field]) || 0) < amount) return { ok: false, msg: method === 'checking' ? 'Checking 余额不足' : '微信零钱不足' }
     wd[field] = tbMoney((Number(wd[field]) || 0) - amount)
     await db.config.put({ key: 'wechat_wallet_' + payerUid, value: wd })
-    await db.finance.add({ charId: payerUid, amount: amount, desc: desc, type: 'expense', source: source, createdAt: Date.now() })
+    await db.finance.add({ charId: payerUid, amount: amount, desc: desc, type: 'expense', source: source, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
   }
   order.status = 'paid'
   order.paidByUid = payerUid
@@ -1043,12 +1043,12 @@ async function tbSendTbDeal(order, friend, type) {
     : '__TBDEAL__' + JSON.stringify(deal)
   var chat = await db.chats.where('[ownerUid+charId]').equals([order.ownerUid, friend.id]).first()
   if (!chat) {
-    var chatId = await db.chats.add({ charId: friend.id, ownerUid: order.ownerUid, createdAt: Date.now(), unread: 0 })
+    var chatId = await db.chats.add({ charId: friend.id, ownerUid: order.ownerUid, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), unread: 0 })
     chat = { id: chatId, charId: friend.id, ownerUid: order.ownerUid }
   }
   var lastMessage = (dealType === 'gift' ? '[淘宝赠送] ' : '[淘宝代付] ') + deal.title + ' ¥' + tbFormatMoney(order.total)
-  await db.messages.add({ chatId: chat.id, charId: friend.id, role: 'user', content: content, createdAt: Date.now() })
-  await db.chats.update(chat.id, { updatedAt: Date.now(), lastMessage: lastMessage })
+  await db.messages.add({ chatId: chat.id, charId: friend.id, role: 'user', content: content, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+  await db.chats.update(chat.id, { updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), lastMessage: lastMessage })
 }
 
 window.openTaobaoInternalLink = async function(url, viewerUid) {

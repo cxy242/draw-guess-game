@@ -470,7 +470,7 @@
     try {
       var msgId = await window.db.messages.add({
         chatId: chatId, charId: charId, role: 'user',
-        content: content, createdAt: Date.now()
+        content: content, createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       })
       data.msgId = msgId
       saveInviteState(data)

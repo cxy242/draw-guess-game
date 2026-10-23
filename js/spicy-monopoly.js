@@ -609,7 +609,7 @@
                         window.db.messages.add({
                           chatId: chatId, charId: selected.id,
                           role: 'assistant', content: msg,
-                          createdAt: Date.now()
+                          createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
                         })
                       }
                     }, delay)

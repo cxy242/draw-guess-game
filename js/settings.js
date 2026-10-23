@@ -3154,13 +3154,28 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
   var response
   // 后台保护：追踪API调用数量，防止页面被杀死
   window._pendingAPIcalls = (window._pendingAPIcalls || 0) + 1
+  // 慢回复修复C-1：fetch 60秒超时快失败，卡住不再永远"正在输入"
+  var fetchTimeoutMs = 60000
+  var abortTimer = null
+  var abortController = typeof AbortController !== 'undefined' ? new AbortController() : null
+  if (abortController) {
+    abortTimer = setTimeout(function() { try { abortController.abort() } catch (e) {} }, fetchTimeoutMs)
+  }
   try {
     response = await fetch(cfg.url + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.key },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: abortController ? abortController.signal : undefined
     })
   } catch (networkError) {
+    if (abortTimer) { clearTimeout(abortTimer); abortTimer = null }
+    if (networkError && networkError.name === 'AbortError') {
+      var timeoutError = new Error('请求超时：' + (fetchTimeoutMs / 1000) + ' 秒内 API 无响应，已自动中断')
+      timeoutError.name = 'TimeoutError'
+      timeoutError.status = 0
+      networkError = timeoutError
+    }
     window._pendingAPIcalls = Math.max(0, (window._pendingAPIcalls || 1) - 1)
     if (captureEnabled && await isApiConsoleCaptureEnabled()) {
       addApiConsoleRecord({
@@ -3188,8 +3203,16 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
   try {
     rawText = await response.text()
   } catch (readError) {
-    parseError = readError
+    if (readError && readError.name === 'AbortError') {
+      var readTimeoutError = new Error('请求超时：' + (fetchTimeoutMs / 1000) + ' 秒内响应体未读完，已自动中断')
+      readTimeoutError.name = 'TimeoutError'
+      readTimeoutError.status = 0
+      parseError = readTimeoutError
+    } else {
+      parseError = readError
+    }
   }
+  if (abortTimer) { clearTimeout(abortTimer); abortTimer = null }
   if (!parseError && rawText) {
     try { parsed = JSON.parse(rawText) } catch (jsonError) { parseError = jsonError }
   } else if (!parseError) {
@@ -3214,6 +3237,7 @@ async function performTrackedChatCompletion(cfg, body, apiType, captureEnabled) 
         error: buildApiConsoleErrorText(rawText, null, cfg.key, parseError.message)
       })
     }
+    if (parseError && parseError.name === 'TimeoutError') throw parseError
     var invalidJsonError = new Error('HTTP ' + response.status + '：API 返回了无法解析的 JSON')
     invalidJsonError.status = response.status
     invalidJsonError.detail = rawText || parseError.message || '无法解析响应'

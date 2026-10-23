@@ -511,7 +511,7 @@ async function postMoment(opts) {
           content: posterName + '发了一条朋友圈："' + data.text.slice(0, 60) + '"' + (commentNames.length ? '。' + commentNames.join('、') + '来评论了。' : ''),
           keywords: ['朋友圈', posterName], valence: 0.3, arousal: 0.2, importance: 4,
           sourceType: 'moments', status: 'active', decayPercent: 80, injectionLayer: 2,
-          createdAt: Date.now(), updatedAt: Date.now()
+          createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
         });
         // 评论的AI角色也记住
         var uniqueCommenters = [];

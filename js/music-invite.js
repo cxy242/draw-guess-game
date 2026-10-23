@@ -207,14 +207,14 @@
       songId: String(song.songId || song.id || ''),
       senderName: senderName || '',
       status: 'waiting',
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     }
     try {
       var msg = {
         chatId: chatId,
         role: 'assistant',
         content: '__MUSIC_TOGETHER__' + JSON.stringify(data),
-        createdAt: Date.now(),
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
         status: 'sent'
       }
       msg.id = await db.messages.put(msg)

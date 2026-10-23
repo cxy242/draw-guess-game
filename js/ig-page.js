@@ -1135,7 +1135,7 @@ async function publishIGComposePost(page) {
       reposts: 0,
       time: 'now',
       authorId: user.id,
-      createdAt: Date.now()
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     }
     await saveIGGeneratedFeedPosts(user, [post].concat(loadIGGeneratedFeedPosts(user)).slice(0, 60))
     closeIGComposePage()

@@ -424,7 +424,7 @@ async function publishIGReelsCompose(page) {
     var reel = {
       id: 'reel-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       authorId: user.id,
-      createdAt: Date.now(),
+      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
       time: 'now',
       duration: duration,
       caption: caption,
