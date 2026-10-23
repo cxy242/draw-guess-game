@@ -8168,7 +8168,7 @@ function getWechatTimedInteractions(timeline) {
     .filter(item => item.time > 0 && (item.role === 'user' || item.role === 'assistant'))
 }
 
-function calculateWechatReplyGap(timeline, options = {}, nowTimestamp = Date.now()) {
+function calculateWechatReplyGap(timeline, options = {}, nowTimestamp = (window.TimeWorld && typeof window.TimeWorld.getNow === 'function' ? window.TimeWorld.getNow() : Date.now())) {
   const interactions = getWechatTimedInteractions(timeline)
   if (!interactions.length) return null
   const last = interactions[interactions.length - 1]
@@ -8269,7 +8269,7 @@ async function generateAIReply(chatId, charId, options = {}) {
   }, context.textHistory || history)
   const system = await buildChatSystem(char, loreSegments, charName, userName, userNick, stickerNames, tzConfig, timeSettings, thoughtTemplate, memoryCtx, memoryPanelCtx, _timeAwarenessCtx, bilingualSettings, imageGenEnabled, options.replyRequirement, idleContext, narrativeSettings, patPatSettings, longDistSettings, blockSettings, blockState)
   const avatarCtx = await buildWechatAvatarContext(charId)
-  const nowTimestamp = Date.now()
+  const nowTimestamp = (window.TimeWorld && typeof window.TimeWorld.getNow === 'function' ? window.TimeWorld.getNow() : Date.now())
   const gapContext = calculateWechatReplyGap(context.gapTimeline || context.timeline, options, nowTimestamp)
   const timeNotice = buildWechatTransientTimeNotice(gapContext, nowTimestamp, tzConfig)
   const baseMessages = avatarCtx ? [avatarCtx.imageMessage].concat(history) : history

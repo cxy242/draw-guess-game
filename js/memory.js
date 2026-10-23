@@ -2327,12 +2327,17 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
 
   async function buildTimeAwarenessContext(charId) {
     var parts = []
-    parts.push('\u73b0\u5728\u662f' + getFormattedNow())
+    var vtOn = !!(window.TimeWorld && window.TimeWorld.isEnabled && window.TimeWorld.isEnabled())
+    if (vtOn) {
+      parts.push('现在是虚拟世界时间' + getFormattedNow() + '（虚拟世界时间线，剧情与日常一律按这个时间进行，不要用现实时间）')
+    } else {
+      parts.push('现在是' + getFormattedNow() + '（现实世界准确时间）')
+    }
     if (charId) {
       var timeSince = await getTimeSinceLastChat(charId)
-      if (timeSince) parts.push('\u4e0a\u6b21\u804a\u5929\u662f' + timeSince + '\u524d')
+      if (timeSince) parts.push('上次聊天是' + timeSince + '前')
     }
-    return parts.join('\uff0c')
+    return parts.join('，')
   }
 
   } catch(e) { console.error('[Memory] IIFE error:', e); }

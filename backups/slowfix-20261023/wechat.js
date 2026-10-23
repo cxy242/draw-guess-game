@@ -7838,7 +7838,22 @@ function formatWechatOfflineMessage(row) {
   return `线下见面中，${speaker}：${text}`
 }
 
+function isFormatRetryableAIError(e) {
+  // 只有"API拒绝json_schema格式"这种快速失败才值得换宽松格式补一刀
+  if (!e) return false
+  const name = String(e.name || '')
+  if (name === 'TimeoutError' || name === 'AbortError') return false
+  const msg = String(e.detail || '') + ' ' + String(e.message || '')
+  const formatMention = /response_format|json_schema|json|schema|格式|结构化/i.test(msg)
+  const status = Number(e.status) || 0
+  if (status === 400 || status === 404 || status === 422) return formatMention
+  return /response_format|json_schema/i.test(msg)
+}
+
 async function callWechatAIWithFallback(primaryMessages, fallbackMessages, opts, hasFallbackMessages) {
+  // 慢回复修复C-2：砍掉双次JSON格式尝试。
+  // 只有"API秒拒json_schema"（10秒内的格式类快速失败）才用宽松格式补一刀；
+  // 超时/网络断/生成完但解析失败一律不再整轮重试，失败时不再耗时×2。
   const strictOpts = { ...opts, responseJsonSchema: _WECHAT_AI_JSON_SCHEMA }
   const jsonOpts = { ...opts }
   delete jsonOpts.responseJsonSchema
@@ -7848,13 +7863,18 @@ async function callWechatAIWithFallback(primaryMessages, fallbackMessages, opts,
   ]
 
   let lastError = null
-  for (const attempt of attempts) {
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i]
+    const startedAt = Date.now()
     try {
       const raw = await window.callAI(attempt.messages, attempt.opts)
       const normalized = parseWechatAIResponse(raw)
       return { normalized, messages: attempt.messages, opts: attempt.opts }
     } catch (e) {
       lastError = e
+      const elapsed = Date.now() - startedAt
+      const fastFormatReject = elapsed < 10000 && isFormatRetryableAIError(e)
+      if (i === 0 && !fastFormatReject) throw e
     }
   }
   throw lastError
