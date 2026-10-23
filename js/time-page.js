@@ -301,14 +301,22 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     swRow.appendChild(sw);
     sheet.appendChild(swRow);
 
-    /* 6 快捷四宫格（2×2，56px 格） */
+    /* 6 快捷六宫格（2×3，56px 格·含时间静止/恢复流动） */
     var grid = _el('div', 'tw-grid4');
-    [['+1小时', 3600000, ''], ['+2小时', 7200000, ''], ['+1天', 86400000, ''], ['回到现在', 0, 'tw-danger-btn']].forEach(function (item) {
+    var pausedFrom = 1;   // 记住暂停前流速，恢复原速而非写死1x
+    [['+1小时', 3600000, ''], ['+2小时', 7200000, ''], ['+1天', 86400000, ''], ['回到现在', 0, 'tw-danger-btn'], ['时间静止', 'pause', ''], ['恢复流动', 'resume', '']].forEach(function (item) {
       var b = _el('button', 'tw-quick-btn ' + item[2], item[0]);
       b.addEventListener('click', function () {
         if (item[1] === 0) {
           TW.reset();
           _toast('已回到现实时间');
+        } else if (item[1] === 'pause') {
+          if (TW.getSpeed() !== 0) pausedFrom = TW.getSpeed();
+          TW.setSpeed(0);
+          _toast('时间已静止');
+        } else if (item[1] === 'resume') {
+          TW.setSpeed(pausedFrom || 1);
+          _toast('时间恢复流动（' + (pausedFrom || 1) + 'x）');
         } else {
           TW.addOffset(item[1]);
           _toast('虚拟时间已前进' + item[0].replace('+', ''));
