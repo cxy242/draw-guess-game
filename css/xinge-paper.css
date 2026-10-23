@@ -11,7 +11,7 @@
   border-radius: 2px;
   background:
     linear-gradient(180deg, rgba(238, 232, 218, 0.62), rgba(238, 232, 218, 0.62)),
-    url('img/xinge/xg-paper.png') repeat center / 280px auto,
+    url('img/xinge/xg-paper.webp') repeat center / 280px auto,
     var(--xg-ivory);
   box-shadow:
     0 1px 2px rgba(47, 53, 39, 0.12),
@@ -20,13 +20,13 @@
 .xg-paper-sheet.ps-letter {
   background:
     linear-gradient(180deg, rgba(238, 232, 218, 0.55), rgba(238, 232, 218, 0.55)),
-    url('img/xinge/09-paper-letter.png') center / cover no-repeat,
+    url('img/xinge/09-paper-letter.webp') center / cover no-repeat,
     var(--xg-ivory);
 }
 .xg-paper-sheet.ps-heart {
   background:
     linear-gradient(180deg, rgba(238, 232, 218, 0.42), rgba(238, 232, 218, 0.42)),
-    url('img/xinge/09-paper-heart.png') center / cover no-repeat,
+    url('img/xinge/09-paper-heart.webp') center / cover no-repeat,
     var(--xg-ivory);
 }
 /* 页边细线（印刷页缘） */
@@ -72,7 +72,7 @@
   background:
     radial-gradient(ellipse at 8% 92%, rgba(199, 161, 155, 0.28), rgba(199, 161, 155, 0) 52%),
     radial-gradient(ellipse at 92% 8%, rgba(199, 161, 155, 0.2), rgba(199, 161, 155, 0) 46%),
-    url('img/xinge/xg-paper.png') repeat center / 280px auto,
+    url('img/xinge/xg-paper.webp') repeat center / 280px auto,
     var(--xg-ivory);
 }
 .xg-heart-rose {
@@ -319,7 +319,7 @@
 @media (max-width: 390px) {
   .xg-read-paper { width: 88%; }
   .xg-letter-body { padding: 22px 18px 16px; }
-  .xg-letter-body .xg-letter-para { font-size: 16px; }
+  .xg-letter-body .xg-letter-para { font-size: 12px; }
 }
 @media (max-width: 360px) {
   :root {
@@ -343,10 +343,61 @@
 }
 @media (max-width: 320px) {
   .xg-fan-stage { height: 300px; }
-  .xg-letter-body .xg-letter-para { font-size: 15px; line-height: 1.85; }
+  .xg-letter-body .xg-letter-para { font-size: 12px; line-height: 1.85; }
 }
 /* 横屏手机（短视口）：阅读页收紧 */
 @media (max-height: 480px) and (orientation: landscape) {
   .xg-read-paper { max-height: 52vh; }
   .xg-fan-stage { height: 260px; }
+}
+
+/* ===== 落款区重排（名字/祝语/日期/纹章不重叠） ===== */
+.xg-sign-zone {
+  position: relative;
+  margin-top: 20px;
+  padding: 14px 24px 20px;
+  text-align: right;
+}
+.xg-letter-sign .xg-sign-script,
+.xg-sign-zone .xg-letter-sign-name {
+  display: block;
+  position: static;
+}
+.xg-letter-sign .xg-letter-sign-date,
+.xg-sign-zone .xg-letter-sign-date {
+  position: static;
+  margin-top: 4px;
+}
+.xg-sign-zone .xg-sign-seal {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  width: 30px;
+  height: 30px;
+  opacity: 0.55;
+}
+.xg-sign-zone .xg-sign-seal img {
+  filter: sepia(0.4) saturate(0.6);
+}
+.xg-sign-vine {
+  width: 130px;
+  height: 20px;
+  margin-left: auto;
+}
+.xg-sign-vine img { width: 100%; height: 100%; object-fit: contain; }
+/* 祝语行（信格式收尾） */
+.xg-letter-wish {
+  margin-top: 18px;
+  padding: 0 24px;
+  font-family: 'XG-Kai', serif;
+  font-size: 16px;
+  color: var(--xg-olive);
+}
+.xg-letter-wish .xg-wish-word {
+  display: block;
+}
+.xg-letter-wish .xg-wish-cursive {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 20px;
+  color: var(--xg-clay);
 }

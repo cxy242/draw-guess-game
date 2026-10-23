@@ -9,8 +9,26 @@
 /* 书信级：霞鹜文楷（LXGW WenKai Lite，OFL 开源）——部署时 woff2 嵌入 */
 @font-face {
   font-family: 'XG-Kai';
-  src: url('../fonts/LXGWWenKaiLite-Regular.woff2') format('woff2');
-  font-weight: 400;
+  src: url('../fonts/LXGWWenKaiLite-Regular.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.7.0/lxgw-wenkai-lite-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'XG-Script';
+  src: url('https://cdn.jsdelivr.net/npm/@fontsource/great-vibes@5.0.8/files/great-vibes-latin-400-normal.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'XG-Serif';
+  src: url('https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5.0.8/files/noto-serif-sc-chinese-simplified-400-normal.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5.0.8/files/noto-serif-sc-latin-400-normal.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'XG-Serif';
+  font-weight: 500;
+  src: url('https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5.0.8/files/noto-serif-sc-chinese-simplified-500-normal.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5.0.8/files/noto-serif-sc-latin-500-normal.woff2') format('woff2');
   font-display: swap;
 }
 /* 功能级：思源宋体 */
@@ -187,7 +205,7 @@
   background-image:
     radial-gradient(ellipse at 20% 15%, rgba(226, 218, 200, 0.55) 0%, rgba(226, 218, 200, 0) 55%),
     radial-gradient(ellipse at 85% 90%, rgba(201, 184, 170, 0.30) 0%, rgba(201, 184, 170, 0) 50%),
-    url('../img/xinge/xg-paper.png');
+    url('../img/xinge/xg-paper.webp');
   background-size: auto, auto, 512px 512px;
   background-repeat: no-repeat, no-repeat, repeat;
 }

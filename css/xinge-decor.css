@@ -599,7 +599,7 @@
 }
 .xg-env-to-script .xg-env-to-name {
   font-family: 'XG-Kai', serif;
-  font-size: 17px;
+  font-size: 15.5px;
   color: var(--xg-olive);
 }
 .xg-env-to-script .xg-env-underline {
@@ -753,7 +753,7 @@
 .xg-letter-para {
   margin: 0 0 14px;
   font-family: 'XG-Kai', serif;
-  font-size: 17px;
+  font-size: 12px;
   line-height: 1.9;
   color: var(--xg-olive);
   text-indent: 2em;

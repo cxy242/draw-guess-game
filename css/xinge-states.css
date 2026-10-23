@@ -474,6 +474,7 @@
   display: flex;
   border-top: 1px solid rgba(137, 109, 89, 0.35);
   background: var(--xg-ivory);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .xg-tabbar-item {
   position: relative;

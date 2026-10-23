@@ -280,7 +280,7 @@
   width: 40px; height: 52px;
   flex: none;
   border-radius: 2px;
-  background: url('../img/xinge/asset-stamp.png') center / cover no-repeat;
+  background: url('../img/xinge/asset-stamp.webp') center / cover no-repeat;
 }
 .xg-en-card .xg-en-main { flex: 1; min-width: 0; }
 .xg-en-card .xg-en-to {

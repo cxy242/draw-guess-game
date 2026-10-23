@@ -99,8 +99,12 @@
     return dbWrite(function () {
       if (hasLettersTable()) return window.db.xingeLetters.add(letter);
       return getConfig('xinge:lettersFallback', []).then(function (arr) {
+        // fallback 必须自带 id（否则后续"信不见了"）
+        if (letter.id === undefined || letter.id === null) {
+          letter.id = 'xl_' + nowReal() + '_' + Math.random().toString(36).slice(2, 7);
+        }
         arr.unshift(letter);
-        return setConfig('xinge:lettersFallback', arr);
+        return setConfig('xinge:lettersFallback', arr).then(function () { return letter.id; });
       });
     });
   }
@@ -173,43 +177,7 @@
   }
 
   /* 背景动效活动件配置（一景一动；injectDrift 按页 id 自动配景） */
-  var DRIFT_SPECS = {
-    inbox:
-      '<img class="xg-drift-item xg-drift-sway-a" src="' + XG_IMG + '13-olive.png" style="left:-5%;top:4%;width:40%">' +
-      '<img class="xg-drift-item xg-drift-sway-b" src="' + XG_IMG + '13-rose-branch.png" style="right:-4%;bottom:12%;width:34%">' +
-      '<img class="xg-drift-item xg-drift-envelope" src="' + XG_IMG + '14-mini-envelope.png" style="right:14%;top:12%;width:26px">',
-    write:
-      '<div class="xg-drift-item xg-mote" style="left:24%;top:34%"></div>' +
-      '<div class="xg-drift-item xg-mote" style="left:58%;top:28%"></div>' +
-      '<div class="xg-drift-item xg-mote" style="left:72%;top:46%"></div>' +
-      '<div class="xg-drift-item xg-mote" style="left:38%;top:52%"></div>' +
-      '<img class="xg-drift-item xg-leaf-fall" src="' + XG_IMG + '12-laurel.png" style="right:16%;top:-8%;width:22px">',
-    recipient:
-      '<img class="xg-drift-item xg-dove-fly" src="' + XG_IMG + 'cut-dove-v2.png" style="left:27%;top:18%;width:46%">',
-    target:
-      '<img class="xg-drift-item xg-drift-vine" src="' + XG_IMG + '14-vine.png" style="right:-3%;top:8%;width:26%">' +
-      '<img class="xg-drift-item xg-drift-sway-a" src="' + XG_IMG + '13-olive.png" style="left:-4%;bottom:6%;width:30%">',
-    custom:
-      '<img class="xg-drift-item xg-flower-tremble" src="' + XG_IMG + 'cut-dryflower.png" style="left:-2%;top:2%;width:34%">',
-    preset:
-      '<img class="xg-drift-item xg-ribbon-wave" src="' + XG_IMG + 'cut-ribbon4.png" style="left:6%;top:3%;width:30%">' +
-      '<img class="xg-drift-item xg-leaf-fall" src="' + XG_IMG + '12-laurel.png" style="left:22%;top:-8%;width:20px">',
-    composing:
-      '<div class="xg-drift-item xg-mote" style="left:18%;top:40%"></div>' +
-      '<div class="xg-drift-item xg-mote" style="left:64%;top:32%"></div>' +
-      '<div class="xg-drift-item xg-mote" style="left:80%;top:52%"></div>' +
-      '<div class="xg-drift-item xg-haze-breathe" style="left:12%;top:12%;width:76%;height:38%;background:radial-gradient(ellipse at center, rgba(238,232,218,0.16), rgba(238,232,218,0) 70%)"></div>',
-    envelope:
-      '<img class="xg-drift-item xg-petal-fall" src="' + XG_IMG + '13-petals.png" style="left:12%;top:-6%;width:22%">' +
-      '<img class="xg-drift-item xg-petal-fall" src="' + XG_IMG + '13-petals.png" style="right:16%;top:-10%;width:18%">' +
-      '<div class="xg-drift-item xg-light-sweep" style="left:8%;top:14%;width:84%;height:26%;background:linear-gradient(105deg, rgba(255,255,255,0) 20%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0) 80%)"></div>',
-    fan:
-      '<img class="xg-drift-item xg-petal-fall" src="' + XG_IMG + '13-petals.png" style="right:12%;top:-8%;width:20%">' +
-      '<div class="xg-drift-item xg-light-sweep" style="left:10%;top:10%;width:80%;height:22%;background:linear-gradient(105deg, rgba(255,255,255,0) 20%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0) 80%)"></div>',
-    reading:
-      '<div class="xg-drift-item xg-bokeh" style="left:12%;top:16%;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle, rgba(238,232,218,0.22), rgba(238,232,218,0) 70%)"></div>' +
-      '<div class="xg-drift-item xg-bokeh" style="right:8%;bottom:18%;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle, rgba(199,161,155,0.18), rgba(199,161,155,0) 70%);animation-delay:-12s"></div>'
-  };
+  var DRIFT_SPECS = {}; // 主人令：背景纯静态原图，图片动效全砍（只留写信+拆信两个动画）
 
   function injectDrift(el) {
     var key = String(el.id || '').replace('xg-page-', '');
@@ -241,7 +209,7 @@
     el.id = id;
     el.className = 'full-page xg-page' + (opts.dark ? ' xg-dark' : '');
     el.innerHTML = html;
-    document.body.appendChild(el);
+    (window.XG_PAGE_ROOT || document.body).appendChild(el);
     _stack.push(id);
     // 背景动效配景（一景一动，按页 id 自动注入）
     injectDrift(el);
@@ -280,7 +248,7 @@
       '<div class="xg-scroll">' +
         '<div class="xg-inbox-wrap xg-content-fade">' +
           '<div class="xg-inbox-head">' +
-            '<div class="xg-headline"><div class="xg-headline-en">Post Box</div></div>' +
+            '<div class="xg-headline"><div class="xg-headline-en xg-script">Post Box</div><div class="xg-headline-cn xg-script-cn">信格</div></div>' +
             '<div class="xg-inbox-unread" id="xg-inbox-count"></div>' +
           '</div>' +
           '<div class="xg-meander-bar xg-inbox-bar"></div>' +
@@ -292,7 +260,7 @@
           '<div class="xg-inbox-list" id="xg-inbox-list"></div>' +
         '</div>' +
       '</div>' +
-      '<button class="xg-fab" data-xg-act="go-write" aria-label="让 AI 写封信"></button>';
+      '<button class="xg-fab xg-fab-seal" data-xg-act="go-write" aria-label="让 AI 写封信"><span class="xg-fab-img"><img src="' + XG_IMG + 'xg-crest-laurel.svg" alt=""></span></button>';
 
     var el = openPage('xg-page-inbox', html);
     fillInbox(el, 'all');
@@ -344,7 +312,7 @@
       if (!filtered.length) {
         listBox.innerHTML =
           '<div class="xg-empty is-entering">' +
-            '<img class="xg-empty-art" src="' + XG_IMG + 'asset-emptybox.png" alt="">' +
+            '<img class="xg-empty-art" src="' + XG_IMG + 'asset-emptybox.webp" alt="">' +
             '<div class="xg-empty-text">' + (filter === 'all' ? '信箱还空着，让 AI 写一封？' : '这里还没有信') + '</div>' +
             (filter === 'all' ? '<button class="xg-btn xg-btn-primary" data-xg-act="go-write">让 AI 写一封</button>' : '') +
           '</div>';
@@ -352,7 +320,8 @@
       }
       listBox.innerHTML = filtered.map(function (x, i) {
         return '<div class="xg-en-card xg-stagger-item' + (x.readAt ? '' : ' is-unread') + '" data-xg-letter-id="' + esc(x.id) + '">' +
-          '<div class="xg-en-stamp"></div>' +
+          '<div class="xg-en-stamp"><img src="' + XG_IMG + 'asset-stamp.webp" alt=""></div>' +
+          '<div class="xg-env-post-faint"><img src="' + XG_IMG + 'xg-postmark.svg" alt=""></div>' +
           '<div class="xg-en-main">' +
             '<div class="xg-en-to">致 ' + esc((x.params && x.params.toName) || '你') + '</div>' +
             '<div class="xg-en-summary">' + esc(summarize(x)) + '</div>' +
@@ -500,7 +469,79 @@
   }
 
   /* ===== 6.5 写信链 P2–P4（B5b） ===== */
-  var _draft = {}; // 本次写信草稿参数
+  var _draft = {};        // 本次写信草稿参数
+  var _lastDraft = null;  // 生成失败重试用
+
+  /* ===== 6.x P2b 谁给我写信（从角色档案提取选择） ===== */
+  function renderSender() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('谁给我写信') +
+      '<div class="xg-scroll"><div class="xg-recipient-wrap xg-content-fade">' +
+        '<div class="xg-question-title">这封信，让谁写给你？</div>' +
+        '<div class="xg-guide-bar" data-xg-act="goto-chars"><span class="xg-guide-text">角色档案里的人（AI 角色）会以自己的身份给你写信</span><span class="xg-guide-arrow">›</span></div>' +
+        '<div class="xg-group-card" id="xg-sender-list"></div>' +
+        '<div class="xg-orn-divider"><span class="xg-orn-leaf"><img src="' + XG_IMG + '12-laurel.webp" alt=""></span></div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-sender="none">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">不指定</div>' +
+          '<div class="xg-arch-sub">按下一步的关系口吻直接写</div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-sender', html);
+    // 填角色列表
+    var listBox = el.querySelector('#xg-sender-list');
+    if (listBox) listBox.innerHTML = '<div class="xg-skel-row"></div><div class="xg-skel-row"></div>';
+    var charsPromise = (window.db && window.db.characters)
+      ? window.db.characters.toArray().catch(function () { return []; })
+      : Promise.resolve([]);
+    charsPromise.then(function (chars) {
+      if (!listBox || !listBox.isConnected) return;
+      var list = (chars || []).filter(function (c) { return c && c.name; });
+      if (!list.length) {
+        listBox.innerHTML = '<div class="xg-state-mini"><div class="xg-state-mini-text">角色档案里还没有人，先去添加？</div></div>';
+        return;
+      }
+      listBox.innerHTML = list.map(function (c) {
+        return '<div class="xg-avatar-row" data-xg-sender-id="' + esc(c.id) + '">' +
+          '<div class="xg-avatar">' + (c.avatar
+            ? '<img class="xg-avatar-img" src="' + esc(c.avatar) + '" alt="">'
+            : '<div class="xg-avatar-img xg-crest"></div>') +
+          '<div class="xg-avatar-ring"></div></div>' +
+          '<div><div class="xg-avatar-name">' + esc(c.name) + '</div>' +
+          (c.description ? '<div class="xg-avatar-tag">' + esc(String(c.description).slice(0, 18)) + '</div>' : '') +
+          '</div><div class="xg-avatar-arrow">›</div></div>';
+      }).join('');
+    });
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      if (e.target.closest('[data-xg-act="goto-chars"]')) {
+        toast('到桌面打开「角色档案」添加人物');
+        return;
+      }
+      var none = e.target.closest('[data-xg-sender="none"]');
+      if (none) {
+        delete _draft.senderName; delete _draft.senderDesc; delete _draft.senderCharId;
+        clearTimers(); Xinge.nav.preset();
+        return;
+      }
+      var row = e.target.closest('[data-xg-sender-id]');
+      if (row) {
+        var sid = row.getAttribute('data-xg-sender-id');
+        charsPromise.then(function (chars) {
+          var picked = null;
+          (chars || []).forEach(function (c) { if (String(c.id) === String(sid)) picked = c; });
+          if (picked) {
+            _draft.senderCharId = picked.id;
+            _draft.senderName = picked.name;
+            _draft.senderDesc = String(picked.description || picked.persona || '').slice(0, 200);
+          }
+          clearTimers(); Xinge.nav.preset();
+        });
+      }
+    });
+  }
 
   function renderRecipient() {
     var html =
@@ -525,7 +566,7 @@
       var me = e.target.closest('[data-xg-rec="me"]');
       if (me) {
         _draft = { recipientType: 'me', toName: '我', relationKey: 'self' };
-        clearTimers(); Xinge.nav.preset();
+        clearTimers(); Xinge.nav.sender(); // 先选谁给我写信
         return;
       }
       if (e.target.closest('[data-xg-rec="other"]')) { clearTimers(); Xinge.nav.target(); }
@@ -817,8 +858,7 @@
   }
 
   /* ===== 6.6 生成管线（callAI + 记忆喂料 + 动态日期） ===== */
-  var XG_SYS_BASE =
-    '你是"信格"——一台希腊复古风格的手写信装置。现在要写一封信，务必严格满足：\n' +
+  var XG_SYS_BASE = '你是\"信格\"——一台希腊复古风格的手写信装置、代笔人。现在替写信人写一封信，务必严格满足：\n1.【结构】一次输出三张纸（2+1）：前两张是正常信文（寒暄、近况、想说的话），第三张是隐藏的心里话（更真、更私密、平时说不出口的）。\n2.【划掉标注】不好意思说的、真实感受、内心阴暗面，用 ~~...~~ 包住（段落级整段划）。每张信文 1-2 处；心里话纸划掉密度最高，可整段整段划。\n3.【篇幅】第一、二张信文每张 250 字左右（3-5 个自然段，写具体的事、细节、场景，不许空洞抒情）；心里话 200 字左右（2-4 段）。写实打实的内容。\n4.【输出格式】只输出 JSON，不输出任何多余文字：\n{\"papers\":[{\"kind\":\"letter\",\"title\":\"\",\"body\":\"正文，自然段用\\n分隔，划掉段用 ~~...~~\"},{\"kind\":\"letter\",\"title\":\"\",\"body\":\"...\"},{\"kind\":\"heart\",\"title\":\"\",\"body\":\"...\"}],\"envelopeNote\":\"信封上的一句话（8 字以内）\"}\n5.【日期】使用给定的当前日期语境，不写死具体年份也可，落款日期格式自然。' +
     '1. 输出严格 JSON（无 markdown 包裹），结构：{"papers":[{"kind":"letter","title":"…","body":"…"},{"kind":"letter","title":"…","body":"…"},{"kind":"heart","title":"…","body":"…"}],"envelopeNote":"…"}\n' +
     '2. 三张信=2+1 结构：前两张是正常的信文（寒暄、近况、想说的话），第三张 kind="heart" 是隐藏的心里话（最真、划掉最多）。\n' +
     '3. 划掉的字用 ~~…~~ 标注**整段**（表示不好意思说/真实感受/阴暗面）：第 1 张偶尔一句，第 2 张若干段，第 3 张整段整段划。\n' +
@@ -830,6 +870,9 @@
     presets.forEach(function (p) { if ((p.key || String(p.id)) === draft.presetKey) preset = p; });
     var lines = [];
     lines.push('【当前日期】' + dayString());
+    if (draft.senderName) {
+      lines.push('【写信人】你是「' + draft.senderName + '」' + (draft.senderDesc ? '——' + draft.senderDesc : '') + '，这封信以你自己的身份、口吻和与收信人的关系来写，落款用你的名字。');
+    }
     lines.push('【口吻】' + (preset ? preset.name + '——' + (preset.prompt || '') : '朋友'));
     lines.push('【收信人】' + (draft.toName || '你') + (draft.customRel ? '（关系：' + draft.customRel + '）' : ''));
     if (draft.background) lines.push('【背景】' + draft.background);
@@ -850,6 +893,7 @@
     if (_inFlight) { toast('上一封还在写呢'); return; }
     Xinge.nav.composing();
     var composeStart = nowTs(); // A1：生成动画最短 2.5s 不闪切
+    _lastDraft = draft;         // 失败重试用
     var userPrompt = '';
     var memPromise;
     try {
@@ -923,7 +967,11 @@
       var end = cleaned.lastIndexOf('}');
       if (start < 0 || end <= start) return null;
       var obj = JSON.parse(cleaned.slice(start, end + 1));
-      if (!obj.papers || !Array.isArray(obj.papers) || obj.papers.length < 3) return null;
+      if (!obj.papers || !Array.isArray(obj.papers) || obj.papers.length < 2) return null;
+      // 容错：不足 3 张补空心里话（2+1 结构兜底）
+      while (obj.papers.length < 3) {
+        obj.papers.push({ kind: 'heart', title: '', body: '（这封信的心里话没写成，下次再写）' });
+      }
       obj.papers = obj.papers.slice(0, 3).map(function (p, i) {
         return {
           kind: i === 2 ? 'heart' : (p.kind === 'heart' ? 'heart' : 'letter'),
@@ -943,20 +991,41 @@
     var html =
       '<div class="xg-bg xg-bg-veil-dark"></div>' +
       '<div class="xg-compose-wrap">' +
-        '<div class="xg-corner xg-corner-tl"></div><div class="xg-corner xg-corner-tr"></div>' +
-        '<div class="xg-corner xg-corner-bl"></div><div class="xg-corner xg-corner-br"></div>' +
-        '<div class="xg-compose-stage">' +
-          '<div class="xg-compose-paper"></div>' +
-          '<img class="xg-compose-pen" src="' + XG_IMG + 'cut-pen.png" alt="">' +
-          '<img class="xg-compose-inkpot" src="' + XG_IMG + 'cut-inkpot.png" alt="">' +
+        '<div class="xg-c2-stage">' +
+          '<div class="xg-c2-paper">' +
+            '<div class="xg-c2-frame"><i class="f-tl"></i><i class="f-tr"></i><i class="f-bl"></i><i class="f-br"></i></div>' +
+            '<svg class="xg-c2-orn" viewBox="0 0 220 160" preserveAspectRatio="none">' +
+            '<g stroke="rgba(137,109,89,0.5)" fill="none" stroke-width="1.2" stroke-linecap="round">' +
+            '<path d="M82 14c8-5 16-7 28-7s20 2 28 7"/>' +
+            '</g>' +
+            '<g fill="rgba(158,169,141,0.6)">' +
+            '<ellipse cx="92" cy="11" rx="4" ry="2" transform="rotate(-22 92 11)"/>' +
+            '<ellipse cx="110" cy="7" rx="4" ry="2"/>' +
+            '<ellipse cx="128" cy="11" rx="4" ry="2" transform="rotate(22 128 11)"/>' +
+            '</g>' +
+            '<g stroke="rgba(137,109,89,0.45)" fill="none" stroke-width="1.1" stroke-linecap="round">' +
+            '<path d="M30 146c8 3 16 3 22-2M168 146c8 3 16 3 22-2"/>' +
+            '</g>' +
+            '</svg>' +
+            '<svg class="xg-c2-ink" viewBox="0 0 220 160">' +
+            '<circle class="xg-c2-dot" cx="14" cy="26" r="3"/>' +
+            '<circle class="xg-c2-dot" cx="16" cy="64" r="3"/>' +
+            '<circle class="xg-c2-dot" cx="20" cy="102" r="3"/>' +
+            '<path d="M26 28 C 52 18, 78 36, 106 26 S 156 16, 196 30"/>' +
+            '<path d="M28 66 C 58 56, 84 74, 114 64 S 162 54, 198 68"/>' +
+            '<path d="M32 104 C 60 96, 88 112, 120 102 S 166 94, 198 106"/>' +
+            '<path class="xg-c2-flourish" d="M170 118 c 10 4 18 3 24-3 M186 112 l 8-3 -3 8"/>' +
+            '</svg>' +
+            '<div class="xg-c2-blot"></div>' +
+          '</div>' +
+          '<div class="xg-c2-dip"></div>' +
+          '<div class="xg-c2-pen"><svg viewBox="0 0 90 140"><path d="M78 8 C 60 20, 44 44, 32 76 L 26 96" fill="none" stroke="#EDE5D6" stroke-width="5" stroke-linecap="round"/><path d="M78 8 C 66 6, 52 12, 46 24 C 56 22, 68 18, 78 8 Z" fill="rgba(238,232,218,0.85)"/><path d="M70 12 C 58 18, 50 30, 46 42" fill="none" stroke="rgba(137,109,89,0.5)" stroke-width="1.6"/><path d="M62 18 C 52 26, 46 38, 42 50" fill="none" stroke="rgba(137,109,89,0.4)" stroke-width="1.3"/><path d="M26 96 L 22 118 L 28 112 Z" fill="#896D59"/><path d="M22 118 L 20 128" stroke="rgba(47,53,39,0.8)" stroke-width="2" stroke-linecap="round"/></svg></div>' +
+          '<div class="xg-c2-inkpot"><svg viewBox="0 0 80 90"><path d="M18 34 L 22 78 C 22 82, 26 84, 32 84 L 48 84 C 54 84, 58 82, 58 78 L 62 34 Z" fill="rgba(70,95,120,0.85)" stroke="#896D59" stroke-width="2"/><rect x="14" y="26" width="52" height="10" rx="3" fill="#B9D2E2" stroke="#896D59" stroke-width="2"/><ellipse cx="40" cy="30" rx="14" ry="4" fill="rgba(47,53,39,0.8)"/><path d="M28 44 L 30 72" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linecap="round"/></svg></div>' +
+          '<div class="xg-c2-sealdrop"></div>' +
         '</div>' +
-        '<div class="xg-compose-caption xg-typing" id="xg-caption">正在斟酌字句…</div>' +
-        '<div class="xg-compose-progress is-glowing"><div class="xg-compose-progress-fill" id="xg-progress"></div></div>' +
-        '<div class="xg-compose-fail">' +
-          '<div class="xg-compose-caption">墨水打翻了…</div>' +
-          '<button class="xg-btn xg-btn-primary" data-xg-act="retry">再写一封</button>' +
-        '</div>' +
-        '<button class="xg-compose-skip" data-xg-act="skip">跳过</button>' +
+        '<div class="xg-p5-line" id="xg-caption"></div>' +
+        '<div class="xg-progress" id="xg-progress"><div class="xg-progress-fill"></div></div>' +
+        '<button class="xg-p5-skip" data-xg-act="compose-skip">跳过</button>' +
       '</div>';
     var el = openPage('xg-page-composing', html, { dark: true });
 
@@ -1002,41 +1071,95 @@
     var html =
       '<div class="xg-bg"></div>' +
       topbar('一封信') +
-      '<div class="xg-env-wrap">' +
-        '<div class="xg-env-stage is-waiting" id="xg-env-stage">' +
-          '<div class="xg-env-body" id="xg-env-body"></div>' +
-          '<div class="xg-env-flap" id="xg-env-flap"><div class="xg-seal-shine"></div><div class="xg-seal-glow"></div></div>' +
-          '<div class="xg-env-sprig-tl"></div>' +
-          '<div class="xg-env-sprig-br"></div>' +
-          '<div class="xg-env-stamp"></div>' +
-          '<div class="xg-env-postmark xg-postmark-stamp"></div>' +
-          '<div class="xg-letters-pull" id="xg-letters-pull"><div class="xg-paper-bundle xg-fan-paper" style="position:relative;left:0;top:0;margin:0;width:60%;height:120px"></div></div>' +
+      '<div class="xg-scroll"><div class="xg-content-fade" style="padding-top:3vh">' +
+        '<div class="xg-env4-stage is-arriving" id="xg-env2-stage">' +
+          '<div class="xg-env4">' +
+            '<div class="xg-env4-back"></div>' +
+            '<div class="xg-env4-letter" id="xg-env2-letters"></div>' +
+            '<div class="xg-env4-pocket">' +
+              '<div class="xg-env4-vine"><svg viewBox="0 0 460 310" preserveAspectRatio="none"><g stroke="rgba(137,109,89,0.6)" fill="none" stroke-width="1.3" stroke-linecap="round"><path d="M60 292c26-5 46-16 56-32 7-12 6-24-2-31-7-6-17-5-21 2-4 5-1 12 5 13 4 1 8-2 7-6"/><path d="M400 292c-26-5-46-16-56-32-7-12-6-24 2-31 7-6 17-5 21 2 4 5 1 12-5 13-4 1-8-2-7-6"/><path d="M180 28c12 5 28 5 40 0M240 28c12 5 28 5 40 0"/></g><g fill="none" stroke="rgba(137,109,89,0.55)" stroke-width="1.1"><path d="M76 262c-4-7-3-14 3-19M96 246c-5-6-5-13-1-18M384 262c4-7 3-14-3-19M364 246c5-6 5-13 1-18"/><path d="M212 40c-5-7-4-15 2-20M226 48c-6-5-8-13-5-19M248 48c6-5 8-13 5-19M262 40c5-7 4-15-2-20"/></g></svg></div>' +
+            '</div>' +
+            '<div class="xg-env4-hinge">' +
+              '<div class="xg-env4-flap">' +
+                '<div class="xg-env4-flap-out"></div>' +
+                '<div class="xg-env4-flap-in"></div>' +
+              '</div>' +
+              
+            '</div>' +
+          '</div>' +
+            '<div class="xg-env4-seal-hinge">' +
+              '<div class="xg-env4-seal">' +
+                '<div class="xg-seal-overflow"></div><div class="xg-seal-overflow b"></div>' +
+                '<div class="xg-seal-wax"></div>' +
+                '<svg class="xg-seal-wreath" viewBox="0 0 62 62">' +
+                '<g fill="rgba(70,95,120,0.32)">' +
+                '<ellipse cx="31" cy="8.5" rx="3.4" ry="2"/><ellipse cx="46.8" cy="15.2" rx="3.4" ry="2" transform="rotate(45 46.8 15.2)"/>' +
+                '<ellipse cx="53.5" cy="31" rx="2" ry="3.4"/><ellipse cx="46.8" cy="46.8" rx="3.4" ry="2" transform="rotate(-45 46.8 46.8)"/>' +
+                '<ellipse cx="31" cy="53.5" rx="3.4" ry="2"/><ellipse cx="15.2" cy="46.8" rx="3.4" ry="2" transform="rotate(45 15.2 46.8)"/>' +
+                '<ellipse cx="8.5" cy="31" rx="2" ry="3.4"/><ellipse cx="15.2" cy="15.2" rx="3.4" ry="2" transform="rotate(-45 15.2 15.2)"/>' +
+                '</g></svg>' +
+                '<div class="xg-seal-swan"><svg viewBox="0 0 40 40">' +
+                '<path d="M26.6 11.4c-.8-4-4.3-6.7-8.1-6.2-3.7.5-6.2 3.6-5.9 7.2.2 2.9 2.1 5.2 4.7 6.2l-7.7 3.7c-1.3.6-1.8 2.2-1.1 3.4.6 1.3 2.2 1.8 3.5 1.1l19.6-9.4c2.6-1.2 4-4 3.4-6.8-.35-1.6-1.2-2.8-2.3-3.5z" fill="rgba(238,232,218,0.94)"/>' +
+                '<path d="M16.8 15.8c2.5.35 4.8-.5 6.6-2.2" fill="none" stroke="rgba(70,95,120,0.55)" stroke-width="1.1" stroke-linecap="round"/>' +
+                '<path d="M15.2 18.6c2.9.5 5.6-.2 7.8-2" fill="none" stroke="rgba(70,95,120,0.4)" stroke-width="1" stroke-linecap="round"/>' +
+                '<path d="M13.6 21.2c3.3.65 6.4-.05 9-1.8" fill="none" stroke="rgba(70,95,120,0.32)" stroke-width="0.9" stroke-linecap="round"/>' +
+                '<path d="M12.3 27c-2.6 2.4-3 6-.7 8 2.2-1.3 3.2-3.4 2.7-5.4M27.7 27c2.6 2.4 3 6 .7 8-2.2-1.3-3.2-3.4-2.7-5.4" fill="none" stroke="rgba(70,95,120,0.5)" stroke-width="1" stroke-linecap="round"/>' +
+                '<circle cx="22.9" cy="10.1" r="0.95" fill="rgba(70,95,120,0.9)"/>' +
+                '<path d="M25.1 10.4l2.9-.9-2.5 2.1z" fill="rgba(206,155,105,0.95)"/>' +
+                '</svg></div>' +
+                '<div class="xg-seal-gloss"></div>' +
+              '</div>' +
         '</div>' +
-        '<div class="xg-env-hint">拆开看看</div>' +
-      '</div>';
+        '<div class="xg-env4-hint">拆开看看</div>' +
+      '</div></div>';
     var el = openPage('xg-page-envelope', html);
     // 信封背景注入（bg-P6）
     var bg = el.querySelector('.xg-bg');
-    if (bg) bg.style.backgroundImage = 'url(' + XG_IMG + 'bg-P6-vx.png)';
+    if (bg) bg.style.backgroundImage = 'url(' + XG_IMG + 'bg-P6-vx.webp)';
 
-    var stage = el.querySelector('#xg-env-stage');
+    var stage = el.querySelector('#xg-env2-stage');
     var opened = false;
-    stage.addEventListener('click', function () {
-      if (opened) return;
-      opened = true;
-      stage.classList.remove('is-waiting');
-      driveUnseal(el, function () {
-        markRead(letterId);
-        _revealLetterId = letterId; // 本次会话刚拆：阅读页必走显字
-        clearTimers();
-        Xinge.nav.fan(letterId, 0);
-      });
-    });
-    el.addEventListener('click', function (e) {
-      if (e.target.closest('[data-xg-act="back"]')) {
+    // S0 出现动画播完 → 静置微晃（等待拆信）
+    later(function () {
+      if (stage) { stage.classList.remove('is-arriving'); stage.classList.add('is-waiting'); }
+    }, 1180);
+    function doDone() {
+      markRead(letterId);
+      _revealLetterId = letterId; // 本次会话刚拆：阅读页必走显字
+      clearTimers();
+      Xinge.nav.fan(letterId, 0);
+    }
+    function playUnseal() {
+      if (!stage) { doDone(); return; }
+      if (document.body.classList.contains('xg-motion-low')) { doDone(); return; }
+      stage.classList.remove('is-arriving', 'is-waiting');
+      stage.classList.add('is-p1-press');           // S1 火漆按压 0.5s
+      later(function () {
+        stage.classList.remove('is-p1-press');
+        stage.classList.add('is-p2-open');          // S2 翻盖绕铰链 0.95s
+        later(function () {
+          stage.classList.add('is-p3-rising');      // S3 三纸升出 1.05s
+          later(function () {
+            stage.classList.remove('is-p3-rising');
+            stage.classList.add('is-p4-fanning');   // S4 扇形飞散 0.95s
+            later(function () {
+              stage.classList.add('is-p5-away');    // S5 信封淡出
+              later(doDone, 480);
+            }, 950);
+          }, 1080);
+        }, 980);
+      }, 520);
+    }
+    // 点击信封任意处拆信
+    el.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-xg-act="back"]')) {
         if (opened) return; // 动画中禁止返回（防半截状态）
         clearTimers(); popPage();
+        return;
       }
+      if (opened) return;
+      opened = true;
+      playUnseal();
     });
   }
 
@@ -1071,16 +1194,23 @@
       list.forEach(function (x) { if (String(x.id) === String(letterId)) letter = x; });
       if (!letter) { toast('信不见了'); popPage(); return; }
       var readIdx = readIndex || 0;
+      var papers = letter.papers || [];
       var html =
         '<div class="xg-bg"></div>' +
         topbar('三封 · 按顺序拆读') +
-        '<div class="xg-fan-wrap">' +
-          '<div class="xg-fan-stage" id="xg-fan-stage">' +
-            '<div class="xg-fan-paper" data-xg-idx="0"><div class="xg-paper-glint"></div></div>' +
-            '<div class="xg-fan-paper" data-xg-idx="1"><div class="xg-paper-glint"></div></div>' +
-            '<div class="xg-fan-paper" data-xg-idx="2"><div class="xg-paper-glint"></div></div>' +
+        '<svg width="0" height="0" style="position:absolute"><defs>' +
+        '<filter id="xg-wavy-paper"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/>' +
+        '<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter>' +
+        '</defs></svg>' +
+        '<div class="xg-fan-wrap xg-content-fade">' +
+          '<div class="xg-fan2-stage is-fanned" id="xg-fan-stage">' +
+            '<div class="xg-fan2-paper fp-1" data-xg-idx="0"><div class="xg-fan2-sheet">' +
+              '<div class="xg-fan2-first">' + esc(((papers[0] && papers[0].body) || '').slice(0, 24)) + '</div></div></div>' +
+            '<div class="xg-fan2-paper fp-2" data-xg-idx="1"><div class="xg-fan2-sheet">' +
+              '<div class="xg-fan2-first">' + esc(((papers[1] && papers[1].body) || '').slice(0, 24)) + '</div></div></div>' +
+            '<div class="xg-fan2-paper fp-3" data-xg-idx="2"><div class="xg-fan2-sheet"></div></div>' +
           '</div>' +
-          '<div class="xg-fan-foot">共三封 · 按顺序拆读</div>' +
+          '<div class="xg-fan2-foot">共三封 · 按顺序拆读</div>' +
           '<div class="xg-fan-finale" id="xg-finale">' +
             '<button class="xg-btn xg-btn-ghost" data-xg-act="fav">收藏</button>' +
             '<button class="xg-btn xg-btn-primary" data-xg-act="again">再来一封</button>' +
@@ -1088,70 +1218,77 @@
           '</div>' +
         '</div>';
       var el = openPage('xg-page-fan', html);
-      var bg = el.querySelector('.xg-bg');
-      if (bg) bg.style.backgroundImage = 'url(' + XG_IMG + 'bg-P6-vx.png)';
+      var stage = el.querySelector('#xg-fan-stage');
+      var papers2 = Array.prototype.slice.call(el.querySelectorAll('.xg-fan2-paper'));
 
-      // 入场：p4-fan 扇开→落定
-      var papers = el.querySelectorAll('.xg-fan-paper');
-      papers.forEach(function (p) { p.classList.add('xg-p4-fan'); });
-      later(function () {
-        papers.forEach(function (p, i) {
-          p.classList.remove('xg-p4-fan');
-          p.classList.add('xg-p5-settle');
-          later(function () { p.classList.add('xg-p4-settle-pop'); }, 120 * i);
+      function syncLocks() {
+        papers2.forEach(function (pp, idx) {
+          pp.classList.remove('is-next', 'is-locked');
+          if (idx === readIdx) pp.classList.add('is-next');
+          else if (idx > readIdx) pp.classList.add('is-locked');
         });
-        refreshFanLock(el, readIdx);
-      }, 760);
+        var finale = el.querySelector('#xg-finale');
+        if (finale && readIdx >= 3) finale.style.display = '';
+        else if (finale) finale.style.display = 'none';
+      }
+      syncLocks();
 
       el.addEventListener('click', function (e) {
-        if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+        if (e.target.closest('[data-xg-act="back"]')) {
+          clearTimers();
+          if (_revealLetterId === null) popPage();
+          else Xinge.nav.envelope(letterId);
+          return;
+        }
         if (e.target.closest('[data-xg-act="fav"]')) {
-          toggleFavorite(letterId, true).then(function () { toast('已收藏'); });
+          toggleFavorite(letterId, true).then(function () { toast('已盖「藏」章'); });
           return;
         }
         if (e.target.closest('[data-xg-act="again"]')) {
           clearTimers();
-          Xinge.compose.run(Object.assign({}, _draft, letter.params || {}));
+          Xinge.nav.write();
           return;
         }
         if (e.target.closest('[data-xg-act="inbox"]')) {
           clearTimers();
-          while (_stack.length > 1) popPage(); // 保留栈底信箱
+          while (_stack.length > 1) popPage();
           return;
         }
-        var paper = e.target.closest('[data-xg-idx]');
+        var paper = e.target.closest('.xg-fan2-paper');
         if (!paper) return;
         var idx = parseInt(paper.getAttribute('data-xg-idx'), 10) || 0;
         if (idx > readIdx) {
-          // 顺序锁：点不开+回弹+提示（主人拍板）
-          paper.classList.add('is-locked', 'is-nudge');
-          toast('先从第 ' + (readIdx + 1) + ' 封看起');
-          later(function () { paper.classList.remove('is-nudge'); }, 380);
+          // A9 顺序锁：nudge + toast
+          paper.classList.remove('is-nudge');
+          void paper.offsetWidth;
+          paper.classList.add('is-nudge');
+          toast('先从第一封看起');
           return;
         }
-        paper.classList.add('is-unlocking');
-        later(function () {
+        if (idx < readIdx) {
+          // 已读过：可回看
           clearTimers();
           Xinge.nav.reading(letterId, idx);
-        }, 120);
+          return;
+        }
+        // A5 点开转场：当前张前移放大，其余虚影，然后进 P8
+        clearTimers();
+        paper.classList.add('is-open');
+        stage.classList.add('is-opening');
+        var wait = document.body.classList.contains('xg-motion-low') ? 10 : 520;
+        later(function () {
+          Xinge.nav.reading(letterId, idx);
+        }, wait);
       });
+
+      // 读完三封显示收尾卡
+      if (readIdx >= 3) {
+        var finale2 = el.querySelector('#xg-finale');
+        if (finale2) finale2.style.display = '';
+      }
     });
   }
 
-  function refreshFanLock(el, readIdx) {
-    el.querySelectorAll('.xg-fan-paper').forEach(function (p, i) {
-      p.classList.remove('is-current', 'is-locked');
-      if (i === readIdx) p.classList.add('is-current');
-      else if (i > readIdx) p.classList.add('is-locked');
-    });
-    var finale = el.querySelector('#xg-finale');
-    if (finale) {
-      if (readIdx >= 3) finale.classList.add('is-on');
-      else finale.classList.remove('is-on');
-    }
-  }
-
-  /* ===== 6.10 P8 单信阅读（显字 + 划线） ===== */
   function renderReading(letterId, paperIndex) {
     _currentLetterId = letterId;
     loadLetters().then(function (list) {
@@ -1169,27 +1306,34 @@
       var html =
         '<div class="xg-bg"></div>' +
         '<div class="xg-read-wrap">' +
-          '<div class="xg-letter' + (isHeart ? ' is-heart' : '') + '" id="xg-letter">' +
+          '<div class="xg-letter xg-paper-sheet' + (isHeart ? ' is-heart xg-heart-paper ps-heart' : ' ps-letter') + '" id="xg-letter">' +
             '<div class="xg-letter-postmark xg-postmark-stamp is-stamping"></div>' +
-            '<div class="xg-letter-to">亲爱的 ' + esc((letter.params && letter.params.toName) || '你') + '：</div>' +
-            '<hr class="xg-letter-rule">' +
+            (isHeart ? '<div class="xg-heart-label">from the heart</div><div class="xg-heart-rose"><img src="' + XG_IMG + '13-rose-branch.webp" alt=""></div>' : '') +
+            '<div class="xg-letter-to xg-letter-head"><span class="xg-letter-hi">亲爱的 ' + esc((letter.params && letter.params.toName) || '你') + '：</span><div class="xg-letter-vine"></div></div>' +
             '<div class="xg-letter-body" id="xg-letter-body">' +
               paras.map(function (t) {
                 var isStrike = /^~~[\s\S]*~~$/.test(t.trim());
                 var inner = isStrike ? t.trim().slice(2, -2) : t;
+                var chars = Array.from(inner).map(function (ch) {
+                  return '<span class="xg-w">' + esc(ch) + '</span>';
+                }).join('');
                 if (isStrike) {
-                  return '<p class="xg-letter-p"><span class="xg-strike"><span class="xg-strike-line">' + esc(inner) + '</span></span></p>';
+                  return '<p class="xg-letter-p xg-letter-para is-struck is-unsure xg-strike-soft"><span class="xg-strike"><span class="xg-strike-line">' + chars + '</span></span></p>';
                 }
-                return '<p class="xg-letter-p">' + esc(inner) + '</p>';
+                return '<p class="xg-letter-p xg-letter-para">' + esc(inner) + '</p>';
               }).join('') +
             '</div>' +
-            '<div class="xg-letter-sign">' +
-              '<div class="xg-letter-sign-name">' + esc((letter.params && letter.params.toName) || '') + '</div>' +
+            '<div class="xg-letter-wish"><span class="xg-wish-word">愿你一切都好。</span>' +
+              '<span class="xg-wish-cursive">Yours,</span></div>' +
+            '<div class="xg-letter-sign xg-sign-zone">' +
+              '<div class="xg-sign-vine"><img src="' + XG_IMG + 'xg-meander.svg" alt=""></div>' +
+              '<div class="xg-letter-sign-name xg-sign-script">' + esc((letter.params && letter.params.toName) || '') + '</div>' +
               '<div class="xg-letter-sign-date">' + esc(fmtTime(letter.scheduledAt || letter.createdAt)) + '</div>' +
+              '<div class="xg-sign-seal"><img src="' + XG_IMG + 'xg-crest-laurel.svg" alt=""></div>' +
             '</div>' +
           '</div>' +
         '</div>' +
-        '<button class="xg-strike-toggle" data-xg-act="toggle-strikes" aria-label="切换划线"></button>';
+        '<div class="xg-read-foot"><button class="xg-icon-btn xg-strike-toggle" data-xg-act="toggle-strikes" aria-label="切换划线"><img src="' + XG_IMG + 'icon-heart.svg" alt=""></button></div>';
 
       var el = openPage('xg-page-reading', html);
       var parasEls = Array.prototype.slice.call(el.querySelectorAll('.xg-letter-p'));
@@ -1867,6 +2011,7 @@
     nav: {
       write: renderWrite,
       inbox: renderInbox,
+      sender: renderSender,
       recipient: renderRecipient,
       target: renderTarget,
       age: renderAge,
@@ -1883,12 +2028,19 @@
     },
     compose: {
       run: runCompose,
-      fail: function () {
+      fail: function (err) {
+        _inFlight = null;
         var el = document.getElementById('xg-page-composing');
-        if (el) {
+        if (!el) return;
+        if (Xinge.ui && Xinge.ui.showComposeFail) {
+          Xinge.ui.showComposeFail(el, err || new Error('生成失败'), function () {
+            if (_lastDraft) { clearTimers(); runCompose(_lastDraft); }
+            else popPage();
+          });
+        } else {
           el.classList.add('is-error');
           var cap = el.querySelector('#xg-caption');
-          if (cap) cap.style.display = 'none';
+          if (cap) cap.textContent = '墨水洒了……返回后重来一次';
         }
       },
       skipToResult: function () {

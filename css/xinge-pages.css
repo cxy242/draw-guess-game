@@ -82,7 +82,7 @@
    背景 bg-P0-vx：上虚下实（田园橄榄枝+远处信封）
    ============================================================ */
 #xg-page-inbox .xg-bg {
-  background-image: url('../img/xinge/bg-P0-vx.png');
+  background-image: url('../img/xinge/bg-P0-vx.webp');
 }
 .xg-inbox-wrap {
   position: relative;
@@ -125,7 +125,7 @@
    背景 bg-P1-vx：石拱门+中央光柱 → 舞台压光心
    ============================================================ */
 #xg-page-write .xg-bg {
-  background-image: url('../img/xinge/bg-P1-vx.png');
+  background-image: url('../img/xinge/bg-P1-vx.webp');
 }
 .xg-write-wrap {
   position: relative;
@@ -211,7 +211,7 @@
    背景 bg-P2-vx：白鸽+天空（上部天空留白=题字区）
    ============================================================ */
 #xg-page-recipient .xg-bg {
-  background-image: url('../img/xinge/bg-P2-vx.png');
+  background-image: url('../img/xinge/bg-P2-vx.webp');
 }
 .xg-recipient-wrap {
   position: relative;
@@ -293,7 +293,7 @@
    背景 bg-P3-vx：庭院格窗
    ============================================================ */
 #xg-page-target .xg-bg {
-  background-image: url('../img/xinge/bg-P3-vx.png');
+  background-image: url('../img/xinge/bg-P3-vx.webp');
 }
 .xg-target-wrap {
   position: relative;
@@ -359,7 +359,7 @@
    背景 bg-P3b-vx：四时庭院（四角光色呼应四卡）
    ============================================================ */
 #xg-page-age .xg-bg {
-  background-image: url('../img/xinge/bg-P3b-vx.png');
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
 }
 .xg-age-wrap {
   position: relative;
@@ -422,7 +422,7 @@
    背景 bg-P3c-vx-clean：干净书桌（物件已抠）
    ============================================================ */
 #xg-page-custom .xg-bg {
-  background-image: url('../img/xinge/bg-P3c-vx-clean.png');
+  background-image: url('../img/xinge/bg-P3c-vx-clean.webp');
 }
 .xg-custom-wrap {
   position: relative;
@@ -440,7 +440,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: url('../img/xinge/cut-ribbon4.png') center / contain no-repeat;
+  background: url('../img/xinge/cut-ribbon4.webp') center / contain no-repeat;
 }
 .xg-ribbon-head .xg-headline-en { font-size: 30px; }
 /* 表单卡 */
@@ -484,7 +484,7 @@
    背景 bg-P4-vx-clean：月桂飘带留白底（内容主角）
    ============================================================ */
 #xg-page-preset .xg-bg {
-  background-image: url('../img/xinge/bg-P4-vx-clean.png');
+  background-image: url('../img/xinge/bg-P4-vx-clean.webp');
 }
 .xg-preset-wrap {
   position: relative;
@@ -595,7 +595,7 @@
    背景 bg-P5-vx：神殿光雾（暗底亮舞台）
    ============================================================ */
 #xg-page-composing .xg-bg {
-  background-image: url('../img/xinge/bg-P5-vx.png');
+  background-image: url('../img/xinge/bg-P5-vx.webp');
 }
 .xg-compose-wrap {
   position: relative;
@@ -626,7 +626,7 @@
   width: 190px; height: 132px;
   transform: translateX(-50%);
   border-radius: 4px;
-  background: url('../img/xinge/09-paper-letter.png') center / cover no-repeat;
+  background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
   box-shadow: var(--xg-shadow-3);
 }
 .xg-compose-pen {
@@ -698,7 +698,7 @@
    分层容器：信封体 08-body / 翻盖 08-flap / 花枝 / 邮票 / 邮戳
    ============================================================ */
 #xg-page-envelope .xg-bg {
-  background-image: url('../img/xinge/bg-P6-vx.png');
+  background-image: url('../img/xinge/bg-P6-vx.webp');
 }
 .xg-env-wrap {
   position: relative;
@@ -720,7 +720,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: url('../img/xinge/08-body.png') center / contain no-repeat;
+  background: url('../img/xinge/08-body.webp') center / contain no-repeat;
   filter: drop-shadow(0 14px 22px rgba(47, 53, 39, 0.24));
 }
 .xg-env-flap {
@@ -729,7 +729,7 @@
   height: 66%;
   z-index: 2;
   transform-origin: top center;
-  background: url('../img/xinge/08-flap.png') top center / 100% auto no-repeat;
+  background: url('../img/xinge/08-flap.webp') top center / 100% auto no-repeat;
   backface-visibility: hidden;
 }
 .xg-env-sprig-tl {
@@ -737,7 +737,7 @@
   top: -22px; left: -18px;
   z-index: 3;
   width: 42%;
-  background: url('../img/xinge/06-sprig-a.png') center / contain no-repeat;
+  background: url('../img/xinge/06-sprig-a.webp') center / contain no-repeat;
   transform: rotate(-8deg);
   pointer-events: none;
 }
@@ -746,7 +746,7 @@
   bottom: -16px; right: -14px;
   z-index: 3;
   width: 38%;
-  background: url('../img/xinge/07-sprig-b.png') center / contain no-repeat;
+  background: url('../img/xinge/07-sprig-b.webp') center / contain no-repeat;
   transform: rotate(6deg);
   pointer-events: none;
 }
@@ -756,7 +756,7 @@
   z-index: 4;
   width: 52px; height: 66px;
   border-radius: 2px;
-  background: url('../img/xinge/asset-stamp.png') center / cover no-repeat;
+  background: url('../img/xinge/asset-stamp.webp') center / cover no-repeat;
   box-shadow: var(--xg-shadow-1);
 }
 .xg-env-postmark {
@@ -784,8 +784,8 @@
    P7 扇形三张信（顺序锁舞台）
    背景 bg-P6-vx（延续桌面）
    ============================================================ */
-#xg-page-fan .xg-bg {
-  background-image: url('../img/xinge/bg-P6-vx.png');
+#xg-page-envelope .xg-bg {
+  background-image: url('../img/xinge/bg-P6-vx.webp');
 }
 .xg-fan-wrap {
   position: relative;
@@ -811,7 +811,7 @@
   height: 300px;
   margin: -150px 0 0 -105px;
   border-radius: 3px;
-  background: url('../img/xinge/09-paper-letter.png') center / cover no-repeat;
+  background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
   box-shadow: var(--xg-shadow-3);
   transform:
     rotateX(28deg)
@@ -827,7 +827,7 @@
 .xg-fan-paper:nth-child(1) { --xg-fan-z: -9deg; --xg-fan-x: -62px; --xg-fan-y: -6px; z-index: 3; }
 .xg-fan-paper:nth-child(2) { --xg-fan-z: 1.5deg; --xg-fan-x: 0px; --xg-fan-y: 0px; z-index: 2; }
 .xg-fan-paper:nth-child(3) { --xg-fan-z: 12deg; --xg-fan-x: 62px; --xg-fan-y: 3px; z-index: 1;
-  background-image: url('../img/xinge/09-paper-heart.png'); }
+  background-image: url('../img/xinge/09-paper-heart.webp'); }
 /* 当前可看张（顺序锁推进） */
 .xg-fan-paper.is-current {
   box-shadow: var(--xg-shadow-lift), 0 0 0 2px var(--xg-rose);
@@ -860,8 +860,8 @@
 /* ============================================================
    P8 单信阅读（虚化舞台+显字）
    ============================================================ */
-#xg-page-reading .xg-bg {
-  background-image: url('../img/xinge/bg-P6-vx.png');
+.xg-page-fan .xg-bg, .xg-page-reading .xg-bg, .xg-page-recall .xg-bg {
+  background-image: url('../img/xinge/bg-P6-vx.webp');
   filter: blur(8px) brightness(0.82);
   transform: scale(1.06);
 }
@@ -882,11 +882,11 @@
   min-height: 62dvh;
   padding: 30px 26px 40px;
   border-radius: 2px;
-  background: url('../img/xinge/09-paper-letter.png') center / cover no-repeat;
+  background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
   box-shadow: var(--xg-shadow-lift);
 }
 .xg-letter.is-heart {
-  background-image: url('../img/xinge/09-paper-heart.png');
+  background-image: url('../img/xinge/09-paper-heart.webp');
 }
 .xg-letter-postmark {
   position: absolute;
@@ -994,7 +994,7 @@
   background-color: var(--xg-ivory);
   background-image:
     radial-gradient(ellipse at 85% 8%, rgba(201, 184, 170, 0.28) 0%, rgba(201, 184, 170, 0) 46%),
-    url('../img/xinge/xg-paper.png');
+    url('../img/xinge/xg-paper.webp');
   background-size: auto, 512px 512px;
   background-repeat: no-repeat, repeat;
 }
@@ -1235,3 +1235,41 @@
   color: var(--xg-clay);
 }
 .xg-danger-block { padding: 22px var(--xg-gap-page); }
+
+/* ===== P0 修：题字防截断 / 空态重心 ===== */
+.xg-inbox-head {
+  padding-top: 68px;
+}
+.xg-headline-en.xg-script {
+  font-size: 28px;
+  line-height: 1.35;
+  overflow: visible;
+  padding: 2px 0;
+}
+.xg-inbox-list .xg-state-box,
+.xg-inbox-list .xg-empty {
+  min-height: 52vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 12vh;
+}
+
+/* ===== S 组 + 写信人页背景补齐（沿用派生景） ===== */
+#xg-page-sender .xg-bg,
+#xg-page-settings .xg-bg {
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
+}
+#xg-page-perm .xg-bg,
+#xg-page-notify .xg-bg,
+#xg-page-timer .xg-bg,
+#xg-page-presets .xg-bg,
+#xg-page-prefs .xg-bg {
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
+}
+#xg-page-data .xg-bg {
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
+  filter: blur(8px) brightness(0.82);
+  transform: scale(1.06);
+}

@@ -1016,3 +1016,32 @@
   font-size: 13px;
   color: var(--xg-clay);
 }
+
+/* ===== P0 修：FAB 抬升+强投影分离背景 ===== */
+.xg-fab-seal {
+  bottom: 96px;
+  right: 22px;
+  box-shadow:
+    0 10px 28px rgba(47, 53, 39, 0.42),
+    0 2px 6px rgba(47, 53, 39, 0.3),
+    0 0 0 4px rgba(238, 232, 218, 0.35);
+}
+
+/* ===== 阅读页图标钮复古化（黑图标→陶土线描感） ===== */
+.xg-icon-btn img {
+  filter: sepia(0.5) saturate(0.55) brightness(0.85);
+  opacity: 0.8;
+}
+.xg-icon-btn {
+  background: rgba(238, 232, 218, 0.75);
+  border-color: rgba(137, 109, 89, 0.55);
+}
+.xg-icon-btn.is-on img {
+  filter: sepia(0.3) saturate(0.8) brightness(0.75);
+  opacity: 1;
+}
+
+/* ===== FAB 粉球内图标：黑→浅棕（clay） ===== */
+.xg-fab-seal img {
+  filter: none;
+}

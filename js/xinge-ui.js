@@ -209,7 +209,7 @@
     var msg = (err && err.message) ? err.message : String(err || '生成失败');
     stage.innerHTML =
       '<div class="xg-p5-fail">' +
-      '<div class="xg-p5-fail-art"><img src="img/xinge/cut-inkpot.png" alt=""></div>' +
+      '<div class="xg-p5-fail-art"><img src="img/xinge/cut-inkpot.webp" alt=""></div>' +
       '<div class="xg-p5-fail-text">墨水洒了……这封信没写成</div>' +
       '<div class="xg-err-detail">' + msg.replace(/</g, '&lt;') + '</div>' +
       '<div class="xg-btn-row">' +

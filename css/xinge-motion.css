@@ -19,9 +19,11 @@
 .xg-lift {
   transition: transform 0.22s var(--xg-ease-out), box-shadow 0.22s;
 }
-.xg-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 26px rgba(47, 53, 39, 0.16);
+@media (hover: hover) and (pointer: fine) {
+  .xg-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(47, 53, 39, 0.16);
+  }
 }
 .xg-lift:active {
   transform: translateY(0) scale(0.985);

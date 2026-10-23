@@ -1,0 +1,942 @@
+/* ============================================================
+   xinge-decor.css · 深化卷（B8/B9：英文花体题字系统 + 逐页装饰）
+   依 UI 方案 §0.3 文字系统 / §1 逐页装饰表
+   ============================================================ */
+
+/* ============================================================
+   D1. 英文花体题字系统（装饰主角）
+   ============================================================ */
+.xg-script {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-weight: 400;
+  color: var(--xg-clay);
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+}
+.xg-script-xl { font-size: 38px; }
+.xg-script-lg { font-size: 30px; }
+.xg-script-md { font-size: 24px; }
+.xg-script-sm { font-size: 18px; }
+.xg-script-rose { color: var(--xg-rose); }
+.xg-script-olive { color: var(--xg-olive); }
+.xg-script-faint {
+  color: var(--xg-clay);
+  opacity: 0.45;
+}
+
+/* 题字区（花体大字 + 中文小字副题 + 回纹条） */
+.xg-script-head {
+  text-align: center;
+  padding: 10px 0 4px;
+}
+.xg-script-head .xg-script-line {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 30px;
+  color: var(--xg-clay);
+}
+.xg-script-head .xg-script-cn {
+  margin-top: 2px;
+  font-family: 'XG-Serif', serif;
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  color: var(--xg-clay);
+  text-indent: 0.28em;
+}
+.xg-script-head .xg-meander-line {
+  width: 128px;
+  height: 8px;
+  margin: 8px auto 0;
+  background: url('img/xinge/xg-meander.svg') repeat-x center / auto 8px;
+  opacity: 0.65;
+}
+
+/* 装饰语（角落小字/丝带手写） */
+.xg-motto {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 15px;
+  color: var(--xg-clay);
+  opacity: 0.55;
+  user-select: none;
+}
+.xg-motto-tr { position: absolute; right: 16px; top: 10px; }
+.xg-motto-br { position: absolute; right: 16px; bottom: 12px; }
+.xg-motto-bl { position: absolute; left: 16px; bottom: 12px; }
+
+/* 弧形题字（P6/P7 装饰：微弯基线，无 SVG 依赖的轻量替代） */
+.xg-script-arc {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 22px;
+  color: var(--xg-clay);
+  transform: rotate(-3deg);
+  display: inline-block;
+}
+
+/* 花体签名（P8 落款） */
+.xg-sign-script {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 26px;
+  color: var(--xg-olive);
+  transform: rotate(-2deg);
+  display: inline-block;
+}
+
+/* ============================================================
+   D2. 顶栏深化（金属细线/纹章/题字位）
+   ============================================================ */
+.xg-topbar-decor {
+  position: relative;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--xg-ivory);
+  border-bottom: 1px solid var(--xg-clay);
+}
+.xg-topbar-decor::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: rgba(137, 109, 89, 0.35);
+}
+.xg-topbar-decor .xg-tb-crest {
+  width: 28px;
+  height: 28px;
+}
+.xg-topbar-decor .xg-tb-crest img { width: 100%; height: 100%; object-fit: contain; }
+.xg-topbar-decor .xg-tb-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'XG-Serif', serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--xg-olive);
+  white-space: nowrap;
+}
+.xg-topbar-decor .xg-tb-title.xg-tb-script {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--xg-clay);
+}
+.xg-topbar-dark-decor {
+  background: var(--xg-olive-deep);
+  border-bottom-color: rgba(238, 232, 218, 0.28);
+}
+.xg-topbar-dark-decor .xg-tb-title { color: var(--xg-ivory); }
+.xg-topbar-dark-decor .xg-tb-title.xg-tb-script { color: var(--xg-ivory); }
+
+/* ============================================================
+   D3. P0 信箱页装饰
+   ============================================================ */
+.xg-p0-title-zone {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px var(--xg-gap-page) 2px;
+}
+.xg-p0-title-zone .xg-p0-name {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 30px;
+  color: var(--xg-clay);
+}
+.xg-p0-title-zone .xg-p0-meander {
+  flex: 1;
+  height: 8px;
+  background: url('img/xinge/xg-meander.svg') repeat-x center / auto 8px;
+  opacity: 0.55;
+}
+.xg-p0-title-zone .xg-p0-unread {
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay-pale);
+  white-space: nowrap;
+}
+
+/* 信封卡片深化：回纹上缘+火漆点呼吸+左缘线 */
+.xg-env-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 96px;
+  padding: 14px 14px 14px 12px;
+  border: 1px solid rgba(137, 109, 89, 0.55);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  box-shadow: 0 4px 12px rgba(47, 53, 39, 0.10);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s var(--xg-ease-out), box-shadow 0.2s;
+}
+.xg-env-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 7px;
+  background: url('img/xinge/xg-meander.svg') repeat-x left center / auto 7px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.xg-env-card:active { transform: scale(0.98); }
+.xg-env-card.is-unread { border-left: 3px solid var(--xg-rose); }
+.xg-env-card.is-unread::after {
+  /* 浅粉火漆点呼吸 */
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(137, 109, 89, 0.4);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #E4C4BE, #C99B94);
+  animation: xg-fire-breathe 3.2s var(--xg-ease-in-out) infinite; /* keyframes 见 xinge-anim.css */
+  pointer-events: none;
+}
+
+.xg-env-stamp-mini {
+  width: 40px;
+  height: 48px;
+  flex: none;
+}
+.xg-env-stamp-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: rotate(-2deg);
+}
+.xg-env-post-faint {
+  position: absolute;
+  right: 34px;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  margin-top: -27px;
+  opacity: 0.16;
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+.xg-env-post-faint img { width: 100%; height: 100%; object-fit: contain; }
+.xg-env-to {
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: var(--xg-olive);
+}
+.xg-env-sum {
+  margin-top: 4px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xg-env-time {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-family: 'XG-Serif', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+}
+
+/* FAB：浅粉火漆浮雕圆钮 */
+.xg-fab-seal {
+  position: fixed;
+  right: 20px;
+  bottom: 84px;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #E4C4BE, #C99B94);
+  box-shadow: 0 8px 22px rgba(47, 53, 39, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s var(--xg-ease-out), box-shadow 0.2s;
+  z-index: 40;
+}
+.xg-fab-seal:active { transform: scale(0.96); box-shadow: 0 4px 12px rgba(47, 53, 39, 0.22); }
+.xg-fab-seal .xg-fab-img {
+  width: 68%;
+  height: 68%;
+  margin: 16%;
+}
+.xg-fab-seal .xg-fab-img img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ============================================================
+   D4. P1 写信首页装饰
+   ============================================================ */
+.xg-p1-stage {
+  text-align: center;
+  padding: 30px 0 18px;
+}
+.xg-p1-crest-faint {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+  opacity: 0.28;
+}
+.xg-p1-crest-faint img { width: 100%; height: 100%; object-fit: contain; }
+.xg-p1-motto {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 22px;
+  color: var(--xg-clay);
+  margin-bottom: 22px;
+}
+.xg-p1-continue {
+  position: relative;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid rgba(137, 109, 89, 0.55);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  overflow: hidden;
+}
+.xg-p1-continue:active { transform: scale(0.985); }
+.xg-p1-continue .xg-corner-tag {
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  padding: 3px 12px;
+  border-radius: 0 10px 0 10px;
+  background: var(--xg-rose-pale);
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay);
+}
+.xg-p1-mini-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 6px 2px 12px;
+}
+.xg-p1-mini {
+  position: relative;
+  flex: none;
+  width: 80px;
+  height: 100px;
+  border: 1px solid rgba(137, 109, 89, 0.55);
+  border-radius: 8px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s var(--xg-ease-out);
+}
+.xg-p1-mini:active { transform: scale(0.95); }
+.xg-p1-mini::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  width: 130%;
+  height: 26px;
+  transform: translateX(-50%) rotate(-8deg);
+  border-bottom: 1px solid rgba(137, 109, 89, 0.55);
+  background: var(--xg-ivory);
+}
+.xg-p1-mini .xg-p1-mini-label {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 10px;
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xg-p1-timer-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 8px 14px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 8px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+}
+.xg-p1-timer-strip:active { transform: scale(0.99); }
+.xg-p1-timer-strip .xg-strip-text {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+.xg-p1-timer-strip .xg-strip-state {
+  margin-left: auto;
+  font-family: 'XG-Serif', serif;
+  font-size: 12px;
+  color: var(--xg-rose);
+}
+
+/* ============================================================
+   D5. P3c 表单装饰（飘带题头+四角卷草）
+   ============================================================ */
+.xg-p3c-ribbon-head {
+  position: relative;
+  text-align: center;
+  padding: 6px 0 16px;
+}
+.xg-p3c-ribbon-head .xg-ribbon-img {
+  width: 190px;
+  height: auto;
+  opacity: 0.9;
+}
+.xg-p3c-ribbon-head .xg-ribbon-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -52%);
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 26px;
+  color: var(--xg-olive);
+  white-space: nowrap;
+}
+.xg-form-scroll {
+  position: relative;
+  border-radius: 12px;
+}
+.xg-scroll-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.xg-scroll-corner img { width: 100%; height: 100%; object-fit: contain; }
+.xg-scroll-corner.sc-tl { left: 4px; top: 4px; }
+.xg-scroll-corner.sc-tr { right: 4px; top: 4px; transform: scaleX(-1); }
+.xg-scroll-corner.sc-bl { left: 4px; bottom: 4px; transform: scaleY(-1); }
+.xg-scroll-corner.sc-br { right: 4px; bottom: 4px; transform: scale(-1); }
+
+/* ============================================================
+   D6. P5 生成页装饰（四角回纹/立柱/写字舞台/打字机）
+   ============================================================ */
+.xg-p5-corner {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  background: url('img/xinge/xg-meander.svg') no-repeat center / contain;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.xg-p5-corner.c-tl { left: 12px; top: 12px; }
+.xg-p5-corner.c-tr { right: 12px; top: 12px; transform: scaleX(-1); }
+.xg-p5-corner.c-bl { left: 12px; bottom: 12px; transform: scaleY(-1); }
+.xg-p5-corner.c-br { right: 12px; bottom: 12px; transform: scale(-1); }
+.xg-p5-column {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  width: 54px;
+  opacity: 0.07;
+  pointer-events: none;
+}
+.xg-p5-column img { width: 100%; height: 100%; object-fit: contain; }
+.xg-p5-column.col-l { left: 6px; }
+.xg-p5-column.col-r { right: 6px; transform: scaleX(-1); }
+
+/* 写字舞台：羽毛笔+墨水瓶+SVG 描边字迹 */
+.xg-p5-stage {
+  position: relative;
+  width: 82%;
+  max-width: 320px;
+  height: 220px;
+  margin: 0 auto;
+}
+.xg-p5-quill {
+  position: absolute;
+  left: 30%;
+  top: 22%;
+  width: 120px;
+  z-index: 3;
+}
+.xg-p5-quill img { width: 100%; height: auto; transform: rotate(38deg); }
+.xg-p5-inkpot {
+  position: absolute;
+  right: 18%;
+  bottom: 12%;
+  width: 86px;
+  z-index: 2;
+}
+.xg-p5-inkpot img { width: 100%; height: auto; }
+.xg-p5-write-svg {
+  position: absolute;
+  left: 12%;
+  top: 46%;
+  width: 76%;
+  height: 64px;
+}
+.xg-p5-write-svg path {
+  fill: none;
+  stroke: rgba(238, 232, 218, 0.75);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+}
+.xg-p5-write-svg.is-writing path {
+  animation: xg-write-draw 2.6s var(--xg-ease-in-out) forwards;
+}
+@keyframes xg-write-draw {
+  0% { stroke-dashoffset: 420; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* 文案轮播打字机 */
+.xg-p5-line {
+  min-height: 30px;
+  text-align: center;
+  font-family: 'XG-Serif', serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--xg-ivory);
+}
+.xg-p5-line .xg-caret {
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--xg-ivory);
+  animation: xg-caret-blink 1s steps(1) infinite;
+}
+@keyframes xg-caret-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.xg-p5-line.is-leaving {
+  animation: xg-line-out 0.5s var(--xg-ease-in-out) forwards;
+}
+@keyframes xg-line-out {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+
+/* 跳过/失败 */
+.xg-p5-skip {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: rgba(238, 232, 218, 0.5);
+  cursor: pointer;
+}
+.xg-p5-skip:active { color: rgba(238, 232, 218, 0.8); }
+.xg-p5-fail-art {
+  width: 120px;
+  margin: 0 auto 14px;
+  opacity: 0.85;
+}
+.xg-p5-fail-art img { width: 100%; height: auto; transform: rotate(-12deg); }
+
+/* ============================================================
+   D7. P6 信封页装饰（拼装细节）
+   ============================================================ */
+.xg-p6-wrap {
+  position: relative;
+  width: 88%;
+  margin: 26px auto 0;
+}
+.xg-p6-hint {
+  text-align: center;
+  margin-top: 22px;
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 20px;
+  color: var(--xg-clay);
+  animation: xg-hint-breathe 2.6s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-hint-breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.xg-env-body-decor {
+  position: relative;
+  border: 1px solid rgba(137, 109, 89, 0.5);
+  background: var(--xg-ivory-deep);
+  box-shadow: 0 18px 42px rgba(47, 53, 39, 0.18);
+}
+.xg-env-body-decor .xg-env-meander-frame {
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(137, 109, 89, 0.4);
+  pointer-events: none;
+}
+.xg-env-to-script {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.xg-env-to-script .xg-env-to-word {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 30px;
+  color: var(--xg-clay);
+}
+.xg-env-to-script .xg-env-to-name {
+  font-family: 'XG-Kai', serif;
+  font-size: 17px;
+  color: var(--xg-olive);
+}
+.xg-env-to-script .xg-env-underline {
+  width: 110px;
+  height: 6px;
+  margin: 6px auto 0;
+  background: url('img/xinge/xg-meander.svg') repeat-x center / auto 6px;
+  opacity: 0.55;
+}
+.xg-env-from-row {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+}
+.xg-env-stamp-pos {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 46px;
+  height: 56px;
+}
+.xg-env-stamp-pos img { width: 100%; height: 100%; object-fit: contain; transform: rotate(-2deg); }
+.xg-env-post-pos {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 58px;
+  height: 58px;
+  transform: rotate(-6deg);
+}
+.xg-env-post-pos img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ============================================================
+   D8. P7 扇形三张深化（透视/晕染边/首行露出）
+   ============================================================ */
+.xg-fan-stage {
+  position: relative;
+  height: 340px;
+  perspective: 900px;
+}
+.xg-fan-paper {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  width: 216px;
+  height: 280px;
+  margin-left: -108px;
+  border: 1px solid rgba(137, 109, 89, 0.5);
+  border-radius: 2px;
+  background: var(--xg-ivory);
+  box-shadow: 0 12px 28px rgba(47, 53, 39, 0.18);
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.3s var(--xg-ease-out), box-shadow 0.3s;
+  overflow: hidden;
+}
+.xg-fan-paper.fp-1 {
+  transform: rotateX(28deg) rotateZ(-9deg) translateY(-6px);
+}
+.xg-fan-paper.fp-2 {
+  transform: rotateX(28deg) rotateZ(1.5deg) translateY(0);
+}
+.xg-fan-paper.fp-3 {
+  transform: rotateX(28deg) rotateZ(12deg) translateY(3px);
+}
+.xg-fan-paper.is-next {
+  box-shadow: 0 16px 36px rgba(47, 53, 39, 0.24);
+}
+.xg-fan-paper.is-next::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--xg-rose);
+  border-radius: 3px;
+  animation: xg-next-breathe 2.2s var(--xg-ease-in-out) infinite;
+  pointer-events: none;
+}
+@keyframes xg-next-breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.xg-fan-paper.is-locked {
+  filter: saturate(0.85);
+}
+.xg-fan-paper.is-locked.is-nudge {
+  animation: xg-lock-nudge 0.32s var(--xg-ease-out);
+}
+@keyframes xg-lock-nudge {
+  0% { margin-left: -108px; }
+  25% { margin-left: -112px; }
+  60% { margin-left: -104px; }
+  100% { margin-left: -108px; }
+}
+/* 第 3 张：心里话——灰玫瑰晕染边 */
+.xg-fan-paper.fp-3::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 0% 100%, rgba(199, 161, 155, 0.35), rgba(199, 161, 155, 0) 55%),
+    radial-gradient(ellipse at 100% 0%, rgba(199, 161, 155, 0.25), rgba(199, 161, 155, 0) 50%);
+  pointer-events: none;
+}
+.xg-fan-firstline {
+  padding: 18px 16px 0;
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xg-fan-foot {
+  text-align: center;
+  margin-top: 18px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay-pale);
+}
+
+/* ============================================================
+   D9. P8 阅读页深化（毛玻璃/逐段显字/划掉收线/落款）
+   ============================================================ */
+.xg-read-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(47, 53, 39, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.xg-letter-head {
+  text-align: center;
+  padding: 4px 0 10px;
+}
+.xg-letter-head .xg-letter-hi {
+  font-family: 'XG-Kai', serif;
+  font-size: 16px;
+  color: var(--xg-olive);
+}
+.xg-letter-head .xg-letter-vine {
+  width: 96px;
+  height: 6px;
+  margin: 8px auto 0;
+  background: url('img/xinge/xg-meander.svg') repeat-x center / auto 6px;
+  opacity: 0.5;
+}
+.xg-letter-para {
+  margin: 0 0 14px;
+  font-family: 'XG-Kai', serif;
+  font-size: 17px;
+  line-height: 1.9;
+  color: var(--xg-olive);
+  text-indent: 2em;
+  opacity: 0;
+}
+.xg-letter-para.is-shown { opacity: 1; }
+.xg-letter-para.is-revealing {
+  animation: xg-para-in 0.55s var(--xg-ease-out) forwards;
+}
+@keyframes xg-para-in {
+  0% { opacity: 0; filter: blur(2px); transform: translateY(5px); }
+  60% { filter: blur(0.4px); }
+  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+.xg-letter-para .xg-first-dot {
+  color: var(--xg-rose);
+}
+/* 划掉段：灰字斜体逐字横线 */
+.xg-letter-para.is-struck {
+  font-style: italic;
+  color: var(--xg-clay);
+}
+.xg-letter-para.is-struck .xg-w {
+  text-decoration: line-through;
+  text-decoration-color: rgba(47, 53, 39, 0.45);
+  text-decoration-thickness: 1px;
+}
+.xg-letter-para.is-struck.is-unsure {
+  cursor: pointer;
+}
+/* 收线：点击段落，横线从中间向两端收掉 */
+.xg-letter-para.is-unstriking .xg-w {
+  animation: xg-unstrike 0.42s var(--xg-ease-in-out) forwards;
+}
+@keyframes xg-unstrike {
+  0% { text-decoration: line-through; color: var(--xg-clay); }
+  100% { text-decoration: none; color: var(--xg-olive); }
+}
+.xg-letter-sign {
+  margin-top: 22px;
+  text-align: right;
+}
+.xg-letter-sign .xg-sign-script {
+  display: block;
+}
+.xg-letter-sign .xg-sign-date {
+  margin-top: 6px;
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+.xg-read-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px var(--xg-gap-page);
+}
+.xg-icon-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  transition: transform 0.18s var(--xg-ease-out), background-color 0.18s;
+}
+.xg-icon-btn:active { transform: scale(0.93); }
+.xg-icon-btn.is-on { background: var(--xg-rose-pale); border-color: var(--xg-rose); }
+.xg-icon-btn img { width: 22px; height: 22px; object-fit: contain; }
+
+/* 收尾卡（读完三封） */
+.xg-finale-card {
+  margin: 20px auto;
+  max-width: 280px;
+  padding: 22px 20px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 12px;
+  background: var(--xg-ivory-deep);
+  text-align: center;
+  animation: xg-finale-up 0.55s var(--xg-ease-out);
+}
+@keyframes xg-finale-up {
+  0% { transform: translateY(18px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.xg-finale-card .xg-finale-script {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 24px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   D10. 设置组装饰（分组立柱/金属细线/组题）
+   ============================================================ */
+.xg-set-group {
+  margin-bottom: 20px;
+}
+.xg-set-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.xg-set-group-head .xg-set-col {
+  width: 14px;
+  height: 30px;
+  opacity: 0.55;
+}
+.xg-set-group-head .xg-set-col img { width: 100%; height: 100%; object-fit: contain; }
+.xg-set-group-head .xg-set-name {
+  font-family: 'XG-Serif', serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--xg-olive);
+}
+.xg-set-group-head .xg-set-rule {
+  flex: 1;
+  height: 1px;
+  background: rgba(137, 109, 89, 0.35);
+}
+.xg-set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 1px solid rgba(137, 109, 89, 0.5);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+}
+.xg-set-row + .xg-set-row { margin-top: 10px; }
+.xg-set-row:active { transform: scale(0.99); }
+.xg-set-row .xg-set-ic {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+.xg-set-row .xg-set-ic img { width: 100%; height: 100%; object-fit: contain; }
+.xg-set-row .xg-set-label {
+  font-family: 'XG-Serif', serif;
+  font-size: 16px;
+  color: var(--xg-olive);
+}
+.xg-set-row .xg-set-val {
+  margin-left: auto;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay-pale);
+}
+.xg-set-row .xg-set-arrow {
+  color: var(--xg-clay);
+  font-family: 'XG-Serif', serif;
+  font-size: 15px;
+}
+
+/* ============================================================
+   D11. 分割线母题（花枝分割）
+   ============================================================ */
+.xg-orn-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--xg-clay);
+}
+.xg-orn-divider::before,
+.xg-orn-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(137, 109, 89, 0.35);
+}
+.xg-orn-divider .xg-orn-leaf {
+  width: 34px;
+  height: 12px;
+}
+.xg-orn-divider .xg-orn-leaf img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.75;
+}
