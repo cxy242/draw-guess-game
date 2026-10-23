@@ -382,6 +382,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     var calCard = _el('div', 'tb-card');
     calCard.appendChild(_el('div', 'tb-card-title', '撕页日历 · 跳转'));
     calCard.appendChild(_tearCalendar(function (ts) {
+      if (!TW.isEnabled()) { _toast('请先开启虚拟时间，才能跳转'); return; }
       TW.addOffset(ts - TW.getNow());
       _toast('已跳到 ' + TW.getFormattedNow());
     }));
@@ -465,7 +466,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         var card = _el('div', 'tb-polaroid');
         card.style.setProperty('--tb-rotate', ((i % 2 ? 1 : -1) * 2) + 'deg');
         var img = _el('div', 'tb-polaroid-img');
-        if (ch.avatar) img.style.backgroundImage = 'url(' + ch.avatar + ')';
+        if (ch.avatar) { img.style.backgroundImage = 'url(' + ch.avatar + ')'; img.style.backgroundSize = 'contain'; img.style.backgroundRepeat = 'no-repeat'; img.style.backgroundPosition = 'center'; }
         card.appendChild(img);
         card.appendChild(_el('div', 'tb-polaroid-name', ch.name || '角色' + (i + 1)));
         card.addEventListener('click', function () {
@@ -751,8 +752,9 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
           var cell = _el('div', 'tb-cal-day', String(day));
           cell.addEventListener('click', function () {
             var targetTs = new Date(cursor.getFullYear(), cursor.getMonth(), day, 12, 0, 0).getTime();
+            if (!TW.isEnabled()) { _toast('请先开启虚拟时间，才能跳转'); return; }
             /* 跳时间+dispatch tw-jump（记忆面板联动契约） */
-            TW.jumpTo(targetTs);
+            TW.addOffset(targetTs - TW.getNow());
             window.dispatchEvent(new CustomEvent('tw-jump', { detail: { virtualTs: targetTs, y: cursor.getFullYear(), m: cursor.getMonth() + 1, d: day } }));
             _showDayMemories(body, cursor.getFullYear(), cursor.getMonth() + 1, day);
           });
