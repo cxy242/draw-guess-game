@@ -1,5 +1,5 @@
 /**
- * time-book.js — 《时光手账》绘本手账风五章 App v1.0
+ * time-book.js — 《拾光》绘本手账风五章 App v1.0
  * 按 time-book-spec.md 施工（图纸唯一依据，类名前缀 tb-）
  * ============================================================
  * 文件：总页面（封面+目录）+五章分页全交互。样式 css/time-book.css。
@@ -56,7 +56,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     /* 封面区：皮革底+烫金标题+缎带+火漆角 */
     var hero = _el('div', 'tb-hero');
     hero.appendChild(_el('div', 'tb-hero-leather'));
-    hero.appendChild(_el('div', 'tb-hero-title', '时光手账'));
+    hero.appendChild(_el('div', 'tb-hero-title', '拾光'));
     hero.appendChild(_el('div', 'tb-hero-ribbon'));
     hero.appendChild(_el('div', 'tb-hero-wax'));
     /* 世界线徽章位（§5 全局徽章） */
@@ -626,7 +626,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     right.appendChild(_el('div', 'tb-book-title', (_form.char && _form.char.name ? _form.char.name + ' · ' : '') + (_form.theme || '传记')));
     var para = _el('div', 'tb-book-text');
     right.appendChild(para);
-    right.appendChild(_el('div', 'tb-book-footer', '第 1 页 · 时光手账'));
+    right.appendChild(_el('div', 'tb-book-footer', '第 1 页 · 拾光'));
     book.appendChild(right);
     /* 打字机效果（tb-rise-in 段落渐显挂载） */
     para.classList.add('tb-rise-in');
