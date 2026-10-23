@@ -689,7 +689,7 @@
   align-items: center; gap: 6px;
   opacity: 0;
   transform: translateY(48px) scale(0.82);
-  transition: all 0.7s var(--t-ease);
+  transition: transform 0.7s var(--t-ease), background-color 0.7s var(--t-ease), border-color 0.7s var(--t-ease), color 0.7s var(--t-ease), box-shadow 0.7s var(--t-ease);
 }
 .tarot-reveal-card.tarot-reveal-in {
   opacity: 1;

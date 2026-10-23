@@ -353,8 +353,8 @@
 /* ---------- 封面区（上半） ---------- */
 .tb-cover {
   position: relative;
-  flex: 0 0 42dvh;
-  min-height: 260px;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 0 0 22px 22px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -1943,7 +1943,7 @@
   font-size: 14px;
   color: #5c4423;
   cursor: pointer;
-  transition: all 160ms ease-out;
+  transition: transform 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, box-shadow 160ms ease-out;
 }.tb-radio-notch:active {
   transform: scale(0.95);
 }
@@ -2164,7 +2164,7 @@
   font-size: 13px;
   color: #5c4423;
   cursor: pointer;
-  transition: all 160ms ease-out;
+  transition: transform 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, box-shadow 160ms ease-out;
 }.tb-ruler-notch:active {
   transform: scale(0.95);
 }.tb-ruler-notch.tb-ruler-on {
@@ -2598,8 +2598,8 @@
 /* ---------- 封面（tb-hero ≡ tb-cover 家族） ---------- */
 .tb-hero {
   position: relative;
-  flex: 0 0 42dvh;
-  min-height: 260px;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 0 0 22px 22px;
   overflow: hidden;
   box-shadow: 0 14px 40px rgba(52, 32, 18, 0.4), inset 0 -30px 60px rgba(30, 16, 6, 0.35);
@@ -6244,7 +6244,7 @@
   color: var(--tb-ink-soft);
   cursor: pointer;
   touch-action: manipulation;
-  transition: all var(--tb-dur-mid) var(--tb-ease);
+  transition: transform var(--tb-dur-mid) var(--tb-ease), background-color var(--tb-dur-mid) var(--tb-ease), border-color var(--tb-dur-mid) var(--tb-ease), color var(--tb-dur-mid) var(--tb-ease), box-shadow var(--tb-dur-mid) var(--tb-ease);
 }.tb-tab.tab-active {
   border-color: var(--tb-tab-c, var(--tb-ch2));
   background: color-mix(in srgb, var(--tb-tab-c, var(--tb-ch2)) 13%, #fff);
@@ -6650,7 +6650,7 @@
   height: 7px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--tb-ink-faint) 45%, transparent);
-  transition: all var(--tb-dur-mid) var(--tb-ease);
+  transition: transform var(--tb-dur-mid) var(--tb-ease), background-color var(--tb-dur-mid) var(--tb-ease), border-color var(--tb-dur-mid) var(--tb-ease), color var(--tb-dur-mid) var(--tb-ease), box-shadow var(--tb-dur-mid) var(--tb-ease);
 }.tb-page-dots i.dot-on {
   width: 21px;
   border-radius: 4px;
