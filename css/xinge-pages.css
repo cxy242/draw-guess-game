@@ -872,16 +872,15 @@
   overflow-y: auto;
   display: flex;
   justify-content: center;
-  /* 顶部留出返回键栏的空间（.xg-read-topbar 绝对定位） */
-  padding: 62px 0 110px;
+  padding: 26px 0 90px;
 }
 /* 信纸主体 */
 .xg-letter {
   position: relative;
-  width: 88%;
+  width: 82%;
   max-width: 340px;
   min-height: 62dvh;
-  padding: 30px 26px 52px;
+  padding: 30px 26px 40px;
   border-radius: 2px;
   background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
   box-shadow: var(--xg-shadow-lift);

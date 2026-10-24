@@ -149,53 +149,9 @@
 }
 .icon-bg svg {
   width: 30px; height: 30px;
-  /* 图标不出圈：SVG 自身 overflow 可见会把描边图形撑出圆角方
-     （主人 2026-10-24 实机投诉：图形抽出粉色小圈） */
-  overflow: hidden;
 }
-/* 着色规则：只给「有内联 fill 的图形」换色（图标作者已定义好形状）；
-   fill="none" 的描边图形保持描边不填实 —— 否则描边图会糊成一坨实心块。 */
-.icon-bg svg path[fill]:not([fill="none"]),
-.icon-bg svg circle[fill]:not([fill="none"]),
-.icon-bg svg rect[fill]:not([fill="none"]),
-.icon-bg svg ellipse[fill]:not([fill="none"]) {
+.icon-bg svg path, .icon-bg svg circle, .icon-bg svg rect, .icon-bg svg ellipse {
   fill: var(--icon-color, var(--c-accent-dark));
-}
-/* 描边图形跟随 --icon-color 描边色 */
-.icon-bg svg path[stroke]:not([fill]),
-.icon-bg svg circle[stroke]:not([fill]),
-.icon-bg svg rect[stroke]:not([fill]),
-.icon-bg svg ellipse[stroke]:not([fill]) {
-  stroke: var(--icon-color, var(--c-accent-dark));
-}
-/* 信格图标：浅棕色（主人 2026-10-24 定） */
-.app-icon[data-id="xinge"] .icon-bg svg path[stroke]:not([fill]),
-.app-icon[data-id="xinge"] .icon-bg svg circle[stroke]:not([fill]),
-.app-icon[data-id="xinge"] .icon-bg svg rect[stroke]:not([fill]),
-.app-icon[data-id="xinge"] .icon-bg svg ellipse[stroke]:not([fill]) {
-  stroke: #A98A6B;
-}
-.app-icon[data-id="xinge"] .icon-bg svg path[fill]:not([fill="none"]),
-.app-icon[data-id="xinge"] .icon-bg svg circle[fill]:not([fill="none"]),
-.app-icon[data-id="xinge"] .icon-bg svg rect[fill]:not([fill="none"]),
-.app-icon[data-id="xinge"] .icon-bg svg ellipse[fill]:not([fill="none"]) {
-  fill: #A98A6B;
-}
-.app-icon[data-id="xinge"] .icon-bg svg path[fill-rule="evenodd"] {
-  fill-rule: evenodd;
-}
-/* dock 里的信格图标同样浅棕 */
-.dock-item[data-id="xinge"] .dock-icon-bg svg path[stroke]:not([fill]),
-.dock-item[data-id="xinge"] .dock-icon-bg svg circle[stroke]:not([fill]),
-.dock-item[data-id="xinge"] .dock-icon-bg svg rect[stroke]:not([fill]),
-.dock-item[data-id="xinge"] .dock-icon-bg svg ellipse[stroke]:not([fill]) {
-  stroke: #A98A6B;
-}
-.dock-item[data-id="xinge"] .dock-icon-bg svg path[fill]:not([fill="none"]),
-.dock-item[data-id="xinge"] .dock-icon-bg svg circle[fill]:not([fill="none"]),
-.dock-item[data-id="xinge"] .dock-icon-bg svg rect[fill]:not([fill="none"]),
-.dock-item[data-id="xinge"] .dock-icon-bg svg ellipse[fill]:not([fill="none"]) {
-  fill: #A98A6B;
 }
 .icon-bg img {
   width: 100%;
@@ -295,20 +251,9 @@ html.has-android-bottom-inset .dock-area {
 }
 .dock-icon-bg svg {
   width: 26px; height: 26px;
-  overflow: hidden;
 }
-/* 同 .icon-bg：fill="none" 的描边图形不填实 */
-.dock-icon-bg svg path[fill]:not([fill="none"]),
-.dock-icon-bg svg circle[fill]:not([fill="none"]),
-.dock-icon-bg svg rect[fill]:not([fill="none"]),
-.dock-icon-bg svg ellipse[fill]:not([fill="none"]) {
+.dock-icon-bg svg path, .dock-icon-bg svg circle, .dock-icon-bg svg rect, .dock-icon-bg svg ellipse {
   fill: var(--icon-color, var(--c-accent-dark));
-}
-.dock-icon-bg svg path[stroke]:not([fill]),
-.dock-icon-bg svg circle[stroke]:not([fill]),
-.dock-icon-bg svg rect[stroke]:not([fill]),
-.dock-icon-bg svg ellipse[stroke]:not([fill]) {
-  stroke: var(--icon-color, var(--c-accent-dark));
 }
 
 #home-page.desktop-editing .app-icon,

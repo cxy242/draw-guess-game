@@ -12,22 +12,15 @@
   var Xinge = window.Xinge;
   var nav = Xinge.nav;
 
-  /* 页面 → tab 归属（每 tab 各自保留栈的记忆维度）
-     深检 2026-10-24 修正三处键名错位：
-     ① presetmgr → presetManager（nav 上的真实键名；原写法取不到 → 进过"关系提示词"页后
-        点底部「设置」tab 静默无反应）
-     ② 补 sender（写信人选人页）——原缺，导致该页不更新 tab 记忆
-     ③ 记忆值用页面名（presets），跳转时需映射回 nav 键名，见 navKeyOf() */
+  /* 页面 → tab 归属（每 tab 各自保留栈的记忆维度） */
   var PAGE_TAB = {
     inbox: 'inbox', recall: 'inbox',
     write: 'write', recipient: 'write', target: 'write', age: 'write',
     custom: 'write', preset: 'write', composing: 'write', envelope: 'write',
-    fan: 'write', reading: 'write', sender: 'write',
+    fan: 'write', reading: 'write',
     settings: 'settings', perm: 'settings', timer: 'settings',
-    presetManager: 'settings', prefs: 'settings', notify: 'settings', data: 'settings'
+    presetmgr: 'settings', prefs: 'settings', notify: 'settings', data: 'settings'
   };
-  /* 页面名 → nav 键名（页面 id 去掉 xg-page- 后与 nav 键不一定同名） */
-  var NAV_KEY_ALIAS = { presets: 'presetManager', presetmgr: 'presetManager' };
   var ROOT_PAGE = { inbox: 'inbox', write: 'write', settings: 'settings' };
 
   var curTab = 'inbox';
@@ -79,10 +72,7 @@
     tabMemory[curTab] = currentPageName() || ROOT_PAGE[curTab];
     curTab = key;
     var target = tabMemory[key] || ROOT_PAGE[key];
-    // 页面名 → nav 键名映射（否则 nav[target] 为 undefined → 静默无反应）
-    var navKey = NAV_KEY_ALIAS[target] || target;
-    if (nav[navKey]) nav[navKey]();
-    else if (nav[ROOT_PAGE[key]]) nav[ROOT_PAGE[key]]();
+    if (nav[target]) nav[target]();
   }, true);
 
   function currentPageName() {
@@ -108,24 +98,17 @@
     };
   });
 
-  /* wrap 子页：记忆所在 tab（保留各自栈的近似实现）
-     注意：tabMemory 统一存「页面名」（与 currentPageName() 同口径），
-     跳转时再经 NAV_KEY_ALIAS 映射回 nav 键名。 */
+  /* wrap 子页：记忆所在 tab（保留各自栈的近似实现） */
   Object.keys(nav).forEach(function (key) {
     if (ROOT_PAGE[key]) return;
     var orig = nav[key];
     if (typeof orig !== 'function') return;
     nav[key] = function () {
       var tab = PAGE_TAB[key];
-      if (tab) { curTab = tab; tabMemory[tab] = pageNameOf(key); }
+      if (tab) { curTab = tab; tabMemory[tab] = key; }
       return orig.apply(this, arguments);
     };
   });
-  /* nav 键名 → 页面名（xg-page-xxx 的 xxx 部分） */
-  function pageNameOf(navKey) {
-    if (navKey === 'presetManager') return 'presets';
-    return navKey;
-  }
 
   /* ============================================================
      T3. 未读角标（tab 内 + 桌面全局通知角标）

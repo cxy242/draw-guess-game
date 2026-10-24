@@ -9,9 +9,6 @@
 .xg-paper-sheet {
   position: relative;
   border-radius: 2px;
-  /* 落款区（署名/日期/火漆）必须留在纸内：给纸留出底部留白 + 最小高度，
-     否则签名区会溢出到纸外（主人 2026-10-24 实机投诉：日期和图标掉到纸下面） */
-  padding-bottom: 8px;
   background:
     linear-gradient(180deg, rgba(238, 232, 218, 0.62), rgba(238, 232, 218, 0.62)),
     url('img/xinge/xg-paper.webp') repeat center / 280px auto,
@@ -213,10 +210,10 @@
 .xg-sign-seal {
   position: absolute;
   right: 22px;
-  bottom: 2px;
-  width: 34px;
-  height: 34px;
-  opacity: 0.8;
+  bottom: 8px;
+  width: 38px;
+  height: 38px;
+  opacity: 0.85;
 }
 .xg-sign-seal img {
   width: 100%;
@@ -403,32 +400,4 @@
   font-family: 'XG-Script', 'Great Vibes', cursive;
   font-size: 20px;
   color: var(--xg-clay);
-}
-
-/* ===== 信纸装饰：直接用主人给的邀请函边框图（不手写花纹） ===== */
-.xg-letter-card {
-  background-image: url('../img/xinge/letter-frame.jpg');
-  background-size: 100% 100%;
-  background-position: center;
-}
-.xg-letter-card .xg-letter-sheet-inner {
-  position: relative;
-  z-index: 1;
-}
-/* 信文区垫米色衬底，遮住图内原文、露出四周边框 */
-.xg-letter-body,
-.xg-letter-head,
-.xg-letter-wish,
-.xg-sign-zone {
-  position: relative;
-}
-.xg-letter-card::before {
-  content: "";
-  position: absolute;
-  top: 52px;
-  bottom: 46px;
-  left: 22px;
-  right: 22px;
-  background: rgba(255, 253, 242, 0.92);
-  pointer-events: none;
 }
