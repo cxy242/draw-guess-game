@@ -5191,7 +5191,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 950;
+  /* [v6.5.2修] 950会压到.tb-book(960)底下=弹层隐形直到关书才冒出来；必须用modal层964 */
+  z-index: var(--tb-z-modal);
   opacity: 0;
   transition: opacity 200ms ease-out;
 }.tb-dialog-mask.open {
