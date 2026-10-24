@@ -52,19 +52,61 @@
 .xg-fan2-paper::before { left: -5px; top: 3px; transform: rotate(-1.6deg); }
 .xg-fan2-paper::after { right: -4px; top: 1px; transform: rotate(2.2deg); }
 
-/* 扇形放射（下端支点，上小下大透视） */
-.xg-fan2-stage.is-fanned .xg-fan2-paper.fp-1 {
-  transform: rotateX(28deg) rotateZ(-9deg) translateY(-6px);
+/* ============================================================
+   三张信纸堆叠（主人 2026-10-24 提示词定稿）
+   —— 构图：底层=右侧信纸（逆时针微倾，左上被盖、右下完整露出）
+           中层=左侧信纸（顺时针微倾，压住底层左上角，自己右上角被顶层切断）
+           顶层=中间信纸（居中倾斜，左下压中层右上、右下压底层左上）
+   —— 三张空白纸面在画面中心交汇，边缘互相穿插重叠
+   —— 线条重叠处：顶层轮廓线完整连续，另外两张在重叠位置被截断隐藏
+   —— 摆位用 CSS 变量：--xg-fan-x / --xg-fan-y / --xg-fan-rot / --xg-fan-z
+      JS 按「当前该读的那张」把三层角色重新分配 →
+      当前可读张永远占「顶层」角色（轮廓完整 + 一定能点到）
+   ============================================================ */
+.xg-fan2-paper {
+  transform-origin: 50% 50%;
 }
-.xg-fan2-stage.is-fanned .xg-fan2-paper.fp-2 {
-  transform: rotateX(28deg) rotateZ(1.5deg) translateY(0);
+/* 三层角色：top（顶层居中）/ mid（左侧顺时针）/ back（右侧逆时针） */
+.xg-fan2-stage.is-fanned .xg-fan2-paper {
+  transform:
+    translateX(var(--xg-fan-x, 0px))
+    translateY(var(--xg-fan-y, 0px))
+    rotateX(28deg)
+    rotateZ(var(--xg-fan-rot, 0deg));
+  transition: transform 0.46s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.42s, filter 0.42s;
 }
-.xg-fan2-stage.is-fanned .xg-fan2-paper.fp-3 {
-  transform: rotateX(28deg) rotateZ(12deg) translateY(3px);
+/* 顶层：居中，轮廓最完整 */
+.xg-fan2-stage.is-fanned .xg-fan2-paper[data-xg-role="top"] {
+  --xg-fan-x: -34px; --xg-fan-y: -26px; --xg-fan-rot: -3deg;
+  z-index: 3;
 }
-/* 当前张：呼吸描边+浮起 */
+/* 中层：偏左下，顺时针微倾（左上角被顶层切掉一部分） */
+.xg-fan2-stage.is-fanned .xg-fan2-paper[data-xg-role="mid"] {
+  --xg-fan-x: -70px; --xg-fan-y: 40px; --xg-fan-rot: 6deg;
+  z-index: 2;
+}
+/* 底层：偏右下，逆时针微倾（右上被盖，左下完整露出；x 收在屏内） */
+.xg-fan2-stage.is-fanned .xg-fan2-paper[data-xg-role="back"] {
+  --xg-fan-x: 34px; --xg-fan-y: 86px; --xg-fan-rot: -7deg;
+  z-index: 1;
+}
+/* 当前张（该读的那张）：浮到最上层 + 呼吸描边 + 投影
+   —— z-index 用 !important 压过静态层级，保证它永远能点到
+      （主人实机投诉：点哪都报「先从第一封看起」） */
 .xg-fan2-paper.is-next {
   filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+  z-index: 9 !important;
+}
+/* 已读过的张：沉到后面但仍可回看 */
+.xg-fan2-paper.is-read {
+  z-index: 4 !important;
+  opacity: 0.66;
+}
+/* 被锁的张：压最底，明确「还没轮到它」 */
+.xg-fan2-paper.is-locked {
+  z-index: 1 !important;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .xg-fan2-paper.is-next .xg-fan2-sheet {
   outline: 2px solid rgba(199, 161, 155, 0.85);
@@ -75,24 +117,26 @@
   0%, 100% { outline-color: rgba(199, 161, 155, 0.35); }
   50% { outline-color: rgba(199, 161, 155, 1); }
 }
-/* 顺序锁 nudge */
+/* 顺序锁 nudge：横向轻晃（用 translate 独立属性，不与 transform 的 translateX 打架） */
 .xg-fan2-paper.is-locked.is-nudge {
   animation: xg-fan2-nudge 0.34s ease-out;
 }
 @keyframes xg-fan2-nudge {
-  0% { margin-left: -115px; }
-  25% { margin-left: -121px; }
-  60% { margin-left: -109px; }
-  100% { margin-left: -115px; }
+  0% { translate: 0 0; }
+  25% { translate: -6px 0; }
+  60% { translate: 5px 0; }
+  100% { translate: 0 0; }
 }
-/* 点开转场（A5：当前张前移放大，其余后退虚影） */
+/* 点开转场（A5：当前张前移放大居中，其余后退虚影） */
 .xg-fan2-stage.is-opening .xg-fan2-paper.is-open {
-  transform: rotateX(0deg) rotateZ(0deg) translateY(-40px) scale(1.18) !important;
-  z-index: 5;
+  transform:
+    translateX(0px) translateY(-46px)
+    rotateX(0deg) rotateZ(0deg) scale(1.16) !important;
+  z-index: 12 !important;
   filter: drop-shadow(0 26px 48px rgba(0, 0, 0, 0.45));
 }
 .xg-fan2-stage.is-opening .xg-fan2-paper:not(.is-open) {
-  opacity: 0.32;
+  opacity: 0.28;
   filter: blur(3px);
 }
 /* 第三张心里话：晕染边（点开才知的秘密） */
@@ -110,11 +154,20 @@
   padding: 20px 18px 0;
   font-family: 'XG-Kai', serif;
   font-size: 12.5px;
+  line-height: 1.7;
   color: rgba(67, 54, 43, 0.75);
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+/* 第三张：心里话不露正文，只给一句暗示 */
+.xg-fan2-secret {
+  padding: 20px 18px 0;
+  font-family: 'XG-Kai', serif;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  color: rgba(137, 109, 89, 0.55);
 }
 .xg-fan2-foot {
   text-align: center;

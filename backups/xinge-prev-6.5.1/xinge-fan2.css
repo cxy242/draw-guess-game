@@ -1,0 +1,128 @@
+/* xinge-fan2.css · P7 扇形三张（parchment 写实纸感 + 扇形放射 + 顺序锁 + 点开转场）
+   技法来源：AgnusDei Old parchment（feTurbulence 波浪边/噪点/折痕）+ Messiah7 Stacked Paper（叠纸旋影） */
+.xg-fan2-stage {
+  position: relative;
+  height: 400px;
+  perspective: 1100px;
+  perspective-origin: 50% 30%;
+}
+/* 纸张基座（写实羊皮纸） */
+.xg-fan2-paper {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  width: 230px;
+  height: 310px;
+  margin-left: -115px;
+  transform-style: preserve-3d;
+  cursor: pointer;
+  transition: transform 0.42s cubic-bezier(0.23, 1, 0.32, 1), filter 0.42s, opacity 0.42s;
+}
+.xg-fan2-sheet {
+  position: absolute;
+  inset: 0;
+  background: #FFFDF2;
+  /* AgnusDei 噪点羊皮纸 */
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAUVBMVEWFhYWDg4N3d3dtbW17e3t1dXWBgYGHh4d5eXlzc3OLi4ubm5uVlZWPj4+NjY19fX2JiYl/f39ra2uRkZGZmZlpaWmXl5dvb29xcXGTk5NnZ2c8TV1mAAAAG3RSTlNAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB6qqgWwAAATpJREFUSMft1sFuwjAQRdGDIYBLqN7/Lq0Eq5Yl1C8OYxFKJZ87syTGj552ASGEEEIIIYQQQgghhBDifwM0t43vT/9n8p5zY9u7tG1qW9H3Tnq37jba9le69U767dLOpL1Lu5b2JO1R2mFpx9IOpO1L25O2K21H2ra0LWmb0jakrUtblbYsbUnalLQhaV3SmqRVSStSl6TOS12QOid1VuqM1GmpU1InpU5IHZc6JnVU6ojUEanDUoekDkodlDootV9qv9ReqQ6pT6T2Su2R2i21S2qn1A6p7VLbpLZKbZHaLLVJaqPURqkNUuul1kutk1ortUZqtdQqqVVSq6RWSq2QWi61TGqp1BKpxVKLpBZJLZRaILVfar/UfKk5UnOk5kjNkpotNVtqttQsqVlSM6VmSk2Xmi41TWqq1BSpKVJTpKZITZaaLDVZaqLUJKn/pU6U+kjqQ6kPpN6Xel/qPam3Uu9KvSP1ttRbUv+X+ofUn6R+L/Ubqd9K/UrqN1K/lvqV1P9S/5L6h9TfpH6Q+l7qO6nvpP6V+kbqW6n/SX0t9bXUV1JfSX0l9aXUl1JfSH0h9Xupz6U+k/pM6jOpT6U+lfpU6hOpT6Q+kfpE6mOpj6U+kvpY6mOpj6Q+SiGEEEIIIYQQQgghhBDin34AOm1kHrjKKjIAAAAASUVORK5CYII=");
+  box-shadow:
+    2px 3px 20px rgba(0, 0, 0, 0.5),
+    0 0 90px rgba(143, 89, 34, 0.25) inset;
+  /* AgnusDei 波浪纸边 */
+  filter: url(#xg-wavy-paper);
+}
+/* 折痕（AgnusDei conic 折法） */
+.xg-fan2-sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(#fff3, #fff0 2% 24%, #fff2 25%, #4321 0, #0000 27% 48%, #9632 50%, #fff2 0, #fff0 52% 73%, #9632 75%, #fff3 0, #fff0 78% 97%, #9632);
+  pointer-events: none;
+}
+/* 叠纸侧影（Stacked Paper 技法） */
+.xg-fan2-paper::before,
+.xg-fan2-paper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #FFFDF2;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.22), 0 0 60px rgba(222, 198, 122, 0.5) inset;
+  z-index: -1;
+  transition: 0.4s;
+}
+.xg-fan2-paper::before { left: -5px; top: 3px; transform: rotate(-1.6deg); }
+.xg-fan2-paper::after { right: -4px; top: 1px; transform: rotate(2.2deg); }
+
+/* 扇形放射（下端支点，上小下大透视） */
+.xg-fan2-stage.is-fanned .xg-fan2-paper.fp-1 {
+  transform: rotateX(28deg) rotateZ(-9deg) translateY(-6px);
+}
+.xg-fan2-stage.is-fanned .xg-fan2-paper.fp-2 {
+  transform: rotateX(28deg) rotateZ(1.5deg) translateY(0);
+}
+.xg-fan2-stage.is-fanned .xg-fan2-paper.fp-3 {
+  transform: rotateX(28deg) rotateZ(12deg) translateY(3px);
+}
+/* 当前张：呼吸描边+浮起 */
+.xg-fan2-paper.is-next {
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+}
+.xg-fan2-paper.is-next .xg-fan2-sheet {
+  outline: 2px solid rgba(199, 161, 155, 0.85);
+  outline-offset: -2px;
+  animation: xg-fan2-breathe 2.2s ease-in-out infinite;
+}
+@keyframes xg-fan2-breathe {
+  0%, 100% { outline-color: rgba(199, 161, 155, 0.35); }
+  50% { outline-color: rgba(199, 161, 155, 1); }
+}
+/* 顺序锁 nudge */
+.xg-fan2-paper.is-locked.is-nudge {
+  animation: xg-fan2-nudge 0.34s ease-out;
+}
+@keyframes xg-fan2-nudge {
+  0% { margin-left: -115px; }
+  25% { margin-left: -121px; }
+  60% { margin-left: -109px; }
+  100% { margin-left: -115px; }
+}
+/* 点开转场（A5：当前张前移放大，其余后退虚影） */
+.xg-fan2-stage.is-opening .xg-fan2-paper.is-open {
+  transform: rotateX(0deg) rotateZ(0deg) translateY(-40px) scale(1.18) !important;
+  z-index: 5;
+  filter: drop-shadow(0 26px 48px rgba(0, 0, 0, 0.45));
+}
+.xg-fan2-stage.is-opening .xg-fan2-paper:not(.is-open) {
+  opacity: 0.32;
+  filter: blur(3px);
+}
+/* 第三张心里话：晕染边（点开才知的秘密） */
+.xg-fan2-paper.fp-3 .xg-fan2-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 0% 100%, rgba(199, 161, 155, 0.32), rgba(199, 161, 155, 0) 55%),
+    radial-gradient(ellipse at 100% 0%, rgba(199, 161, 155, 0.22), rgba(199, 161, 155, 0) 50%);
+  pointer-events: none;
+}
+/* 露出首行 */
+.xg-fan2-first {
+  padding: 20px 18px 0;
+  font-family: 'XG-Kai', serif;
+  font-size: 12.5px;
+  color: rgba(67, 54, 43, 0.75);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xg-fan2-foot {
+  text-align: center;
+  margin-top: 18px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: rgba(238, 232, 218, 0.75);
+}
+@media (prefers-reduced-motion: reduce) {
+  .xg-fan2-stage * { animation: none !important; transition: none !important; }
+}

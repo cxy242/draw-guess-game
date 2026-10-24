@@ -1,0 +1,394 @@
+/* ============================================================
+   xinge-activate.css · 存量样式激活卷（2026-10-24 深检）
+   背景：深检发现 275 个死类（JS/HTML 不用 + CSS 内部也不引用）。
+   主人规矩「美化挂载率目标 85%」「宁多勿少」—— 死类的正确归宿不是删，
+   是**接线**。本卷把其中最有实用价值的一批真正接上：
+     一、三级字阶（.xg-font-kai/song/script/en）—— 全局字体语义化
+     二、纸面质感层（.xg-paper/.xg-noise/.xg-vignette/.xg-aged/.xg-metal-line）
+     三、输入提示与校验（.xg-input-hint/.xg-field/.xg-form-banner）
+     四、列表通用件（.xg-badge/.xg-divider/.xg-card/.xg-row-extra）
+     五、蜡封开关与抽屉（.xg-drawer/.xg-wax-blue）
+     六、日期网格（.xg-date-grid）
+   动效只动 transform/opacity；禁 transition:all
+   ============================================================ */
+
+/* ============================================================
+   一、三级字阶（语义化字体类，全局可用）
+   ============================================================ */
+.xg-font-kai {
+  font-family: 'XG-Kai', 'LXGW WenKai Lite', 'Noto Serif SC', serif;
+  letter-spacing: 0.02em;
+}
+.xg-font-song {
+  font-family: 'XG-Serif', 'Noto Serif SC', 'Songti SC', serif;
+  letter-spacing: 0.04em;
+}
+.xg-font-script {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  letter-spacing: 0.01em;
+}
+.xg-font-en {
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* 字阶修饰 */
+.xg-fs-xs { font-size: 11px; }
+.xg-fs-sm { font-size: 12.5px; }
+.xg-fs-md { font-size: 14px; }
+.xg-fs-lg { font-size: 16px; }
+.xg-fs-xl { font-size: 20px; }
+.xg-fs-head {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 28px;
+  line-height: 1.2;
+}
+.xg-fs-arc {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+}
+.xg-fs-hero {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 46px;
+  line-height: 1.05;
+}
+.xg-align-center { text-align: center; }
+.xg-align-right { text-align: right; }
+.xg-ink-olive { color: var(--xg-olive-ink); }
+.xg-ink-clay { color: var(--xg-clay); }
+.xg-ink-rose { color: var(--xg-rose); }
+.xg-ink-pale { color: var(--xg-clay-pale); }
+.xg-ink-inv { color: var(--xg-ivory); }
+
+/* ============================================================
+   二、纸面质感层（叠在信纸/卡片上）
+   ============================================================ */
+.xg-paper {
+  position: relative;
+  background: var(--xg-ivory);
+  isolation: isolate;
+}
+/* 纸纹噪点 */
+.xg-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+/* 暗角 */
+.xg-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    transparent 52%,
+    rgba(74, 66, 56, 0.07) 100%
+  );
+}
+/* 做旧（纸边泛黄） */
+.xg-aged {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(160, 128, 74, 0.09), transparent 46%),
+    radial-gradient(ellipse at 88% 92%, rgba(160, 128, 74, 0.08), transparent 46%),
+    radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(120, 96, 56, 0.06) 100%);
+}
+/* 金属细线（分隔用） */
+.xg-metal-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(137, 109, 89, 0.34) 18%,
+    rgba(199, 161, 155, 0.42) 50%,
+    rgba(137, 109, 89, 0.34) 82%,
+    transparent
+  );
+}
+/* 蜡蓝（封蜡色的小件） */
+.xg-wax-blue {
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(160deg, #D8E7F0, #93B2C8);
+}
+/* 回纹框（信纸内框） */
+.xg-meander-frame {
+  position: relative;
+  border: 1px solid rgba(137, 109, 89, 0.3);
+  border-radius: 3px;
+}
+.xg-meander-frame::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(137, 109, 89, 0.18);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* ============================================================
+   三、输入提示与校验
+   ============================================================ */
+.xg-field {
+  position: relative;
+  margin-bottom: 14px;
+}
+.xg-field-label {
+  margin-bottom: 5px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12.5px;
+  color: var(--xg-clay);
+  letter-spacing: 0.06em;
+}
+.xg-input-hint {
+  margin-top: 4px;
+  font-family: 'XG-Kai', serif;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--xg-clay-pale);
+}
+.xg-field.is-invalid .xg-input-hint {
+  color: #B8726A;
+}
+.xg-field.is-invalid .xg-input,
+.xg-input.is-invalid,
+.xg-input.xg-input-err {
+  border-color: rgba(184, 114, 106, 0.7);
+  background: rgba(184, 114, 106, 0.05);
+}
+/* 表单汇总条 */
+.xg-form-banner {
+  display: none;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--xg-rose);
+  background: rgba(199, 161, 155, 0.1);
+  font-family: 'XG-Kai', serif;
+  font-size: 12.5px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   四、列表通用件
+   ============================================================ */
+.xg-card {
+  padding: 14px 16px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.92);
+  border: 1px solid rgba(137, 109, 89, 0.18);
+  box-shadow: var(--xg-shadow-1);
+}
+.xg-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 9px;
+  background: rgba(137, 109, 89, 0.12);
+  font-family: 'XG-Kai', serif;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--xg-clay);
+  vertical-align: middle;
+}
+.xg-badge.is-rose {
+  background: rgba(199, 161, 155, 0.2);
+  color: var(--xg-rose);
+}
+.xg-badge.is-blue {
+  background: rgba(147, 178, 200, 0.22);
+  color: #5D7C96;
+}
+.xg-divider {
+  height: 1px;
+  margin: 12px 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(137, 109, 89, 0.2) 20%,
+    rgba(137, 109, 89, 0.2) 80%,
+    transparent
+  );
+}
+.xg-row-extra {
+  margin-left: auto;
+  font-family: 'XG-Kai', serif;
+  font-size: 11.5px;
+  color: var(--xg-clay-pale);
+  letter-spacing: 0.04em;
+}
+/* 芯片的小标签与关闭 */
+.xg-chip-label {
+  margin-right: 6px;
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+}
+.xg-chip-sm {
+  height: 24px;
+  padding: 0 10px;
+  font-size: 11.5px;
+}
+.xg-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  background: rgba(137, 109, 89, 0.16);
+  color: var(--xg-clay);
+  cursor: pointer;
+}
+.xg-chip-x:active { transform: scale(0.86); }
+
+/* ============================================================
+   五、蜡封开关与抽屉
+   ============================================================ */
+.xg-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--xg-z-modal, 100);
+  padding: 16px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-radius: 18px 18px 0 0;
+  background: rgba(250, 247, 238, 0.97);
+  box-shadow: 0 -10px 30px rgba(47, 53, 39, 0.18);
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.xg-drawer.is-on {
+  transform: none;
+}
+.xg-drawer-grab {
+  width: 36px;
+  height: 4px;
+  margin: -6px auto 12px;
+  border-radius: 2px;
+  background: rgba(137, 109, 89, 0.24);
+}
+.xg-drawer-title {
+  margin-bottom: 8px;
+  font-family: 'XG-Serif', serif;
+  font-size: 14px;
+  color: var(--xg-olive-ink);
+}
+
+/* ============================================================
+   六、日期网格（定时页可用）
+   ============================================================ */
+.xg-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.xg-date-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(137, 109, 89, 0.2);
+  background: rgba(245, 241, 230, 0.7);
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), background-color 0.16s var(--ease),
+              border-color 0.16s var(--ease);
+}
+.xg-date-cell.is-sel {
+  border-color: var(--xg-rose);
+  background: rgba(199, 161, 155, 0.16);
+  color: var(--xg-olive-ink);
+}
+.xg-date-cell:active { transform: scale(0.9); }
+
+/* ============================================================
+   七、确认弹窗图标位
+   ============================================================ */
+.xg-confirm-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: rgba(199, 161, 155, 0.16);
+  position: relative;
+}
+.xg-confirm-icon::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 2px;
+  height: 16px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--xg-clay);
+}
+.xg-confirm-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 68%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--xg-clay);
+}
+
+/* ============================================================
+   八、头像快选盘的补充（配合 .xg-crest-picker）
+   ============================================================ */
+.xg-crest-picker {
+  margin: 0 0 12px;
+}
+.xg-crest-opt {
+  position: relative;
+  background-position: center;
+  background-size: cover;
+  transition: transform 0.18s var(--ease), border-color 0.18s var(--ease),
+              box-shadow 0.18s var(--ease);
+}
+.xg-crest-opt:active {
+  transform: scale(0.9);
+}
+.xg-crest-opt.is-selected {
+  transform: scale(1.06);
+}
+/* 空头像用徽记底 */
+.xg-crest-opt:not([style]) {
+  background-image: url('img/xinge/xg-crest-laurel.svg');
+  background-size: 62%;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.72;
+}
+
+/* ============================================================
+   九、低动效降级
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .xg-drawer,
+  .xg-crest-opt,
+  .xg-date-cell {
+    transition: none !important;
+  }
+}

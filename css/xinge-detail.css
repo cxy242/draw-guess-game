@@ -1,0 +1,473 @@
+/* ============================================================
+   xinge-detail.css · 细节卷（2026-10-24 深检新增）
+   一、信纸卡体系（写信页 + 阅读页的纸面细节）
+   二、贴纸/胶带/邮戳小件（视觉密度）
+   三、划线三态（轻划/重划/圈涂）的完整视觉
+   四、空态与错误态插画位
+   五、列表入场错峰
+   风格锁：希腊复古 × 旧信札 · 纸墨色系 · 动效只动 transform/opacity
+   ============================================================ */
+
+/* ============================================================
+   一、信纸卡体系
+   ============================================================ */
+
+/* 纸面：细横纹（信纸格线） */
+.xg-letter-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 27px,
+    rgba(137, 109, 89, 0.09) 27px,
+    rgba(137, 109, 89, 0.09) 28px
+  );
+  background-position: 0 22px;
+}
+/* 纸面：左缘装订虚线 */
+.xg-letter-margin {
+  position: absolute;
+  left: 30px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  pointer-events: none;
+  background-image: linear-gradient(
+    180deg,
+    rgba(199, 161, 155, 0.5) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 1px 12px;
+}
+/* 纸面：右上角邮戳位（空位，邮戳盖章后填上） */
+.xg-postmark-slot {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px dashed rgba(137, 109, 89, 0.22);
+  opacity: 0;
+  transition: opacity 0.3s var(--xg-ease-out);
+}
+.xg-postmark-slot.is-on {
+  opacity: 1;
+}
+
+/* 信纸页眉：抬头分隔的小月桂 */
+.xg-letter-vine {
+  position: relative;
+  height: 14px;
+  margin: 10px 0 4px;
+  opacity: 0.5;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: auto 12px;
+}
+/* 信纸祝语：手写体 + 斜体尾巴 */
+.xg-letter-wish {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 0 26px;
+}
+.xg-wish-word {
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 15px;
+  color: var(--xg-olive-ink);
+  letter-spacing: 0.06em;
+}
+.xg-wish-cursive {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 19px;
+  color: var(--xg-clay);
+  opacity: 0.85;
+}
+
+/* 落款区：分隔花线 */
+.xg-sign-zone::before {
+  content: "";
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(137, 109, 89, 0.28) 22%,
+    rgba(137, 109, 89, 0.28) 78%,
+    transparent
+  );
+}
+/* 落款花体签名 */
+.xg-sign-script {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--xg-olive-ink);
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   二、贴纸 / 胶带 / 小件（视觉密度）
+   ============================================================ */
+
+/* 纸胶带（斜贴信纸上缘） */
+.xg-tape {
+  position: absolute;
+  width: 88px;
+  height: 22px;
+  background: rgba(222, 198, 122, 0.42);
+  border-left: 1px dashed rgba(137, 109, 89, 0.22);
+  border-right: 1px dashed rgba(137, 109, 89, 0.22);
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(47, 53, 39, 0.06);
+}
+.xg-tape.is-tl {
+  left: -18px;
+  top: 12px;
+  transform: rotate(-32deg);
+}
+.xg-tape.is-tr {
+  right: -18px;
+  top: 10px;
+  transform: rotate(30deg);
+}
+/* 干玫瑰贴纸（阅读页心里话纸） */
+.xg-sticker-rose {
+  position: absolute;
+  right: 14px;
+  bottom: 16px;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+  opacity: 0.9;
+  transform-origin: 50% 100%;
+  animation: xg-sticker-sway 5.6s ease-in-out infinite alternate;
+}
+@keyframes xg-sticker-sway {
+  0% { transform: rotate(-3deg) translateY(0); }
+  100% { transform: rotate(3deg) translateY(-3px); }
+}
+/* 蜡封小印（卡片右上） */
+.xg-wax-mini {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 48% 52% 50% 50% / 51% 49% 51% 49%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(160deg, #E4C4BC, #C9A29A);
+  box-shadow: 0 2px 5px rgba(47, 53, 39, 0.22);
+  pointer-events: none;
+  opacity: 0.85;
+}
+.xg-wax-mini.is-fav {
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(160deg, #D8E7F0, #93B2C8);
+}
+
+/* ============================================================
+   三、划线三态
+   ============================================================ */
+
+/* N4a 轻划（细线 45%） */
+.xg-strike-soft .xg-strike-line {
+  text-decoration-color: rgba(74, 66, 56, 0.42);
+  text-decoration-thickness: 1px;
+}
+/* N4b 重划（粗线 70% + 多重线） */
+.xg-strike-hard .xg-strike-line {
+  text-decoration-color: rgba(74, 66, 56, 0.72);
+  text-decoration-thickness: 2.4px;
+  text-decoration-style: double;
+}
+/* N4c 圈涂（涂改圈） */
+.xg-strike-circle .xg-strike-line {
+  position: relative;
+  background-image: radial-gradient(
+    ellipse at center,
+    rgba(74, 66, 56, 0.16) 0 58%,
+    transparent 60%
+  );
+  border-radius: 3px;
+  padding: 0 2px;
+}
+/* 划掉段的整段柔和底纹 */
+.xg-letter-para.is-struck {
+  position: relative;
+}
+.xg-letter-para.is-struck::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(199, 161, 155, 0.07),
+    rgba(199, 161, 155, 0.03) 60%,
+    transparent
+  );
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s var(--xg-ease-out);
+}
+.xg-letter-para.is-struck.is-shown::before {
+  opacity: 1;
+}
+/* 恢复态（点横线后） */
+.xg-letter-para.is-restored .xg-w {
+  color: var(--xg-olive-ink);
+  font-style: normal;
+}
+.xg-letter-para.is-restored::before {
+  opacity: 0;
+}
+
+/* ============================================================
+   四、空态 / 错误态
+   ============================================================ */
+
+/* 空态插画位 */
+.xg-empty-art {
+  display: block;
+  width: 168px;
+  height: 168px;
+  margin: 0 auto 14px;
+  object-fit: contain;
+  opacity: 0.9;
+  animation: xg-empty-float 4.2s ease-in-out infinite alternate;
+}
+@keyframes xg-empty-float {
+  0% { transform: translateY(0) rotate(-0.6deg); }
+  100% { transform: translateY(-7px) rotate(0.6deg); }
+}
+.xg-empty-text {
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 14px;
+  color: var(--xg-clay);
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+
+/* 错误态：墨瓶倾倒 */
+.xg-p5-fail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px 28px;
+  text-align: center;
+}
+.xg-p5-fail-art {
+  width: 108px;
+  height: 108px;
+  opacity: 0.9;
+  transform-origin: 50% 20%;
+  animation: xg-fail-tilt 1.1s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes xg-fail-tilt {
+  0% { transform: rotate(0deg); opacity: 0; }
+  30% { transform: rotate(-18deg); opacity: 1; }
+  100% { transform: rotate(-14deg); opacity: 1; }
+}
+.xg-p5-fail-text {
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: rgba(238, 232, 218, 0.92);
+  letter-spacing: 0.06em;
+}
+.xg-err-detail {
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: rgba(199, 161, 155, 0.85);
+  max-width: 78%;
+  line-height: 1.6;
+}
+.xg-p5-fail .xg-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* 骨架屏（列表加载） */
+.xg-skeleton-card {
+  height: 92px;
+  margin-bottom: 12px;
+  border-radius: var(--xg-r-card);
+  background: linear-gradient(
+    100deg,
+    rgba(245, 241, 230, 0.5) 20%,
+    rgba(250, 247, 238, 0.9) 40%,
+    rgba(245, 241, 230, 0.5) 60%
+  );
+  background-size: 240% 100%;
+  animation: xg-skeleton-shine 1.5s linear infinite;
+}
+@keyframes xg-skeleton-shine {
+  0% { background-position: 120% 0; }
+  100% { background-position: -60% 0; }
+}
+.xg-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: rgba(245, 241, 230, 0.6);
+  animation: xg-skeleton-pulse 1.3s ease-in-out infinite alternate;
+}
+@keyframes xg-skeleton-pulse {
+  0% { opacity: 0.5; }
+  100% { opacity: 0.9; }
+}
+
+/* ============================================================
+   五、列表入场错峰（.xg-stagger-item）
+   ============================================================ */
+.xg-stagger-item {
+  animation: xg-stagger-in 0.42s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes xg-stagger-in {
+  0% { opacity: 0; transform: translateY(14px) scale(0.985); }
+  100% { opacity: 1; transform: none; }
+}
+.xg-stagger-item:nth-child(1) { animation-delay: 0.02s; }
+.xg-stagger-item:nth-child(2) { animation-delay: 0.07s; }
+.xg-stagger-item:nth-child(3) { animation-delay: 0.12s; }
+.xg-stagger-item:nth-child(4) { animation-delay: 0.17s; }
+.xg-stagger-item:nth-child(5) { animation-delay: 0.22s; }
+.xg-stagger-item:nth-child(6) { animation-delay: 0.27s; }
+.xg-stagger-item:nth-child(7) { animation-delay: 0.32s; }
+.xg-stagger-item:nth-child(8) { animation-delay: 0.37s; }
+
+/* 纸飞机飞出（删信动效） */
+.xg-plane-fly {
+  animation: xg-plane-fly 0.9s cubic-bezier(0.5, 0, 0.9, 0.6) forwards;
+  pointer-events: none;
+}
+@keyframes xg-plane-fly {
+  0% { opacity: 1; transform: none; }
+  30% { opacity: 1; transform: translateY(-10px) rotate(-4deg) scale(0.98); }
+  100% { opacity: 0; transform: translate(-40vw, -30vh) rotate(-24deg) scale(0.6); }
+}
+/* 折纸飞机确认图 */
+.xg-plane-confirm-art {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 12px;
+  position: relative;
+}
+.xg-plane-body {
+  width: 100%;
+  height: 100%;
+  background: url('img/xinge/14-mini-envelope.webp') center / contain no-repeat;
+  filter: drop-shadow(0 4px 8px rgba(47, 53, 39, 0.22));
+  transition: transform 0.5s cubic-bezier(0.5, 0, 0.9, 0.6);
+}
+.xg-plane-confirm-art.is-flying .xg-plane-body {
+  transform: translate(30vw, -20vh) rotate(-30deg) scale(0.7);
+  opacity: 0.2;
+}
+
+/* ============================================================
+   六、Toast 变体（成功/警告/错误）
+   ============================================================ */
+.xg-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--xg-z-toast, 200);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 78vw;
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-family: 'XG-Kai', serif;
+  font-size: 13.5px;
+  color: #F6F1E6;
+  background: rgba(47, 53, 39, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  transform: translate(-50%, 14px);
+  opacity: 0;
+  transition: transform 0.28s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.28s var(--xg-ease-out);
+  pointer-events: none;
+}
+.xg-toast-in {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+.xg-toast-out {
+  transform: translate(-50%, 10px);
+  opacity: 0;
+}
+.xg-toast-ic {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--xg-rose);
+  flex: none;
+}
+.xg-toast.t-ok .xg-toast-ic { background: #9FB89A; }
+.xg-toast.t-warn .xg-toast-ic { background: #D9A94E; }
+.xg-toast.t-err .xg-toast-ic { background: #C4796F; }
+
+/* ============================================================
+   七、滚动渐隐（信纸长文时上下淡出）
+   ============================================================ */
+.xg-read-wrap::before,
+.xg-read-wrap::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 26px;
+  pointer-events: none;
+  z-index: 3;
+}
+.xg-read-wrap::before {
+  top: 0;
+  background: linear-gradient(180deg, var(--xg-ivory), transparent);
+}
+.xg-read-wrap::after {
+  bottom: 0;
+  background: linear-gradient(0deg, var(--xg-ivory), transparent);
+}
+
+/* ============================================================
+   八、焦点可见（键盘可达）
+   ============================================================ */
+.xg-page button:focus-visible,
+.xg-page input:focus-visible,
+.xg-page [tabindex]:focus-visible {
+  outline: 2px solid rgba(199, 161, 155, 0.8);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   九、低动效降级
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .xg-stagger-item,
+  .xg-empty-art,
+  .xg-sticker-rose,
+  .xg-skeleton-card,
+  .xg-skeleton-line {
+    animation: none !important;
+  }
+}

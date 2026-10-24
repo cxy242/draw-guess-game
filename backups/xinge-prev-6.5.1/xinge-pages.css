@@ -1,0 +1,1275 @@
+/* ============================================================
+   信格 xinge-pages.css — 页面卷 · 前半（B2a：P0–P4）
+   每页四态：默认 / 空态 / 加载骨架 / 错误态
+   素材位表：背景 cover+渐变遮罩压字区（构图跟图走）
+   页面根 id="xg-page-{name}" · 类名前缀 xg-
+   ============================================================ */
+
+/* ===== 背景通用（竖版 bg-*-vx 全屏铺 + 遮罩保字清） ===== */
+.xg-bg {
+  position: absolute;
+  inset: 0;
+  z-index: var(--xg-z-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* 上部题字遮罩（bg-P0 上虚下实：题字压上留白） */
+.xg-bg-veil-top::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(238, 232, 218, 0.72) 0%,
+    rgba(238, 232, 218, 0.30) 34%,
+    rgba(238, 232, 218, 0.06) 60%,
+    rgba(238, 232, 218, 0) 100%);
+}
+/* 全幅均匀遮罩（表单/阅读类） */
+.xg-bg-veil-soft::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(238, 232, 218, 0.55);
+}
+/* 深底遮罩（P5 生成页暗场） */
+.xg-bg-veil-dark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(47, 53, 39, 0.55) 0%,
+    rgba(47, 53, 39, 0.35) 50%,
+    rgba(47, 53, 39, 0.60) 100%);
+}
+
+/* ===== 加载骨架（通用） ===== */
+.xg-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--xg-r-card);
+  background: rgba(226, 218, 200, 0.6);
+}
+.xg-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: xg-shimmer 1.6s ease infinite;
+}
+@keyframes xg-shimmer { to { transform: translateX(100%); } }
+.xg-skeleton-line { height: 12px; margin: 8px 0; border-radius: 4px; }
+.xg-skeleton-card { height: 96px; margin-bottom: 12px; }
+
+/* ===== 错误态（通用） ===== */
+.xg-err {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 28px;
+  text-align: center;
+}
+.xg-err-text {
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: var(--xg-rose-deep);
+}
+
+/* ============================================================
+   P0 信箱（tab1 根）
+   背景 bg-P0-vx：上虚下实（田园橄榄枝+远处信封）
+   ============================================================ */
+#xg-page-inbox .xg-bg {
+  background-image: url('../img/xinge/bg-P0-vx.webp');
+}
+.xg-inbox-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+}
+/* 题字区：压上部留白 */
+.xg-inbox-head {
+  padding: 14px var(--xg-gap-page) 6px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.xg-inbox-head .xg-headline-en { font-size: 34px; }
+.xg-inbox-unread {
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-xs);
+  color: var(--xg-clay);
+}
+.xg-inbox-bar { margin: 6px 0 12px; }
+/* 筛选 chip 行 */
+.xg-filter-row {
+  display: flex;
+  gap: 10px;
+  padding: 0 var(--xg-gap-page) 12px;
+}
+/* 信封卡列表 */
+.xg-inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xg-gap-card);
+  padding: 0 var(--xg-gap-page) 120px;
+}
+.xg-inbox-list .xg-en-card { min-height: 96px; }
+/* 新信飘入（动画钩子，xg-anim.css 驱动） */
+.xg-en-card.is-arriving { opacity: 0; transform: translateY(-18px); }
+
+/* ============================================================
+   P1 写信首页（tab2 根）
+   背景 bg-P1-vx：石拱门+中央光柱 → 舞台压光心
+   ============================================================ */
+#xg-page-write .xg-bg {
+  background-image: url('../img/xinge/bg-P1-vx.webp');
+}
+.xg-write-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.xg-write-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 0 32px;
+}
+.xg-write-crest {
+  width: 64px; height: 64px;
+  opacity: 0.55;
+}
+.xg-write-motto {
+  font-family: 'Great Vibes', cursive;
+  font-size: 22px;
+  color: var(--xg-clay);
+}
+/* 继续上次卡 */
+.xg-resume-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 var(--xg-gap-page) 14px;
+  padding: 12px 16px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.92);
+  border: 1px solid rgba(199, 161, 155, 0.45);
+  box-shadow: var(--xg-shadow-1);
+  cursor: pointer;
+}
+.xg-resume-tag {
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--xg-rose-pale);
+  color: var(--xg-rose-deep);
+  font-size: var(--xg-fs-xs);
+}
+/* 最近三封横滑 */
+.xg-recent-row {
+  display: flex;
+  gap: 10px;
+  padding: 0 var(--xg-gap-page) 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.xg-recent-row::-webkit-scrollbar { display: none; }
+.xg-recent-card {
+  flex: none;
+  width: 80px; height: 100px;
+  border-radius: 6px;
+  background: rgba(245, 241, 230, 0.9);
+  border: 1px solid rgba(137, 109, 89, 0.2);
+  box-shadow: var(--xg-shadow-1);
+  cursor: pointer;
+}
+/* 定时状态条 */
+.xg-timer-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--xg-gap-page) calc(18px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 14px;
+  border: 1px solid rgba(137, 109, 89, 0.3);
+  border-radius: var(--xg-r-btn);
+  background: rgba(238, 232, 218, 0.75);
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay);
+  cursor: pointer;
+}
+
+/* ============================================================
+   P2 收信人选择
+   背景 bg-P2-vx：白鸽+天空（上部天空留白=题字区）
+   ============================================================ */
+#xg-page-recipient .xg-bg {
+  background-image: url('../img/xinge/bg-P2-vx.webp');
+}
+.xg-recipient-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 var(--xg-gap-page);
+}
+.xg-question-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 26px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--xg-olive);
+}
+.xg-question-title .xg-laurel-side {
+  width: 26px; height: 26px;
+  opacity: 0.6;
+}
+/* 拱门上沿大卡 */
+.xg-arch-card {
+  position: relative;
+  width: 100%;
+  min-height: 160px;
+  margin-bottom: var(--xg-gap-card);
+  padding: 26px 20px 20px;
+  border-radius: 12px 12px 10px 10px;
+  background: rgba(245, 241, 230, 0.9);
+  border: 1px solid rgba(137, 109, 89, 0.22);
+  border-top: none;
+  box-shadow: var(--xg-shadow-2);
+  cursor: pointer;
+  text-align: center;
+  transition: transform var(--xg-dur-press) var(--xg-ease-out), box-shadow var(--xg-dur-ui) ease;
+}
+.xg-arch-card:active { transform: scale(0.98); }
+.xg-arch-card.is-selected {
+  border-color: var(--xg-rose);
+  box-shadow: var(--xg-shadow-2), 0 0 0 1px var(--xg-rose);
+}
+/* 拱顶（半圆轮廓，母题件 xg-arch 图/纯 CSS 拱线） */
+.xg-arch-card::before {
+  content: '';
+  position: absolute;
+  top: -34px; left: 50%;
+  width: calc(100% - 40px);
+  height: 68px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(137, 109, 89, 0.28);
+  border-bottom: none;
+  border-radius: 130px 130px 0 0 / 68px 68px 0 0;
+  background: rgba(245, 241, 230, 0.9);
+  pointer-events: none;
+}
+.xg-arch-card .xg-arch-icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 8px;
+  opacity: 0.85;
+}
+.xg-arch-card .xg-arch-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 17px;
+  font-weight: 500;
+}
+.xg-arch-card .xg-arch-sub {
+  margin-top: 4px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   P3 对象选择
+   背景 bg-P3-vx：庭院格窗
+   ============================================================ */
+#xg-page-target .xg-bg {
+  background-image: url('../img/xinge/bg-P3-vx.webp');
+}
+.xg-target-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  padding: 0 var(--xg-gap-page);
+}
+.xg-target-card {
+  position: relative;
+  margin-bottom: var(--xg-gap-card);
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.9);
+  border: 1px solid rgba(137, 109, 89, 0.18);
+  box-shadow: var(--xg-shadow-1);
+  overflow: hidden;
+}
+.xg-target-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+.xg-target-head .xg-row-icon { width: 30px; height: 30px; }
+.xg-target-title {
+  flex: 1;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+.xg-target-sub {
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+}
+/* 联系人展开列表 */
+.xg-contact-list {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--xg-dur-panel) var(--xg-ease-in-out);
+}
+.xg-target-card.is-on .xg-contact-list { max-height: 320px; overflow-y: auto; }
+.xg-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 16px 8px 22px;
+  cursor: pointer;
+}
+.xg-contact-row:active { background: rgba(137, 109, 89, 0.06); }
+.xg-contact-name {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+}
+.xg-contact-row.is-selected .xg-contact-name { color: var(--xg-rose-deep); }
+
+/* ============================================================
+   P3b 年龄段
+   背景 bg-P3b-vx：四时庭院（四角光色呼应四卡）
+   ============================================================ */
+#xg-page-age .xg-bg {
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
+}
+.xg-age-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  padding: 0 var(--xg-gap-page);
+  overflow-y: auto;
+}
+.xg-age-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--xg-gap-card);
+}
+.xg-age-card {
+  position: relative;
+  min-height: 176px;
+  padding: 12px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.9);
+  border: 1px solid rgba(137, 109, 89, 0.2);
+  box-shadow: var(--xg-shadow-1);
+  cursor: pointer;
+  text-align: center;
+  transition: transform var(--xg-dur-press) var(--xg-ease-out), box-shadow var(--xg-dur-ui) ease;
+}
+.xg-age-card:active { transform: scale(0.97); }
+.xg-age-card.is-selected {
+  border-color: var(--xg-rose);
+  box-shadow: var(--xg-shadow-2), 0 0 0 1px var(--xg-rose);
+}
+/* 拱框插画位 */
+.xg-age-art {
+  width: 100%;
+  height: 108px;
+  border-radius: 8px 8px 4px 4px;
+  background: var(--xg-ivory-deep) center / 66% auto no-repeat;
+  border: 1px solid rgba(137, 109, 89, 0.16);
+}
+.xg-age-name {
+  margin-top: 8px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 500;
+}
+.xg-age-range {
+  font-size: var(--xg-fs-xs);
+  color: var(--xg-clay);
+}
+/* 未来卡三小签 */
+.xg-future-tags {
+  display: none;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.xg-age-card.is-selected .xg-future-tags { display: flex; }
+
+/* ============================================================
+   P3c 自定义表单
+   背景 bg-P3c-vx-clean：干净书桌（物件已抠）
+   ============================================================ */
+#xg-page-custom .xg-bg {
+  background-image: url('../img/xinge/bg-P3c-vx-clean.webp');
+}
+.xg-custom-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  overflow-y: auto;
+  padding: 0 var(--xg-gap-page) 40px;
+}
+/* 飘带题头 */
+.xg-ribbon-head {
+  position: relative;
+  margin: 16px auto 20px;
+  width: 240px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url('../img/xinge/cut-ribbon4.webp') center / contain no-repeat;
+}
+.xg-ribbon-head .xg-headline-en { font-size: 30px; }
+/* 表单卡 */
+.xg-form-card {
+  position: relative;
+  padding: 22px 18px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.94);
+  border: 1px solid rgba(137, 109, 89, 0.18);
+  box-shadow: var(--xg-shadow-2);
+}
+.xg-field { margin-bottom: 18px; }
+.xg-field:last-child { margin-bottom: 0; }
+.xg-field-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: var(--xg-fs-sm);
+  font-weight: 500;
+  color: var(--xg-olive);
+}
+.xg-field-label .xg-must {
+  color: var(--xg-rose-deep);
+  font-size: var(--xg-fs-xs);
+}
+.xg-field-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.xg-form-actions {
+  margin-top: 22px;
+  padding: 0 2px;
+}
+
+/* ============================================================
+   P4 关系确认
+   背景 bg-P4-vx-clean：月桂飘带留白底（内容主角）
+   ============================================================ */
+#xg-page-preset .xg-bg {
+  background-image: url('../img/xinge/bg-P4-vx-clean.webp');
+}
+.xg-preset-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 40px;
+}
+/* 关系纹章卡横滑 */
+.xg-rel-row {
+  display: flex;
+  gap: 12px;
+  padding: 6px var(--xg-gap-page) 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.xg-rel-row::-webkit-scrollbar { display: none; }
+.xg-rel-card {
+  position: relative;
+  flex: none;
+  width: 140px;
+  min-height: 180px;
+  padding: 16px 12px 14px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.92);
+  border: 1px solid rgba(137, 109, 89, 0.2);
+  box-shadow: var(--xg-shadow-1);
+  cursor: pointer;
+  text-align: center;
+  transition: transform var(--xg-dur-press) var(--xg-ease-out), box-shadow var(--xg-dur-ui) ease;
+}
+.xg-rel-card:active { transform: scale(0.97); }
+.xg-rel-card.is-selected {
+  border-color: var(--xg-rose);
+  box-shadow: var(--xg-shadow-2), 0 0 0 1px var(--xg-rose);
+  transform: translateY(-3px);
+}
+.xg-rel-card.is-selected::after {
+  content: '';
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, var(--xg-rose-wax-hi), var(--xg-rose-wax) 55%, var(--xg-rose-wax-lo));
+  box-shadow: var(--xg-shadow-1);
+}
+.xg-rel-crest {
+  width: 36px; height: 36px;
+  margin: 0 auto 8px;
+  opacity: 0.85;
+}
+.xg-rel-name {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 17px;
+  font-weight: 500;
+}
+.xg-rel-tone {
+  margin-top: 6px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--xg-clay);
+}
+/* 管理预设链接 */
+.xg-link-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--xg-gap-page) 12px;
+}
+.xg-link {
+  border: none;
+  background: none;
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-rose-deep);
+  cursor: pointer;
+  padding: 6px 4px;
+  min-height: 44px;
+}
+/* 倾向/想提的事区块 */
+.xg-preset-fields {
+  padding: 0 var(--xg-gap-page);
+}
+.xg-preset-fields .xg-field-label { margin-top: 4px; }
+/* 情绪滑杆区 */
+.xg-mood-block {
+  padding: 10px var(--xg-gap-page) 18px;
+}
+.xg-mood-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.xg-mood-value {
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-rose-deep);
+}
+/* 生成按钮区 */
+.xg-generate-block {
+  padding: 4px var(--xg-gap-page) 0;
+}
+
+/* ============================================================
+   P5 生成动画页（深橄榄沉浸场）
+   背景 bg-P5-vx：神殿光雾（暗底亮舞台）
+   ============================================================ */
+#xg-page-composing .xg-bg {
+  background-image: url('../img/xinge/bg-P5-vx.webp');
+}
+.xg-compose-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--xg-ivory);
+}
+/* 四角回纹角花（象牙淡透） */
+.xg-compose-wrap .xg-corner {
+  width: 36px; height: 36px;
+  opacity: 0.16;
+  filter: brightness(0) invert(1);
+}
+/* 中央舞台：笔+墨瓶+纸 */
+.xg-compose-stage {
+  position: relative;
+  width: min(320px, 78vw);
+  height: 240px;
+  margin-bottom: 26px;
+}
+.xg-compose-paper {
+  position: absolute;
+  left: 50%; bottom: 12px;
+  width: 190px; height: 132px;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
+  box-shadow: var(--xg-shadow-3);
+}
+.xg-compose-pen {
+  position: absolute;
+  left: 52%; top: 6px;
+  width: 170px;
+  filter: drop-shadow(0 6px 10px rgba(20, 26, 16, 0.45));
+}
+.xg-compose-inkpot {
+  position: absolute;
+  right: 6px; bottom: 16px;
+  width: 84px;
+  filter: drop-shadow(0 6px 10px rgba(20, 26, 16, 0.45));
+}
+/* 文案轮播（打字机：xg-anim.css 驱动） */
+.xg-compose-caption {
+  min-height: 28px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: var(--xg-ivory);
+  opacity: 0.92;
+}
+/* 进度线 */
+.xg-compose-progress {
+  width: 240px;
+  height: 2px;
+  margin-top: 18px;
+  border-radius: 1px;
+  background: rgba(238, 232, 218, 0.2);
+  overflow: hidden;
+}
+.xg-compose-progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--xg-rose-wax);
+  transition: width 0.6s var(--xg-ease-out);
+}
+/* 跳过钮 */
+.xg-compose-skip {
+  position: absolute;
+  right: 18px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  min-height: 44px;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: rgba(238, 232, 218, 0.55);
+  cursor: pointer;
+}
+/* 失败态：墨瓶倾倒 */
+.xg-compose-fail {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+#xg-page-composing.is-error .xg-compose-stage { display: none; }
+#xg-page-composing.is-error .xg-compose-fail { display: flex; }
+#xg-page-composing.is-error .xg-compose-caption { display: none; }
+
+/* ============================================================
+   P6 信封页（拆信仪式主舞台）
+   背景 bg-P6-vx：石台花瓣斜光
+   分层容器：信封体 08-body / 翻盖 08-flap / 花枝 / 邮票 / 邮戳
+   ============================================================ */
+#xg-page-envelope .xg-bg {
+  background-image: url('../img/xinge/bg-P6-vx.webp');
+}
+.xg-env-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+/* 信封分层舞台（绝对定位叠层，z 表：体1 盖2 花3 票4 戳5） */
+.xg-env-stage {
+  position: relative;
+  width: min(330px, 86vw);
+  aspect-ratio: 1.6 / 1;
+  perspective: 900px;
+}
+.xg-env-body {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: url('../img/xinge/08-body.webp') center / contain no-repeat;
+  filter: drop-shadow(0 14px 22px rgba(47, 53, 39, 0.24));
+}
+.xg-env-flap {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 66%;
+  z-index: 2;
+  transform-origin: top center;
+  background: url('../img/xinge/08-flap.webp') top center / 100% auto no-repeat;
+  backface-visibility: hidden;
+}
+.xg-env-sprig-tl {
+  position: absolute;
+  top: -22px; left: -18px;
+  z-index: 3;
+  width: 42%;
+  background: url('../img/xinge/06-sprig-a.webp') center / contain no-repeat;
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+.xg-env-sprig-br {
+  position: absolute;
+  bottom: -16px; right: -14px;
+  z-index: 3;
+  width: 38%;
+  background: url('../img/xinge/07-sprig-b.webp') center / contain no-repeat;
+  transform: rotate(6deg);
+  pointer-events: none;
+}
+.xg-env-stamp {
+  position: absolute;
+  top: 12px; left: 12px;
+  z-index: 4;
+  width: 52px; height: 66px;
+  border-radius: 2px;
+  background: url('../img/xinge/asset-stamp.webp') center / cover no-repeat;
+  box-shadow: var(--xg-shadow-1);
+}
+.xg-env-postmark {
+  position: absolute;
+  top: 6px; right: 10px;
+  z-index: 5;
+}
+/* 信封呼吸（等待拆开） */
+.xg-env-stage.is-waiting {
+  animation: xg-env-breathe 6s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-env-breathe {
+  0%, 100% { transform: rotateZ(0deg); }
+  50% { transform: rotateZ(0.35deg); }
+}
+.xg-env-hint {
+  margin-top: 34px;
+  font-family: 'Great Vibes', cursive;
+  font-size: 22px;
+  color: var(--xg-clay);
+  opacity: 0.85;
+}
+
+/* ============================================================
+   P7 扇形三张信（顺序锁舞台）
+   背景 bg-P6-vx（延续桌面）
+   ============================================================ */
+#xg-page-envelope .xg-bg {
+  background-image: url('../img/xinge/bg-P6-vx.webp');
+}
+.xg-fan-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.xg-fan-stage {
+  position: relative;
+  width: min(340px, 90vw);
+  height: 420px;
+  perspective: 1100px;
+}
+/* 单张信纸（扇位由 --xg-fan-* 变量驱动，xg-anim.css 写动） */
+.xg-fan-paper {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 210px;
+  height: 300px;
+  margin: -150px 0 0 -105px;
+  border-radius: 3px;
+  background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
+  box-shadow: var(--xg-shadow-3);
+  transform:
+    rotateX(28deg)
+    rotateZ(var(--xg-fan-z, 0deg))
+    translateX(var(--xg-fan-x, 0px))
+    translateY(var(--xg-fan-y, 0px));
+  transform-style: preserve-3d;
+  cursor: pointer;
+  transition: transform var(--xg-dur-panel) var(--xg-ease-out),
+              box-shadow var(--xg-dur-ui) ease;
+}
+/* 三张落位参差（施工图：-9°/+1.5°/+12°，y -6/0/+3） */
+.xg-fan-paper:nth-child(1) { --xg-fan-z: -9deg; --xg-fan-x: -62px; --xg-fan-y: -6px; z-index: 3; }
+.xg-fan-paper:nth-child(2) { --xg-fan-z: 1.5deg; --xg-fan-x: 0px; --xg-fan-y: 0px; z-index: 2; }
+.xg-fan-paper:nth-child(3) { --xg-fan-z: 12deg; --xg-fan-x: 62px; --xg-fan-y: 3px; z-index: 1;
+  background-image: url('../img/xinge/09-paper-heart.webp'); }
+/* 当前可看张（顺序锁推进） */
+.xg-fan-paper.is-current {
+  box-shadow: var(--xg-shadow-lift), 0 0 0 2px var(--xg-rose);
+}
+/* 锁住的张（点按回弹提示） */
+.xg-fan-paper.is-locked { cursor: not-allowed; }
+.xg-fan-paper.is-locked.is-nudge { animation: xg-nudge 0.36s var(--xg-ease-out); }
+@keyframes xg-nudge {
+  0%, 100% { translate: 0 0; }
+  30% { translate: 3px -3px; }
+  65% { translate: -2px 2px; }
+}
+.xg-fan-foot {
+  margin-top: 30px;
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay);
+}
+/* 收尾卡（三张全读完浮出） */
+.xg-fan-finale {
+  position: absolute;
+  left: 50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--xg-z-fab);
+  display: none;
+  gap: 10px;
+  transform: translateX(-50%);
+}
+.xg-fan-finale.is-on { display: flex; }
+
+/* ============================================================
+   P8 单信阅读（虚化舞台+显字）
+   ============================================================ */
+.xg-page-fan .xg-bg, .xg-page-reading .xg-bg, .xg-page-recall .xg-bg {
+  background-image: url('../img/xinge/bg-P6-vx.webp');
+  filter: blur(8px) brightness(0.82);
+  transform: scale(1.06);
+}
+.xg-read-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 26px 0 90px;
+}
+/* 信纸主体 */
+.xg-letter {
+  position: relative;
+  width: 82%;
+  max-width: 340px;
+  min-height: 62dvh;
+  padding: 30px 26px 40px;
+  border-radius: 2px;
+  background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
+  box-shadow: var(--xg-shadow-lift);
+}
+.xg-letter.is-heart {
+  background-image: url('../img/xinge/09-paper-heart.webp');
+}
+.xg-letter-postmark {
+  position: absolute;
+  top: 10px; right: 10px;
+  transform: scale(0.62) rotate(-6deg);
+  transform-origin: top right;
+}
+.xg-letter-to {
+  font-family: 'XG-Kai', serif;
+  font-size: 16px;
+  color: var(--xg-olive-ink);
+}
+.xg-letter-rule {
+  height: 1px;
+  margin: 10px 0 16px;
+  border: none;
+  background: linear-gradient(90deg, transparent, rgba(137, 109, 89, 0.35), transparent);
+}
+/* 信文段（显字动画钩子：is-shown） */
+.xg-letter-body {
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-letter);
+  line-height: var(--xg-lh-letter);
+  color: var(--xg-olive-ink);
+}
+.xg-letter-p {
+  margin-bottom: 1em;
+  text-indent: 2em;
+  opacity: 0;
+  transform: translateY(6px);
+  filter: blur(2px);
+}
+.xg-letter-p.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+  transition: opacity 0.55s var(--xg-ease-out),
+              transform 0.55s var(--xg-ease-out),
+              filter 0.55s var(--xg-ease-out);
+}
+/* 划掉段（灰+斜+逐字中横线；点击横线消失） */
+.xg-strike {
+  color: var(--xg-clay);
+  font-style: italic;
+  cursor: pointer;
+}
+.xg-strike .xg-strike-line {
+  text-decoration: line-through;
+  text-decoration-color: rgba(74, 66, 56, 0.45);
+  text-decoration-thickness: 1px;
+}
+.xg-strike.is-undone .xg-strike-line {
+  text-decoration: none;
+  color: var(--xg-olive-ink);
+  font-style: normal;
+}
+/* 全局划线切换钮（右下） */
+.xg-strike-toggle {
+  position: absolute;
+  right: 16px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--xg-z-fab);
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(137, 109, 89, 0.35);
+  background: rgba(245, 241, 230, 0.9);
+  box-shadow: var(--xg-shadow-2);
+  cursor: pointer;
+}
+/* 落款 */
+.xg-letter-sign {
+  margin-top: 26px;
+  text-align: right;
+}
+.xg-letter-sign-name {
+  font-family: 'Great Vibes', cursive;
+  font-size: 22px;
+  color: var(--xg-olive-ink);
+}
+.xg-letter-sign-date {
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   R1 回看差异（顶部邮戳盖章区）
+   ============================================================ */
+/* 盖章动效钩子 */
+.xg-postmark-stamp.is-stamping {
+  animation: xg-stamp-in 0.36s var(--xg-ease-out);
+}
+@keyframes xg-stamp-in {
+  0% { transform: scale(1.3) rotate(-12deg); opacity: 0; }
+  60% { transform: scale(0.96) rotate(-5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-6deg); opacity: 1; }
+}
+/* R1 回看差异说明：回看复用 P7/P8 结构（renderRecall 直接路由），
+   邮戳盖章由 .xg-letter-postmark.is-stamping 承担，此处不再单设头部件 */
+
+/* ============================================================
+   S1–S7 设置组（素羊皮纸底+卷草暗纹，安静克制）
+   ============================================================ */
+.xg-settings-page {
+  background-color: var(--xg-ivory);
+  background-image:
+    radial-gradient(ellipse at 85% 8%, rgba(201, 184, 170, 0.28) 0%, rgba(201, 184, 170, 0) 46%),
+    url('../img/xinge/xg-paper.webp');
+  background-size: auto, 512px 512px;
+  background-repeat: no-repeat, repeat;
+}
+/* 深橄榄顶栏（设置组专用） */
+.xg-topbar-dark {
+  background: var(--xg-olive-deep);
+  border-bottom-color: rgba(238, 232, 218, 0.12);
+}
+.xg-topbar-dark .xg-topbar-title { color: var(--xg-ivory); }
+.xg-topbar-dark .xg-topbar-back { color: var(--xg-clay-pale); }
+.xg-settings-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: calc(100% - 56px);
+  overflow-y: auto;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+}
+/* 分组头（小立柱装饰+组题） */
+.xg-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 22px var(--xg-pad-card) 8px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: var(--xg-fs-sm);
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: var(--xg-clay);
+}
+.xg-group-title::before {
+  content: '';
+  width: 4px; height: 14px;
+  border-radius: 1px;
+  background: var(--xg-clay-pale);
+}
+.xg-group-card {
+  margin: 0 var(--xg-gap-page) 6px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.8);
+  border: 1px solid rgba(137, 109, 89, 0.14);
+  overflow: hidden;
+}
+
+/* ===== S1 六行分组 ===== */
+.xg-row-item + .xg-row-item { border-top: 1px solid rgba(137, 109, 89, 0.10); }
+
+/* ===== S2 谁能写信 ===== */
+.xg-perm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px var(--xg-pad-card);
+}
+.xg-perm-row + .xg-perm-row { border-top: 1px solid rgba(137, 109, 89, 0.10); }
+.xg-perm-main { flex: 1; min-width: 0; }
+.xg-perm-name {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+}
+.xg-perm-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.xg-freq-tags { display: flex; gap: 6px; }
+.xg-freq-tags .xg-chip { min-height: 28px; padding: 2px 10px; font-size: var(--xg-fs-xs); }
+
+/* ===== S3 定时写信 ===== */
+.xg-timer-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80px;
+  margin: 6px var(--xg-gap-page) 14px;
+  padding: 16px 20px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.88);
+  border: 1px solid rgba(137, 109, 89, 0.18);
+  box-shadow: var(--xg-shadow-1);
+}
+.xg-timer-hero-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+.xg-timer-hero-sub {
+  margin-top: 2px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+}
+.xg-timer-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px var(--xg-pad-card);
+}
+.xg-timer-line + .xg-timer-line { border-top: 1px solid rgba(137, 109, 89, 0.10); }
+.xg-timer-label {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  flex: none;
+}
+/* 时分选择（细铜杆表盘风的数字输入位） */
+.xg-time-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.xg-time-pick .xg-input {
+  width: 72px;
+  min-height: 44px;
+  text-align: center;
+}
+.xg-next-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px var(--xg-gap-page) 6px;
+  padding: 12px 16px;
+  border-radius: var(--xg-r-btn);
+  background: rgba(238, 232, 218, 0.7);
+  border: 1px dashed rgba(137, 109, 89, 0.35);
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay);
+}
+
+/* ===== S4 提示词管理 ===== */
+.xg-preset-list { margin: 6px var(--xg-gap-page); }
+.xg-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px var(--xg-pad-card);
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.8);
+  border: 1px solid rgba(137, 109, 89, 0.14);
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.xg-preset-crest {
+  width: 32px; height: 32px;
+  flex: none;
+  opacity: 0.85;
+}
+.xg-preset-main { flex: 1; min-width: 0; }
+.xg-preset-name {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 500;
+}
+.xg-preset-tone {
+  margin-top: 2px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xg-preset-edit {
+  width: 44px; height: 44px;
+  flex: none;
+  border: none;
+  background: none;
+  opacity: 0.55;
+  cursor: pointer;
+}
+/* 纹章选格（编辑弹窗） */
+.xg-crest-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.xg-crest-opt {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(137, 109, 89, 0.25);
+  background: var(--xg-ivory-deep) center / 70% no-repeat;
+  cursor: pointer;
+}
+.xg-crest-opt.is-selected {
+  border-color: var(--xg-rose);
+  box-shadow: 0 0 0 2px var(--xg-rose-pale);
+}
+
+/* ===== S5 阅读偏好（四行分段器） ===== */
+.xg-pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px var(--xg-pad-card);
+}
+.xg-pref-row + .xg-pref-row { border-top: 1px solid rgba(137, 109, 89, 0.10); }
+.xg-pref-label {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+}
+.xg-pref-row .xg-segment { flex: none; }
+.xg-pref-row .xg-segment-item { padding: 6px 12px; font-size: var(--xg-fs-xs); }
+
+/* ===== S6 通知 ===== */
+.xg-quiet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 10px var(--xg-pad-card);
+  border-top: 1px solid rgba(137, 109, 89, 0.10);
+}
+
+/* ===== S7 数据管理 ===== */
+.xg-storage-block { padding: 14px var(--xg-pad-card) 18px; }
+.xg-storage-bar {
+  height: 6px;
+  margin: 8px 0 6px;
+  border-radius: 3px;
+  background: var(--xg-ivory-deep);
+  overflow: hidden;
+}
+.xg-storage-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: var(--xg-sage);
+  transition: width var(--xg-dur-panel) var(--xg-ease-out);
+}
+.xg-storage-text {
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-xs);
+  color: var(--xg-clay);
+}
+.xg-danger-block { padding: 22px var(--xg-gap-page); }
+
+/* ===== P0 修：题字防截断 / 空态重心 ===== */
+.xg-inbox-head {
+  padding-top: 68px;
+}
+.xg-headline-en.xg-script {
+  font-size: 28px;
+  line-height: 1.35;
+  overflow: visible;
+  padding: 2px 0;
+}
+.xg-inbox-list .xg-state-box,
+.xg-inbox-list .xg-empty {
+  min-height: 52vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 12vh;
+}
+
+/* ===== S 组 + 写信人页背景补齐（沿用派生景） ===== */
+#xg-page-sender .xg-bg,
+#xg-page-settings .xg-bg {
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
+}
+#xg-page-perm .xg-bg,
+#xg-page-notify .xg-bg,
+#xg-page-timer .xg-bg,
+#xg-page-presets .xg-bg,
+#xg-page-prefs .xg-bg {
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
+}
+#xg-page-data .xg-bg {
+  background-image: url('../img/xinge/bg-P3b-vx.webp');
+  filter: blur(8px) brightness(0.82);
+  transform: scale(1.06);
+}

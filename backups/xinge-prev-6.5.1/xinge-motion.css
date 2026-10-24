@@ -1,0 +1,459 @@
+/* ============================================================
+   xinge-motion.css · 深化卷（B10：微交互全谱 + 景别动效 + 分拍细化）
+   依 UI 方案 §0.7 一景一动 / 拆信分拍 / 微交互
+   铁律：只动 transform/opacity；全部挂 xg-motion-low + prefers-reduced-motion 双降级
+   ============================================================ */
+
+/* ============================================================
+   M1. 微交互：按压涟漪 / 浮起 / 抓取
+   ============================================================ */
+.xg-press {
+  transition: transform 0.16s var(--xg-ease-out), box-shadow 0.16s;
+}
+.xg-press:active {
+  transform: scale(0.965);
+}
+.xg-press.xg-press-deep:active {
+  transform: scale(0.93);
+}
+.xg-lift {
+  transition: transform 0.22s var(--xg-ease-out), box-shadow 0.22s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .xg-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(47, 53, 39, 0.16);
+  }
+}
+.xg-lift:active {
+  transform: translateY(0) scale(0.985);
+}
+.xg-grab { cursor: grab; }
+.xg-grabbing, .xg-grab:active { cursor: grabbing; }
+
+/* 涟漪 */
+.xg-ripple-host {
+  position: relative;
+  overflow: hidden;
+}
+.xg-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(199, 161, 155, 0.4);
+  transform: scale(0);
+  animation: xg-ripple-out 0.55s var(--xg-ease-out) forwards;
+  pointer-events: none;
+}
+@keyframes xg-ripple-out {
+  0% { transform: scale(0); opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* chip 选中脉冲 */
+.xg-chip.is-pulse {
+  animation: xg-chip-pulse 0.34s var(--xg-ease-out);
+}
+@keyframes xg-chip-pulse {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* 输入聚焦光晕脉冲（配合 components 的 focus 框） */
+.xg-input.is-focus-pulse {
+  animation: xg-focus-pulse 0.4s var(--xg-ease-out);
+}
+@keyframes xg-focus-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(199, 161, 155, 0.45); }
+  100% { box-shadow: 0 0 0 6px rgba(199, 161, 155, 0); }
+}
+
+/* 长按震感（顺序锁 nudge 之外的通用轻推） */
+.xg-nudge {
+  animation: xg-nudge 0.28s var(--xg-ease-out);
+}
+
+
+/* ============================================================
+   M2. 页面转场（push 滑入 / pop 滑出 / fade / 立起）
+   ============================================================ */
+.xg-trans-in {
+  animation: xg-page-in 0.32s var(--xg-ease-out);
+}
+@keyframes xg-page-in {
+  0% { transform: translateX(26px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.xg-trans-out {
+  animation: xg-page-out 0.26s var(--xg-ease-in) forwards;
+}
+@keyframes xg-page-out {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(22px); opacity: 0; }
+}
+.xg-trans-fade-in {
+  animation: xg-fade-in 0.3s var(--xg-ease-out);
+}
+@keyframes xg-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.xg-trans-rise {
+  animation: xg-rise-in 0.42s var(--xg-ease-out);
+}
+@keyframes xg-rise-in {
+  0% { transform: translateY(18px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ============================================================
+   M3. 弹窗 / 抽屉 / 浮层
+   ============================================================ */
+.xg-modal-card {
+  animation: xg-modal-in 0.32s var(--xg-ease-out);
+}
+@keyframes xg-modal-in {
+  0% { transform: scale(0.92) translateY(12px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.xg-modal-card.is-closing {
+  animation: xg-modal-out 0.24s var(--xg-ease-in) forwards;
+}
+@keyframes xg-modal-out {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0; }
+}
+.xg-drawer {
+  animation: xg-drawer-up 0.38s var(--xg-ease-out);
+}
+@keyframes xg-drawer-up {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+.xg-drawer.is-closing {
+  animation: xg-drawer-down 0.3s var(--xg-ease-in) forwards;
+}
+@keyframes xg-drawer-down {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+.xg-scrim {
+  animation: xg-scrim-in 0.28s var(--xg-ease-out);
+}
+@keyframes xg-scrim-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.xg-scrim.is-closing {
+  animation: xg-scrim-out 0.24s var(--xg-ease-in) forwards;
+}
+@keyframes xg-scrim-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* toast 强调 */
+.xg-toast-in {
+  animation: xg-toast-in 0.34s var(--xg-ease-out);
+}
+@keyframes xg-toast-in {
+  0% { transform: translateY(14px) scale(0.96); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.xg-toast-out {
+  animation: xg-toast-out 0.3s var(--xg-ease-in) forwards;
+}
+@keyframes xg-toast-out {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(10px); opacity: 0; }
+}
+
+/* ============================================================
+   M4. 景别动效（一景一动 · 每景专属节奏）
+   ============================================================ */
+
+/* P0：橄榄枝轻摆（14s 质数错相）+ 干玫瑰摆 + 小信封飘移 */
+.xg-drift-sway-a {
+  transform-origin: 0% 0%;
+  animation: xg-sway-a 14s var(--xg-ease-in-out) infinite alternate;
+}
+
+.xg-drift-sway-b {
+  transform-origin: 100% 100%;
+  animation: xg-sway-b 17s var(--xg-ease-in-out) infinite alternate;
+}
+
+.xg-drift-envelope {
+  animation: xg-env-drift 30s var(--xg-ease-in-out) infinite alternate;
+}
+
+
+/* P1：尘埃微粒 + 月桂叶飘落 */
+.xg-mote {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(238, 232, 218, 0.65);
+  animation: xg-mote-float 20s linear infinite;
+}
+.xg-mote:nth-child(2n) {
+  width: 2px;
+  height: 2px;
+  background: rgba(199, 161, 155, 0.55);
+  animation-duration: 26s;
+  animation-delay: -8s;
+}
+.xg-mote:nth-child(3n) {
+  animation-duration: 23s;
+  animation-delay: -14s;
+}
+
+.xg-leaf-fall {
+  width: 22px;
+  opacity: 0.8;
+  animation: xg-leaf-fall 24s linear infinite;
+}
+
+
+/* P2：白鸽掠过（25s 一次横穿） */
+.xg-dove-fly {
+  animation: xg-dove-cross 25s linear infinite;
+}
+@keyframes xg-dove-cross {
+  0% { transform: translate(-40px, 8px) rotate(-2deg); opacity: 0; }
+  12% { opacity: 0.9; }
+  88% { opacity: 0.9; }
+  100% { transform: translate(220px, -12px) rotate(2deg); opacity: 0; }
+}
+
+/* P3：藤蔓轻摆 + 窗格光影平移 */
+.xg-drift-vine {
+  transform-origin: 100% 0%;
+  animation: xg-sway-a 16s var(--xg-ease-in-out) infinite alternate;
+}
+.xg-window-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(238, 232, 218, 0.10) 20%, rgba(238, 232, 218, 0) 45%);
+  animation: xg-shade-slide 40s linear infinite alternate;
+  pointer-events: none;
+}
+@keyframes xg-shade-slide {
+  0% { transform: translateX(-8%); }
+  100% { transform: translateX(8%); }
+}
+
+/* P3b：四时光影轮转（60s） */
+.xg-dusk-cycle {
+  animation: xg-dusk 60s linear infinite;
+}
+
+
+/* P3c：干花微颤 + 书桌光影斜移 */
+.xg-flower-tremble {
+  transform-origin: 0% 100%;
+  animation: xg-tremble 12s var(--xg-ease-in-out) infinite alternate;
+}
+
+
+/* P4：飘带轻扬（skew ±1°）+ 月桂缓落 */
+.xg-ribbon-wave {
+  transform-origin: 50% 0%;
+  animation: xg-ribbon 12s var(--xg-ease-in-out) infinite alternate;
+}
+
+
+/* P5：光雾呼吸（8s）+ 立柱影微移 */
+.xg-haze-breathe {
+  animation: xg-haze 8s var(--xg-ease-in-out) infinite alternate;
+}
+
+
+/* P6/P7：光带缓扫 + 花瓣飘落 */
+.xg-light-sweep {
+  animation: xg-sweep 30s linear infinite alternate;
+}
+
+.xg-petal-fall {
+  opacity: 0.85;
+  animation: xg-petal 22s linear infinite;
+}
+.xg-petal-fall:nth-of-type(2n) {
+  animation-duration: 28s;
+  animation-delay: -11s;
+}
+
+
+/* P8：光斑游移（35s） */
+.xg-bokeh {
+  animation: xg-bokeh 35s linear infinite alternate;
+}
+
+
+/* ============================================================
+   M5. 拆信分拍细化（A0–A9 补帧）
+   ============================================================ */
+
+/* p0 按压：整体微沉 + 高光斜扫 */
+.xg-p0-press {
+  animation: xg-p0-press 0.55s var(--xg-ease-out);
+}
+@keyframes xg-p0-press {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.985); }
+  100% { transform: scale(1); }
+}
+.xg-p0-press .xg-seal-shine {
+  animation: xg-shine-sweep 0.55s var(--xg-ease-out);
+}
+
+
+/* p1 翻盖绕顶边铰链翻开（translateZ + rotateX） */
+.xg-p1-lift {
+  animation: xg-p1-lift 0.95s var(--xg-ease-in-out) forwards;
+}
+@keyframes xg-p1-lift {
+  0% { transform: rotateX(0deg); }
+  100% { transform: rotateX(-168deg); }
+}
+
+/* p2 信纸从信封口升出（上浮+微晃+阴影加深） */
+.xg-p2-pull {
+  animation: xg-p2-pull 1.05s var(--xg-ease-out) forwards;
+}
+@keyframes xg-p2-pull {
+  0% { transform: translateY(0) scale(1); }
+  60% { transform: translateY(-46px) scale(1.02) rotate(0.6deg); }
+  100% { transform: translateY(-72px) scale(1.04) rotate(0deg); }
+}
+
+/* p3 信纸扇形展开（三张各走各的弧线） */
+.xg-p3-spread-1 {
+  animation: xg-p3-arc-1 0.85s var(--xg-ease-out) forwards;
+}
+.xg-p3-spread-2 {
+  animation: xg-p3-arc-2 0.85s var(--xg-ease-out) 0.08s forwards;
+}
+.xg-p3-spread-3 {
+  animation: xg-p3-arc-3 0.85s var(--xg-ease-out) 0.16s forwards;
+}
+@keyframes xg-p3-arc-1 {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(-72px, -10px) rotate(-9deg); }
+}
+@keyframes xg-p3-arc-2 {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(0, -2px) rotate(1.5deg); }
+}
+@keyframes xg-p3-arc-3 {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(76px, -6px) rotate(12deg); }
+}
+
+/* p4 透视压平（rotateX 28° → 0 送进阅读） */
+.xg-p4-flatten {
+  animation: xg-p4-flatten 0.7s var(--xg-ease-in-out) forwards;
+}
+@keyframes xg-p4-flatten {
+  0% { transform: rotateX(28deg) scale(1); }
+  100% { transform: rotateX(0deg) scale(1.08); }
+}
+
+/* p9 锁定回弹（顺序锁） */
+.xg-p9-lock {
+  animation: xg-p9-lock 0.42s var(--xg-ease-out);
+}
+@keyframes xg-p9-lock {
+  0% { transform: translateX(0); }
+  35% { transform: translateX(-6px); }
+  70% { transform: translateX(4px); }
+  100% { transform: translateX(0); }
+}
+
+/* ============================================================
+   M6. 折纸飞机删除（折叠+飞出）
+   ============================================================ */
+.xg-plane-fly {
+  animation: xg-plane 0.42s var(--xg-ease-in) forwards;
+}
+@keyframes xg-plane {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  35% { transform: scale(0.82) rotate(-4deg); opacity: 1; }
+  100% { transform: translate(120px, -160px) scale(0.5) rotate(24deg); opacity: 0; }
+}
+
+/* ============================================================
+   M7. 显字序列（逐字淡入 + blur 收敛）
+   ============================================================ */
+.xg-w-reveal {
+  opacity: 0;
+  animation: xg-w-in 0.4s var(--xg-ease-out) forwards;
+}
+@keyframes xg-w-in {
+  0% { opacity: 0; filter: blur(1.5px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+.xg-w-hover {
+  transition: color 0.35s var(--xg-ease-out);
+}
+
+/* ============================================================
+   M8. 印章落纸（火漆/邮戳通用）
+   ============================================================ */
+.xg-stamp-land {
+  animation: xg-stamp-land 0.5s var(--xg-ease-out);
+}
+@keyframes xg-stamp-land {
+  0% { transform: scale(1.6) rotate(-14deg); opacity: 0; }
+  55% { transform: scale(0.94) rotate(-5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-6deg); opacity: 1; }
+}
+
+/* ============================================================
+   M9. 降级链（全局）
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .xg-drift-sway-a, .xg-drift-sway-b, .xg-drift-envelope,
+  .xg-mote, .xg-leaf-fall, .xg-dove-fly, .xg-drift-vine,
+  .xg-window-shade, .xg-dusk-cycle, .xg-flower-tremble,
+  .xg-ribbon-wave, .xg-haze-breathe, .xg-light-sweep,
+  .xg-petal-fall, .xg-bokeh,
+  .xg-p0-press, .xg-p1-lift, .xg-p2-pull,
+  .xg-p3-spread-1, .xg-p3-spread-2, .xg-p3-spread-3,
+  .xg-p4-flatten, .xg-p9-lock,
+  .xg-plane-fly, .xg-w-reveal, .xg-stamp-land,
+  .xg-ripple, .xg-chip.is-pulse, .xg-nudge,
+  .xg-empty-art img, .xg-env-card.is-unread::after,
+  .xg-fan-paper.is-next::after, .xg-p6-hint {
+    animation: none !important;
+  }
+  .xg-trans-in, .xg-trans-out, .xg-trans-fade-in, .xg-trans-rise,
+  .xg-modal-card, .xg-drawer, .xg-scrim, .xg-toast-in, .xg-toast-out {
+    animation-duration: 0.01s !important;
+  }
+}
+.xg-motion-low .xg-drift-sway-a,
+.xg-motion-low .xg-drift-sway-b,
+.xg-motion-low .xg-drift-envelope,
+.xg-motion-low .xg-mote,
+.xg-motion-low .xg-leaf-fall,
+.xg-motion-low .xg-dove-fly,
+.xg-motion-low .xg-drift-vine,
+.xg-motion-low .xg-window-shade,
+.xg-motion-low .xg-dusk-cycle,
+.xg-motion-low .xg-flower-tremble,
+.xg-motion-low .xg-ribbon-wave,
+.xg-motion-low .xg-haze-breathe,
+.xg-motion-low .xg-light-sweep,
+.xg-motion-low .xg-petal-fall,
+.xg-motion-low .xg-bokeh {
+  animation: none !important;
+}
+
+
+/* ============================================================
+   M10. 打字文本容器（effects.typewriter）
+   ============================================================ */
+.xg-type-text {
+  white-space: pre-wrap;
+}

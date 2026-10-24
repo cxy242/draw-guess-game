@@ -643,69 +643,7 @@
   height: 340px;
   perspective: 900px;
 }
-.xg-fan-paper {
-  position: absolute;
-  left: 50%;
-  bottom: 24px;
-  width: 216px;
-  height: 280px;
-  margin-left: -108px;
-  border: 1px solid rgba(137, 109, 89, 0.5);
-  border-radius: 2px;
-  background: var(--xg-ivory);
-  box-shadow: 0 12px 28px rgba(47, 53, 39, 0.18);
-  cursor: pointer;
-  transform-style: preserve-3d;
-  transition: transform 0.3s var(--xg-ease-out), box-shadow 0.3s;
-  overflow: hidden;
-}
-.xg-fan-paper.fp-1 {
-  transform: rotateX(28deg) rotateZ(-9deg) translateY(-6px);
-}
-.xg-fan-paper.fp-2 {
-  transform: rotateX(28deg) rotateZ(1.5deg) translateY(0);
-}
-.xg-fan-paper.fp-3 {
-  transform: rotateX(28deg) rotateZ(12deg) translateY(3px);
-}
-.xg-fan-paper.is-next {
-  box-shadow: 0 16px 36px rgba(47, 53, 39, 0.24);
-}
-.xg-fan-paper.is-next::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border: 2px solid var(--xg-rose);
-  border-radius: 3px;
-  animation: xg-next-breathe 2.2s var(--xg-ease-in-out) infinite;
-  pointer-events: none;
-}
-@keyframes xg-next-breathe {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-.xg-fan-paper.is-locked {
-  filter: saturate(0.85);
-}
-.xg-fan-paper.is-locked.is-nudge {
-  animation: xg-lock-nudge 0.32s var(--xg-ease-out);
-}
-@keyframes xg-lock-nudge {
-  0% { margin-left: -108px; }
-  25% { margin-left: -112px; }
-  60% { margin-left: -104px; }
-  100% { margin-left: -108px; }
-}
-/* 第 3 张：心里话——灰玫瑰晕染边 */
-.xg-fan-paper.fp-3::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 0% 100%, rgba(199, 161, 155, 0.35), rgba(199, 161, 155, 0) 55%),
-    radial-gradient(ellipse at 100% 0%, rgba(199, 161, 155, 0.25), rgba(199, 161, 155, 0) 50%);
-  pointer-events: none;
-}
+/* [v6.5.1] .xg-fan-paper v1死件已退役（小柯+克劳德两人合议，备选池记档：扇形三张v1样式） */
 .xg-fan-firstline {
   padding: 18px 16px 0;
   font-family: 'XG-Kai', serif;
@@ -801,15 +739,57 @@
 }
 .xg-letter-sign .xg-sign-date {
   margin-top: 6px;
+  padding-right: 42px;   /* 给右下角火漆让位，别压住日期（主人 2026-10-24） */
   font-family: 'XG-Kai', serif;
   font-size: 13px;
   color: var(--xg-clay);
 }
 .xg-read-foot {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
-  padding: 12px var(--xg-gap-page);
+  padding: 12px var(--xg-gap-page) calc(12px + env(safe-area-inset-bottom, 0px));
+}
+/* 阅读页顶栏（主人 2026-10-24 投诉"没有退出键" → 补返回键 + 进度） */
+.xg-read-topbar {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  z-index: var(--xg-z-content, 20);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+  pointer-events: none;
+}
+.xg-read-topbar > * { pointer-events: auto; }
+.xg-read-back {
+  width: 40px; height: 40px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(137, 109, 89, 0.35);
+  border-radius: 50%;
+  background: rgba(253, 252, 249, 0.86);
+  color: var(--xg-olive-ink);
+  cursor: pointer;
+  transition: transform 0.16s var(--xg-ease-out), background-color 0.16s;
+}
+.xg-read-back:active { transform: scale(0.92); background: var(--xg-ivory-deep); }
+.xg-read-title {
+  flex: 1;
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--xg-clay);
+}
+.xg-read-spacer { width: 40px; flex: none; }
+/* 下一封按钮 */
+.xg-read-next {
+  flex: none;
+  min-width: 108px;
 }
 .xg-icon-btn {
   width: 44px;
