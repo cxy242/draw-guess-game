@@ -8324,6 +8324,7 @@ async function generateAIReply(chatId, charId, options = {}) {
   const hasFallbackMessages = !!avatarCtx || !!context.hasVisualContent
   const opts = {
     system,
+    charId,
     responseFormat: 'json_object',
     temperature: await window.getAITemperaturePreset('wechatPrivate')
   }

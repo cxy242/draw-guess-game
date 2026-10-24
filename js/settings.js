@@ -3659,6 +3659,16 @@ window.callAI = async function(messages, opts) {
     opts = Object.assign({}, opts)
     opts.system = _BUILTIN_ANTI_DRIFT_LORE + (opts.system || '')
   }
+  // 拾光·年龄时钟+倒计时驿站：每个角色都知道（v6.5.0 AI认知注入，无数据零开销）
+  if (!opts.noTimeDiary && window.TimeDiary && typeof window.TimeDiary.getAIBrief === 'function') {
+    try {
+      var _tdBrief = await window.TimeDiary.getAIBrief(opts.charId || opts.charName || null)
+      if (_tdBrief) {
+        opts = Object.assign({}, opts)
+        opts.system = [_tdBrief, opts.system || ''].filter(Boolean).join('\n\n')
+      }
+    } catch (e) {}
+  }
   var cfg = await loadApiConfig()
   return await fetchAI(cfg.primary, messages, Object.assign({}, opts, { apiConsoleType: '主 API' }))
 }

@@ -1237,7 +1237,7 @@ ${MISS_BEAUTY_CLASS_TEXT}`
     const isContinuation = !!(options.preferContinue && lastOffline && lastOffline.role !== 'user')
     const system = await buildOfflineSystemPrompt(ownerUid, char, user, loreCtx, memoryCtx, offlineAll, settings)
     const timeline = buildOfflineTimeline(timelineContext.textHistory || [], { isContinuation })
-    const raw = await window.callAI(timeline, { system, temperature: await window.getAITemperaturePreset('offlineMode') })
+    const raw = await window.callAI(timeline, { system, temperature: await window.getAITemperaturePreset('offlineMode'), charId: chat.charId })
     const reply = cleanOfflineReply(raw)
     if (!reply) throw new Error('AI 返回了空响应，请检查 API 配置或稍后重试')
     return reply

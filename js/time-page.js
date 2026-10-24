@@ -523,11 +523,14 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       }
     }
     _renderCal();
-    /* 行数令②：年视图切换（点标题月↔年两级） */
+    /* 行数令②：年视图切换（独立"年视图"按钮保留）+ 标题=快速跳年月（主人令：点头顶日期要能快选） */
     var calMode = 'month';
     calTitle.addEventListener('click', function () {
-      calMode = calMode === 'month' ? 'year' : 'month';
-      _renderCal();
+      _openCalQuickJump(cursor, function (y, m) {
+        cursor = new Date(y, m - 1, 1);
+        calMode = 'month';
+        _renderCal();
+      });
     });
     prev.addEventListener('click', function () {
       cursor.setDate(1);   // P2-1 修：防 29-31 号溢出串月
@@ -549,6 +552,13 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     var pickerBtn = _el('button', 'tw-quick-btn', '精确跳转');
     pickerBtn.addEventListener('click', function () { _openTimePicker(); });
     if (todayBtn.parentNode) todayBtn.parentNode.appendChild(pickerBtn);
+    /* [6.5.0] 年视图开关挪到独立按钮（标题让位给快速跳年月） */
+    var yearViewBtn = _el('button', 'tw-quick-btn', '年视图');
+    yearViewBtn.addEventListener('click', function () {
+      calMode = calMode === 'month' ? 'year' : 'month';
+      _renderCal();
+    });
+    if (todayBtn.parentNode) todayBtn.parentNode.appendChild(yearViewBtn);
 
 
     /* ④ 精确调整（时/分/秒 stepper，长按 500ms 后 120ms 连拨） */
@@ -793,6 +803,56 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     } catch (e) { return true; }
   }
 
+
+  /* ================= [6.5.0] 日历快选：点标题跳年月（两级点选拨盘） ================= */
+  function _openCalQuickJump(curDate, onPick) {
+    if (document.getElementById('tw-cal-jump')) return;
+    var mask = _el('div', 'tw-dialog-mask open');
+    var box = _el('div', 'tw-picker');
+    box.id = 'tw-cal-jump';
+    box.appendChild(_el('div', 'tw-picker-title', '跳到哪年哪月'));
+    var colsWrap = _el('div', 'tw-picker-cols');
+    var picks = { y: curDate.getFullYear(), m: curDate.getMonth() + 1 };
+    [['y', '年', 2024, 2124], ['m', '月', 1, 12]].forEach(function (c) {
+      var col = _el('div', 'tw-picker-col');
+      for (var v = c[2]; v <= c[3]; v++) {
+        (function (val) {
+          var it = _el('div', 'tw-picker-item' + (val === picks[c[0]] ? ' sel' : ''), val + c[1]);
+          it.addEventListener('click', function () {
+            picks[c[0]] = val;
+            col.querySelectorAll('.tw-picker-item').forEach(function (x) { x.classList.remove('sel'); });
+            it.classList.add('sel');
+          });
+          col.appendChild(it);
+        })(v);
+      }
+      colsWrap.appendChild(col);
+    });
+    box.appendChild(colsWrap);
+    box.appendChild(_el('div', 'tw-picker-note', '点选年份和月份，一步跳过去'));
+    var acts = _el('div', 'tw-picker-actions');
+    var cancel = _el('button', 'tw-quick-btn', '取消');
+    cancel.addEventListener('click', function () { mask.remove(); });
+    var ok = _el('button', 'tw-quick-btn tw-danger-btn', '跳转');
+    ok.addEventListener('click', function () {
+      mask.remove();
+      onPick(picks.y, picks.m);
+    });
+    acts.appendChild(cancel);
+    acts.appendChild(ok);
+    box.appendChild(acts);
+    mask.appendChild(box);
+    mask.addEventListener('click', function (e) { if (e.target === mask) mask.remove(); });
+    document.body.appendChild(mask);
+    /* 初始滚动到当前值 */
+    setTimeout(function () {
+      colsWrap.querySelectorAll('.tw-picker-col').forEach(function (col, ci) {
+        var idx = ci === 0 ? picks.y - 2024 : picks.m - 1;
+        var sel = col.children[idx];
+        if (sel) col.scrollTop = sel.offsetTop - col.clientHeight / 2 + sel.offsetHeight / 2;
+      });
+    }, 40);
+  }
 
   /* ================= [6.2.6] 滚轮时间选择器 ================= */
   function _openTimePicker() {

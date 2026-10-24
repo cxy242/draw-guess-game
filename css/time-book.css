@@ -9553,3 +9553,131 @@
     scroll-behavior: auto;
   }
 }
+
+/* ================= v6.5.0 · 多列拨盘 + 日历快选 + 倒计时驿站循环/人物 ================= */
+.tb-wheel-cols {
+  display: flex;
+  gap: 10px;
+}
+.tb-wheel-cols .tb-dialog-scroll {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.tb-cal-title {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-cal-title:active {
+  opacity: 0.75;
+}
+.tb-date-pick {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-cd-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 2px;
+}
+.tb-cd-chip {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid rgba(139, 109, 63, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  color: #7a6248;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out;
+}
+.tb-cd-chip:active {
+  transform: scale(0.97);
+}
+.tb-cd-chip-on {
+  background: #8b2635;
+  border-color: #8b2635;
+  color: #fffdf8;
+}
+.tb-cd-cycle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 2px;
+}
+.tb-cd-cycle-label {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px;
+  color: #8b7355;
+  white-space: nowrap;
+}
+.tb-cd-period {
+  max-width: 96px;
+  text-align: center;
+}
+.tb-cd-people {
+  margin: 8px 0 2px;
+}
+.tb-cd-people-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  color: #8b7355;
+  margin: 6px 0;
+}
+.tb-cd-people-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tb-cd-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid rgba(139, 109, 63, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.85);
+  cursor: pointer;
+  transition: transform 160ms ease-out, border-color 160ms ease-out, background 160ms ease-out;
+}
+.tb-cd-person:active {
+  transform: scale(0.97);
+}
+.tb-cd-person-on {
+  border-color: #8b2635;
+  background: rgba(139, 38, 53, 0.08);
+}
+.tb-cd-person-av {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e8dcc8 center/cover no-repeat;
+}
+.tb-cd-person-name {
+  font-size: 13px;
+  color: #4a3b2f;
+}
+.tb-cd-meta {
+  font-size: 12px;
+  color: #9b8468;
+  margin-top: 4px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.tb-cd-note {
+  font-size: 11px;
+  color: #b09a7c;
+  text-align: center;
+  margin-top: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tb-cd-chip:hover,
+  .tb-cd-person:hover {
+    border-color: #8b2635;
+  }
+  .tb-cal-title:hover {
+    opacity: 0.8;
+  }
+}

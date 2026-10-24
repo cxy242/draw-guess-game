@@ -137,6 +137,9 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     book.classList.add('tb-flipping');
     setTimeout(function () {
       _currentPage = page;
+      /* ✕退出整个软件只留主界面（主人令：章节页不许出现整软件叉叉，防误触） */
+      var _closeEl = root.querySelector('.tb-close');
+      if (_closeEl) _closeEl.style.display = (page === 'cover') ? '' : 'none';
       /* Codex查bug#1#3：翻页先清封面时钟+打字机timer，防泄漏/幽灵写DOM */
       if (book._tick) { clearInterval(book._tick); book._tick = null; }
       if (window._tbTypeTimer) { clearInterval(window._tbTypeTimer); window._tbTypeTimer = null; }
@@ -288,6 +291,14 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       var head = _el('div', 'tb-cal-head');
       var prev = _el('button', 'tb-cal-nav', '‹');
       var title = _el('div', 'tb-cal-title', cursor.getFullYear() + '年' + (cursor.getMonth() + 1) + '月');
+      /* 点顶部日期=快速选择（主人令：不许一页一页翻） */
+      title.addEventListener('click', function () {
+        if (!window._tbQuickJump) return;
+        window._tbQuickJump(cursor, function (y, m) {
+          cursor = new Date(y, m - 1, 1);
+          render();
+        });
+      });
       var next = _el('button', 'tb-cal-nav', '›');
       head.appendChild(prev); head.appendChild(title); head.appendChild(next);
       wrap.appendChild(head);
@@ -758,6 +769,93 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     body.appendChild(genBtn);
   }
 
+  /* ===== 多列拨盘（年/月/日）：点选高亮、确定只填值、全链路掐冒泡 ===== */
+  function _openColsPicker(title, cols, onPick) {
+    try {
+      document.querySelectorAll('.tb-dialog-mask').forEach(function (s) { s.remove(); });
+    } catch (e) {}
+    var mask = _el('div', 'tb-dialog-mask');
+    mask.addEventListener('click', function (e) { e.stopPropagation(); });
+    var dlg = _el('div', 'tb-dialog tb-wheel-dlg');
+    dlg.addEventListener('click', function (e) { e.stopPropagation(); });
+    dlg.appendChild(_el('div', 'tb-dialog-title', title));
+    var wrap = _el('div', 'tb-wheel-cols');
+    var picked = {};
+    cols.forEach(function (col) {
+      picked[col.key] = col.cur;
+      var sc = _el('div', 'tb-dialog-scroll tb-wheel');
+      (col.list || []).forEach(function (v) {
+        var item = _el('button', 'tb-wheel-item' + (v === col.cur ? ' tb-wheel-cur' : ''), col.fmt ? col.fmt(v) : String(v));
+        item.addEventListener('click', function (e) {
+          e.stopPropagation();
+          sc.querySelectorAll('.tb-wheel-item').forEach(function (x) { x.classList.remove('tb-wheel-cur'); });
+          item.classList.add('tb-wheel-cur');
+          picked[col.key] = v;
+        });
+        sc.appendChild(item);
+      });
+      wrap.appendChild(sc);
+    });
+    dlg.appendChild(wrap);
+    var btns = _el('div', 'tb-dialog-btns');
+    var cancel = _el('button', 'tb-dialog-cancel', '取消');
+    cancel.addEventListener('click', function (e) { e.stopPropagation(); _closePicker(mask); });
+    var ok = _el('button', 'tb-dialog-ok', '确定');
+    ok.addEventListener('click', function (e) {
+      e.stopPropagation();
+      try { onPick(picked); } catch (err) {}
+      _closePicker(mask);
+    });
+    btns.appendChild(cancel);
+    btns.appendChild(ok);
+    dlg.appendChild(btns);
+    mask.appendChild(dlg);
+    document.body.appendChild(mask);
+    requestAnimationFrame(function () { mask.classList.add('open'); });
+    try {
+      wrap.querySelectorAll('.tb-wheel').forEach(function (sc) {
+        var curItem = sc.querySelector('.tb-wheel-cur');
+        if (curItem) sc.scrollTop = curItem.offsetTop - sc.clientHeight / 2 + curItem.offsetHeight / 2;
+      });
+    } catch (e) {}
+  }
+
+  /* 日历标题快选（年+月两级拨盘，替掉一页页翻） */
+  function _quickJump(curDate, onPick) {
+    var y0 = Math.min(2024, curDate.getFullYear()), y1 = Math.max(2124, curDate.getFullYear());   /* 当前年不在区间就扩进来（Codex#7） */
+    var yList = []; for (var v = y0; v <= y1; v++) yList.push(v);
+    var mList = []; for (var i2 = 1; i2 <= 12; i2++) mList.push(i2);
+    _openColsPicker('跳到哪年哪月', [
+      { key: 'y', list: yList, cur: curDate.getFullYear(), fmt: function (v) { return v + '年'; } },
+      { key: 'm', list: mList, cur: curDate.getMonth() + 1, fmt: function (v) { return v + '月'; } }
+    ], function (p) { onPick(p.y, p.m); });
+  }
+
+  /* 日期拨盘（年月日）：替掉系统 date 弹层（它只能一页页翻） */
+  function _openDateWheel(curStr, onPick) {
+    var cur = curStr ? new Date(String(curStr) + 'T00:00:00') : new Date(window.TimeWorld.getNow());
+    if (isNaN(cur.getTime())) cur = new Date(window.TimeWorld.getNow());
+    var y0 = Math.min(2024, cur.getFullYear()), y1 = Math.max(2124, cur.getFullYear());   /* Codex#7 */
+    var yList = []; for (var v = y0; v <= y1; v++) yList.push(v);
+    var mList = []; for (var i2 = 1; i2 <= 12; i2++) mList.push(i2);
+    var dList = []; for (var j = 1; j <= 31; j++) dList.push(j);
+    _openColsPicker('选个日子', [
+      { key: 'y', list: yList, cur: cur.getFullYear(), fmt: function (v) { return v + '年'; } },
+      { key: 'm', list: mList, cur: cur.getMonth() + 1, fmt: function (v) { return v + '月'; } },
+      { key: 'd', list: dList, cur: cur.getDate(), fmt: function (v) { return v + '日'; } }
+    ], function (p) {
+      var maxD = new Date(p.y, p.m, 0).getDate();   /* 2月31这类自动校正月末 */
+      var d = Math.min(p.d, maxD);
+      onPick(p.y + '-' + (p.m < 10 ? '0' : '') + p.m + '-' + (d < 10 ? '0' : '') + d);
+    });
+  }
+
+  /* 导出给 ch1/ch3/ch4/ch5 用（事件回调运行时调用，早赋值安全） */
+  window._tbOpenWheel = _openWheelPicker;
+  window._tbOpenCols = _openColsPicker;
+  window._tbQuickJump = _quickJump;
+  window._tbOpenDateWheel = _openDateWheel;
+
   window._tbCh2 = buildCh2;
 })();
 
@@ -783,6 +881,14 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       var head = _el('div', 'tb-cal-head');
       var prev = _el('button', 'tb-cal-nav', '‹');
       var title = _el('div', 'tb-cal-title', cursor.getFullYear() + '年' + (cursor.getMonth() + 1) + '月');
+      /* 点顶部日期=快速选择（主人令：不许一页一页翻） */
+      title.addEventListener('click', function () {
+        if (!window._tbQuickJump) return;
+        window._tbQuickJump(cursor, function (y, m) {
+          cursor = new Date(y, m - 1, 1);
+          render();
+        });
+      });
       var next = _el('button', 'tb-cal-nav', '›');
       head.appendChild(prev); head.appendChild(title); head.appendChild(next);
       cal.appendChild(head);
@@ -904,9 +1010,16 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     paper.addEventListener('input', function () { counter.textContent = paper.value.length + ' 字'; });
     body.appendChild(counter);
 
-    /* 收信时间（撕页车票复用精简版） */
-    var dateInput = _el('input', 'tb-ticket-year');
-    dateInput.type = 'date';
+    /* 收信时间（撕页车票复用精简版·v6.5.0 换年月日拨盘，替掉系统日历） */
+    var dateInput = _el('input', 'tb-ticket-year tb-date-pick');
+    dateInput.readOnly = true;
+    dateInput.placeholder = '点我选收信日子';
+    dateInput.addEventListener('click', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (window._tbOpenDateWheel) window._tbOpenDateWheel(dateInput.value || '', function (ds) {
+        dateInput.value = ds;
+      });
+    });
     body.appendChild(dateInput);
 
     var sealBtn = _el('button', 'tb-wax-seal', '封缄');
@@ -977,7 +1090,13 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
   window._tbCh4 = buildCh4;
 })();
 
-/* ================= §5 第五章 · 倒计时驿站 + 年龄时钟（替换旧世界线徽章） ================= */
+/* ================= §5 第五章 · 倒计时驿站 + 年龄时钟（v6.5.0） =================
+ * 主人定的倒数规则：
+ *   不循环：未来=每天减一天（还有N天）；之前的日子=每天加一天（已过N天）；当天=就是今天
+ *   每年循环祭日：到日子数字归零，第二天起"只过了N天"，明年自动重新倒数
+ *   周期循环（N天一轮）：满一个周期那天归零，第二天重新倒数（100天一轮→满100天次日99天）
+ * 设置时可选相关人/知道的人（人物全部来自角色档案）；年龄时钟+倒计时驿站对每个角色可见（AI认知注入）
+ * ============================================================ */
 (function () {
   'use strict';
   function _el(tag, cls, text) {
@@ -1006,6 +1125,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     } catch (e) { cb([]); }
   }
   function _saveCfg(key, list) {
+    _briefVer++;   /* 存档变更→AI认知缓存立即失效（Codex#3） */
     try {
       if (window.db && window.db.config) {
         window.db.config.put({ key: key, value: list }).catch(function () {
@@ -1013,6 +1133,9 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         });
       } else localStorage.setItem(key, JSON.stringify(list));
     } catch (e) {}
+  }
+  function _loadCfgP(key) {
+    return new Promise(function (res) { _loadCfg(key, res); });
   }
 
   /* 虚拟今天 → 目标日期的整天数差 */
@@ -1024,8 +1147,153 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     return Math.round((t.getTime() - a) / 86400000);
   }
 
+  /* 'YYYY-MM-DD' → 'YYYY年M月D日' */
+  function _fmtDate(str) {
+    var pd = _parseDate(str);
+    if (!pd) return String(str || '');
+    return pd.y + '年' + pd.m + '月' + pd.d + '日';
+  }
+
+  /* 严格日期解析：2月30/2月29(平年写死29)这类非法值返回 null（Codex#1） */
+  function _parseDate(str) {
+    var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(str || '').trim());
+    if (!m) {
+      var t0 = new Date(String(str) + 'T00:00:00');
+      if (isNaN(t0.getTime())) return null;
+      return { y: t0.getFullYear(), m: t0.getMonth() + 1, d: t0.getDate() };
+    }
+    var y = +m[1], mo = +m[2], d = +m[3];
+    var t = new Date(y, mo - 1, d);
+    if (t.getFullYear() !== y || t.getMonth() !== mo - 1 || t.getDate() !== d) return null;
+    return { y: y, m: mo, d: d };
+  }
+
+  /* 周年目标日：2月29生日/祭日在平年落到2月最后一天（Codex#1） */
+  function _annivTarget(pd, year) {
+    var lastDay = new Date(year, pd.m, 0).getDate();
+    return new Date(year, pd.m - 1, Math.min(pd.d, lastDay)).getTime();
+  }
+
+  /* ===== 倒数日子状态机（主人定的三种规则） ===== */
+  function _cdState(it, nowTs) {
+    var now = new Date(nowTs);
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var pd = _parseDate(it.date);
+    if (!pd) return { kind: 'invalid' };
+    if (it.mode === 'cycle' && it.period >= 2) {
+      /* 周期循环：到满那天归零，第二天重新倒数（100天一轮→满100天，次日99天） */
+      var period = Math.floor(it.period);
+      var diffC = _dayDiff(nowTs, it.date);
+      if (diffC === null) return { kind: 'invalid' };
+      if (diffC > 0) return { kind: 'future', days: diffC, note: '首个周期还没开始' };
+      var elapsed = -diffC;
+      var pos = elapsed % period;
+      if (pos === 0) return { kind: 'full', days: period, note: '满一个周期' };
+      return { kind: 'cycle', days: period - pos, note: '第 ' + (Math.floor(elapsed / period) + 1) + ' 轮' };
+    }
+    if (it.mode === 'yearly') {
+      /* 每年循环祭日：只看今年的月日，到日子归零，过后"只过了N天"，明年自动重新倒数 */
+      var targetY = _annivTarget(pd, now.getFullYear());
+      var diffY = Math.round((targetY - today) / 86400000);
+      if (diffY > 0) return { kind: 'future', days: diffY, note: '今年' };
+      if (diffY === 0) return { kind: 'today', days: 0, note: '纪念日' };
+      return { kind: 'past', days: -diffY, note: '周年已过' };
+    }
+    /* 不循环：未来减一天，之前的日子加一天 */
+    var diff = _dayDiff(nowTs, it.date);
+    if (diff === null) return { kind: 'invalid' };
+    if (diff > 0) return { kind: 'future', days: diff };
+    if (diff === 0) return { kind: 'today', days: 0 };
+    return { kind: 'past', days: -diff };
+  }
+
+  /* ===== 年龄计算（年龄时钟同源·虚拟时间口径） ===== */
+  function _ageOf(bdStr, nowTs) {
+    var pd = _parseDate(bdStr);
+    if (!pd) return null;
+    var now = new Date(nowTs);
+    var years = now.getFullYear() - pd.y;
+    var months = now.getMonth() - (pd.m - 1);
+    if (now.getDate() < pd.d) months--;
+    if (months < 0) { years--; months += 12; }
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    /* 2月29生日：平年按2月最后一天算（Codex#1） */
+    var nb = _annivTarget(pd, now.getFullYear());
+    var nextDays = Math.round((nb - today) / 86400000);
+    if (nextDays < 0) nextDays = Math.round((_annivTarget(pd, now.getFullYear() + 1) - today) / 86400000);
+    return { years: years, months: months, nextDays: nextDays, birthYear: pd.y };
+  }
+
+  /* ===== AI 认知导出：年龄时钟+倒计时驿站，每个角色都知道（callAI 注入用） ===== */
+  var _briefVer = 0;   /* 数据版本号：存档一变立即失效缓存（Codex#3） */
+  var _briefCache = { ts: 0, key: '', text: '' };
+  async function getAIBrief(charHint) {
+    try {
+      var hint = String(charHint || '');
+      var TW = window.TimeWorld;
+      var nowTs = (TW && TW.getNow) ? TW.getNow() : Date.now();
+      var cacheKey = hint + '|' + _briefVer + '|' + new Date(nowTs).toDateString();
+      if (_briefCache.text && _briefCache.key === cacheKey && Date.now() - _briefCache.ts < 60000) return _briefCache.text;
+      var chars = [];
+      try {
+        if (window.db && window.db.characters) chars = await window.db.characters.toArray();
+        else if (window._characters) chars = window._characters;
+      } catch (e) {}
+      var bds = await _loadCfgP(BDKEY);
+      var cds = await _loadCfgP(CDKEY);
+      var out = '';
+      /* 年龄时钟：每个AI都知道每个人的年龄（以年龄时钟为准） */
+      var ageLine = [];
+      chars.forEach(function (ch) {
+        var key = ch.id != null ? String(ch.id) : (ch.name || '');
+        var rec = null;
+        bds.forEach(function (x) {
+          if (String(x.charId) === key || (x.name && ch.name && x.name === ch.name)) rec = x;
+        });
+        var bd = (rec && rec.birthday) || ch.birthday || '';
+        if (!bd) return;
+        var a = _ageOf(bd, nowTs);
+        if (a && a.years >= 0) ageLine.push((ch.name || '角色') + ' ' + a.years + '岁（生日' + _fmtDate(bd) + '）');
+      });
+      if (ageLine.length) {
+        out += '【年龄时钟·所有人的年龄】（大家都知道，可自然提及）：' + ageLine.join('；') + '。\n';
+      }
+      /* 倒计时驿站：按"知道的人/相关人"过滤（Codex#2：没名单=大家都知道；有名单=必须在名单里，认不出谁在说话就不出） */
+      var cdLine = [];
+      cds.forEach(function (it) {
+        var hasList = (it.knowers && it.knowers.length) || (it.related && it.related.length);
+        if (hasList) {
+          if (!hint) return;
+          if ((it.knowers || []).indexOf(hint) === -1 && (it.related || []).indexOf(hint) === -1) return;
+        }
+        var st = _cdState(it, nowTs);
+        if (st.kind === 'invalid') return;
+        var word = st.kind === 'future' ? ('还有' + st.days + '天')
+          : st.kind === 'today' ? '就是今天'
+          : st.kind === 'past' ? ('已过' + st.days + '天')
+          : st.kind === 'full' ? ('今天满' + (it.period || 100) + '天')
+          : ('还有' + st.days + '天');
+        var tag = it.mode === 'yearly' ? '每年循环祭日' : it.mode === 'cycle' ? ((it.period || 100) + '天一轮') : '';
+        cdLine.push('「' + (it.title || '倒数的日子') + '」' + word + '（' + _fmtDate(it.date) + (tag ? '·' + tag : '') + '）');
+      });
+      if (cdLine.length) {
+        out += '【倒计时驿站·你知道的重要日子】：' + cdLine.join('；') + '。\n';
+      }
+      if (out) {
+        out += '（以上来自拾光手账，心里有数即可，聊天时自然运用，不要机械复读。）';
+      }
+      _briefCache = { ts: Date.now(), key: cacheKey, text: out };
+      return out;
+    } catch (e) {
+      console.warn('[TimeDiary] getAIBrief 异常:', e);
+      return '';
+    }
+  }
+
   function buildCh5(body) {
     var TW = window.TimeWorld;
+    var charsCache = [];
+    var draft = { mode: 'none', period: 100, related: [], knowers: [], relatedNames: [], knowerNames: [] };
 
     /* ============ 上半 · 倒计时驿站 ============ */
     body.appendChild(_el('div', 'tb-card-title', '倒计时驿站 · 寄往未来的日子'));
@@ -1034,45 +1302,151 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     cdTitle.placeholder = '想倒数的事（生日/旅行/考试…）';
     cdTitle.maxLength = 16;
     cdTitle.setAttribute('enterkeyhint', 'done');
-    var cdDate = _el('input', 'tb-ticket-year tb-cd-date');
-    cdDate.type = 'date';
+    var cdDate = _el('input', 'tb-ticket-year tb-cd-date tb-date-pick');
+    cdDate.readOnly = true;
+    cdDate.placeholder = '选日子';
+    cdDate.addEventListener('click', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (window._tbOpenDateWheel) window._tbOpenDateWheel(cdDate.value || '', function (ds) {
+        cdDate.value = ds;
+      });
+    });
     var cdBtn = _el('button', 'tb-cd-btn', '贴上车票');
     addRow.appendChild(cdTitle);
     addRow.appendChild(cdDate);
     addRow.appendChild(cdBtn);
     body.appendChild(addRow);
+
+    /* 循环模式：不循环 / 每年循环祭日 / 周期循环 */
+    var modeRow = _el('div', 'tb-cd-modes');
+    [['不循环', 'none'], ['每年循环祭日', 'yearly'], ['周期循环', 'cycle']].forEach(function (mm) {
+      var b = _el('button', 'tb-cd-chip' + (draft.mode === mm[1] ? ' tb-cd-chip-on' : ''), mm[0]);
+      b.addEventListener('click', function () {
+        draft.mode = mm[1];
+        modeRow.querySelectorAll('.tb-cd-chip').forEach(function (x) { x.classList.remove('tb-cd-chip-on'); });
+        b.classList.add('tb-cd-chip-on');
+        cycleRow.style.display = draft.mode === 'cycle' ? '' : 'none';
+      });
+      modeRow.appendChild(b);
+    });
+    body.appendChild(modeRow);
+    var cycleRow = _el('div', 'tb-cd-cycle-row');
+    cycleRow.style.display = 'none';
+    cycleRow.appendChild(_el('div', 'tb-cd-cycle-label', '周期天数'));
+    var periodInput = _el('input', 'tb-cd-input tb-cd-period');
+    periodInput.readOnly = true;
+    periodInput.value = '100';
+    periodInput.addEventListener('click', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (window._tbOpenWheel) {
+        var plist = []; for (var v = 2; v <= 365; v++) plist.push(v);
+        window._tbOpenWheel('周期几天一轮', { list: plist, cur: draft.period }, function (v) {
+          draft.period = v;
+          periodInput.value = String(v);
+        });
+      }
+    });
+    cycleRow.appendChild(periodInput);
+    cycleRow.appendChild(_el('div', 'tb-cd-cycle-label', '天一轮'));
+    body.appendChild(cycleRow);
+
+    /* 相关人 / 知道的人（人物全部来自角色档案） */
+    function _peopleRow(label, keysName, namesName) {
+      var row = _el('div', 'tb-cd-people');
+      row.appendChild(_el('div', 'tb-cd-people-title', label));
+      var wrap = _el('div', 'tb-cd-people-list');
+      function render() {
+        wrap.innerHTML = '';
+        if (!charsCache.length) {
+          wrap.appendChild(_el('div', 'tb-empty-hint', '角色档案还是空的'));
+          return;
+        }
+        charsCache.forEach(function (ch) {
+          var key = ch.id != null ? String(ch.id) : (ch.name || '');
+          var on = draft[keysName].indexOf(key) !== -1;
+          var chip = _el('button', 'tb-cd-person' + (on ? ' tb-cd-person-on' : ''));
+          var av = _el('div', 'tb-cd-person-av');
+          if (ch.avatar) {
+            av.style.backgroundImage = 'url(' + ch.avatar + ')';
+            av.style.backgroundSize = 'cover';
+            av.style.backgroundPosition = 'center';
+          }
+          chip.appendChild(av);
+          chip.appendChild(_el('div', 'tb-cd-person-name', ch.name || '角色'));
+          chip.addEventListener('click', function () {
+            var idx = draft[keysName].indexOf(key);
+            if (idx >= 0) {
+              draft[keysName].splice(idx, 1);
+              draft[namesName].splice(idx, 1);
+            } else {
+              draft[keysName].push(key);
+              draft[namesName].push(ch.name || '角色');
+            }
+            render();
+          });
+          wrap.appendChild(chip);
+        });
+      }
+      row.appendChild(wrap);
+      row._renderPeople = render;
+      return row;
+    }
+    var relRow = _peopleRow('相关人', 'related', 'relatedNames');
+    var knRow = _peopleRow('知道的人', 'knowers', 'knowerNames');
+    body.appendChild(relRow);
+    body.appendChild(knRow);
+
     var cdList = _el('div', 'tb-cd-list');
     body.appendChild(cdList);
 
+    var _cdsReq = 0;   /* 连点防乱序回填（Codex#5） */
     function renderCds() {
+      var req = ++_cdsReq;
       cdList.innerHTML = '';
       _loadCfg(CDKEY, function (list) {
+        if (req !== _cdsReq) return;
         if (!list.length) {
           cdList.appendChild(_el('div', 'tb-empty-hint', '还没有倒数的日子，贴一张车票吧'));
           return;
         }
         list.sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
         list.forEach(function (it) {
-          var diff = _dayDiff(TW && TW.getNow ? TW.getNow() : Date.now(), it.date);
-          var card = _el('div', 'tb-cd-card' + (diff === 0 ? ' tb-cd-today' : ''));
+          var st = _cdState(it, TW && TW.getNow ? TW.getNow() : Date.now());
+          var card = _el('div', 'tb-cd-card' + (st.kind === 'today' || st.kind === 'full' ? ' tb-cd-today' : ''));
           var left = _el('div', 'tb-cd-main');
           left.appendChild(_el('div', 'tb-cd-name', it.title || '倒数的日子'));
-          left.appendChild(_el('div', 'tb-cd-stamp', String(it.date).replace(/-/g, '.')));
+          var stampText = String(it.date).replace(/-/g, '.');
+          if (it.mode === 'yearly') stampText += ' · 每年循环';
+          else if (it.mode === 'cycle') stampText += ' · ' + (it.period || 100) + '天一轮';
+          left.appendChild(_el('div', 'tb-cd-stamp', stampText));
+          var rel = (it.relatedNames || []).join('、');
+          var kn = (it.knowerNames || []).join('、');
+          if (rel || kn) {
+            left.appendChild(_el('div', 'tb-cd-meta',
+              (rel ? '相关人：' + rel : '') + (rel && kn ? ' · ' : '') + (kn ? '知道的人：' + kn : '')));
+          }
           card.appendChild(left);
           var days = _el('div', 'tb-cd-days');
-          if (diff === null) {
+          if (st.kind === 'invalid') {
             days.appendChild(_el('div', 'tb-cd-num tb-cd-num-past', '?'));
             days.appendChild(_el('div', 'tb-cd-unit', '日期无效'));
-          } else if (diff > 0) {
-            days.appendChild(_el('div', 'tb-cd-num', String(diff)));
+          } else if (st.kind === 'future') {
+            days.appendChild(_el('div', 'tb-cd-num', String(st.days)));
             days.appendChild(_el('div', 'tb-cd-unit', '天后'));
-          } else if (diff === 0) {
+          } else if (st.kind === 'today') {
             days.appendChild(_el('div', 'tb-cd-num tb-cd-num-fire', '今'));
             days.appendChild(_el('div', 'tb-cd-unit', '就是今天'));
-          } else {
-            days.appendChild(_el('div', 'tb-cd-num tb-cd-num-past', String(-diff)));
+          } else if (st.kind === 'past') {
+            days.appendChild(_el('div', 'tb-cd-num tb-cd-num-past', String(st.days)));
             days.appendChild(_el('div', 'tb-cd-unit', '天前'));
+          } else if (st.kind === 'full') {
+            days.appendChild(_el('div', 'tb-cd-num tb-cd-num-fire', '满'));
+            days.appendChild(_el('div', 'tb-cd-unit', (it.period || 100) + '天'));
+          } else if (st.kind === 'cycle') {
+            days.appendChild(_el('div', 'tb-cd-num', String(st.days)));
+            days.appendChild(_el('div', 'tb-cd-unit', '天后'));
           }
+          if (st.note) days.appendChild(_el('div', 'tb-cd-note', st.note));
           card.appendChild(days);
           var del = _el('button', 'tb-cd-del', '');
           del.setAttribute('aria-label', '撕下车票');
@@ -1096,12 +1470,31 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       var d = cdDate.value;
       if (!t) { _toast('先写一句想倒数的事'); return; }
       if (!d) { _toast('选个目标日子'); return; }
+      if (draft.mode === 'cycle' && !(draft.period >= 2)) { _toast('周期天数至少2天'); return; }
       _loadCfg(CDKEY, function (list) {
         /* Codex查bug#11：唯一 id，防同毫秒 createdAt 撞车误删 */
-        list.push({ id: 'cd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), title: t, date: d, createdAt: Date.now() });
+        list.push({
+          id: 'cd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          title: t,
+          date: d,
+          mode: draft.mode,
+          period: draft.mode === 'cycle' ? draft.period : 0,
+          related: draft.related.slice(),
+          relatedNames: draft.relatedNames.slice(),
+          knowers: draft.knowers.slice(),
+          knowerNames: draft.knowerNames.slice(),
+          createdAt: Date.now()
+        });
         _saveCfg(CDKEY, list);
         cdTitle.value = '';
         cdDate.value = '';
+        /* 车票贴完清空草稿：下一张不继承上一张的模式/人物（Codex#4） */
+        draft = { mode: 'none', period: 100, related: [], knowers: [], relatedNames: [], knowerNames: [] };
+        modeRow.querySelectorAll('.tb-cd-chip').forEach(function (x, i) { x.classList.toggle('tb-cd-chip-on', i === 0); });
+        cycleRow.style.display = 'none';
+        periodInput.value = '100';
+        if (relRow._renderPeople) relRow._renderPeople();
+        if (knRow._renderPeople) knRow._renderPeople();
         renderCds();
         _toast('车票贴好啦');
       });
@@ -1116,14 +1509,17 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     body.appendChild(ageBox);
 
     var picked = null;
+    var _ageReq = 0;   /* 连点防乱序回填（Codex#5） */
 
     function renderAge() {
+      var req = ++_ageReq;
       ageBox.innerHTML = '';
       if (!picked) {
         ageBox.appendChild(_el('div', 'tb-empty-hint', '选一位角色，看看TA此刻的年龄'));
         return;
       }
       _loadCfg(BDKEY, function (list) {
+        if (req !== _ageReq) return;
         var key = picked.id != null ? String(picked.id) : (picked.name || '');
         var rec = null;
         list.forEach(function (x) { if (String(x.charId) === key) rec = x; });
@@ -1132,31 +1528,20 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         var unit = _el('div', 'tb-age-unit', '');
         var sub = _el('div', 'tb-age-sub', '');
         if (rec && rec.birthday) {
-          var now = new Date(TW && TW.getNow ? TW.getNow() : Date.now());
-          var b = new Date(rec.birthday + 'T00:00:00');
-          if (isNaN(b.getTime())) {
+          var nowTs = TW && TW.getNow ? TW.getNow() : Date.now();
+          var a = _ageOf(rec.birthday, nowTs);
+          if (!a) {
             num.textContent = '--';
             unit.textContent = '生日无效';
             sub.textContent = '重新贴一张生日车票';
+          } else if (a.years < 0) {
+            num.textContent = '--';
+            unit.textContent = '还没出生';
+            sub.textContent = 'TA 在 ' + a.birthYear + ' 年来到这个世界';
           } else {
-            var years = now.getFullYear() - b.getFullYear();
-            var months = now.getMonth() - b.getMonth();
-            if (now.getDate() < b.getDate()) months--;
-            if (months < 0) { years--; months += 12; }
-            if (years < 0) {
-              num.textContent = '--';
-              unit.textContent = '还没出生';
-              sub.textContent = 'TA 在 ' + b.getFullYear() + ' 年来到这个世界';
-            } else {
-              num.textContent = String(years);
-              unit.textContent = '岁 ' + months + ' 个月';
-              /* 生日倒计时（按虚拟今天算） */
-              var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-              var nb = new Date(now.getFullYear(), b.getMonth(), b.getDate()).getTime();
-              var ddiff = Math.round((nb - today) / 86400000);
-              if (ddiff < 0) ddiff = Math.round((new Date(now.getFullYear() + 1, b.getMonth(), b.getDate()).getTime() - today) / 86400000);
-              sub.textContent = ddiff === 0 ? '今天就是TA的生日' : '距离生日还有 ' + ddiff + ' 天';
-            }
+            num.textContent = String(a.years);
+            unit.textContent = '岁 ' + a.months + ' 个月';
+            sub.textContent = a.nextDays === 0 ? '今天就是TA的生日' : '距离生日还有 ' + a.nextDays + ' 天';
           }
         } else {
           num.textContent = '--';
@@ -1168,9 +1553,16 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         ageBox.appendChild(face);
         ageBox.appendChild(sub);
         var bdRow = _el('div', 'tb-age-bd-row');
-        var bdInput = _el('input', 'tb-ticket-year tb-cd-date');
-        bdInput.type = 'date';
+        var bdInput = _el('input', 'tb-ticket-year tb-cd-date tb-date-pick');
+        bdInput.readOnly = true;
+        bdInput.placeholder = '选生日';
         if (rec && rec.birthday) bdInput.value = rec.birthday;
+        bdInput.addEventListener('click', function (e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          if (window._tbOpenDateWheel) window._tbOpenDateWheel(bdInput.value || '', function (ds) {
+            bdInput.value = ds;
+          });
+        });
         var bdBtn = _el('button', 'tb-cd-btn', '记住生日');
         bdBtn.addEventListener('click', function () {
           if (!bdInput.value) { _toast('选个生日日期'); return; }
@@ -1196,12 +1588,16 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         if (window.db && window.db.characters) chars = await window.db.characters.toArray();
         else if (window._characters) chars = window._characters;
       } catch (e) {}
-      if (!chars.length) {
+      charsCache = chars || [];
+      /* 相关人/知道的人 + 年龄时钟共用同一份角色档案 */
+      if (relRow._renderPeople) relRow._renderPeople();
+      if (knRow._renderPeople) knRow._renderPeople();
+      if (!charsCache.length) {
         chipRow.appendChild(_el('div', 'tb-empty-hint', '角色档案还是空的'));
         renderAge();
         return;
       }
-      chars.slice(0, 12).forEach(function (ch) {
+      charsCache.slice(0, 12).forEach(function (ch) {
         var chip = _el('button', 'tb-age-chip');
         var av = _el('div', 'tb-age-chip-av');
         if (ch.avatar) {
@@ -1224,4 +1620,10 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
   }
 
   window._tbCh5 = buildCh5;
+  /* AI 认知导出（callAI 注入用）——晚赋值防幽灵函数 */
+  window.TimeDiary = {
+    getAIBrief: getAIBrief,
+    cdState: _cdState,
+    ageOf: _ageOf
+  };
 })();

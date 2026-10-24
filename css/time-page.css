@@ -344,7 +344,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 46dvh;
+  height: auto;            /* [6.5.0] 跟内容长高：六宫格+入口按钮全露在第一屏，不再藏折叠线底下 */
   min-height: 380px;
   max-height: 88dvh;
   background: var(--tw-bg-glass);
