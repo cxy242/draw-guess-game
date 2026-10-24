@@ -7387,31 +7387,7 @@
 
 /* ==== [G装箱] 卷十三补段：滚轮拨盘（tb-css-vol13.css 07:11 修件原样并入） ==== */
 /* ============ 滚轮拨盘（车票选时间内置件） ============ */
-.tb-wheel {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 280px;
-  padding: 6px;
-}.tb-wheel-item {
-  min-height: 44px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  font-family: 'Noto Serif SC', serif;
-  font-size: 16px;
-  color: #6b563e;
-  cursor: pointer;
-  transition: background 140ms ease-out, transform 140ms ease-out;
-}.tb-wheel-item:active {
-  transform: scale(0.96);
-}.tb-wheel-item.tb-wheel-cur {
-  background: linear-gradient(180deg, rgba(184, 147, 90, 0.24), rgba(184, 147, 90, 0.12));
-  color: #5c4423;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(74, 59, 47, 0.1);
-}@media (prefers-reduced-motion: reduce){.tb-wheel-item { transition: none; }
-}
+/* [退役] 旧拨盘选择器已整体迁往「卷尾 · 拨盘升级」，此处不留重复选择器防互踩 */
 
 /* >>>>>>>> 卷二十（增量美化·真渲染）并入合流体 <<<<<<<< */
 
@@ -9224,4 +9200,356 @@
   border-radius: 50%;
   background: currentColor;
   opacity: 0.85;
+}
+
+/* ============================================================
+ * 卷尾 · 拨盘升级 + 第五章「倒计时驿站 · 年龄时钟」
+ * （替换旧世界线徽章；配色沿用全书纸墨体系）
+ * ============================================================ */
+
+/* ---------- 滚轮拨盘（居中弹窗 · 吸附滚动 · 双按钮） ---------- */
+.tb-wheel-dlg {
+  width: min(84vw, 340px);
+  padding: 22px 18px 18px;
+}
+.tb-wheel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  max-height: min(46dvh, 280px);
+  padding: 10px 6px;
+  margin: 8px 0 2px;
+  border-top: 1px solid rgba(139, 109, 63, 0.18);
+  border-bottom: 1px solid rgba(139, 109, 63, 0.18);
+  background:
+    linear-gradient(180deg, rgba(253, 246, 232, 0.9), rgba(245, 232, 205, 0.6));
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 16%, #000 84%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 16%, #000 84%, transparent 100%);
+}
+.tb-wheel-item {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 17px;
+  color: #6b563e;
+  cursor: pointer;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  transition: background 160ms ease-out, color 160ms ease-out, transform 160ms ease-out;
+}
+.tb-wheel-item:active {
+  transform: scale(0.96);
+}
+.tb-wheel-item.tb-wheel-cur {
+  background: linear-gradient(180deg, rgba(184, 147, 90, 0.26), rgba(184, 147, 90, 0.12));
+  color: #5c4423;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(74, 59, 47, 0.1);
+}
+.tb-dialog-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.tb-dialog-cancel,
+.tb-dialog-ok {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: transform 160ms ease-out, box-shadow 160ms ease-out, background 160ms ease-out;
+}
+.tb-dialog-cancel {
+  background: rgba(139, 109, 63, 0.1);
+  color: #8b7355;
+}
+.tb-dialog-ok {
+  background: linear-gradient(180deg, #8b2635, #6f1d2a);
+  color: #fdf6e8;
+  box-shadow: 0 3px 10px rgba(139, 38, 53, 0.24);
+}
+.tb-dialog-cancel:active,
+.tb-dialog-ok:active {
+  transform: scale(0.97);
+}
+
+/* ---------- 第五章 · 倒计时驿站 ---------- */
+.tb-cd-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+.tb-cd-input {
+  flex: 1 1 160px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 16px;
+  border: 1px solid rgba(139, 109, 63, 0.35);
+  border-radius: 10px;
+  background: rgba(255, 253, 248, 0.9);
+  color: #4a3b2f;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.tb-cd-input:focus {
+  border-color: #8b2635;
+  box-shadow: 0 0 0 3px rgba(139, 38, 53, 0.15);
+}
+.tb-cd-input::placeholder {
+  color: rgba(139, 115, 85, 0.55);
+}
+.tb-cd-date {
+  flex: 0 1 auto;
+  width: 150px;
+}
+.tb-cd-btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #8b2635, #6f1d2a);
+  color: #fdf6e8;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(139, 38, 53, 0.24);
+  transition: transform 160ms ease-out, box-shadow 160ms ease-out;
+}
+.tb-cd-btn:active {
+  transform: scale(0.97);
+}
+.tb-cd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+.tb-cd-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fdf6e8, #f5e8cd);
+  border: 1px dashed rgba(139, 109, 63, 0.4);
+  box-shadow: 0 3px 10px rgba(74, 59, 47, 0.1);
+}
+.tb-cd-card.tb-cd-today {
+  border-color: #8b2635;
+  box-shadow: 0 6px 18px rgba(139, 38, 53, 0.22);
+}
+.tb-cd-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tb-cd-name {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #4a3b2f;
+  overflow-wrap: break-word;
+}
+.tb-cd-stamp {
+  margin-top: 4px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: rgba(139, 115, 85, 0.85);
+}
+.tb-cd-days {
+  flex: 0 0 auto;
+  text-align: center;
+  min-width: 56px;
+}
+.tb-cd-num {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #8b2635;
+}
+.tb-cd-num.tb-cd-num-fire {
+  font-size: 26px;
+  color: #b4552d;
+}
+.tb-cd-num.tb-cd-num-past {
+  font-size: 22px;
+  color: rgba(139, 115, 85, 0.75);
+}
+.tb-cd-unit {
+  margin-top: 2px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: rgba(139, 115, 85, 0.8);
+}
+.tb-cd-del {
+  flex: 0 0 auto;
+  position: relative;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(139, 109, 63, 0.1);
+  cursor: pointer;
+  transition: background 160ms ease-out, transform 160ms ease-out;
+}
+/* 撕角 ×（纯 CSS，不用 emoji） */
+.tb-cd-del::before,
+.tb-cd-del::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: #8b7355;
+}
+.tb-cd-del::before { transform: translate(-50%, -50%) rotate(45deg); }
+.tb-cd-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.tb-cd-del:active {
+  transform: scale(0.92);
+  background: rgba(139, 38, 53, 0.14);
+}
+
+/* ---------- 第五章 · 年龄时钟 ---------- */
+.tb-age-chips {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  padding: 6px 2px 12px;
+}
+.tb-age-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 64px;
+  min-height: 44px;
+  padding: 4px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 160ms ease-out, transform 160ms ease-out;
+}
+.tb-age-chip:active {
+  transform: scale(0.95);
+}
+.tb-age-chip.tb-age-chip-on {
+  background: rgba(184, 147, 90, 0.16);
+}
+.tb-age-chip-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e8dcc8;
+  border: 2px solid rgba(139, 109, 63, 0.3);
+  transition: border-color 160ms ease-out;
+}
+.tb-age-chip-on .tb-age-chip-av {
+  border-color: #8b2635;
+}
+.tb-age-chip-name {
+  max-width: 60px;
+  font-size: 12px;
+  color: #6b563e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-age-clock {
+  margin-top: 4px;
+  padding: 24px 18px 20px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 253, 248, 0.95), rgba(245, 232, 205, 0.85));
+  border: 1px dashed rgba(139, 109, 63, 0.4);
+  box-shadow: 0 6px 18px rgba(74, 59, 47, 0.12);
+}
+.tb-age-face {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+}
+.tb-age-num {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  color: #5c4423;
+}
+.tb-age-unit {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: #8b7355;
+}
+.tb-age-sub {
+  margin-top: 12px;
+  text-align: center;
+  font-family: 'Noto Serif SC', serif;
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: rgba(139, 115, 85, 0.9);
+}
+.tb-age-bd-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(139, 109, 63, 0.3);
+}
+
+/* ---------- 统一动效收束 ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .tb-dialog-cancel:hover,
+  .tb-dialog-ok:hover,
+  .tb-cd-btn:hover {
+    box-shadow: 0 6px 16px rgba(74, 59, 47, 0.18);
+  }
+  .tb-cd-card:hover {
+    box-shadow: 0 6px 16px rgba(74, 59, 47, 0.14);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-wheel-item,
+  .tb-dialog-cancel,
+  .tb-dialog-ok,
+  .tb-cd-btn,
+  .tb-cd-del,
+  .tb-age-chip,
+  .tb-age-chip-av,
+  .tb-cd-card {
+    transition: none;
+  }
+  .tb-wheel {
+    scroll-behavior: auto;
+  }
 }

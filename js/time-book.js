@@ -82,7 +82,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       vToday.textContent = (TW.isEnabled() ? '虚拟今天 ' : '今天 ') + TW.getDayString();
       _updateBadge(badge);
     }, 1000);
-    cover._tick = tick;
+    root._tick = tick;   /* 挂 book 上：翻页/关书才清得掉（原 cover._tick 清不到=时钟泄漏） */
 
     /* 目录区：五章节 */
     var toc = _el('div', 'tb-toc');
@@ -91,7 +91,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       ['ch2', '第二章', '时光传记', '钢笔', '#8b2635'],
       ['ch3', '第三章', '记忆穿越', '拍立得', '#3d5a80'],
       ['ch4', '第四章', '未来信', '信封', '#c9884e'],
-      ['ch5', '第五章', '世界线徽章', '邮戳', '#6b5b95']
+      ['ch5', '第五章', '倒计时驿站', '沙漏', '#6b5b95']
     ].forEach(function (ch, i) {
       var row = _el('div', 'tb-toc-row');
       row.style.setProperty('--tb-tape-color', ch[4]);
@@ -137,6 +137,9 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     book.classList.add('tb-flipping');
     setTimeout(function () {
       _currentPage = page;
+      /* Codex查bug#1#3：翻页先清封面时钟+打字机timer，防泄漏/幽灵写DOM */
+      if (book._tick) { clearInterval(book._tick); book._tick = null; }
+      if (window._tbTypeTimer) { clearInterval(window._tbTypeTimer); window._tbTypeTimer = null; }
       book.innerHTML = '';
       if (page === 'cover') {
         if (book._tick) clearInterval(book._tick);
@@ -167,6 +170,8 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     root.classList.add('tb-closing');
     setTimeout(function () {
       if (root._tick) clearInterval(root._tick);
+      var bk = root.querySelector('.tb-book');
+      if (bk && bk._tick) clearInterval(bk._tick);
       root.remove();
     }, 300);
   }
@@ -199,7 +204,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       });
     },
     ch5: function () {
-      return _chapterShell('ch5', '第五章 · 世界线徽章', function (body) {
+      return _chapterShell('ch5', '第五章 · 倒计时驿站 · 年龄时钟', function (body) {
         if (window._tbCh5) window._tbCh5(body);
         else body.appendChild(_el('div', 'tb-page-empty', '章节模块加载中'));
       });
@@ -232,11 +237,12 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     root.appendChild(book);
     var closeBtn = _el('button', 'tb-close', '');
     closeBtn.setAttribute('aria-label', '关闭');
-    closeBtn.addEventListener('click', function (e) { e.stopPropagation(); root.remove(); });
+    /* Codex查bug#2：统一走 _closeBook，timer 才清得干净 */
+    closeBtn.addEventListener('click', function (e) { e.stopPropagation(); _closeBook(); });
     root.appendChild(closeBtn);
-    /* 点遮罩合书 */
+    /* 铁律防误触：点空白一律不退出、不回目录（只留 ‹ 返回与 ✕ 关闭） */
     root.addEventListener('click', function (e) {
-      if (e.target === root) _closeToCover();
+      e.stopPropagation();
     });
     document.body.appendChild(root);
     requestAnimationFrame(function () { root.classList.add('open'); });
@@ -500,51 +506,75 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       _form.age = parseInt(ageInput.value, 10) || null;
       onChange(_form);
     }
-    yearInput.addEventListener('input', sync);
-    ageInput.addEventListener('input', sync);
-    /* 滚轮选时间（主人嫌叠加时间麻烦——点输入弹大号拨盘） */
-    yearInput.addEventListener('click', function () {
-      _openWheelPicker('选年份', yearInput, _wheelRange(2024, 2124, parseInt(yearInput.value, 10) || 2030), function (v) { yearInput.value = v; sync(); });
+    /* readonly：绝不弹系统数字键盘（键盘弹出会把版面挤没 = 模块'消失'） */
+    yearInput.readOnly = true;
+    ageInput.readOnly = true;
+    /* 滚轮选时间（点输入弹居中大拨盘，选完只填值） */
+    yearInput.addEventListener('click', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      _openWheelPicker('选年份', _wheelRange(2024, 2124, parseInt(yearInput.value, 10) || 2030), function (v) { yearInput.value = v; sync(); });
     });
-    ageInput.addEventListener('click', function () {
-      _openWheelPicker('选年龄', ageInput, _wheelRange(10, 100, parseInt(ageInput.value, 10) || 30), function (v) { ageInput.value = v; sync(); });
+    ageInput.addEventListener('click', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      _openWheelPicker('选年龄', _wheelRange(10, 100, parseInt(ageInput.value, 10) || 30), function (v) { ageInput.value = v; sync(); });
     });
     return ticket;
   }
 
-  /* 内置滚轮拨盘（车票选时间，同 _openTimePicker 交互——不跨件耦合） */
+  /* 内置滚轮拨盘（居中弹出、点选高亮、确定只填值——不弹键盘、不动页面、不退出） */
   function _wheelRange(lo, hi, cur) {
     var list = [];
     for (var v = lo; v <= hi; v++) list.push(v);
     return { list: list, cur: cur };
   }
-  function _openWheelPicker(title, anchor, range, onPick) {
+  function _closePicker(mask) {
+    mask.classList.remove('open');
+    setTimeout(function () { if (mask && mask.remove) mask.remove(); }, 220);
+  }
+  function _openWheelPicker(title, range, onPick) {
+    /* 防重复弹出：旧拨盘先清掉 */
+    try {
+      var stale = document.querySelectorAll('.tb-dialog-mask');
+      stale.forEach(function (s) { s.remove(); });
+    } catch (e) {}
     var mask = _el('div', 'tb-dialog-mask');
-    var dlg = _el('div', 'tb-dialog');
+    /* 全链路掐断冒泡：点拨盘绝不会触到 tb-root 的任何全局点击（防'点了就退出'） */
+    mask.addEventListener('click', function (e) { e.stopPropagation(); });
+    var dlg = _el('div', 'tb-dialog tb-wheel-dlg');
+    dlg.addEventListener('click', function (e) { e.stopPropagation(); });
     dlg.appendChild(_el('div', 'tb-dialog-title', title));
     var scroll = _el('div', 'tb-dialog-scroll tb-wheel');
+    var curVal = range.cur;
     (range.list || []).forEach(function (v) {
       var item = _el('button', 'tb-wheel-item' + (v === range.cur ? ' tb-wheel-cur' : ''), String(v));
-      item.addEventListener('click', function () {
-        onPick(v);
-        mask.classList.remove('open');
-        setTimeout(function () { mask.remove(); }, 220);
+      item.addEventListener('click', function (e) {
+        e.stopPropagation();
+        scroll.querySelectorAll('.tb-wheel-item').forEach(function (x) { x.classList.remove('tb-wheel-cur'); });
+        item.classList.add('tb-wheel-cur');
+        curVal = v;
       });
       scroll.appendChild(item);
     });
     dlg.appendChild(scroll);
+    var btns = _el('div', 'tb-dialog-btns');
     var cancel = _el('button', 'tb-dialog-cancel', '取消');
-    cancel.addEventListener('click', function () {
-      mask.classList.remove('open');
-      setTimeout(function () { mask.remove(); }, 220);
+    cancel.addEventListener('click', function (e) { e.stopPropagation(); _closePicker(mask); });
+    var ok = _el('button', 'tb-dialog-ok', '确定');
+    ok.addEventListener('click', function (e) {
+      e.stopPropagation();
+      try { onPick(curVal); } catch (err) {}
+      _closePicker(mask);
     });
-    dlg.appendChild(cancel);
+    btns.appendChild(cancel);
+    btns.appendChild(ok);
+    dlg.appendChild(btns);
     mask.appendChild(dlg);
     document.body.appendChild(mask);
     requestAnimationFrame(function () { mask.classList.add('open'); });
+    /* 居中当前项：只改容器自身 scrollTop——禁用 scrollIntoView（会连带滚动整个视口） */
     try {
-      var cur = scroll.querySelector('.tb-wheel-cur');
-      if (cur) cur.scrollIntoView({ block: 'center' });
+      var curItem = scroll.querySelector('.tb-wheel-cur');
+      if (curItem) scroll.scrollTop = curItem.offsetTop - scroll.clientHeight / 2 + curItem.offsetHeight / 2;
     } catch (e) {}
   }
 
@@ -645,10 +675,12 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
       idx++;
     }, 30);
     book._typeTimer = typeTimer;
+    window._tbTypeTimer = typeTimer;   /* Codex查bug#3：翻页/关书统一清理 */
 
     var back = _el('button', 'tb-book-back', '‹ 合书返回');
     back.addEventListener('click', function () {
       clearInterval(typeTimer);
+      if (window._tbTypeTimer === typeTimer) window._tbTypeTimer = null;
       onBack();
     });
     return book;
@@ -657,6 +689,9 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
 
   /* §2 主体 */
   function buildCh2(body, shell) {
+    /* Codex查bug#5：重建表单必清旧选择，防'空表单却按旧配置生成' */
+    _form.char = null; _form.year = null; _form.age = null;
+    _form.theme = null; _form.words = null; _form.style = null;
     var formBox = _el('div', 'tb-bio-form');
     formBox.appendChild(_el('div', 'tb-card-title', '一 · 选人物（拍立得）'));
     formBox.appendChild(_photoWall(function () {}));
@@ -680,7 +715,10 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     /* 火漆生成按钮 */
     var genBtn = _el('button', 'tb-wax-seal', '盖章生成传记');
     genBtn.addEventListener('click', async function () {
+      /* Codex查bug#4：防重复点击并发生成 */
+      if (genBtn.disabled) return;
       if (!_form.char) { window.toast && window.toast('先选一位角色'); return; }
+      genBtn.disabled = true;
       genBtn.classList.add('tb-shine-btn', 'tb-stamp-slam-in');
       /* 骨架挂加载（克劳德逮的两悬补接·tb-skeleton 族） */
       try {
@@ -695,19 +733,25 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         var prompt = _buildPrompt();
         var text = '';
         if (window.callAI) {
-          text = await window.callAI(prompt);
+          /* callAI 要消息数组：传字符串会被当成空消息列表，接口必 400 */
+          text = await window.callAI([{ role: 'user', content: prompt }]);
         } else {
           text = '（AI 接口未就绪）';
         }
         genBtn.classList.remove('tb-shine-btn', 'tb-stamp-slam-in');
-        if (genBtn._skel && genBtn._skel.remove) genBtn._skel.remove();
-        body.innerHTML = '';
-        body.appendChild(_resultBook(String(text), function () {
+        if (genBtn._skel && genBtn._skel.remove) { genBtn._skel.remove(); genBtn._skel = null; }
+        if (!text || !String(text).trim()) throw new Error('AI 返回为空');
+        /* 先构建结果页，构建成功才换页——失败绝不把表单清成空壳 */
+        var result = _resultBook(String(text), function () {
           body.innerHTML = '';
           buildCh2(body);
-        }));
+        });
+        body.innerHTML = '';
+        body.appendChild(result);
       } catch (e) {
+        genBtn.disabled = false;
         genBtn.classList.remove('tb-shine-btn', 'tb-stamp-slam-in');
+        if (genBtn._skel && genBtn._skel.remove) { genBtn._skel.remove(); genBtn._skel = null; }
         window.toast && window.toast('生成失败：' + (e.message || e));
       }
     });
@@ -726,9 +770,10 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     if (text != null) e.textContent = text;
     return e;
   }
+  function _toast(msg) { if (window.toast) window.toast(msg); else console.log('[TimeBook] ' + msg); }
 
   function buildCh3(body) {
-    var TW = window.TimeWorld;
+    var TW = window.TimeWorld || { getNow: function () { return Date.now(); }, isEnabled: function () { return false; } };
     body.appendChild(_el('div', 'tb-card-title', '撕页日历 · 穿越到某天'));
     /* 撕页日历（复用 ch1 同款，这里独立一份精简版） */
     var cursor = new Date(TW.getNow());
@@ -751,12 +796,18 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         (function (day) {
           var cell = _el('div', 'tb-cal-day', String(day));
           cell.addEventListener('click', function () {
-            var targetTs = new Date(cursor.getFullYear(), cursor.getMonth(), day, 12, 0, 0).getTime();
-            if (!TW.isEnabled()) { _toast('请先开启虚拟时间，才能跳转'); return; }
-            /* 跳时间+dispatch tw-jump（记忆面板联动契约） */
-            TW.addOffset(targetTs - TW.getNow());
-            window.dispatchEvent(new CustomEvent('tw-jump', { detail: { virtualTs: targetTs, y: cursor.getFullYear(), m: cursor.getMonth() + 1, d: day } }));
-            _showDayMemories(body, cursor.getFullYear(), cursor.getMonth() + 1, day);
+            var y = cursor.getFullYear(), m = cursor.getMonth() + 1;
+            var targetTs = new Date(y, m - 1, day, 12, 0, 0).getTime();
+            if (TW && TW.isEnabled()) {
+              /* 跳时间+dispatch tw-jump（记忆面板联动契约） */
+              TW.addOffset(targetTs - TW.getNow());
+              window.dispatchEvent(new CustomEvent('tw-jump', { detail: { virtualTs: targetTs, y: y, m: m, d: day } }));
+              _toast('已穿越到 ' + y + '年' + m + '月' + day + '日');
+            } else {
+              /* 点了必须有反应：没开虚拟时间也照样翻这天的记忆 */
+              _toast('虚拟时间未开启，只翻这天的记忆');
+            }
+            _showDayMemories(body, y, m, day);
           });
           grid.appendChild(cell);
         })(d);
@@ -771,7 +822,9 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
   }
 
   /* 某天记忆=拍立得胶片展开 */
+  var _dayReq = 0;
   function _showDayMemories(body, y, m, d) {
+    var req = ++_dayReq;
     var old = body.querySelector('.tb-day-memories');
     if (old) old.remove();
     var box = _el('div', 'tb-day-memories');
@@ -787,6 +840,8 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
           });
         }
       } catch (e) {}
+      /* Codex查bug#6：快速连点日期防乱序回填 */
+      if (req !== _dayReq) return;
       if (!rows.length) {
         box.appendChild(_el('div', 'tb-empty-photo', '这天还没有故事'));
         body.appendChild(box);
@@ -922,7 +977,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
   window._tbCh4 = buildCh4;
 })();
 
-/* ================= §5 第五章 · 世界线徽章（①） ================= */
+/* ================= §5 第五章 · 倒计时驿站 + 年龄时钟（替换旧世界线徽章） ================= */
 (function () {
   'use strict';
   function _el(tag, cls, text) {
@@ -931,42 +986,241 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     if (text != null) e.textContent = text;
     return e;
   }
+  function _toast(msg) { if (window.toast) window.toast(msg); else console.log('[TimeBook] ' + msg); }
+
+  var CDKEY = 'tb_countdowns';
+  var BDKEY = 'tb_birthdays';
+
+  /* 存储：db.config 单 key 数组（localStorage 兜底，同未来信） */
+  function _loadCfg(key, cb) {
+    try {
+      if (window.db && window.db.config) {
+        window.db.config.get(key).then(function (r) {
+          cb(r && Array.isArray(r.value) ? r.value : []);
+        }).catch(function () {
+          try { cb(JSON.parse(localStorage.getItem(key) || '[]')); } catch (e) { cb([]); }
+        });
+      } else {
+        cb(JSON.parse(localStorage.getItem(key) || '[]'));
+      }
+    } catch (e) { cb([]); }
+  }
+  function _saveCfg(key, list) {
+    try {
+      if (window.db && window.db.config) {
+        window.db.config.put({ key: key, value: list }).catch(function () {
+          try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+        });
+      } else localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {}
+  }
+
+  /* 虚拟今天 → 目标日期的整天数差 */
+  function _dayDiff(nowTs, dateStr) {
+    var now = new Date(nowTs);
+    var t = new Date(String(dateStr) + 'T00:00:00');
+    if (isNaN(t.getTime())) return null;
+    var a = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    return Math.round((t.getTime() - a) / 86400000);
+  }
 
   function buildCh5(body) {
     var TW = window.TimeWorld;
-    body.appendChild(_el('div', 'tb-card-title', '集章册 · 世界线徽章'));
-    var book = _el('div', 'tb-stamp-book');
-    [
-      ['虚拟世界', 'tb-badge-virtual', function () { return TW.isEnabled() && TW.getSpeed() !== 0; }],
-      ['现实世界', 'tb-badge-real', function () { return !TW.isEnabled(); }],
-      ['时间静止', 'tb-badge-still', function () { return TW.getSpeed() === 0; }]
-    ].forEach(function (b) {
-      var slot = _el('div', 'tb-stamp-slot');
-      var stamp = _el('div', 'tb-stamp-seal ' + b[1], b[0]);
-      if (b[2]()) stamp.classList.add('tb-stamped');
-      slot.appendChild(stamp);
-      book.appendChild(slot);
-    });
-    body.appendChild(book);
-    /* 实时刷新盖章 */
-    if (TW.onChange) {
-      TW.onChange(function () {
-        var slots = body.querySelectorAll('.tb-stamp-seal');
-        var states = [TW.isEnabled() && TW.getSpeed() !== 0, !TW.isEnabled(), TW.getSpeed() === 0];
-        slots.forEach(function (s, i) { s.classList.toggle('tb-stamped', !!states[i]); });
+
+    /* ============ 上半 · 倒计时驿站 ============ */
+    body.appendChild(_el('div', 'tb-card-title', '倒计时驿站 · 寄往未来的日子'));
+    var addRow = _el('div', 'tb-cd-add');
+    var cdTitle = _el('input', 'tb-cd-input');
+    cdTitle.placeholder = '想倒数的事（生日/旅行/考试…）';
+    cdTitle.maxLength = 16;
+    cdTitle.setAttribute('enterkeyhint', 'done');
+    var cdDate = _el('input', 'tb-ticket-year tb-cd-date');
+    cdDate.type = 'date';
+    var cdBtn = _el('button', 'tb-cd-btn', '贴上车票');
+    addRow.appendChild(cdTitle);
+    addRow.appendChild(cdDate);
+    addRow.appendChild(cdBtn);
+    body.appendChild(addRow);
+    var cdList = _el('div', 'tb-cd-list');
+    body.appendChild(cdList);
+
+    function renderCds() {
+      cdList.innerHTML = '';
+      _loadCfg(CDKEY, function (list) {
+        if (!list.length) {
+          cdList.appendChild(_el('div', 'tb-empty-hint', '还没有倒数的日子，贴一张车票吧'));
+          return;
+        }
+        list.sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+        list.forEach(function (it) {
+          var diff = _dayDiff(TW && TW.getNow ? TW.getNow() : Date.now(), it.date);
+          var card = _el('div', 'tb-cd-card' + (diff === 0 ? ' tb-cd-today' : ''));
+          var left = _el('div', 'tb-cd-main');
+          left.appendChild(_el('div', 'tb-cd-name', it.title || '倒数的日子'));
+          left.appendChild(_el('div', 'tb-cd-stamp', String(it.date).replace(/-/g, '.')));
+          card.appendChild(left);
+          var days = _el('div', 'tb-cd-days');
+          if (diff === null) {
+            days.appendChild(_el('div', 'tb-cd-num tb-cd-num-past', '?'));
+            days.appendChild(_el('div', 'tb-cd-unit', '日期无效'));
+          } else if (diff > 0) {
+            days.appendChild(_el('div', 'tb-cd-num', String(diff)));
+            days.appendChild(_el('div', 'tb-cd-unit', '天后'));
+          } else if (diff === 0) {
+            days.appendChild(_el('div', 'tb-cd-num tb-cd-num-fire', '今'));
+            days.appendChild(_el('div', 'tb-cd-unit', '就是今天'));
+          } else {
+            days.appendChild(_el('div', 'tb-cd-num tb-cd-num-past', String(-diff)));
+            days.appendChild(_el('div', 'tb-cd-unit', '天前'));
+          }
+          card.appendChild(days);
+          var del = _el('button', 'tb-cd-del', '');
+          del.setAttribute('aria-label', '撕下车票');
+          del.addEventListener('click', function (e) {
+            e.stopPropagation();
+            _loadCfg(CDKEY, function (l2) {
+              _saveCfg(CDKEY, l2.filter(function (x) {
+                return (x.id || ('cd_' + x.createdAt)) !== (it.id || ('cd_' + it.createdAt));
+              }));
+              renderCds();
+              _toast('车票已撕下');
+            });
+          });
+          card.appendChild(del);
+          cdList.appendChild(card);
+        });
       });
     }
-    /* 徽章显示开关 */
-    var swRow = _el('div', 'tb-switch-row');
-    swRow.appendChild(_el('div', 'tb-switch-label', '封面常显徽章'));
-    var sw = _el('button', 'tb-brass-lever tb-lever-on');
-    sw.addEventListener('click', function () {
-      sw.classList.toggle('tb-lever-on');
-      var badge = document.getElementById('tb-worldline-badge');
-      if (badge) badge.style.display = sw.classList.contains('tb-lever-on') ? '' : 'none';
+    cdBtn.addEventListener('click', function () {
+      var t = cdTitle.value.trim();
+      var d = cdDate.value;
+      if (!t) { _toast('先写一句想倒数的事'); return; }
+      if (!d) { _toast('选个目标日子'); return; }
+      _loadCfg(CDKEY, function (list) {
+        /* Codex查bug#11：唯一 id，防同毫秒 createdAt 撞车误删 */
+        list.push({ id: 'cd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), title: t, date: d, createdAt: Date.now() });
+        _saveCfg(CDKEY, list);
+        cdTitle.value = '';
+        cdDate.value = '';
+        renderCds();
+        _toast('车票贴好啦');
+      });
     });
-    swRow.appendChild(sw);
-    body.appendChild(swRow);
+    renderCds();
+
+    /* ============ 下半 · 年龄时钟 ============ */
+    body.appendChild(_el('div', 'tb-card-title', '年龄时钟 · 此刻的TA几岁'));
+    var chipRow = _el('div', 'tb-age-chips');
+    var ageBox = _el('div', 'tb-age-clock');
+    body.appendChild(chipRow);
+    body.appendChild(ageBox);
+
+    var picked = null;
+
+    function renderAge() {
+      ageBox.innerHTML = '';
+      if (!picked) {
+        ageBox.appendChild(_el('div', 'tb-empty-hint', '选一位角色，看看TA此刻的年龄'));
+        return;
+      }
+      _loadCfg(BDKEY, function (list) {
+        var key = picked.id != null ? String(picked.id) : (picked.name || '');
+        var rec = null;
+        list.forEach(function (x) { if (String(x.charId) === key) rec = x; });
+        var face = _el('div', 'tb-age-face');
+        var num = _el('div', 'tb-age-num', '--');
+        var unit = _el('div', 'tb-age-unit', '');
+        var sub = _el('div', 'tb-age-sub', '');
+        if (rec && rec.birthday) {
+          var now = new Date(TW && TW.getNow ? TW.getNow() : Date.now());
+          var b = new Date(rec.birthday + 'T00:00:00');
+          if (isNaN(b.getTime())) {
+            num.textContent = '--';
+            unit.textContent = '生日无效';
+            sub.textContent = '重新贴一张生日车票';
+          } else {
+            var years = now.getFullYear() - b.getFullYear();
+            var months = now.getMonth() - b.getMonth();
+            if (now.getDate() < b.getDate()) months--;
+            if (months < 0) { years--; months += 12; }
+            if (years < 0) {
+              num.textContent = '--';
+              unit.textContent = '还没出生';
+              sub.textContent = 'TA 在 ' + b.getFullYear() + ' 年来到这个世界';
+            } else {
+              num.textContent = String(years);
+              unit.textContent = '岁 ' + months + ' 个月';
+              /* 生日倒计时（按虚拟今天算） */
+              var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+              var nb = new Date(now.getFullYear(), b.getMonth(), b.getDate()).getTime();
+              var ddiff = Math.round((nb - today) / 86400000);
+              if (ddiff < 0) ddiff = Math.round((new Date(now.getFullYear() + 1, b.getMonth(), b.getDate()).getTime() - today) / 86400000);
+              sub.textContent = ddiff === 0 ? '今天就是TA的生日' : '距离生日还有 ' + ddiff + ' 天';
+            }
+          }
+        } else {
+          num.textContent = '--';
+          unit.textContent = '未设生日';
+          sub.textContent = '在下面贴上TA的生日车票';
+        }
+        face.appendChild(num);
+        face.appendChild(unit);
+        ageBox.appendChild(face);
+        ageBox.appendChild(sub);
+        var bdRow = _el('div', 'tb-age-bd-row');
+        var bdInput = _el('input', 'tb-ticket-year tb-cd-date');
+        bdInput.type = 'date';
+        if (rec && rec.birthday) bdInput.value = rec.birthday;
+        var bdBtn = _el('button', 'tb-cd-btn', '记住生日');
+        bdBtn.addEventListener('click', function () {
+          if (!bdInput.value) { _toast('选个生日日期'); return; }
+          _loadCfg(BDKEY, function (l2) {
+            var item = { charId: key, name: picked.name || '角色', birthday: bdInput.value };
+            var idx = -1;
+            l2.forEach(function (x, i) { if (String(x.charId) === key) idx = i; });
+            if (idx >= 0) l2[idx] = item; else l2.push(item);
+            _saveCfg(BDKEY, l2);
+            _toast('记住啦，年龄时钟开始走');
+            renderAge();
+          });
+        });
+        bdRow.appendChild(bdInput);
+        bdRow.appendChild(bdBtn);
+        ageBox.appendChild(bdRow);
+      });
+    }
+
+    (async function () {
+      var chars = [];
+      try {
+        if (window.db && window.db.characters) chars = await window.db.characters.toArray();
+        else if (window._characters) chars = window._characters;
+      } catch (e) {}
+      if (!chars.length) {
+        chipRow.appendChild(_el('div', 'tb-empty-hint', '角色档案还是空的'));
+        renderAge();
+        return;
+      }
+      chars.slice(0, 12).forEach(function (ch) {
+        var chip = _el('button', 'tb-age-chip');
+        var av = _el('div', 'tb-age-chip-av');
+        if (ch.avatar) {
+          av.style.backgroundImage = 'url(' + ch.avatar + ')';
+          av.style.backgroundSize = 'cover';
+          av.style.backgroundPosition = 'center';
+        }
+        chip.appendChild(av);
+        chip.appendChild(_el('div', 'tb-age-chip-name', ch.name || '角色'));
+        chip.addEventListener('click', function () {
+          chipRow.querySelectorAll('.tb-age-chip').forEach(function (x) { x.classList.remove('tb-age-chip-on'); });
+          chip.classList.add('tb-age-chip-on');
+          picked = ch;
+          renderAge();
+        });
+        chipRow.appendChild(chip);
+      });
+      renderAge();
+    })();
   }
 
   window._tbCh5 = buildCh5;
