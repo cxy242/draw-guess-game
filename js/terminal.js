@@ -1217,7 +1217,7 @@
       : { url: '', key: '', model: '', complete: false }
     var pfRow = await db.config.get('mcpPrefetch')
     var pf = (pfRow && pfRow.value) || {}
-    var pfMode = ['on','off','async'].indexOf(pf.mode)>=0?pf.mode:'off'
+    var pfMode = pf.mode === 'off' ? 'off' : 'on'
     var pfTimeout = Number(pf.timeoutSec) > 0 ? Number(pf.timeoutSec) : 20
     var html =
       '<div class="setting-section">' +
@@ -1249,7 +1249,6 @@
           '<label class="form-label">回复前置跑腿路由</label>' +
           '<select class="input-field" id="mcp-prefetch-mode">' +
             '<option value="on"' + (pfMode === 'on' ? ' selected' : '') + '>开启（先跑腿再回复，限时快失败）</option>' +
-            '<option value="async"'+(pfMode==='async'?' selected':'')+'>后台查询（不等待，结果供下次回复参考）</option>' +
             '<option value="off"' + (pfMode === 'off' ? ' selected' : '') + '>关闭（不跑腿，回复最快）</option>' +
           '</select>' +
           '<label class="form-label">跑腿等待上限（超时先回复，不干等）</label>' +
@@ -1340,7 +1339,7 @@
         await db.config.put({
           key: 'mcpPrefetch',
           value: {
-            mode: page.querySelector('#mcp-prefetch-mode').value,
+            mode: page.querySelector('#mcp-prefetch-mode').value === 'off' ? 'off' : 'on',
             timeoutSec: Number(page.querySelector('#mcp-prefetch-timeout').value) || 20
           }
         })

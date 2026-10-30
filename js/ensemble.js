@@ -29,7 +29,7 @@ window.showEnsemblePage = async function() {
         // Fallback: find user from db.characters
         try {
           var users = await db.characters.where('type').equals('user').toArray();
-          if (users.length === 1) uid = users[0].id;
+          if (users.length) uid = users[0].id;
         } catch(e2) {}
       }
       if (uid) {
@@ -45,7 +45,7 @@ window.showEnsemblePage = async function() {
     // Check for active session (temporary exit auto-resume)
     var activeSession = null;
     try { activeSession = JSON.parse(localStorage.getItem('ensemble_active_session') || 'null'); } catch(e) {}
-    if (activeSession && uid && String(activeSession.uid) === String(uid) && activeSession.chars && activeSession.chars.length) {
+    if (activeSession && activeSession.uid && activeSession.chars && activeSession.chars.length) {
       // Auto-resume: reload characters and enter chat
       var reloadedChars = [];
       try {
@@ -106,8 +106,7 @@ function showExitModal(page) {
     try {
       localStorage.setItem('ensemble_active_session', JSON.stringify({
         uid: _state.uid,
-        chars: (_state.chars || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
-        currentIds: (_state.current || []).map(function(c) { return c.char.id; }),
+        chars: (_state.current || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
         mode: _state.mode || 'meet',
         sessionId: getSessionId()
       }));
@@ -128,8 +127,7 @@ function showExitModal(page) {
           key: 'ensemble_history_' + now,
           value: {
             uid: _state.uid,
-            chars: (_state.chars || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
-        currentIds: (_state.current || []).map(function(c) { return c.char.id; }),
+            chars: (_state.current || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
             mode: _state.mode || 'meet',
             charNames: charNames,
             endedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
@@ -366,8 +364,7 @@ async function renderModes(page, uid, chars) {
 // ===== 见面模式 =====
 function enterMeet(page, uid, chars, sessionId) {
   // sessionId按"参与者组合"稳定生成：同一群人=同一会话，历史不丢
-  setState(page, { view: 'chat', mode: 'meet', uid: uid, chars: chars, current: chars.slice(), sessionId: sessionId || uid + '_ens_' + chars.map(function(c){return c.char.id}).sort(function(a,b){return a-b}).join('-'), participants: chars.map(function(c){return c.char.id}), pendingWrites: [] });
-  try { var saved=JSON.parse(localStorage.getItem('ensemble_active_session')||'null');if(saved&&saved.sessionId===sessionId&&Array.isArray(saved.currentIds))_state.current=chars.filter(function(c){return saved.currentIds.map(String).includes(String(c.char.id))}); } catch(e){}
+  setState(page, { view: 'chat', mode: 'meet', uid: uid, chars: chars, current: chars.slice() });
   setTitle(page, '群像 · ' + chars.length + '人在线');
   renderChat(page);
 }
@@ -1182,7 +1179,6 @@ async function showHistory(page, uid, chars) {
 function getSessionId() {
   // 按"参与者组合"稳定生成会话ID：同一群人=同一会话，重进历史不丢
   // （全选角池 _state.chars 参与生成，请离/加入不改ID，历史归属稳定——Codex审查意见已考虑）
-  if (_state.sessionId) return _state.sessionId;
   var list = _state.chars || _state.current || [];
   var ids = list.map(function(c) { return c.char.id; }).sort(function(a, b) { return a - b; });
   return (_state.uid || 0) + '_ens_' + ids.join('-');
@@ -1194,19 +1190,14 @@ function queryMsgRows() {
   var sessCharIds = (_state.chars || _state.current || []).map(function(c) { return c.char.id; });
   return db.offlineChats.toArray().then(function(all) {
     return all.filter(function(m) {
-      if (m.ownerUid !== _state.uid || m.mode !== 'ensemble' || m.ended) return false;
+      if (m.ownerUid !== _state.uid || m.mode !== 'ensemble') return false;
       if (m.sessionId) return m.sessionId === sid;
       return sessCharIds.indexOf(m.charId) !== -1;
     }).sort(function(a, b) { return (a.createdAt||0) - (b.createdAt||0); });
   });
 }
 
-function saveChatMsg(role,text){
-  var task=saveChatMsgInternal(role,text);_state.pendingWrites=_state.pendingWrites||[];_state.pendingWrites.push(task);
-  task.catch(function(e){_state.saveError=e;window.toast&&toast('群像记录保存失败，请重试后再结束');});
-  return task;
-}
-async function saveChatMsgInternal(role, text) {
+async function saveChatMsg(role, text) {
   try {
     if (!_state.uid || !db.offlineChats || _state._loading) return null;
     var id = await db.offlineChats.add({
@@ -1214,9 +1205,6 @@ async function saveChatMsgInternal(role, text) {
       chatId: 0,
       charId: _state.current && _state.current[0] ? _state.current[0].char.id : 0,
       sessionId: getSessionId(),
-      participantIds: (_state.chars || []).map(function(c){return c.char.id}),
-      presentCharIds: (_state.current || []).map(function(c){return c.char.id}),
-      speakerName: role === 'user' ? (_state.userName || '用户') : '群像记录（各角色分段标注）',
       mode: 'ensemble',
       role: role,
       content: text,
@@ -1224,7 +1212,7 @@ async function saveChatMsgInternal(role, text) {
       realCreatedAt: Date.now(),
     });
     return id;
-  } catch(e) { console.error('[ensemble] save:', e); throw e; }
+  } catch(e) { console.error('[ensemble] save:', e); return null; }
 }
 
 async function loadChatHistory(page) {
@@ -1318,9 +1306,9 @@ async function loadChatHistory(page) {
 
     rows.forEach(function(m) {
       if (m.role === 'user') {
-        _state.history.push(Object.assign({},m,{role:'user'}));
+        _state.history.push({ role: 'user', content: m.content });
       } else if (m.role === 'assistant' || m.role === 'ai') {
-        _state.history.push(Object.assign({},m,{role:'assistant'}));
+        _state.history.push({ role: 'assistant', content: m.content });
       }
     });
 
@@ -1490,7 +1478,7 @@ async function clearChatHistory() {
     if (!_state.uid || !db.offlineChats) return;
     var rows = await queryMsgRows();
     var ids = rows.map(function(m) { return m.id; });
-    if (ids.length) await db.offlineChats.where('id').anyOf(ids).modify({ ended: true });
+    if (ids.length) await db.offlineChats.bulkDelete(ids);
     _state.history = [];
     _state._historyLoaded = false;
   } catch(e) { console.error('[ensemble] clear:', e); }
@@ -1569,7 +1557,7 @@ async function openEnsembleSettings(page, uid, chars) {
       }
     });
     Object.keys(days).slice(0, 10).forEach(function(d) {
-      h += '<div class="ens-history-item"><span>' + esc(d) + '</span><span class="ens-history-count">' + days[d] + '条</span></div>';
+      h += '<div class="ens-history-item ens-history-clickable" data-date="' + esc(d) + '" style="cursor:pointer"><span>' + esc(d) + '</span><span class="ens-history-count">' + days[d] + '条 <i class="fa fa-angle-right" style="margin-left:4px;opacity:0.5"></i></span></div>';
     });
   } else {
     h += '<div style="color:#8a8a8a;font-size:13px;padding:8px 0;">暂无记录</div>';
@@ -1595,6 +1583,14 @@ async function openEnsembleSettings(page, uid, chars) {
     };
   }
 
+  // [v6.5.6] 过往见面记录：点开查看当日内容 + 重新总结
+  body.querySelectorAll('.ens-history-clickable').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var d = el.getAttribute('data-date');
+      _ensShowHistoryDay(page, d, history);
+    });
+  });
+
   var clearBtn = body.querySelector('#ens-clear');
   if (clearBtn) {
     clearBtn.onclick = function() {
@@ -1613,34 +1609,114 @@ async function openEnsembleSettings(page, uid, chars) {
   }
 }
 
+// ===== [v6.5.6] 过往见面记录：按日查看 + 重新总结 =====
+function _ensShowHistoryDay(page, dateStr, history) {
+  var body = page.querySelector('.ens-settings-body') || page.querySelector('.ens-body') || page;
+  if (!body) return;
+  var dayMsgs = (history || []).filter(function(m) {
+    if (!m.createdAt) return false;
+    try { return new Date(m.createdAt).toLocaleDateString() === dateStr; } catch(e) { return false; }
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'ens-history-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(30,32,36,0.45);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 200ms ease-out';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:18px;width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(40,50,64,0.18);transform:scale(0.96);transition:transform 220ms cubic-bezier(0.23,1,0.32,1)';
+  var rowsHtml = dayMsgs.length ? dayMsgs.map(function(m) {
+    var isU = m.role === 'user';
+    return '<div style="margin:10px 0;padding:10px 14px;border-radius:12px;background:' + (isU ? 'rgba(107,125,141,0.08)' : '#f6f7f9') + '">' +
+      '<div style="font-size:11px;color:#9aabab;margin-bottom:4px">' + (isU ? '用户' : '角色') + (m.createdAt ? ' · ' + esc(new Date(m.createdAt).toLocaleString()) : '') + '</div>' +
+      '<div style="font-size:14px;line-height:1.65;color:#2d2b2e;white-space:pre-wrap;word-break:break-word">' + esc(m.content || '') + '</div></div>';
+  }).join('') : '<div style="padding:24px;text-align:center;color:#9aabab;font-size:13px">当天没有可显示的消息</div>';
+  box.innerHTML =
+    '<div style="padding:16px 20px;border-bottom:1px solid rgba(107,125,141,0.1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">' +
+      '<div><div style="font-size:16px;font-weight:600;color:#2d2b2e">' + esc(dateStr) + '</div>' +
+      '<div style="font-size:11px;color:#9aabab;margin-top:2px">' + dayMsgs.length + '条记录</div></div>' +
+      '<button class="ens-history-close" style="width:36px;height:36px;border-radius:50%;border:1px solid rgba(107,125,141,0.15);background:#fff;cursor:pointer;color:#6b7d8d;font-size:15px"><i class="fa fa-times"></i></button>' +
+    '</div>' +
+    '<div style="flex:1;overflow-y:auto;padding:6px 20px 12px;-webkit-overflow-scrolling:touch">' + rowsHtml + '</div>' +
+    '<div style="padding:14px 20px;border-top:1px solid rgba(107,125,141,0.1);flex-shrink:0">' +
+      '<button class="ens-history-resum" style="width:100%;padding:13px;border-radius:12px;border:none;background:#6b7d8d;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:transform 160ms ease-out"><i class="fa fa-rotate" style="margin-right:8px"></i>重新总结这一天</button>' +
+    '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function() {
+    overlay.style.opacity = '1';
+    box.style.transform = 'scale(1)';
+  });
+  function close() {
+    overlay.style.opacity = '0';
+    box.style.transform = 'scale(0.96)';
+    setTimeout(function() { overlay.remove(); }, 220);
+  }
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+  box.querySelector('.ens-history-close').addEventListener('click', close);
+
+  box.querySelector('.ens-history-resum').addEventListener('click', async function() {
+    if (!dayMsgs.length) { window.toast && window.toast('这一天没有可总结的内容'); return; }
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin" style="margin-right:8px"></i>正在重新总结...';
+    try {
+      if (!window.WanWanMemory || !window.WanWanMemory.summarizeMeeting) throw new Error('记忆系统未加载');
+      var uid = _state.uid;
+      var chars = _state.current || [];
+      var sessionId = 'ensemble_' + uid + '_resum_' + new Date(dateStr).getTime();
+      var msgs = dayMsgs.map(function(m) { return { role: m.role, content: m.content }; });
+      for (var i = 0; i < chars.length; i++) {
+        var ch = chars[i].char;
+        await window.WanWanMemory.summarizeMeeting(ch.id, ch.id, uid, sessionId, msgs, (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()));
+      }
+      btn.innerHTML = '<i class="fa fa-check" style="margin-right:8px"></i>总结完成';
+      window.toast && window.toast('已重新总结当天的见面记录'); // 日期不进toast，防二次解析
+      setTimeout(close, 900);
+    } catch(e) {
+      console.error('[ensemble] resummarize error:', e);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-rotate" style="margin-right:8px"></i>重新总结这一天';
+      window.toast && window.toast('总结失败：' + (e.message || '未知错误'));
+    }
+  });
+}
+
 // ===== 见面总结 =====
 async function summarizeAndEnd(page) {
-  if(_state.summaryPending)return;_state.summaryPending=true;
-  try{
-    await Promise.all(_state.pendingWrites||[]);
-    if(_state.saveError)throw _state.saveError;
-    var rows=await queryMsgRows();
-    if(!rows.length)throw new Error('没有可总结的聊天记录');
-    var participants=new Set();
-    rows.forEach(function(m){(m.presentCharIds||m.participantIds||(_state.chars||[]).map(function(c){return c.char.id})).forEach(function(id){participants.add(id)})});
-    var failures=[];
-    for(var id of participants){
-      var ch=await db.characters.get(Number(id)||id);if(!ch||ch.type==='user')continue;
-      var source=rows.filter(function(m){return !m.presentCharIds||m.presentCharIds.map(String).includes(String(id))});
-      if(!source.some(function(m){return m.role!=='system'}))continue;
-      var chat=await db.chats.where('[ownerUid+charId]').equals([_state.uid,ch.id]).first();
-      var chatId=chat&&chat.id||await db.chats.add({ownerUid:_state.uid,charId:ch.id,createdAt:WanWanRuntime.now(),realCreatedAt:Date.now(),unread:0});
-      var sourceId=getSessionId()+':'+rows[0].id+'-'+rows[rows.length-1].id;
-      try{
-        var result=await WanWanMemory.summarizeMeeting(chatId,ch.id,_state.uid,sourceId,source,WanWanRuntime.now(),{sourceType:'ensemble',participants:Array.from(participants)});
-        if(!result||!result.ok)failures.push(ch.name);
-      }catch(e){failures.push(ch.name);console.error('[ensemble] 总结待重试',e)}
+  if (!window.WanWanMemory || !window.WanWanMemory.summarizeMeeting) {
+    window.toast && window.toast('记忆系统未加载');
+    return;
+  }
+  window.toast && window.toast('正在总结...');
+  try {
+    var uid = _state.uid;
+    var chars = _state.current || [];
+    var history = _state.history || [];
+    if (!history.length) { window.toast && window.toast('没有聊天内容'); return; }
+
+    for (var i = 0; i < chars.length; i++) {
+      var ch = chars[i].char;
+      var sessionId = 'ensemble_' + uid + '_' + ch.id + '_' + Date.now();
+      var summaryMsgs = history.map(function(m) { return { role: m.role, content: m.content }; });
+      try {
+        await window.WanWanMemory.summarizeMeeting(ch.id, ch.id, uid, sessionId, summaryMsgs, (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()));
+      } catch(e) { console.error('[ensemble] summarize ' + ch.name, e); }
     }
-    if(failures.length)throw new Error(failures.join('、')+'总结失败，原文已保留，可重试');
-    await clearChatHistory();localStorage.removeItem('ensemble_active_session');
-    window.toast&&toast('参与角色的独立记忆已保存，原文已归档');renderChat(page);
-  }catch(e){window.toast&&toast(e.message||'总结失败，原文已保留');}
-  finally{_state.summaryPending=false;}
+
+    if (db.offlineChats) {
+      await db.offlineChats.add({
+        ownerUid: uid, chatId: 0, charId: 0,
+        mode: 'ensemble', role: 'system',
+        content: '见面结束 · ' + (window.TimeWorld ? window.TimeWorld.getFormattedNow() : new Date().toLocaleString()),
+        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+      });
+    }
+
+    await clearChatHistory();
+    window.toast && window.toast('已总结并保存');
+    renderChat(page);
+  } catch(e) {
+    console.error('[ensemble] summarize error:', e);
+    window.toast && window.toast('总结失败');
+  }
 }
 
 // ===== 记忆读取 =====

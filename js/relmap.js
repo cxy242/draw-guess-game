@@ -274,7 +274,8 @@ function _relSetHeaderRight(page, html) {
 function _relSetBackAction(page, fn) {
   var btn = page.querySelector('#rel-back');
   if (btn) {
-    btn.onclick = fn;
+    btn.onclick = null;
+    btn.addEventListener('click', fn);
   }
 }
 
@@ -282,13 +283,104 @@ function _relSetBackAction(page, fn) {
 //  GRAPH DATA BUILDER
 // =============================================================
 
+// ===== [v6.5.6 关系网美化] 四圈分色 + 亲密度一数三用 + 环状布局 =====
+// 分类四圈：家人红 / 朋友蓝 / 同事绿 / 陌生人灰（主人钦定）
+var _REL_CATS = {
+  family:    { key: 'family',    label: '家人',   rgb: [212, 130, 130], ring: 150 },
+  friend:    { key: 'friend',    label: '朋友',   rgb: [91, 154, 255],  ring: 250 },
+  colleague: { key: 'colleague', label: '同事',   rgb: [124, 186, 150], ring: 350 },
+  stranger:  { key: 'stranger',  label: '陌生人', rgb: [158, 166, 172], ring: 440 }
+};
+
+function _relCategorize(relType) {
+  var t = String(relType || '');
+  if (/父|母|爸|妈|哥|姐|弟|妹|爷|奶|外公|外婆|叔|姑|舅|姨|兄|夫|妻|老公|老婆|儿子|女儿|家人|亲戚|表姐|表哥|表妹|表弟|堂|子女|家母|家父|继/.test(t)) return _REL_CATS.family;
+  if (/闺蜜|朋友|好友|死党|同桌|发小|青梅|竹马|玩伴|室友|兄弟|姐妹|同学|挚友|密友|伙伴|玩得来/.test(t)) return _REL_CATS.friend;
+  if (/同事|上司|老板|领导|客户|合作|导师|老师|师[^傅母]|师傅|学长|学姐|学弟|学妹|搭档|组员|工作|同行|上下级|师徒/.test(t)) return _REL_CATS.colleague;
+  return _REL_CATS.stranger;
+}
+
+// 亲密度一数三用：粗细 + 颜色深浅 + 离心距离（越亲越近越粗越深）
+function _relLinkWidth(l) {
+  var aff = Math.max(0, Math.min(100, l.affinity == null ? 50 : l.affinity));
+  return 0.8 + aff / 35; // 0.8 ~ 3.7，细腻渐变，绝不糊成大粗线
+}
+function _relLinkColor(l) {
+  var aff = Math.max(0, Math.min(100, l.affinity == null ? 50 : l.affinity));
+  var cat = l._cat || _REL_CATS.stranger;
+  var alpha = 0.18 + aff / 100 * 0.42; // 颜色深浅=亲密度
+  return 'rgba(' + cat.rgb[0] + ',' + cat.rgb[1] + ',' + cat.rgb[2] + ',' + alpha.toFixed(3) + ')';
+}
+
+// 环状布局：四圈错位排布、圈内按亲密度浮动半径、留足空隙人人圆圈完整可见
+function _relArrangeRings(graphData) {
+  var center = graphData.nodes[0];
+  center.x = 0; center.y = 0; center.fx = 0; center.fy = 0;
+  var groups = { family: [], friend: [], colleague: [], stranger: [] };
+  graphData.nodes.slice(1).forEach(function(n) {
+    var cat = n._cat || _REL_CATS.stranger;
+    groups[cat.key].push(n);
+  });
+  var order = ['family', 'friend', 'colleague', 'stranger'];
+  order.forEach(function(key, gi) {
+    var list = groups[key];
+    if (!list.length) return;
+    var base = _REL_CATS[key].ring;
+    // 亲密度浮动：越亲越往内圈靠（±28px）
+    list.sort(function(a, b) { return (b.affinity || 50) - (a.affinity || 50); });
+    var n = list.length;
+    for (var i = 0; i < n; i++) {
+      var node = list[i];
+      var aff = Math.max(0, Math.min(100, node.affinity || 50));
+      var r = base - (aff - 50) * 0.56;
+      // 角度均匀分布，相邻圈错开半格防对穿；空隙下限保证弧长>节点直径+22
+      var minArc = (node._size || 18) * 2 + 22;
+      var step = Math.max(2 * Math.PI / n, minArc / Math.max(r, 60));
+      var start = gi * 0.7 + (step * n > 2 * Math.PI ? 0 : (2 * Math.PI - step * n) / 2);
+      var ang = start + step * i;
+      node.x = node.fx = Math.cos(ang) * r;
+      node.y = node.fy = Math.sin(ang) * r;
+    }
+  });
+}
+
+// 关系双向同步：db.relationships → 角色档案 char.relations + 用户人设（type='user' 记录）
+async function syncRelationshipsToProfile(charId) {
+  try {
+    if (!window.db || !db.relationships || !db.characters) return;
+    var rels = await db.relationships.where('charId').equals(charId).toArray();
+    var mapped = rels.map(function(r) {
+      return { charId: r.targetId, name: r.targetName || '', type: r.type || '认识', desc: r.desc || '', affinity: r.affinity == null ? 50 : r.affinity };
+    });
+    await db.characters.update(charId, { relations: mapped });
+    // 用户人设同步：把以用户为当事方的关系统一写进 type='user' 档案
+    try {
+      var users = await db.characters.where('type').equals('user').toArray();
+      for (var ui = 0; ui < users.length; ui++) {
+        var u = users[ui];
+        var mine = mapped.filter(function(m) { return String(m.charId) === String(u.id); });
+        // 反向：用户视角的关系表（谁和用户是什么关系）存到用户档案
+        var userRels = [];
+        var all = await db.relationships.toArray();
+        all.forEach(function(r) {
+          if (String(r.targetId) === String(u.id)) {
+            userRels.push({ charId: r.charId, name: r.targetName || '', type: r.type || '认识', desc: r.desc || '', affinity: r.affinity == null ? 50 : r.affinity });
+          }
+        });
+        if (userRels.length) await db.characters.update(u.id, { relations: userRels });
+      }
+    } catch(e) { console.warn('[relmap] 用户人设同步失败:', e); }
+  } catch(e) { console.warn('[relmap] 关系同步角色档案失败:', e); }
+}
+
 function _relBuildGraphData(charId, relationships, allChars, centerChar) {
   var nodes = [{
     id: 'c_' + charId,
     name: centerChar.name,
     avatar: centerChar.avatar || '',
     type: 'center',
-    affinity: 100
+    affinity: 100,
+    _size: 28
   }];
   var links = [];
   var seen = {};
@@ -301,9 +393,10 @@ function _relBuildGraphData(charId, relationships, allChars, centerChar) {
       var nav = r.targetAvatar || '';
       var match = allChars.find(function(c) { return String(c.id) === String(r.targetId); });
       if (match) { nname = match.name; nav = match.avatar || ''; }
-      nodes.push({id: nid, name: nname, avatar: nav, type: 'related', affinity: (r.affinity == null ? 50 : r.affinity), relType: r.type});
+      var _catB = _relCategorize(r.type);
+      nodes.push({id: nid, name: nname, avatar: nav, type: 'related', affinity: r.affinity == null ? 50 : r.affinity, relType: r.type, _cat: _catB, _size: 18});
     }
-    links.push({source: 'c_' + charId, target: nid, type: r.type, affinity: (r.affinity == null ? 50 : r.affinity)});
+    links.push({source: 'c_' + charId, target: nid, type: r.type, affinity: r.affinity == null ? 50 : r.affinity, _cat: _catB});
   });
 
   return {nodes: nodes, links: links};
@@ -314,24 +407,20 @@ function _relBuildGraphData(charId, relationships, allChars, centerChar) {
 // =============================================================
 
 function _relLoadImg(node) {
-  if(node._imgLoading||node._imgFailed)return;
   if (!node.avatar || _relImgCache[node.avatar]) {
     node._img = _relImgCache[node.avatar] || null;
     node._imgLoaded = !!node._img;
     return;
   }
-  node._imgLoading=true;
   var img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = function() {
-    node._imgLoading=false;
     _relImgCache[node.avatar] = img;
-    var keys=Object.keys(_relImgCache);while(keys.length>128){delete _relImgCache[keys.shift()];}
     node._img = img;
     node._imgLoaded = true;
     if (_relGraphInstance) _relGraphInstance.refresh();
   };
-  img.onerror = function() { node._imgLoading=false;node._imgFailed = true; };
+  img.onerror = function() { node._imgFailed = true; };
   img.src = node.avatar;
 }
 
@@ -380,11 +469,21 @@ function _relNodeCanvasObject(node, ctx, globalScale) {
   }
   ctx.restore();
 
-  // Border
+  // Border — [v6.5.6] 分类色圆环（家人红/朋友蓝/同事绿/陌生人灰），亲密度越深环越实
+  var _cat = node._cat;
+  var _affN = Math.max(0, Math.min(100, node.affinity == null ? 50 : node.affinity));
   ctx.beginPath();
   ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
-  ctx.strokeStyle = isCenter ? 'rgba(107,125,141,0.6)' : 'rgba(0,0,0,0.08)';
-  ctx.lineWidth = isCenter ? 2.5 : 1;
+  if (isCenter) {
+    ctx.strokeStyle = 'rgba(107,125,141,0.6)';
+    ctx.lineWidth = 2.5;
+  } else if (_cat) {
+    ctx.strokeStyle = 'rgba(' + _cat.rgb[0] + ',' + _cat.rgb[1] + ',' + _cat.rgb[2] + ',' + (0.35 + _affN / 100 * 0.5).toFixed(3) + ')';
+    ctx.lineWidth = 1.5 + _affN / 60;
+  } else {
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+  }
   ctx.stroke();
 
   // Name label
@@ -398,7 +497,7 @@ function _relNodeCanvasObject(node, ctx, globalScale) {
     // Relationship type label
     if (node.relType && !isCenter) {
       ctx.font = Math.min(fontSize * 0.85, 10) + 'px -apple-system, sans-serif';
-      ctx.fillStyle = _REL_COLORS.textMuted;
+      ctx.fillStyle = node._cat ? 'rgba(' + node._cat.rgb[0] + ',' + node._cat.rgb[1] + ',' + node._cat.rgb[2] + ',0.85)' : _REL_COLORS.textMuted;
       ctx.fillText(node.relType, node.x, node.y + size + 5 + fontSize + 2);
     }
   }
@@ -494,7 +593,10 @@ window.showRelationshipPage = async function() {
       '<div class="rel-body" id="rel-body"></div>';
 
     // Back button
-    page.querySelector('#rel-back').onclick=function(){_relCleanupGraph();window.closePage&&window.closePage(_relPageId)};
+    page.querySelector('#rel-back').addEventListener('click', function() {
+      _relCleanupGraph();
+      window.closePage && window.closePage(_relPageId);
+    });
 
     window.openPage(page);
     _relRenderSelectPage(page);
@@ -510,7 +612,6 @@ window.showRelationshipPage = async function() {
 // =============================================================
 
 async function _relRenderSelectPage(page) {
-  _relSetBackAction(page,function(){_relCleanupGraph();window.closePage&&window.closePage(_relPageId)});
   _relCurrentCharId = null;
   _relCleanupGraph();
 
@@ -693,6 +794,7 @@ async function _relExtractFromPersona(char) {
       affinity: 50, source: 'ai',
       createdAt: Date.now(), updatedAt: Date.now()
     });
+    await syncRelationshipsToProfile(char.id); // [v6.5.6] 同步角色档案
     count++;
   }
   return count;
@@ -703,7 +805,6 @@ async function _relExtractFromPersona(char) {
 // =============================================================
 
 function _relShowGraphPage(charId, page) {
-  _relSetBackAction(page,function(){_relRenderSelectPage(page)});
   _relCurrentCharId = charId;
   _relCleanupGraph();
 
@@ -718,10 +819,11 @@ function _relShowGraphPage(charId, page) {
       '</div>' +
       '<div class="rel-graph-canvas-wrap" id="rel-graph-wrap"></div>' +
       '<div class="rel-graph-legend" id="rel-graph-legend">' +
-        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:#5b9aff"></div><span>亲密 (80+)</span></div>' +
-        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(91,154,255,0.5)"></div><span>友好 (50-79)</span></div>' +
-        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(91,154,255,0.35)"></div><span>认识 (20-49)</span></div>' +
-        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(0,0,0,0.15)"></div><span>疏远 (&lt;20)</span></div>' +
+        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(212,130,130,0.85)"></div><span>家人</span></div>' +
+        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(91,154,255,0.85)"></div><span>朋友</span></div>' +
+        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(124,186,150,0.85)"></div><span>同事</span></div>' +
+        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(158,166,172,0.85)"></div><span>陌生人</span></div>' +
+        '<div class="rel-graph-legend-item"><div class="rel-graph-legend-dot" style="background:rgba(107,125,141,0.25)"></div><span>线越粗越亲 · 越近越亲</span></div>' +
       '</div>' +
       '<div class="rel-graph-tools">' +
         '<button class="rel-graph-tool-btn rel-graph-add" id="rel-graph-add" title="添加关系"><i class="fa fa-plus"></i></button>' +
@@ -776,7 +878,7 @@ async function _relRenderGraph(charId, page) {
   }
 
   var graphData = _relBuildGraphData(charId, rels, allChars, char);
-  _relArrangeRings(graphData);
+  _relArrangeRings(graphData); // [v6.5.6] 环状布局：四圈错位+亲密度浮动半径+空隙留足
   var w = wrap.clientWidth || 300;
   var h = wrap.clientHeight || 400;
 
@@ -786,8 +888,8 @@ async function _relRenderGraph(charId, page) {
     .width(w).height(h)
     .nodeLabel(function() { return ''; })
     .nodeVal(function(n) { return n.type === 'center' ? 40 : 25; })
-    .linkColor(function(l) { return _relRingColor(l.affinity); })
-    .linkWidth(function(l) { return 1 + Math.max(0,Math.min(100,l.affinity == null ? 50 : l.affinity))/20; })
+    .linkColor(_relLinkColor)
+    .linkWidth(_relLinkWidth)
     .d3AlphaDecay(0.02)
     .d3VelocityDecay(0.3)
     .cooldownTime(3000)
@@ -1041,6 +1143,7 @@ async function _relShowAddSheet(charId, page) {
         type: type, desc: desc, affinity: affinity,
         source: 'manual', createdAt: Date.now(), updatedAt: Date.now()
       });
+      await syncRelationshipsToProfile(charId); // [v6.5.6]
       close();
       _relToast('关系已添加');
       _relRenderGraph(charId, page);
@@ -1079,7 +1182,7 @@ async function _relShowAnalysisPage(charId, page) {
 
   // Build prompt
   var relLines = rels.map(function(r) {
-    return '- ' + (r.targetName || r.targetId) + '：' + (r.type || '认识') + (r.desc ? '（' + r.desc.slice(0, 80) + '）' : '') + '，亲密度' + ((r.affinity == null ? 50 : r.affinity));
+    return '- ' + (r.targetName || r.targetId) + '：' + (r.type || '认识') + (r.desc ? '（' + r.desc.slice(0, 80) + '）' : '') + '，亲密度' + (r.affinity || 50);
   }).join('\n');
 
   var prompt = '你是关系分析师。根据以下角色的人设和关系数据，进行深度分析。\n\n' +
@@ -1199,13 +1302,13 @@ async function _relShowManagePage(charId, page) {
       var targetChar = allChars.find(function(c) { return String(c.id) === String(r.targetId); });
       var tName = targetChar ? targetChar.name : (r.targetName || String(r.targetId));
       var tAvatar = targetChar ? (targetChar.avatar || '') : (r.targetAvatar || '');
-      var affColor = ((r.affinity == null ? 50 : r.affinity)) >= 80 ? '#5b9aff' : ((r.affinity == null ? 50 : r.affinity)) >= 50 ? '#8fa0af' : '#bcc8c8';
+      var affColor = (r.affinity || 50) >= 80 ? '#5b9aff' : (r.affinity || 50) >= 50 ? '#8fa0af' : '#bcc8c8';
       html +=
         '<div class="rel-manage-item" data-rel-id="' + r.id + '" data-target-id="' + r.targetId + '" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:8px;background:#fff;border:1px solid rgba(107,125,141,0.08);border-radius:12px;cursor:pointer;transition:transform 150ms ease,box-shadow 150ms ease">' +
           '<div class="rel-manage-item-avatar">' + _relAvatarHTML(tAvatar, tName, '', 44) + '</div>' +
           '<div class="rel-manage-item-info" style="flex:1;min-width:0">' +
             '<div class="rel-manage-item-name" style="font-size:15px;font-weight:600;color:#2d2b2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _relEsc(tName) + '</div>' +
-            '<div class="rel-manage-item-sub" style="font-size:13px;color:#9aabab;margin-top:3px">' + _relEsc(r.type || '认识') + ' · <span style="color:' + affColor + '">亲密度 ' + ((r.affinity == null ? 50 : r.affinity)) + '</span></div>' +
+            '<div class="rel-manage-item-sub" style="font-size:13px;color:#9aabab;margin-top:3px">' + _relEsc(r.type || '认识') + ' · <span style="color:' + affColor + '">亲密度 ' + (r.affinity || 50) + '</span></div>' +
           '</div>' +
           '<div class="rel-manage-item-arrow" style="color:#bcc8c8;font-size:14px"><i class="fa fa-angle-right"></i></div>' +
         '</div>';
@@ -1241,6 +1344,7 @@ async function _relShowManagePage(charId, page) {
       for (var k = 0; k < all.length; k++) {
         await db.relationships.delete(all[k].id);
       }
+      await syncRelationshipsToProfile(charId); // [v6.5.6]
       _relToast('已清空所有关系');
       _relShowManagePage(charId, page);
     });
@@ -1281,8 +1385,8 @@ async function _relShowEditModal(charId, relId, targetId, page) {
         '</div>' +
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">' +
           '<div style="font-size:12px;font-weight:600;color:#5a6a7a;white-space:nowrap">亲密度</div>' +
-          '<input type="range" min="0" max="100" value="' + ((rel.affinity == null ? 50 : rel.affinity)) + '" class="rel-edit-affinity" style="flex:1">' +
-          '<span class="rel-aff-val" style="font-size:14px;font-weight:700;color:#6b7d8d;min-width:28px;text-align:right">' + ((rel.affinity == null ? 50 : rel.affinity)) + '</span>' +
+          '<input type="range" min="0" max="100" value="' + (rel.affinity || 50) + '" class="rel-edit-affinity" style="flex:1">' +
+          '<span class="rel-aff-val" style="font-size:14px;font-weight:700;color:#6b7d8d;min-width:28px;text-align:right">' + (rel.affinity || 50) + '</span>' +
         '</div>' +
         '<div style="display:flex;gap:10px">' +
           '<button class="rel-edit-cancel" style="flex:1;height:44px;border-radius:12px;border:1px solid rgba(107,125,141,0.12);background:transparent;color:#6b7d8d;font-size:14px;font-weight:600;cursor:pointer">取消</button>' +
@@ -1322,6 +1426,7 @@ async function _relShowEditModal(charId, relId, targetId, page) {
 
     try {
       await db.relationships.update(relId, {type: type, desc: desc, affinity: affinity, updatedAt: Date.now()});
+      await syncRelationshipsToProfile(charId); // [v6.5.6]
       close();
       _relToast('已保存');
       _relShowManagePage(charId, page);
@@ -1331,6 +1436,7 @@ async function _relShowEditModal(charId, relId, targetId, page) {
   overlay.querySelector('.rel-edit-delete').addEventListener('click', async function() {
     try {
       await db.relationships.delete(relId);
+      await syncRelationshipsToProfile(charId); // [v6.5.6]
       close();
       _relToast('已删除');
       _relShowManagePage(charId, page);
@@ -1548,8 +1654,6 @@ async function _relShowAddNpcSheet(charId, page) {
     var desc = sheet.querySelector('#npc-desc').value.trim();
     if (!name) { _relToast('请填写名字'); return; }
     try {
-      var person=await WanWanIdentity.resolve({name:name},true);if(person&&!person.isNpc){_relToast('已有同名角色，请在添加关系中选择该角色');return;}
-      var existing=await db.npcCharacters.where('charId').equals(charId).filter(function(n){return n.name===name}).first();if(existing){_relToast('该人物已存在');return;}
       await db.npcCharacters.add({ name: name, avatar: '', description: desc, source: 'manual', charId: charId, createdAt: Date.now() });
       close(); _relToast('NPC已添加'); _relShowNpcManager(charId, page);
     } catch(e) { _relToast('添加失败: ' + e.message); }
@@ -1598,7 +1702,7 @@ async function _relGetStats(charId) {
   if (!rels.length) return stats;
   var sum = 0;
   rels.forEach(function(r) {
-    var aff = (r.affinity == null ? 50 : r.affinity);
+    var aff = r.affinity || 50;
     sum += aff;
     if (aff >= 80) stats.close++;
     else if (aff >= 50) stats.friendly++;
@@ -1622,7 +1726,7 @@ window.getRelationshipContextFormatted = async function(charId) {
     rels.sort(function(a, b) { return (b.affinity || 0) - (a.affinity || 0); });
     var lines = ['你的人际关系：'];
     rels.forEach(function(r) {
-      var aff = (r.affinity == null ? 50 : r.affinity);
+      var aff = r.affinity || 50;
       var level = aff >= 80 ? '亲密' : aff >= 50 ? '友好' : '一般';
       var line = '- ' + (r.targetName || r.targetId) + '：' + (r.type || '认识') + '，' + level;
       if (r.desc) line += '（' + r.desc.slice(0, 50) + '）';
@@ -1649,8 +1753,9 @@ window.updateAffinityFromChat = async function(charId, targetId, delta) {
     if (!window.db || !db.relationships) return;
     var rel = await _relGetBetween(charId, targetId);
     if (!rel) return;
-    var newAff = Math.max(0, Math.min(100, ((rel.affinity == null ? 50 : rel.affinity)) + (delta || 0.5)));
+    var newAff = Math.max(0, Math.min(100, (rel.affinity || 50) + (delta || 0.5)));
     await db.relationships.update(rel.id, {affinity: newAff, updatedAt: Date.now()});
+    await syncRelationshipsToProfile(charId); // [v6.5.6] 同步（await防读到旧档案）
   } catch(e) {}
 };
 
@@ -1664,13 +1769,14 @@ window.importRelationships = async function(charId, relArray) {
       await db.relationships.add({
         charId: charId, targetId: r.targetId || ('npc_import_' + Date.now() + '_' + i),
         targetName: r.name || r.targetName || '', targetAvatar: r.avatar || '',
-        type: r.type || '认识', desc: r.desc || '', affinity: (r.affinity == null ? 50 : r.affinity),
+        type: r.type || '认识', desc: r.desc || '', affinity: r.affinity || 50,
         source: 'import', createdAt: Date.now(), updatedAt: Date.now()
       });
       count++;
     } catch(e) {}
   }
-  return count;
+    if (count > 0) await syncRelationshipsToProfile(charId); // [v6.5.6] 仅实际变更才同步
+    return count;
 };
 
 window.exportRelationships = async function(charId) {
@@ -1745,7 +1851,7 @@ _relRenderGraph = async function(charId, page) {
   _relInitParticles(wrap);
 
   var graphData = _relBuildGraphData(charId, rels, allChars, char);
-  _relArrangeRings(graphData);
+  _relArrangeRings(graphData); // [v6.5.6] 环状布局：四圈错位+亲密度浮动半径+空隙留足
   var w = wrap.clientWidth || 300;
   var h = wrap.clientHeight || 400;
 
@@ -1755,13 +1861,8 @@ _relRenderGraph = async function(charId, page) {
     .width(w).height(h)
     .nodeLabel(function() { return ''; })
     .nodeVal(function(n) { return n.type === 'center' ? 40 : 25; })
-    .linkColor(function(l) {
-      var aff = l.affinity == null ? 50 : l.affinity;
-      if (aff >= 80) return 'rgba(91,154,255,0.6)';
-      if (aff >= 50) return 'rgba(91,154,255,0.3)';
-      return 'rgba(0,0,0,0.1)';
-    })
-    .linkWidth(function(l) { return Math.max(1, (l.affinity || 50) / 25); })
+    .linkColor(_relLinkColor)
+    .linkWidth(_relLinkWidth)
     .d3AlphaDecay(0.02)
     .d3VelocityDecay(0.3)
     .cooldownTime(3000)
@@ -1933,7 +2034,7 @@ window.getInfluenceScore = async function(charId) {
     var allStored = await db.relationships.toArray();
     var incoming = allStored.filter(function(r) { return String(r.targetId) === String(charId); });
     var outgoing = rels.length;
-    var avgAff = rels.reduce(function(sum, r) { return sum + ((r.affinity == null ? 50 : r.affinity)); }, 0) / rels.length;
+    var avgAff = rels.reduce(function(sum, r) { return sum + (r.affinity || 50); }, 0) / rels.length;
     // Score = connections * avg_affinity / 100
     return Math.round(((outgoing + incoming.length) * avgAff / 100) * 10) / 10;
   } catch(e) { return 0; }
@@ -1966,14 +2067,14 @@ window.detectRelationshipFromChat = async function(charId, messages) {
       for (var i = 0; i < data.relations.length; i++) {
         var r = data.relations[i];
         if (!r.name || existingNames.indexOf(r.name.toLowerCase()) >= 0) continue;
-        var person=await WanWanIdentity.resolve({name:r.name},true);if(!person)continue;
         await db.relationships.add({
-          charId: charId, targetId: person.id,
-          targetName: person.name, targetAvatar: person.avatar,
+          charId: charId, targetId: 'npc_chat_' + Date.now() + '_' + i,
+          targetName: r.name, targetAvatar: '',
           type: r.type || '认识', desc: r.desc || '',
           affinity: 30, source: 'chat',
           createdAt: Date.now(), updatedAt: Date.now()
         });
+        syncRelationshipsToProfile(charId); // [v6.5.6]
         added++;
       }
       if (added) console.log('[Relationship] Detected ' + added + ' new relationships from chat');
@@ -2004,7 +2105,7 @@ window.detectSocialClusters = async function(charId) {
     var result = [];
     Object.keys(clusters).forEach(function(type) {
       var members = clusters[type];
-      var avgAff = members.reduce(function(s, r) { return s + ((r.affinity == null ? 50 : r.affinity)); }, 0) / members.length;
+      var avgAff = members.reduce(function(s, r) { return s + (r.affinity || 50); }, 0) / members.length;
       result.push({
         name: type,
         count: members.length,
@@ -2030,7 +2131,7 @@ window.getRelationshipMatrix = async function(charId) {
     rels.forEach(function(r) {
       matrix[r.targetName || r.targetId] = {
         type: r.type || '认识',
-        affinity: (r.affinity == null ? 50 : r.affinity),
+        affinity: r.affinity || 50,
         desc: r.desc || '',
         source: r.source || 'unknown',
         daysSinceUpdate: Math.floor((Date.now() - (r.updatedAt || r.createdAt || Date.now())) / 86400000)
@@ -2056,7 +2157,7 @@ window.checkRelationshipHealth = async function(charId) {
     if (stale.length) issues.push({type: 'stale', count: stale.length, message: stale.length + '条关系超过30天未更新'});
 
     // Check for low affinity
-    var lowAff = rels.filter(function(r) { return ((r.affinity == null ? 50 : r.affinity)) < 20; });
+    var lowAff = rels.filter(function(r) { return (r.affinity || 50) < 20; });
     if (lowAff.length) issues.push({type: 'low_affinity', count: lowAff.length, message: lowAff.length + '条关系亲密度低于20'});
 
     // Check for no description
@@ -2119,7 +2220,7 @@ window.exportRelationshipsAsMarkdown = async function(charId) {
 
     md += '## 关系列表 (' + rels.length + '条)\n\n';
     rels.forEach(function(r, idx) {
-      var aff = (r.affinity == null ? 50 : r.affinity);
+      var aff = r.affinity || 50;
       var level = aff >= 80 ? '亲密' : aff >= 50 ? '友好' : '一般';
       md += '### ' + (idx + 1) + '. ' + (r.targetName || r.targetId) + '\n';
       md += '- **关系类型**：' + (r.type || '认识') + '\n';
@@ -2213,7 +2314,7 @@ window.getRelationshipReminders = async function(charId) {
 
     rels.forEach(function(r) {
       var daysSince = Math.floor((now - (r.updatedAt || r.createdAt || now)) / 86400000);
-      if (daysSince > 7 && ((r.affinity == null ? 50 : r.affinity)) >= 50) {
+      if (daysSince > 7 && (r.affinity || 50) >= 50) {
         reminders.push({
           name: r.targetName,
           type: r.type,
@@ -2245,9 +2346,3 @@ try {
 } catch(e) {}
 
 console.log('[Relationship] Complete module v7 loaded');
-function _relRingColor(aff){aff=aff==null?50:aff;return aff>=80?'rgba(91,154,255,0.85)':aff>=50?'rgba(91,154,255,0.6)':aff>=20?'rgba(91,154,255,0.35)':'rgba(107,125,141,0.2)';}
-function _relArrangeRings(data){
-  if(!data.nodes.length)return;var center=data.nodes[0];center.x=center.fx=0;center.y=center.fy=0;
-  var rings=[[],[],[],[]];data.nodes.slice(1).forEach(function(n){var a=n.affinity==null?50:n.affinity;rings[a>=80?0:a>=50?1:a>=20?2:3].push(n)});
-  var radius=40;rings.forEach(function(nodes,index){radius=Math.max(radius+100,nodes.length*90/(2*Math.PI));nodes.forEach(function(n,i){var angle=2*Math.PI*i/Math.max(1,nodes.length)-Math.PI/2+index*0.2;n.x=n.fx=Math.cos(angle)*radius;n.y=n.fy=Math.sin(angle)*radius;n.ring=index+1;})});
-}

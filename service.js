@@ -152,7 +152,3 @@ self.addEventListener('notificationclick', function(event) {
       })
   )
 })
-
-// A single shared heartbeat; it is an opportunistic page wakeup, not a server scheduler.
-var wanwanHeartbeat=null;
-self.addEventListener('message',function(e){if(e.data==='start'&&!wanwanHeartbeat)wanwanHeartbeat=setInterval(function(){self.clients.matchAll({type:'window'}).then(function(clients){clients.forEach(function(c){c.postMessage({type:'keepalive-ping',time:Date.now()})})})},120000)});

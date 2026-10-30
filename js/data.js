@@ -710,7 +710,7 @@ var TOP_LEVEL_BACKUP_KEYS = ['version', 'exportedAt', 'appName', 'config', 'char
   'chats', 'messages', 'groupChats', 'groupMessages', 'moments', 'finance', 'offlineChats',
   'stickers', 'stickerCategories', 'memories', 'memoryRuns', 'callRecords',
   'smsConversations', 'smsMessages', 'imageBlobs', 'doorModules', 'doorResults',
-  'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets', 'localStorage']
+  'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'localStorage']
 
 // 按主键分批遍历一张表，批间让出主线程；峰值内存只保留一批记录，而非整表。
 async function eachTableBatch(table, batchSize, fn) {
@@ -853,9 +853,6 @@ async function collectBackupData(onProgress, serializeBlobValues) {
   await yieldMain()
 
   report(85, '读取本地存储...')
-  for (var tableName of ['xPosts','xComments','relationships','npcCharacters','xingeLetters','xingePresets']) {
-    data[tableName] = db[tableName] ? await db[tableName].toArray() : []
-  }
   data.localStorage = collectLocalStorage()
   await yieldMain()
 
@@ -937,9 +934,6 @@ window.importBackupData = async function(data, onProgress, options) {
   if (Array.isArray(data.mcpToolTraces) && db.mcpToolTraces) await db.mcpToolTraces.bulkPut(data.mcpToolTraces)
   await yieldMain()
 
-  for (var tableName of ['xPosts','xComments','relationships','npcCharacters','xingeLetters','xingePresets']) {
-    if (Array.isArray(data[tableName]) && db[tableName]) await db[tableName].bulkPut(data[tableName])
-  }
   report(90, '恢复本地存储...')
   if (data.localStorage) {
     var entries = Object.entries(data.localStorage)
@@ -959,8 +953,8 @@ async function clearAppDataForImport() {
     'groupChats', 'groupMessages', 'moments', 'finance', 'offlineChats',
     'stickers', 'stickerCategories', 'memories', 'memoryRuns',
     'callRecords', 'smsConversations', 'smsMessages', 'imageBlobs',
-    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets']
-  await Promise.all(tables.filter(function(t){return t!=='xPosts'&&t!=='xComments'}).map(function(t) { return db[t] ? db[t].clear() : Promise.resolve() }))
+    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces']
+  await Promise.all(tables.map(function(t) { return db[t] ? db[t].clear() : Promise.resolve() }))
   localStorage.clear()
 }
 
@@ -992,7 +986,7 @@ var STREAM_EXPORT_FALLBACK_LIMIT = 100 * 1024 * 1024
 var STREAM_EXPORT_TABLES = ['config', 'characters', 'chats', 'messages', 'groupChats',
   'groupMessages', 'moments', 'finance', 'offlineChats', 'stickers', 'stickerCategories',
   'memories', 'memoryRuns', 'callRecords', 'smsConversations', 'smsMessages', 'imageBlobs',
-  'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets']
+  'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces']
 
 function bytesToBase64(bytes) {
   var out = '', step = 0x6000
@@ -1450,7 +1444,7 @@ async function clearAllData() {
     'groupChats', 'groupMessages', 'moments', 'finance', 'offlineChats',
     'stickers', 'stickerCategories', 'memories', 'memoryRuns',
     'callRecords', 'smsConversations', 'smsMessages', 'imageBlobs',
-    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets']
+    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces']
   await Promise.all(tables.map(function(t) { return db[t] ? db[t].clear() : Promise.resolve() }))
   localStorage.clear()
 }

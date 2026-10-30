@@ -3625,7 +3625,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
     if (!isPrivateChatPageCurrent(chatPage, chat.id)) return
     // 自动生成记忆面板（首次打开聊天时调用API）
     try {
-    var _memPanelKey = 'memPanel_' + _wechatUid + '_' + char.id
+    var _memPanelKey = 'memPanel_' + char.id
     var _existingMemPanel = null
     try { _existingMemPanel = JSON.parse(localStorage.getItem(_memPanelKey) || 'null') } catch(e) {}
     var _needGen = !_existingMemPanel || !_existingMemPanel.updatedAt || (Date.now() - _existingMemPanel.updatedAt > 24 * 60 * 60 * 1000)
@@ -3814,7 +3814,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
             _mpData.mood = _panel.mood ? _panel.mood.v : ''
             _mpData.memories = []
             _mpData.lastUpdated = _now
-            await db.config.put({ key: 'memoryPanel_' + _wechatUid + '_' + char.id, value: _mpData })
+            await db.config.put({ key: 'memoryPanel_' + char.id, value: _mpData })
           } catch(_dbErr) {}
           _memBanner.innerHTML = '<span style="color:var(--c-accent,#00d4aa)">✓ 记忆面板已生成</span>'
           setTimeout(function() { _memBanner.remove() }, 2000)
@@ -6106,7 +6106,7 @@ async function addUserMsg(chatPage, content, createdAt, extra = null) {
     : createPrivateMessageOperationId(chatId, 'user')
   const msg = {
     chatId, charId, role: 'user', content, clientMessageId,
-    createdAt: createdAt ?? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), realCreatedAt: Date.now()
+    createdAt: createdAt ?? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
   }
   if (extra && typeof extra === 'object') Object.assign(msg, extra)
   if (isOnlineFriend) {
@@ -6521,12 +6521,6 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           window.WanWanMemory.summarizeIfNeeded(chatId, charId, _wechatUid)
         }, 0)
       }
-      if (window.WanWanMemory?.autoExtractAndStore) {
-        db.messages.where('chatId').equals(chatId).reverse().limit(10).toArray().then(messages => WanWanMemory.autoExtractAndStore(chatId,charId,_wechatUid,messages.reverse(),charName,_wechatUser?.name)).catch(e=>console.warn('[memory] 事实提取失败',e))
-      }
-      if(window.WanWanMemory?.saveConversationProgress){
-        db.messages.where('chatId').equals(chatId).reverse().limit(3).toArray().then(messages=>WanWanMemory.saveConversationProgress(charId,{lastTopic:messages.find(m=>m.role==='user')?.content?.slice(0,150)||'',lastMessage:messages[0]?.content?.slice(0,200)||'',endedAt:TimeWorld.getNow()},_wechatUid)).catch(e=>console.warn('[Memory] 进度保存失败',e))
-      }
       // 自动回忆：AI回复后检查是否引用了记忆内容
       if (window.WanWanMemory?.autoRecallMemories) {
         try {
@@ -6538,7 +6532,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       // 保存记忆面板数据到localStorage（每次AI回复后更新）
       if (memPanelData && (memPanelData.wearing || memPanelData.activity || memPanelData.mood)) {
         try {
-          var _existing = JSON.parse(localStorage.getItem('memPanel_' + _wechatUid + '_' + charId) || '{}')
+          var _existing = JSON.parse(localStorage.getItem('memPanel_' + charId) || '{}')
           var _now = Date.now()
           if (memPanelData.wearing) _existing.wearing = { v: memPanelData.wearing, t: _now }
           if (memPanelData.activity) _existing.activity = { v: memPanelData.activity, t: _now }
@@ -6548,8 +6542,8 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           if (memPanelData.healthAi) _existing.healthAi = { v: memPanelData.healthAi, t: _now }
           if (memPanelData.healthUser) _existing.healthUser = { v: memPanelData.healthUser, t: _now }
           _existing.updatedAt = _now
-          localStorage.setItem('memPanel_' + _wechatUid + '_' + charId, JSON.stringify(_existing))
-          if (window.db && db.config) db.config.put({ key: 'memoryPanel_' + _wechatUid + '_' + charId, value: _existing }).catch(function(){})
+          localStorage.setItem('memPanel_' + charId, JSON.stringify(_existing))
+          if (window.db && db.config) db.config.put({ key: 'memoryPanel_' + charId, value: _existing }).catch(function(){})
         } catch(e) {}
       }
     } catch (e) {
@@ -6937,15 +6931,15 @@ async function runWechatActiveReplyCheck() {
       const lastMessage = await db.messages.where('chatId').equals(chat.id).last()
       if (!lastMessage) continue
       if (lastMessage.role !== 'assistant' && lastMessage.role !== 'user') continue
-      const idleMs = Date.now() - (Number(lastMessage.realCreatedAt) || (Number(lastMessage.createdAt) - (window.TimeWorld ? TimeWorld.getOffset() : 0)) || 0)
+      const idleMs = Date.now() - (Number(lastMessage.createdAt) || 0)
       if (!Number.isFinite(idleMs) || idleMs < cfg.intervalMinutes * 60 * 1000) continue
       const fingerprint = buildActiveReplyTriggerFingerprint(chat.id, lastMessage)
       if (_activeReplyTriggeredFingerprints.get(chat.id) === fingerprint) continue
       _activeReplyTriggeredFingerprints.set(chat.id, fingerprint)
-      Promise.resolve(startPrivateAIReply(chat.id, chat.charId, {
+      startPrivateAIReply(chat.id, chat.charId, {
         idleTriggerMode: lastMessage.role === 'assistant' ? 'followup' : 'auto_reply',
         idleMinutes: Math.max(1, Math.floor(idleMs / 60000))
-      })).finally(() => { setTimeout(() => { if (_activeReplyTriggeredFingerprints.get(chat.id) === fingerprint) _activeReplyTriggeredFingerprints.delete(chat.id) }, 60000) }).catch(err => console.warn('[wechat] 主动回复待重试',err))
+      })
     } catch (err) {
       console.warn('[wechat] 主动回复巡检失败:', err)
     }
@@ -7014,7 +7008,7 @@ function filterWechatCallRowsForWindow(rows, windowStart, windowEnd) {
 async function loadWechatContextRoundWindow(chatId, charId, historyLimit, ownerUid) {
   const limit = Math.max(1, Number(historyLimit) || 1)
   const batchSize = Math.min(200, Math.max(50, limit))
-  const windowEnd = (window.TimeWorld ? TimeWorld.getNow() : Date.now())
+  const windowEnd = Date.now()
   const [initialMessages, allOfflineRows, allCallRows] = await Promise.all([
     readWechatContextRows(() => getChatRecentMessages(chatId, batchSize)),
     readWechatContextRows(() => getWechatContextOfflineRows(chatId, charId, 0, windowEnd, ownerUid)),
@@ -7359,14 +7353,16 @@ function buildWechatTextFallbackContent(item, options = {}) {
   return desc ? `[图片；图片重点补充：${desc}]` : '[图片]'
 }
 
-async function getWechatContextOfflineRows(chatId,charId,windowStart,windowEnd,ownerUid=_wechatUid){
-  if(!ownerUid||!db.offlineChats)return [];
-  const rows=await db.offlineChats.where('ownerUid').equals(ownerUid).toArray();
-  return rows.filter(m=>{
-    if(String(m.ownerUid)!==String(ownerUid))return false;
-    if(m.mode==='ensemble')return (m.presentCharIds||m.participantIds||[m.charId]).map(String).includes(String(charId));
-    return String(m.chatId)===String(chatId)&&String(m.charId)===String(charId);
-  }).filter(m=>(m.createdAt||0)>=windowStart&&(m.createdAt||0)<=windowEnd).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+async function getWechatContextOfflineRows(chatId, charId, windowStart, windowEnd, ownerUid = _wechatUid) {
+  if (!ownerUid || !db.offlineChats) return []
+  const rows = await db.offlineChats.where('charId').equals(charId).toArray()
+  return rows
+    .filter(m => m.ownerUid === ownerUid && m.chatId === chatId)
+    .filter(m => {
+      const ts = m.createdAt || 0
+      return ts >= windowStart && ts <= windowEnd
+    })
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
 }
 
 async function getWechatContextCallRows(chatId, charId, windowStart, windowEnd, onlineMsgs = [], ownerUid = _wechatUid) {
@@ -7809,7 +7805,7 @@ function buildWechatOfflineSessions(rows) {
   })
   return [...groups.values()].map(messages => {
     messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
-    const ended = messages.some(m => m.endedAt || m.ended)
+    const ended = messages.some(m => m.endedAt)
     return {
       ended,
       startAt: messages[0]?.createdAt || 0,
@@ -7839,7 +7835,7 @@ function formatWechatOfflineMessage(row) {
   const speaker = row.role === 'assistant' ? '角色' : '用户'
   const text = String(row.content || '').trim()
   if (!text) return ''
-  return row.mode === 'ensemble' ? `此前群像现场记录（只按各角色公开言行理解）：${text}` : `线下见面中，${speaker}：${text}`
+  return `线下见面中，${speaker}：${text}`
 }
 
 function isFormatRetryableAIError(e) {
@@ -8103,11 +8099,11 @@ async function getWechatMcpPrefetchConfig() {
     const row = await db.config.get('mcpPrefetch')
     const v = (row && row.value) || {}
     return {
-      mode: ['on','off','async'].includes(v.mode) ? v.mode : 'off',
+      mode: v.mode === 'off' ? 'off' : 'on',
       timeoutSec: Number(v.timeoutSec) > 0 ? Number(v.timeoutSec) : 20
     }
   } catch (e) {
-    return { mode: 'off', timeoutSec: 20 }
+    return { mode: 'on', timeoutSec: 20 }
   }
 }
 
@@ -8116,15 +8112,6 @@ async function runWechatMcpPrefetchBounded(allowMcp, traceContext = {}, history 
   try {
     const cfg = await getWechatMcpPrefetchConfig()
     if (cfg.mode === 'off') return off
-    if (cfg.mode === 'async') {
-      const key='mcpNotice:'+_wechatUid+':'+traceContext.scope+':'+traceContext.conversationId
-      const cached=await db.config.get(key)
-      if(cached)await db.config.delete(key)
-      runWechatMcpPrefetch(allowMcp,traceContext,history).then(async m=>{
-        try{if(m?.noticeText)await db.config.put({key,value:{text:m.noticeText,at:Date.now()}})}finally{await m?.close?.()}
-      }).catch(e=>console.warn('[MCP] 后台查询失败',e))
-      return cached&&Date.now()-cached.value.at<300000?{enabled:true,noticeText:cached.value.text,close:async()=>{}}:off
-    }
     const prefetch = runWechatMcpPrefetch(allowMcp, traceContext, history)
     let timer = null
     const gate = new Promise(function (resolve) {

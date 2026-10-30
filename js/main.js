@@ -516,7 +516,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // 2. Service Worker注册 — 后台ping通知
   if ('serviceWorker' in navigator) {
-    registerWanWanServiceWorker().then(function(reg) {
+    navigator.serviceWorker.register('/sw.js').then(function(reg) {
       if (reg.active) reg.active.postMessage('start')
       reg.addEventListener('updatefound', function() {
         var nw = reg.installing
