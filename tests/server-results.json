@@ -1,0 +1,1 @@
+{"entry_html": 200, "local_dexie": 200, "static_server_source_denied": 403, "hidden_path_denied": 403, "encoded_traversal_denied": 403, "bad_escape_rejected": 400, "admin_required": 401, "foreign_origin_rejected": 403, "admin_route_reaches_optional_bridge": 502, "empty_cookie_no_write": 400}

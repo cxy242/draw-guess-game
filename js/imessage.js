@@ -130,7 +130,10 @@ window.showMessagePage = async function() {
     return
   }
 
-  _smsActivePhone = _smsUserPhones[0].phone
+  var activeUser = await WanWanIdentity.currentUser();
+  var activePhone = _smsUserPhones.find(function(p){return String(p.charId)===String(activeUser.id)});
+  if(!activePhone){window.toast&&toast('当前账号未设置手机号');return;}
+  _smsActivePhone = activePhone.phone
   await seedWelcomeSMS(_smsActivePhone)
   var page = buildSmsListPage()
   window.openPage(page)
@@ -433,6 +436,7 @@ async function openSmsChat(conversationId, listPage) {
 
 async function generateAnonReply(conversationId, char, userText, page) {
   try {
+    var currentConversation=await db.smsConversations.get(conversationId)
     var recentMsgs = await db.smsMessages.where('conversationId').equals(conversationId).reverse().limit(10).toArray()
     recentMsgs.reverse()
 
@@ -441,7 +445,7 @@ async function generateAnonReply(conversationId, char, userText, page) {
     try {
       var users = await db.characters.where('type').equals('user').toArray()
       if (users.length) {
-        var u = users[0]
+        var u = await WanWanIdentity.currentUser()
         userDesc = u.name || u.nick || '用户'
         if (u.description) userDesc += '：' + u.description.slice(0, 200)
       }
@@ -470,7 +474,7 @@ async function generateAnonReply(conversationId, char, userText, page) {
       return who + '：' + (m.body || '')
     }).join('\n')
 
-    var prompt = getAnonMailboxLore() + '\n' +
+    var prompt = (currentConversation&&currentConversation.revealed?'你的身份已被确认，使用真实姓名身份，禁止继续伪装陌生人。':getAnonMailboxLore()) + '\n' +
       '你是' + charDesc + '。你正在以匿名身份和用户发短信。\n' +
       '你的角色设定：' + (char.description || '').slice(0, 300) + '\n' +
       (userDesc ? '对方人设：' + userDesc + '\n' : '') +
@@ -550,7 +554,8 @@ async function loadSmsChatMessages(page, conversationId, conv) {
       '</div>'
     } else if (!isOut && revealed && m._anonCharId) {
       // revealed: avatar + name + smaller bubble
-      var charAvatar = (conv && conv._anonCharAvatar) || SMS_DEFAULT_AVATAR
+      var archiveChar = await db.characters.get(Number(m._anonCharId)||m._anonCharId);
+      var charAvatar = archiveChar&&archiveChar.avatar || (conv && (conv._anonCharAvatar||conv.remoteAvatar)) || m._anonCharAvatar || SMS_DEFAULT_AVATAR
       var charName = m._anonCharName || (conv && conv.remoteName) || 'AI'
       html += '<div class="sms-revealed-msg">' +
         '<img class="sms-revealed-avatar" src="' + escSmsHtml(charAvatar) + '" onerror="this.src=\'' + SMS_DEFAULT_AVATAR + '\'">' +
@@ -820,21 +825,12 @@ window.showAnonSmsSettings = function() {
         '</div>' +
       '</div>' +
 
-      // Interval dropdown
+      // First delivery occurs once per page session; failure remains retryable.
       '<div class="sms-setting-group">' +
-        '<div class="sms-setting-row">' +
-          '<span class="sms-setting-label">来信频率</span>' +
-          '<select class="sms-select" id="anon-interval">' +
-            '<option value="60"' + (interval === 60 ? ' selected' : '') + '>1小时</option>' +
-            '<option value="120"' + (interval === 120 ? ' selected' : '') + '>2小时</option>' +
-            '<option value="180"' + (interval === 180 ? ' selected' : '') + '>3小时</option>' +
-            '<option value="360"' + (interval === 360 ? ' selected' : '') + '>6小时</option>' +
-            '<option value="720"' + (interval === 720 ? ' selected' : '') + '>12小时</option>' +
-          '</select>' +
-        '</div>' +
+        '<div class="sms-setting-row"><span class="sms-setting-label">首次来信</span><span>打开小手机25分钟后，每次打开最多成功一次</span></div>' +
         '<div class="sms-setting-divider"></div>' +
         '<div class="sms-setting-row">' +
-          '<span class="sms-setting-label">每人每日上限</span>' +
+          '<span class="sms-setting-label">当前账号每日上限</span>' +
           '<input type="number" class="sms-number-input" id="anon-daily-limit" value="' + dailyLimit + '" min="1" max="10">' +
         '</div>' +
       '</div>' +
@@ -1301,241 +1297,65 @@ function showImessageTopMessagePopup(opts) {
 }
 
 // ===== Anonymous SMS System =====
-function startAnonSmsScheduler(user) {
-  if (_anonSmsTimer) clearInterval(_anonSmsTimer)
-  var interval = parseInt(localStorage.getItem(ANON_SMS_INTERVAL_KEY)) || 180
-  var intervalMs = interval * 60 * 1000
+function startAnonSmsScheduler(){return checkAnonymousSmsDue();}
 
-  if (!localStorage.getItem(ANON_SMS_LAST_KEY)) {
-    localStorage.setItem(ANON_SMS_LAST_KEY, String(Date.now()))
-  }
-
-  _anonSmsTimer = setInterval(function() {
-    if (_smsSessionTriggered) {
-      sendAnonymousCharSMS(user)
-      localStorage.setItem(ANON_SMS_LAST_KEY, String(Date.now()))
-    }
-  }, intervalMs)
-  console.log('[AnonSMS] 调度器启动，间隔' + interval + '分钟，等待25分钟触发')
-}
-
-async function sendAnonymousCharSMS(user) {
-  // Check if enabled
-  if (localStorage.getItem(ANON_SMS_ENABLED_KEY) === 'false') {
-    console.log('[AnonSMS] 已禁用')
-    return
-  }
-
-  console.log('[AnonSMS] sendAnonymousCharSMS called', { user: user, hasCallAI: !!window.callAI })
-  if (!window.callAI) { console.warn('[AnonSMS] callAI not available'); return }
-  if (!user) { console.warn('[AnonSMS] no user'); return }
-
-  // Check daily limit
-  var dailyLimit = parseInt(localStorage.getItem(ANON_SMS_DAILY_LIMIT_KEY)) || 3
-  var todayKey = 'anonSmsDaily_' + new Date().toISOString().slice(0, 10)
-  var todayCount = parseInt(localStorage.getItem(todayKey) || '0')
-  if (todayCount >= dailyLimit) {
-    console.log('[AnonSMS] 今日已达上限')
-    return
-  }
-
-  // Random select AI character
-  var chars = []
+async function sendAnonymousCharSMS(user, jobId) {
   try {
-    chars = await db.characters.where('type').equals('char').toArray()
-  } catch(e) { return }
-  if (!chars.length) return
-
-  // Filter by enabled characters
-  var enabledChars = JSON.parse(localStorage.getItem(ANON_SMS_CHARS_KEY) || '[]')
-  if (enabledChars.length > 0) {
-    chars = chars.filter(function(c) { return enabledChars.indexOf(String(c.id)) !== -1 })
-  }
-  if (!chars.length) return
-
-  var char = chars[Math.floor(Math.random() * chars.length)]
-
-  // Build prompt with world book + persona + memory + time
-  var charDesc = char.name + '（' + (char.description || char.identity?.bio || char.signature || '普通角色').slice(0, 200) + '）'
-  var relationships = (char.relations || []).map(function(r) { return r.desc || r.type || '' }).filter(Boolean).join('、')
-
-  // User persona
-  var userDesc = ''
-  try {
-    var users = await db.characters.where('type').equals('user').toArray()
-    if (users.length) {
-      var u = users[0]
-      userDesc = u.name || u.nick || '用户'
-      if (u.description) userDesc += '：' + u.description.slice(0, 200)
-    }
-  } catch(_) {}
-
-  // Memory context
-  var memCtx = ''
-  try {
-    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
-      var mc = await window.WanWanMemory.getMemoryContext(null, char.id, window._wechatUid, [])
-      if (mc) memCtx = mc.slice(0, 500)
-    }
-  } catch(_) {}
-
-  // Time context
-  var timeCtx = ''
-  try {
-    if (window.WanWanMemory && window.WanWanMemory.getFormattedNow) {
-      timeCtx = window.WanWanMemory.getFormattedNow()
-    }
-  } catch(_) {}
-
-  var prompt = getAnonMailboxLore() + '\n' +
-    '你是' + charDesc + '。你想匿名给用户发短信试探TA。\n\n' +
-    '你的真实身份：' + charDesc + '\n' +
-    '你的关系：' + (relationships || '无特殊关系') + '\n' +
-    (userDesc ? '对方的人设：' + userDesc + '\n' : '') +
-    (memCtx ? '对方的记忆：' + memCtx.slice(0, 300) + '\n' : '') +
-    (timeCtx ? '当前时间：' + timeCtx + '\n' : '') + '\n' +
-    '【要求】\n' +
-    '1. 绝对不能暴露你是AI或游戏角色\n' +
-    '2. 伪装成一个真实的人（陌生人、网友、朋友的朋友等）\n' +
-    '3. 语气自然，像真人发短信，可以口语化\n' +
-    '4. 发3-5条消息（像真人连发短信，每条20-40字）\n' +
-    '5. 第一条要引起好奇心\n' +
-    '6. 体现你角色的性格特点\n' +
-    '7. 可以试探用户的感情、秘密、内心想法\n\n' +
-    '返回JSON：{"messages":["第一条","第二条","第三条"]}'
-
-  try {
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
-    if (!data) return
-
-    var messages = data.messages || (data.body ? [data.body] : [])
-    if (!messages.length) return
-
-    // Content dedup
-    if (localStorage.getItem(ANON_SMS_DEDUP_KEY) !== 'false') {
-      var recentAnon = await db.smsMessages.where('direction').equals('in').reverse().limit(20).toArray()
-      var recentBodies = recentAnon.map(function(m) { return (m.body || '').slice(0, 20) })
-      messages = messages.filter(function(msg) {
-        return !recentBodies.some(function(rb) { return rb && msg.slice(0, 20) === rb })
-      })
-      if (!messages.length) { console.log('[AnonSMS] 去重后无新消息'); return }
-    }
-
-    var anonPhone = genAnonPhone()
-    var anonName = genAnonName()
-    var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
-
-    if (!_smsActivePhone) {
-      try {
-        var users = await db.characters.where('type').equals('user').toArray()
-        for (var i = 0; i < users.length; i++) {
-          var ph = users[i].identity && users[i].identity.phone
-          if (ph) { _smsActivePhone = ph; break }
-        }
-      } catch(e) {}
-    }
-    var ownerPhone = _smsActivePhone || user.phone || (user.identity && user.identity.phone) || 'user_default'
-
-    // Create or update conversation
-    var conv = await db.smsConversations
-      .where('[ownerPhone+remotePhone]')
-      .equals([ownerPhone, anonPhone])
-      .first()
-
-    var convId
-    if (conv) {
-      convId = conv.id
-      await db.smsConversations.update(convId, {
-        lastMessage: messages[messages.length - 1],
-        lastMessageAt: now,
-        unreadCount: (conv.unreadCount || 0) + messages.length,
-        updatedAt: now
-      })
-    } else {
-      convId = await db.smsConversations.add({
-        ownerPhone: ownerPhone,
-        remotePhone: anonPhone,
-        remoteAvatar: char.avatar || SMS_DEFAULT_AVATAR,
-        remoteName: anonName,
-        displayName: anonName,
-        phoneNumber: genVirtualNumber(),
-        lastMessage: messages[messages.length - 1],
-        lastMessageAt: now,
-        unreadCount: messages.length,
-        updatedAt: now,
-        _anonCharId: char.id,
-        _anonCharName: char.name,
-        pinned: false,
-        muted: false,
-        blocked: false,
-        category: 'normal',
-        revealed: false,
-        direction: 'inbound'
-      })
-    }
-
-    // Save all messages with staggered timestamps
-    for (var i = 0; i < messages.length; i++) {
-      await db.smsMessages.add({
-        conversationId: convId,
-        direction: 'in',
-        body: messages[i],
-        createdAt: now + i * 1000,
-        read: false,
-        _anonCharId: char.id,
-        _anonCharName: char.name,
-        _anonCharAvatar: char.avatar || '',
-        _anonRevealed: false
-      })
-    }
-
-    // Write to memory
-    try {
-      if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
-        var msgSummary = messages.map(function(m) { return m.slice(0, 40) }).join('；')
-        if (db.memories) {
-          await db.memories.add({
-            ownerUid: window._wechatUid || null,
-            charId: char.id,
-            chatId: 'sms_' + convId,
-            title: char.name + '以匿名身份给用户发了短信',
-            content: char.name + '伪装成陌生人（' + anonName + '）给用户发了' + messages.length + '条匿名短信。内容：' + msgSummary,
-            keywords: ['匿名短信', char.name, '试探'],
-            valence: -0.2,
-            arousal: 0.6,
-            importance: 6,
-            sourceType: 'sms',
-            status: 'active',
-            decayPercent: 80,
-            injectionLayer: 2,
-            createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
-            updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
-          })
-          console.log('[AnonSMS] 已写入记忆库')
-        }
+    if(localStorage.getItem(ANON_SMS_ENABLED_KEY)==='false')return {ok:false,skipped:true,reason:'匿名短信已关闭'};
+    user=await WanWanIdentity.currentUser(user);
+    var phone=user.identity&&user.identity.phone;if(!phone) return {ok:false,skipped:true,reason:'当前账号未设置手机号'};
+    jobId=jobId||'anon_'+user.id+'_'+Date.now();
+    return await WanWanRuntime.serialize('anon-send:'+user.id,async function(){
+      if(await WanWanRuntime.config('job:'+jobId,false))return {ok:true,alreadySent:true};
+      var date=new Date();var dateKey=date.getFullYear()+'-'+(date.getMonth()+1)+'-'+date.getDate();
+      var quotaKey='anonQuota:'+user.id+':'+dateKey;
+      var count=Number(await WanWanRuntime.config(quotaKey,0));
+      var limit=Math.max(1,Number(localStorage.getItem(ANON_SMS_DAILY_LIMIT_KEY))||3);
+      if(count>=limit)return {ok:false,skipped:true,reason:'当前账号今日匿名短信已达上限'};
+      var chars=await db.characters.where('type').equals('char').toArray();
+      var selection=localStorage.getItem(ANON_SMS_CHARS_KEY);
+      if(selection!==null){var ids=JSON.parse(selection).map(String);chars=chars.filter(function(c){return ids.includes(String(c.id))})}
+      if(localStorage.getItem(ANON_SMS_REQUIRE_HISTORY_KEY)!=='false'){
+        var chats=await db.chats.where('ownerUid').equals(user.id).toArray();var known=new Set();
+        for(var ch of chats)if(await db.messages.where('chatId').equals(ch.id).count())known.add(String(ch.charId));
+        var offline=await db.offlineChats.where('ownerUid').equals(user.id).toArray();offline.forEach(function(m){(m.presentCharIds||m.participantIds||[m.charId]).forEach(function(id){known.add(String(id))})});
+        chars=chars.filter(function(c){return known.has(String(c.id))});
       }
-    } catch(memErr) { console.warn('[AnonSMS] 记忆写入失败:', memErr) }
-
-    // Update daily count
-    localStorage.setItem(todayKey, String(todayCount + 1))
-
-    // Show notification
-    showImessageTopMessagePopup({
-      title: anonName,
-      body: messages[messages.length - 1],
-      avatar: char.avatar || SMS_DEFAULT_AVATAR,
-      open: function() { window.showMessagePage && showMessagePage() }
-    })
-
-    console.log('[AnonSMS] 匿名短信已发送：' + char.name + ' → ' + anonPhone + ' (' + messages.length + '条) ownerPhone=' + ownerPhone)
-
-    // Refresh SMS list if on page
-    var smsPage = document.getElementById('imessage-page')
-    if (smsPage) loadSmsConversations(smsPage)
-  } catch(e) {
-    console.error('[AnonSMS] 发送失败:', e)
-  }
+      if(!chars.length)return {ok:false,skipped:true,reason:'当前账号没有符合角色开关及聊天历史条件的人物'};
+      var char=chars[Math.floor(Math.random()*chars.length)];
+      var memory=window.WanWanMemory?await WanWanMemory.getMemoryContext(null,char.id,user.id,[]):'';
+      var probe=localStorage.getItem(ANON_SMS_ALLOW_PROBE_KEY)!=='false';
+      var conv=await db.smsConversations.where('ownerPhone').equals(phone).filter(function(c){return String(c._anonCharId)===String(char.id)}).first();
+      var prompt='你是'+JSON.stringify(char)+'。正在给'+JSON.stringify(user)+'发送短信。\n'+
+        (conv&&conv.revealed?'你的身份已经解除匿名，正常使用真实身份，不再伪装。':'保持匿名，不透露真实身份。')+
+        (probe?'可自然表达关心或试探，但不得违背人设。':'只允许自然日常、问候或生活分享，禁止试探、套话、猜测秘密。')+
+        '\n只使用这个账号的记忆：'+memory+'\n当前时间：'+(window.TimeWorld?TimeWorld.getFormattedNow():new Date().toLocaleString())+
+        '\n返回JSON：{"messages":["消息1","消息2","消息3"]}，生成3到5条自然短信，不代用户发言。';
+      var raw=await callAI([{role:'user',content:prompt}],{responseFormat:'json_object',charId:char.id});
+      var data=typeof raw==='string'?JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g,'')):raw;
+      var messages=(data.messages||[]).filter(function(m){return typeof m==='string'&&m.trim()}).slice(0,5);
+      if(!messages.length)throw new Error('模型未返回有效短信');
+      if(localStorage.getItem(ANON_SMS_DEDUP_KEY)!=='false'){
+        var convs=await db.smsConversations.where('ownerPhone').equals(phone).toArray();var ids=convs.map(function(c){return c.id});
+        var recent=ids.length?await db.smsMessages.where('conversationId').anyOf(ids).reverse().limit(30).toArray():[];
+        messages=messages.filter(function(m){return !recent.some(function(r){return r.direction==='in'&&r.body===m})});
+        if(!messages.length)throw new Error('生成内容与近期短信重复，稍后重试');
+      }
+      var ts=WanWanRuntime.now(),anonName=genAnonName(),convId;
+      await db.transaction('rw',db.smsConversations,db.smsMessages,db.config,async function(){
+        if((await db.config.get('job:'+jobId))?.value)return;
+        convId=conv&&conv.id;
+        if(!convId)convId=await db.smsConversations.add({ownerUid:user.id,ownerPhone:phone,remotePhone:genAnonPhone(),remoteName:anonName,displayName:anonName,remoteAvatar:char.avatar||SMS_DEFAULT_AVATAR,
+          _anonCharId:char.id,_anonCharName:char.name,_anonCharAvatar:char.avatar||SMS_DEFAULT_AVATAR,revealed:false,createdAt:ts,realCreatedAt:Date.now(),category:'normal',unreadCount:0});
+        await db.smsConversations.update(convId,{lastMessage:messages[messages.length-1],lastMessageAt:ts,updatedAt:ts,unreadCount:(conv&&conv.unreadCount||0)+messages.length});
+        await db.smsMessages.bulkAdd(messages.map(function(m,i){return{conversationId:convId,direction:'in',body:m,createdAt:ts+i*1000,realCreatedAt:Date.now(),read:false,_anonCharId:char.id,_anonCharName:char.name,_anonCharAvatar:char.avatar||'',_anonRevealed:!!(conv&&conv.revealed),jobId:jobId}}));
+        await db.config.put({key:quotaKey,value:count+1});await db.config.put({key:'job:'+jobId,value:true});
+      });
+      showImessageTopMessagePopup({title:conv&&conv.revealed?char.name:anonName,body:messages[messages.length-1],avatar:conv&&conv.revealed?char.avatar:SMS_DEFAULT_AVATAR,open:function(){showMessagePage()}});
+      var page=document.getElementById('imessage-page');if(page)await loadSmsConversations(page);
+      return {ok:true,conversationId:convId,messageCount:messages.length};
+    });
+  }catch(e){console.error('[AnonSMS] 待重试',e);return {ok:false,reason:e.message||'发送失败'};}
 }
 
 // ===== Reveal Anonymous =====
@@ -1546,7 +1366,7 @@ window.revealAnonSms = async function(msgId) {
   var char = await db.characters.get(msg._anonCharId)
   var avatar = char ? (char.avatar || SMS_DEFAULT_AVATAR) : SMS_DEFAULT_AVATAR
 
-  await db.smsMessages.update(msgId, { _anonRevealed: true, _anonCharAvatar: avatar })
+  await db.smsMessages.where('conversationId').equals(msg.conversationId).modify({_anonRevealed:true,_anonCharAvatar:avatar})
 
   var revealed = JSON.parse(localStorage.getItem(ANON_SMS_REVEAL_KEY) || '[]')
   if (revealed.indexOf(msgId) === -1) revealed.push(msgId)
@@ -1585,6 +1405,18 @@ window.summarizeSmsToMemory = async function(conversationId) {
   if (!conv) return
   var msgs = await db.smsMessages.where('conversationId').equals(conversationId).sortBy('createdAt')
   if (!msgs.length) { window.toast && window.toast('没有消息可总结'); return }
+  // The conversation owns the SMS archive. Never attribute its memory to the first account.
+  var ownerUid = conv.ownerUid
+  if (!ownerUid && conv.ownerPhone) {
+    var ownerCandidates = await db.characters.where('type').equals('user').toArray()
+    var ownerMatches = ownerCandidates.filter(function(u){return String(u.identity?.phone || u.phone || '') === String(conv.ownerPhone)})
+    if (ownerMatches.length === 1) ownerUid = ownerMatches[0].id
+  }
+  if (!ownerUid) {
+    var singleOwner = await db.characters.where('type').equals('user').toArray()
+    if (singleOwner.length === 1) ownerUid = singleOwner[0].id
+  }
+  if (!ownerUid) { window.toast && window.toast('无法确认短信所属账号，请先选择账号'); return }
 
   window.toast && window.toast('正在总结聊天...')
 
@@ -1629,12 +1461,6 @@ window.summarizeSmsToMemory = async function(conversationId) {
     firstTime.getHours().toString().padStart(2,'0') + ':' + firstTime.getMinutes().toString().padStart(2,'0') +
     '~' + lastTime.getHours().toString().padStart(2,'0') + ':' + lastTime.getMinutes().toString().padStart(2,'0')
 
-  var ownerUid = null
-  try {
-    var users = await db.characters.where('type').equals('user').toArray()
-    if (users.length) ownerUid = String(users[0].id)
-  } catch(e) {}
-
   if (!data || !data.content) {
     if (db.memoryRuns) {
       await db.memoryRuns.add({
@@ -1642,7 +1468,7 @@ window.summarizeSmsToMemory = async function(conversationId) {
         charId: charId || 0,
         chatId: 'sms_' + conversationId,
         sourceType: 'sms',
-        sourceAt: Date.now(),
+        sourceAt: msgs[msgs.length-1].createdAt,
         createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
         memoryCount: 0,
         mode: 'sms',
@@ -1670,7 +1496,7 @@ window.summarizeSmsToMemory = async function(conversationId) {
     status: 'active',
     sourceMsgStartId: msgs[0] ? msgs[0].id : null,
     sourceMsgEndId: msgs[msgs.length - 1] ? msgs[msgs.length - 1].id : null,
-    sourceAt: Date.now(),
+    sourceAt: msgs[msgs.length-1].createdAt,
     sourceType: 'sms',
     decayPercent: 80,
     isLongTerm: false,
@@ -1725,7 +1551,7 @@ function startWechatBlockSmsTimer(charId, charName) {
       var userDesc = ''
       var users = await db.characters.where('type').equals('user').toArray()
       if (users.length) {
-        var u = users[0]
+        var u = await WanWanIdentity.currentUser()
         userDesc = u.name || u.nick || '用户'
         if (u.description) userDesc += '：' + u.description.slice(0, 200)
       }
@@ -1825,39 +1651,36 @@ function startWechatBlockSmsTimer(charId, charName) {
   }, 5 * 60 * 1000) // 5 minutes
 }
 
-// ===== Session Timer (25-minute trigger) =====
-_smsCheckTimer = setInterval(function() {
-  var elapsed = Date.now() - _smsSessionStart
-  if (elapsed > 25 * 60 * 1000 && !_smsSessionTriggered) {
-    _smsSessionTriggered = true
-    console.log('[AnonSMS] 25分钟触发条件达成')
-    window.toast && window.toast('收到一条匿名短信')
-    var delay = (30 + Math.random() * 60) * 1000
-    setTimeout(async function() {
-      if (!_smsActivePhone) {
-        try {
-          var users = await db.characters.where('type').equals('user').toArray()
-          for (var i = 0; i < users.length; i++) {
-            var ph = users[i].identity && users[i].identity.phone
-            if (ph) { _smsActivePhone = ph; _smsUserPhones = [{charId: users[i].id, charName: users[i].name||'', avatar: users[i].avatar||'', phone: ph}]; break }
-          }
-        } catch(e) {}
-      }
-      var user = _smsUserPhones[0] || { id: 0, name: '用户' }
-      if (window.sendAnonymousCharSMS) {
-        window.sendAnonymousCharSMS(user)
-        localStorage.setItem(ANON_SMS_LAST_KEY, String(Date.now()))
-      }
-    }, delay)
-  }
-}, 60000)
+// First delivery is due after 25 real minutes. A failure never consumes the task.
+var _smsTaskStates=new Map();
+async function checkAnonymousSmsDue(){
+  if(document.hidden)return;
+  try{
+    var user=await WanWanIdentity.currentUser();
+    var state=_smsTaskStates.get(user.id);
+    if(!state){
+      state=await WanWanRuntime.config('anonTask:'+user.id,null);
+      if(!state||state.done)state={id:'anon_'+user.id+'_'+_smsSessionStart,dueReal:_smsSessionStart+25*60000,done:false};
+      _smsTaskStates.set(user.id,state);await WanWanRuntime.put('anonTask:'+user.id,state);
+    }
+    if(state.done||Date.now()<state.dueReal||Date.now()-(state.lastAttempt||0)<60000)return;
+    state.lastAttempt=Date.now();
+    var result=await sendAnonymousCharSMS(user,state.id);
+    if(result&&result.ok){state.done=true;_smsSessionTriggered=true;localStorage.setItem(ANON_SMS_LAST_KEY,String(Date.now()));}
+    else state.reason=result&&result.reason||'待重试';
+    await WanWanRuntime.put('anonTask:'+user.id,state);
+  }catch(e){console.warn('[AnonSMS] 调度等待账号/数据库就绪',e.message)}
+}
+_smsCheckTimer=setInterval(function(){checkAnonymousSmsDue()},30000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)checkAnonymousSmsDue()});
+window.checkAnonymousSmsDue=checkAnonymousSmsDue;
 
 // ===== Exports =====
 window.startAnonSmsScheduler = startAnonSmsScheduler
 window.sendAnonymousCharSMS = sendAnonymousCharSMS
 window.startWechatBlockSmsTimer = startWechatBlockSmsTimer
 window.showSmsChatMenuPopup = showSmsChatMenuPopup
-window.closeSmsChatMenuPopup = closeSmsChatMenuPopup
+window.closeSmsChatMenuPopup = closeSmsChatMenuPopup;
 
 // ===== Summary Button Enhancement =====
 (function enhanceSmsPages() {

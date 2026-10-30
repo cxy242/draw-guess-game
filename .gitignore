@@ -36,3 +36,8 @@ pnpm-debug.log*
 # Working notes
 .planning/
 wanwan.apk
+
+# 归档卫生（2026-10-30）
+backups/*.tgz
+data/imprint/*.db
+ppt-master*.zip

@@ -124,6 +124,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     ball.appendChild(_el('div', 'tw-ball-ripple'));
     /* 行数令⑥：无障碍 */
     ball.setAttribute('role', 'button');
+    ball.tabIndex=0;ball.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();_openSheet();}});
     ball.setAttribute('aria-label', '虚拟时间快捷面板');
     document.body.appendChild(ball);
 
@@ -193,7 +194,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
       _up();
       if (moved) return;
       _lastTouchTs = Date.now();   // P1-4：记触屏时刻防合成 click 互踩
-      if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; return; }
+      if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; TW.reset(); _toast('已回到现在'); return; }
       _dblTimer = setTimeout(function () { _dblTimer = null; _openSheet(); }, 260);
     });
     ball.addEventListener('mousedown', function (e) { _down(e.clientX, e.clientY); });
@@ -210,7 +211,7 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     ball.addEventListener('click', function () {
       if (moved) return;
       if (Date.now() - _lastTouchTs < 500) return;   // P1-4：触屏后合成 click 直接让位
-      if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; return; }
+      if (_dblTimer) { clearTimeout(_dblTimer); _dblTimer = null; TW.reset(); _toast('已回到现在'); return; }
       _dblTimer = setTimeout(function () { _dblTimer = null; _openSheet(); }, 260);
     });
     /* 行数令①：双击=一键回到现在 */
@@ -696,15 +697,16 @@ window.showTimePage = async function () {          // 入口函数铁律（第�
     s7head.appendChild(clearBtn);
     /* 行数令④：审计链导出文本 */
     var exportBtn = _el('button', 'tw-audit-clear', '导出');
-    exportBtn.addEventListener('click', function () {
+    exportBtn.addEventListener('click', async function () {
       var log = TW.getAudit();
       var text = log.map(function (item) {
         return _fmtClock(item.realTs) + ' [' + item.action + '] ' + (item.detail || '') + ' → 虚拟 ' + TW.getFormattedNow(item.virtualTs);
       }).join('\n');
       try {
         localStorage.setItem('tw_audit_export', text);
-        if (navigator.clipboard) navigator.clipboard.writeText(text);
-        _toast('审计链已导出（剪贴板+localStorage）');
+        var blob=new Blob([text],{type:'text/plain;charset=utf-8'});var url=URL.createObjectURL(blob);var link=document.createElement('a');link.href=url;link.download='time-audit.txt';link.click();setTimeout(function(){URL.revokeObjectURL(url)},1000);
+        if(navigator.clipboard){try{await navigator.clipboard.writeText(text)}catch(e){console.warn('[TimePage] 剪贴板不可用，文件已下载')}}
+        _toast('审计记录已下载');
       } catch (e) { _toast('导出失败：' + e.message); }
     });
     s7head.appendChild(exportBtn);

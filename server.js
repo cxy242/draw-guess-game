@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3001;
 const ROOT = path.join(__dirname);
@@ -8,6 +9,7 @@ const ROOT = path.join(__dirname);
 const IMPRINT_BRIDGE = 'http://127.0.0.1:8001';
 
 const MIME = {
+  '.webp':'image/webp', '.woff':'font/woff', '.woff2':'font/woff2', '.ttf':'font/ttf',
   '.html': 'text/html',
   '.css': 'text/css',
   '.js': 'application/javascript',
@@ -48,10 +50,12 @@ function proxyToImprint(apiPath, body, res) {
     });
   });
   proxyReq.on('error', function() {
+    if(res.writableEnded)return;
     res.writeHead(502, {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'});
     res.end(JSON.stringify({ok:false,error:'imprint-memory unavailable'}));
   });
   proxyReq.on('timeout', function() {
+    if(res.writableEnded)return;
     proxyReq.destroy();
     res.writeHead(504, {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'});
     res.end(JSON.stringify({ok:false,error:'imprint-memory timeout'}));
@@ -61,12 +65,21 @@ function proxyToImprint(apiPath, body, res) {
 }
 
 function readBody(req, callback) {
-  var body = '';
-  req.on('data', function(chunk) { body += chunk; });
-  req.on('end', function() { callback(body); });
+  var body='',size=0;
+  req.on('data',function(chunk){size+=chunk.length;if(size>1024*1024){req.destroy();return;}body+=chunk;});
+  req.on('end',function(){if(size<=1024*1024)callback(body)});
+}
+function validAdmin(req){
+  var expected=process.env.WANWAN_ADMIN_TOKEN||'';
+  var supplied=req.headers['x-wanwan-admin-token']||'';
+  var a=Buffer.from(expected),b=Buffer.from(String(supplied));
+  return a.length>=24&&a.length===b.length&&crypto.timingSafeEqual(a,b);
 }
 
 const server = http.createServer((req, res) => {
+  // Reject cross-origin writes, including credential replacement.
+  if(req.method==='POST'&&req.headers.origin){try{if(new URL(req.headers.origin).host!==req.headers.host){res.writeHead(403);res.end('Forbidden origin');return;}}catch(e){res.writeHead(403);res.end();return;}}
+  if(req.method==='POST'&&(req.url==='/api/music-cookie'||req.url.startsWith('/api/memory/'))&&!validAdmin(req)){res.writeHead(401,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:false,msg:'请填写服务器管理令牌后再保存音乐登录信息'}));return;}
   // CORS preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type'});
@@ -125,7 +138,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ok:false,msg:'cookie cannot be empty'}));
           return;
         }
-        fs.writeFileSync(CRED_PATH, 'MUSIC_U=' + cookie + String.fromCharCode(10));
+        fs.writeFileSync(CRED_PATH, 'MUSIC_U=' + cookie.replace(/[\r\n]/g,'') + String.fromCharCode(10));
         res.writeHead(200, {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'});
         res.end(JSON.stringify({ok:true,msg:'cookie saved'}));
       } catch(e) {
@@ -137,8 +150,11 @@ const server = http.createServer((req, res) => {
   }
 
   // --- static file serving ---
-  let filePath = path.join(ROOT, req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-  filePath = decodeURIComponent(filePath);
+  let requestPath;
+  try { requestPath=decodeURIComponent(req.url.split('?')[0]); } catch(e){res.writeHead(400);res.end('Bad path');return;}
+  let filePath=path.resolve(ROOT,'.'+(requestPath==='/'?'/index.html':requestPath));
+  const relative=path.relative(ROOT,filePath);
+  if(relative.startsWith('..')||path.isAbsolute(relative)||relative.split(path.sep).some(p=>p.startsWith('.'))||['server.js','push_github.py'].includes(relative)||!['.html','.css','.js','.json','.png','.jpg','.jpeg','.gif','.svg','.mp3','.wav','.flac','.ico','.webp','.woff','.woff2','.ttf'].includes(path.extname(filePath))){res.writeHead(403);res.end('Forbidden');return;}
 
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(ROOT, 'index.html');

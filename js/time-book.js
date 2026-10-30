@@ -942,7 +942,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
           var all = await window.db.memories.toArray();
           rows = all.filter(function (x) {
             var t = new Date(x.createdAt || x.sourceAt || 0);
-            return t.getFullYear() === y && (t.getMonth() + 1) === m && t.getDate() === d;
+            return String(x.ownerUid) === String(window._wechatUid) && t.getFullYear() === y && (t.getMonth() + 1) === m && t.getDate() === d;
           });
         }
       } catch (e) {}
@@ -977,114 +977,54 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
     if (text != null) e.textContent = text;
     return e;
   }
-  var LKEY = 'tb_letters';
-
-  /* T1.7：存储切 db.config 单 key 数组（裁决二，localStorage 兜底） */
-  function _loadLetters(cb) {
-    try {
-      if (window.db && window.db.config) {
-        window.db.config.get(LKEY).then(function (r) {
-          cb(r && Array.isArray(r.value) ? r.value : []);
-        }).catch(function () {
-          cb(JSON.parse(localStorage.getItem(LKEY) || '[]'));
-        });
-      } else {
-        cb(JSON.parse(localStorage.getItem(LKEY) || '[]'));
-      }
-    } catch (e) { cb([]); }
+  var mailboxVersions=new WeakMap();
+  async function letterKey(){var u=await WanWanIdentity.currentUser();return 'tb_letters_'+u.id;}
+  function _loadLetters(cb){
+    return letterKey().then(async function(key){
+      var row=await db.config.get(key);if(row)return row.value||[];
+      var users=await db.characters.where('type').equals('user').toArray();
+      if(users.length===1){var old=await db.config.get('tb_letters');if(old&&Array.isArray(old.value)){await db.config.put({key:key,value:old.value});return old.value;}}
+      return [];
+    }).then(function(list){if(cb)cb(list);return list;});
   }
-  function _saveLetters(list) {
-    try {
-      if (window.db && window.db.config) window.db.config.put({ key: LKEY, value: list });
-      else localStorage.setItem(LKEY, JSON.stringify(list));
-    } catch (e) {}
-  }
-
-  function buildCh4(body) {
-    body.appendChild(_el('div', 'tb-card-title', '写一封给未来的信'));
-    var paper = _el('textarea', 'tb-letter-paper');
-    paper.placeholder = '亲爱的未来的我……';
-    paper.rows = 6;
-    body.appendChild(paper);
-    var counter = _el('div', 'tb-letter-count', '0 字');
-    paper.addEventListener('input', function () { counter.textContent = paper.value.length + ' 字'; });
-    body.appendChild(counter);
-
-    /* 收信时间（撕页车票复用精简版·v6.5.0 换年月日拨盘，替掉系统日历） */
-    var dateInput = _el('input', 'tb-ticket-year tb-date-pick');
-    dateInput.readOnly = true;
-    dateInput.placeholder = '点我选收信日子';
-    dateInput.addEventListener('click', function (e) {
-      if (e && e.stopPropagation) e.stopPropagation();
-      if (window._tbOpenDateWheel) window._tbOpenDateWheel(dateInput.value || '', function (ds) {
-        dateInput.value = ds;
-      });
+  async function _saveLetters(list){await db.config.put({key:await letterKey(),value:list});}
+  var lastCheckedDay='';
+  async function checkDueLetters(force){
+    if(!window._wechatUid)return;
+    var d=new Date(TimeWorld.getNow());var day=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var key=await letterKey();if(!force&&lastCheckedDay===key+day)return;
+    return WanWanRuntime.serialize('letters:'+key,async function(){
+      var list=await _loadLetters(),changed=false;
+      list.forEach(function(l){if(!l.opened&&l.targetDate<=day){l.opened=true;changed=true}});
+      if(changed){await _saveLetters(list);var box=document.querySelector('.tb-mailbox');if(box&&box.parentElement)_renderMailbox(box.parentElement);window.toast&&toast('有信到了启封时刻');}
+      lastCheckedDay=key+day;
     });
-    body.appendChild(dateInput);
-
-    var sealBtn = _el('button', 'tb-wax-seal', '封缄');
-    sealBtn.addEventListener('click', function () {
-      if (!paper.value.trim()) { window.toast && window.toast('信还是空的'); return; }
-      if (!dateInput.value) { window.toast && window.toast('选个收信日期'); return; }
-      sealBtn.classList.add('tb-sealing');
-      setTimeout(function () {
-        _loadLetters(function (list) {
-          list.push({ text: paper.value, targetDate: dateInput.value, createdAt: Date.now(), opened: false });
-          _saveLetters(list);
-        });
-        sealBtn.classList.remove('tb-shine-btn', 'tb-stamp-slam-in');
-        paper.value = ''; counter.textContent = '0 字'; dateInput.value = '';
-        window.toast && window.toast('信已封缄，等待启封');
-        _renderMailbox(body);
-      }, 600);
-    });
-    body.appendChild(sealBtn);
-
-    _renderMailbox(body);
-
-    /* 到点拆封检测（onChange 挂钩） */
-    if (window.TimeWorld && window.TimeWorld.onChange) {
-      window.TimeWorld.onChange(function () {
-        var today = new Date(window.TimeWorld.getNow()).toISOString().slice(0, 10);
-        _loadLetters(function (list) {
-          var opened = false;
-          list.forEach(function (l) {
-            if (!l.opened && l.targetDate <= today) { l.opened = true; opened = true; }
-          });
-          if (opened) {
-            _saveLetters(list);
-            _renderMailbox(body);
-            window.toast && window.toast('有信到了启封时刻');
-          }
-        });
-      });
-    }
   }
-
-  function _renderMailbox(body) {
-    var old = body.querySelector('.tb-mailbox');
-    if (old) old.remove();
-    var box = _el('div', 'tb-mailbox');
-    box.appendChild(_el('div', 'tb-card-title', '信箱 · 集信册'));
-    _loadLetters(function (list) {
-    if (!list.length) {
-      box.appendChild(_el('div', 'tb-empty-hint', '信箱还空着'));
+  if(window.TimeWorld)TimeWorld.onChange(function(){checkDueLetters(false).catch(function(e){console.warn('[TimeBook] 启封检查失败',e)})});
+  function buildCh4(body){
+    body.appendChild(_el('div','tb-card-title','写一封给未来的信'));
+    var paper=_el('textarea','tb-letter-paper');paper.placeholder='亲爱的未来的我……';paper.rows=6;body.appendChild(paper);
+    var count=_el('div','tb-letter-count','0 字');paper.oninput=function(){count.textContent=paper.value.length+' 字'};body.appendChild(count);
+    var date=_el('input','tb-ticket-year tb-date-pick');date.readOnly=true;date.placeholder='点我选收信日子';
+    date.onclick=function(){window._tbOpenDateWheel&&_tbOpenDateWheel(date.value||'',function(v){date.value=v})};body.appendChild(date);
+    var seal=_el('button','tb-wax-seal','封缄');seal.onclick=async function(){
+      var text=paper.value.trim(),target=date.value;if(!text||!target){window.toast&&toast('请填写信件和收信日期');return;}
+      seal.disabled=true;
+      try{await WanWanRuntime.serialize('letters:'+await letterKey(),async function(){var list=await _loadLetters();list.push({id:'letter_'+Date.now(),text:text,targetDate:target,createdAt:TimeWorld.getNow(),realCreatedAt:Date.now(),opened:false});await _saveLetters(list)});
+        paper.value='';date.value='';count.textContent='0 字';await checkDueLetters(true);await _renderMailbox(body);window.toast&&toast('信已保存');
+      }catch(e){window.toast&&toast('保存失败，信件内容已保留：'+e.message)}finally{seal.disabled=false;}
+    };body.appendChild(seal);_renderMailbox(body);checkDueLetters(true).catch(function(){});
+  }
+  async function _renderMailbox(body){
+    var version=(mailboxVersions.get(body)||0)+1;mailboxVersions.set(body,version);
+    try{
+      var list=await _loadLetters();if(mailboxVersions.get(body)!==version||!body.isConnected)return;
+      body.querySelectorAll('.tb-mailbox').forEach(function(el){el.remove()});
+      var box=_el('div','tb-mailbox');box.appendChild(_el('div','tb-card-title','信箱 · 集信册'));
+      if(!list.length)box.appendChild(_el('div','tb-empty-hint','信箱还空着'));
+      list.forEach(function(l){var env=_el('button','tb-envelope'+(l.opened?' tb-envelope-open':''));env.appendChild(_el('div','tb-envelope-date',l.targetDate));env.appendChild(_el('div','tb-envelope-status',l.opened?'已启封':'待启封'));env.onclick=function(){if(!l.opened){window.toast&&toast('还没到启封时刻');return;}var view=_el('div','tb-letter-full');var back=_el('button','btn-ghost','收起');back.onclick=function(){view.remove()};view.appendChild(back);view.appendChild(_el('div','tb-letter-paper',l.text));box.appendChild(view);};box.appendChild(env)});
       body.appendChild(box);
-      return;
-    }
-    list.forEach(function (l, i) {
-      var env = _el('div', 'tb-envelope' + (l.opened ? ' tb-envelope-open' : ''));
-      env.appendChild(_el('div', 'tb-envelope-icon', ''));
-      env.appendChild(_el('div', 'tb-envelope-date', l.targetDate));
-      env.appendChild(_el('div', 'tb-envelope-status', l.opened ? '已启封' : '待启封'));
-      env.addEventListener('click', function () {
-        if (!l.opened) { window.toast && window.toast('还没到启封时刻'); return; }
-        window.toast && window.toast('信：' + l.text.slice(0, 50));
-      });
-      box.appendChild(env);
-    });
-    body.appendChild(box);
-    });
+    }catch(e){window.toast&&toast('信箱读取失败，请重试')}
   }
 
   window._tbCh4 = buildCh4;
@@ -1248,7 +1188,7 @@ window.showTimeBook = async function () {          // 入口函数铁律（第�
         var key = ch.id != null ? String(ch.id) : (ch.name || '');
         var rec = null;
         bds.forEach(function (x) {
-          if (String(x.charId) === key || (x.name && ch.name && x.name === ch.name)) rec = x;
+          if (String(x.charId) === key || (ch.id == null && x.charId == null && x.name && x.name === ch.name)) rec = x;
         });
         var bd = (rec && rec.birthday) || ch.birthday || '';
         if (!bd) return;

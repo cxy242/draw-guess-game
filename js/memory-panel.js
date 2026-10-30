@@ -58,7 +58,7 @@
 
   async function loadData(charId) {
     try {
-      const val = await db.config.get('memoryPanel_' + charId);
+      const val = await db.config.get('memoryPanel_' + window._wechatUid + '_' + charId);
       return (val && val.value) ? val.value : {};
     } catch (e) {
       return {};
@@ -164,12 +164,12 @@
   async function renderMemoryList(charId) {
     let memories = [];
     try {
-      const all = await db.memories.where('charId').equals(charId).toArray();
+      const all = await db.memories.where('charId').equals(charId).filter(function(m) { return String(m.ownerUid) === String(window._wechatUid); }).toArray();
       memories = all || [];
     } catch (e) {
       try {
         const all = await db.memories.toArray();
-        memories = (all || []).filter(function(m) { return m.charId === charId; });
+        memories = (all || []).filter(function(m) { return m.charId === charId && String(m.ownerUid) === String(window._wechatUid); });
       } catch (e2) {
         memories = [];
       }
@@ -335,7 +335,9 @@
         var memId = btn.getAttribute('data-id');
         var originalText = '';
         try {
-          const run = await db.memoryRuns.where('memoryId').equals(memId).first();
+          const mem = await db.memories.get(Number(memId));
+          const runs = await db.memoryRuns.where('charId').equals(charId).toArray();
+          const run = runs.find(function(r) { return String(r.ownerUid) === String(window._wechatUid) && ((r.memoryIds || []).includes(Number(memId)) || mem && String(r.chatId) === String(mem.chatId) && r.fromMsgId === mem.sourceMsgStartId && r.toMsgId === mem.sourceMsgEndId); });
           if (run && run.originalText) {
             originalText = run.originalText;
           }
@@ -343,7 +345,7 @@
         if (!originalText) {
           try {
             const runs = await db.memoryRuns.toArray();
-            const found = (runs || []).find(function(r) { return r.memoryId === memId || String(r.id) === String(memId); });
+            const found = (runs || []).find(function(r) { return String(r.ownerUid) === String(window._wechatUid) && (r.memoryIds || []).includes(Number(memId)); });
             if (found) originalText = found.originalText || found.text || '';
           } catch(e2) {}
         }

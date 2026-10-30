@@ -101,7 +101,7 @@
       var cookie = match ? match[1] : val;
       fetch(COOKIE_API, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: {'Content-Type':'application/json','X-Wanwan-Admin-Token':sessionStorage.getItem('wanwanServerToken')||''},
         body: JSON.stringify({cookie: cookie})
       }).then(function(r) { return r.json(); }).then(function(d) {
         if (d.ok) {
@@ -110,6 +110,7 @@
           var iframe = parentPage.querySelector('#music-iframe');
           if (iframe) iframe.src = iframe.src;
         } else {
+          if(d.msg&&d.msg.indexOf('管理令牌')>=0){var token=window.prompt('请输入服务器管理员提供的管理令牌（仅保存在本次会话）');if(token)sessionStorage.setItem('wanwanServerToken',token);}
           window.toast && window.toast('保存失败：' + (d.msg || '未知错误'));
         }
       }).catch(function() { window.toast && window.toast('保存失败：网络错误'); });

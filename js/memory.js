@@ -36,6 +36,7 @@
     autoRecallMemories: autoRecallMemories,
     getFailedRuns: getFailedRuns,
     retrySummary: retrySummary,
+    resummarizeMemory: resummarizeMemory,
     logStructuredEvent: logStructuredEvent,
     getStructuredEvents: getStructuredEvents,
     getStructuredEventContext: getStructuredEventContext,
@@ -55,8 +56,9 @@
       var category = IMPRINT_SOURCE_MAP[memory.sourceType] || 'facts'
       fetch('/api/memory/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Wanwan-Admin-Token': sessionStorage.getItem('wanwanServerToken') || '' },
         body: JSON.stringify({
+          ownerUid: memory.ownerUid || window._wechatUid, charId: memory.charId,
           content: content.trim(),
           category: category,
           source: 'wanwan-' + (memory.sourceType || 'manual'),
@@ -199,11 +201,11 @@
 
   // 获取衰减百分比（新版：直接返回decayPercent经过天数衰减后的值）
   // Feature 1: 情感坐标 — arousal越高衰减越慢
-  function getDecayPercent(memory) {
+  function getDecayPercent(memory, atTime) {
     if (memory.status === 'archived') return 0
     if (memory.isLongTerm) return 100
     if (typeof memory.decayPercent === 'number') {
-      var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+      var now = atTime == null ? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) : atTime
       var last = memory.lastRecalledAt || memory.lastAccessedAt || memory.updatedAt || memory.createdAt || now
       var arousal = clamp(memory.arousal, 0, 1, 0.3)
       var decayRate = 1 / (1 + arousal * 2)
@@ -285,7 +287,10 @@
   async function createEmbedding(input) {
     var cfg = await getEmbeddingConfig()
     if (!cfg.url || !cfg.key || !cfg.model) throw new Error('向量 API 未配置')
+    var controller=new AbortController();var deadline=setTimeout(function(){controller.abort()},20000)
+    try {
     var res = await fetch(String(cfg.url).replace(/\/$/, '') + '/embeddings', {
+      signal:controller.signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.key },
       body: JSON.stringify({ model: cfg.model, input: input })
@@ -297,6 +302,7 @@
     if (!Array.isArray(embedding)) throw new Error('向量接口未返回 embedding 数组')
     await db.config.put({ key: 'memoryEmbeddingStatus', value: { ok: true, testedAt: Date.now(), dim: embedding.length, error: '' } })
     return embedding
+    } finally { clearTimeout(deadline) }
   }
 
   async function testEmbedding() {
@@ -503,7 +509,7 @@ function buildSummaryPrompt(messages, charName, userName) {
     charName = charName || '角色'
     userName = userName || '用户'
     var lines = messages.map(function(m) {
-      var speaker = m.role === 'assistant' ? charName : userName
+      var speaker = m.speakerName || (m.role === 'assistant' ? charName : userName)
       var ts = m.createdAt || m.timestamp || m.ts || 0
       var timeStr = ''
       if (ts) {
@@ -561,7 +567,7 @@ ${lines}`
     charName = charName || '角色'
     userName = userName || '用户'
     var lines = messages.map(function(m) {
-      var speaker = m.role === 'assistant' ? charName : userName
+      var speaker = m.speakerName || (m.role === 'assistant' ? charName : userName)
       return speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
     }).join('\n')
     return `你是一个线下见面记忆整理器。请根据下面的见面记录，提取适合长期保存的记忆。
@@ -665,6 +671,11 @@ ${lines}`
   }
 
   async function runSummary(chatId, charId, ownerUid, options) {
+    return window.WanWanRuntime.withLock('memory:' + ownerUid + ':' + chatId, function () {
+      return runSummaryUnlocked(chatId, charId, ownerUid, options)
+    })
+  }
+  async function runSummaryUnlocked(chatId, charId, ownerUid, options) {
     options = options || {}
     if (!window.callMemoryAI || !db.memories || !ownerUid || !chatId || !charId) {
       return { ok: false, skipped: true, reason: '记忆系统未就绪', memoryCount: 0, messageCount: 0 }
@@ -690,15 +701,15 @@ ${lines}`
     if (!options.force && fresh.length < settings.summarizeEvery) {
       return { ok: false, skipped: true, reason: '未达到自动总结条数', memoryCount: 0, messageCount: fresh.length }
     }
-    var fromMsgId = fresh[0].id
-    var toMsgId = fresh[fresh.length - 1].id
+    var fromMsgId = Math.min.apply(null, fresh.map(function(m) { return Number(m.id) }))
+    var toMsgId = Math.max.apply(null, fresh.map(function(m) { return Number(m.id) }))
     var sourceAt = isValidTimestamp(fresh[fresh.length - 1].createdAt) ? Number(fresh[fresh.length - 1].createdAt) : null
     var sourceStartTime = isValidTimestamp(fresh[0].createdAt) ? Number(fresh[0].createdAt) : null
 
     // 存储完整原文（用于重新总结）
     var originalText = fresh.map(function(m) {
       var time = isValidTimestamp(m.createdAt) ? formatMemoryDateTime(Number(m.createdAt)) : ''
-      var role = m.role === 'user' ? userName : charName
+      var role = m.speakerName || (m.role === 'user' ? userName : charName)
       return '[' + time + '] ' + role + '：' + (m.content || '')
     }).join('\n')
 
@@ -711,6 +722,7 @@ ${lines}`
       try {
         var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'),  })
         parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories)) parsed.memories = parsed.memories.filter(function(m) { return m && String(m.content || '').trim() })
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
           // 校验每条记忆是否有时间引用
           var allHaveTime = parsed.memories.every(function(m) { return hasTimeReference(m.content || '') })
@@ -776,7 +788,9 @@ ${lines}`
       }
       rows.push(row)
     }
-    if (rows.length) await db.memories.bulkAdd(rows)
+    if (!rows.length) throw new Error('总结没有有效内容，原消息保留待重试')
+    await db.transaction('rw', db.memories, db.memoryRuns, db.config, async function() {
+    var memoryIds = await db.memories.bulkAdd(rows, { allKeys: true })
     await db.memoryRuns.add({
       ownerUid: ownerUid,
       charId: charId,
@@ -786,6 +800,7 @@ ${lines}`
       sourceType: 'wechat',
       sourceAt: sourceAt,
       createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+      memoryIds: memoryIds,
       memoryCount: rows.length,
       mode: options.force ? 'manual' : 'auto',
       status: 'success',
@@ -793,7 +808,10 @@ ${lines}`
       messageCount: fresh.length
     })
     await saveSettings(chatId, { lastSummarizedMessageId: toMsgId })
+    await db.config.delete('memoryLastError')
     await db.config.put({ key: 'memoryLastSummaryAt', value: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+    })
+    rows.forEach(syncToImprintMemory)
     return { ok: true, skipped: false, memoryCount: rows.length, messageCount: fresh.length, embeddingFailed: embeddingFailed }
   }
 
@@ -817,7 +835,12 @@ ${lines}`
     return await runSummary(chatId, charId, ownerUid, { force: true })
   }
 
-  async function summarizeMeeting(chatId, charId, ownerUid, sessionId, messages, endedAt) {
+  async function summarizeMeeting(chatId, charId, ownerUid, sessionId, messages, endedAt, meta) {
+    return window.WanWanRuntime.withLock('meeting:' + ownerUid + ':' + charId + ':' + sessionId, function () {
+      return summarizeMeetingUnlocked(chatId, charId, ownerUid, sessionId, messages, endedAt, meta || {})
+    })
+  }
+  async function summarizeMeetingUnlocked(chatId, charId, ownerUid, sessionId, messages, endedAt, meta) {
     if (!window.callMemoryAI || !db.memories || !db.memoryRuns || !ownerUid || !chatId || !charId || !sessionId) {
       throw new Error('记忆系统未就绪')
     }
@@ -836,7 +859,7 @@ ${lines}`
     // 存储完整原文
     var originalText = source.map(function(m) {
       var time = isValidTimestamp(m.createdAt) ? formatMemoryDateTime(Number(m.createdAt)) : ''
-      var role = m.role === 'user' ? userName : charName
+      var role = m.speakerName || (m.role === 'user' ? userName : charName)
       return '[' + time + '] ' + role + '：' + (m.content || '')
     }).join('\n')
 
@@ -857,7 +880,8 @@ ${lines}`
     var settings = await getSettings(chatId)
     var fromMsgId = source[0].id || 0
     var toMsgId = source[source.length - 1].id || fromMsgId
-    var prompt = buildMeetingSummaryPrompt(source, charName, userName)
+    var prompt = buildMeetingSummaryPrompt(source, charName, userName) + '\n目标角色：' + charName + '（ID ' + charId + '）。只记录该角色亲历、听见或明确获知的内容，区分他人与自己的言行。不得将其他角色的心声当成此人已知事实。'
+    if (meta.sourceType === 'ensemble') prompt += '\n这是群像中该角色在场期间的记录。按该角色独立视角整理，保留其他参与者姓名。'
 
     // 自动重试逻辑：最多尝试2次
     var lastError = null
@@ -866,6 +890,7 @@ ${lines}`
       try {
         var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'),  })
         parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories)) parsed.memories = parsed.memories.filter(function(m) { return m && String(m.content || '').trim() })
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'
       } catch(e) {
@@ -919,7 +944,10 @@ ${lines}`
       }
       rows.push(row)
     }
-    if (rows.length) await db.memories.bulkAdd(rows)
+    if (!rows.length) throw new Error('总结没有有效内容，见面记录保留待重试')
+    rows.forEach(function(row) { row.sourceType = meta.sourceType || 'offlineMeet'; row.participants = meta.participants || []; row.sourceStartTime = source[0].createdAt || null; row.sourceEndTime = source[source.length - 1].createdAt || endedAt })
+    await db.transaction('rw', db.memories, db.memoryRuns, db.config, async function() {
+    var memoryIds = await db.memories.bulkAdd(rows, { allKeys: true })
     await db.memoryRuns.add({
       ownerUid: ownerUid,
       charId: charId,
@@ -931,13 +959,17 @@ ${lines}`
       sourceType: 'offlineMeet',
       sourceAt: Number(endedAt) || null,
       createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
+      memoryIds: memoryIds,
       memoryCount: rows.length,
       mode: 'meet',
       status: 'success',
       originalText: originalText,
       messageCount: source.length
     })
+    await db.config.delete('memoryLastError')
     await db.config.put({ key: 'memoryLastSummaryAt', value: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) })
+    })
+    rows.forEach(syncToImprintMemory)
     return { ok: true, skipped: false, memoryCount: rows.length, messageCount: source.length, embeddingFailed: embeddingFailed }
   }
 
@@ -946,16 +978,18 @@ ${lines}`
     return isValidTimestamp(sourceAt) ? sourceAt : null
   }
 
-  async function getMemoryContext(chatId, charId, ownerUid, recentMessages) {
+  async function getMemoryContext(chatId, charId, ownerUid, recentMessages, options) {
+    options = options || {}
+    var atTime = options.atTime == null ? window.WanWanRuntime.now() : options.atTime
     if (!db.memories || !ownerUid || !charId) return '' // [v6.2.2] chatId 可为 null（auto-moments 等跨模块调用），搜索本就不限 chatId
     var settings = await getSettings(chatId)
     if (!settings.enabled) return ''
     // 搜索该角色的所有记忆（不限chatId），让记忆跨聊天联通
     var rows = await db.memories.where('charId').equals(charId).filter(function(m) {
-      return m.ownerUid === ownerUid && m.status !== 'archived'
+      return String(m.ownerUid) === String(ownerUid) && m.status !== 'archived' && Number(m.sourceAt || m.createdAt || 0) <= atTime && (!m.replacedAt || m.replacedAt > atTime)
     }).toArray()
-    if (!rows.length) return ''
-    var queryText = (recentMessages || []).map(function(m) { return m.content || '' }).join(' ')
+    if (!rows.length) return getStructuredEventContext(charId, ownerUid, atTime) + (window.WanWanMemory.getConversationProgress ? await window.WanWanMemory.getConversationProgress(charId,ownerUid,atTime) : '')
+    var queryText = (recentMessages || []).map(function(m) { return typeof m === 'string' ? m : m.content || '' }).join(' ')
     var queryEmbedding = null
     if (settings.embeddingEnabled && rows.some(function(m) { return Array.isArray(m.embedding) })) {
       try { queryEmbedding = await createEmbedding(queryText || '当前聊天') }
@@ -966,7 +1000,7 @@ ${lines}`
       var semanticScore = queryEmbedding ? Math.max(0, cosineSimilarity(queryEmbedding, m.embedding)) : 0
       var keywordScore = getKeywordScore(m, queryText)
       var relevance = Math.min(1, semanticScore * 0.5 + keywordScore)
-      var decayPercent = getDecayPercent(m)
+      var decayPercent = getDecayPercent(m,atTime)
       var recency = Math.min(1, decayPercent / 100)
       var importanceScore = clamp(m.importance, 1, 10, 5) / 10
       var emotionScore = getEmotionScore(m)
@@ -977,10 +1011,10 @@ ${lines}`
       }
     }).sort(function(a, b) { return b.score - a.score })
     // 返回 top 5-8 条
-    var surfacelimit = Math.max(1, Math.min(8, settings.injectLimit)) // [v6.2.2] 设置真生效：下限1(原钳死5-8致用户设置无效)，上限8留性能保护
+    var surfacelimit = Math.max(1, Math.min(50, settings.injectLimit)) // [v6.2.2] 设置真生效：下限1(原钳死5-8致用户设置无效)，上限8留性能保护
     var selected = scored.slice(0, surfacelimit).filter(function(x) { return x.score > 0.05 || x.memory.status === 'active' })
     var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
-    await Promise.all(selected.map(function(x) {
+    if (!options.readOnly) await Promise.all(selected.map(function(x) {
       return db.memories.update(x.memory.id, {
         accessCount: (parseInt(x.memory.accessCount || 0, 10) || 0) + 1,
         status: x.memory.status === 'sleeping' ? 'active' : x.memory.status
@@ -988,11 +1022,11 @@ ${lines}`
     }))
     var sleepUpdates = []
     for (var i = 0; i < rows.length; i++) {
-      if (rows[i].status === 'active' && getDecayPercent(rows[i]) < 20 && !rows[i].isLongTerm) {
+      if (!options.readOnly && rows[i].status === 'active' && getDecayPercent(rows[i]) < 20 && !rows[i].isLongTerm) {
         sleepUpdates.push(db.memories.update(rows[i].id, { status: 'sleeping' }))
       }
     }
-    if (sleepUpdates.length) await Promise.all(sleepUpdates)
+    if (!options.readOnly && sleepUpdates.length) await Promise.all(sleepUpdates)
     if (!selected.length) return ''
     // 按注入层级排序：第一层最前面，第四层最后面
     var orderedForInjection = selected.map(function(x, index) {
@@ -1030,7 +1064,7 @@ ${lines}`
       } else {
         timeStr = '未知时间'
       }
-      var relativeStr = memoryTime ? '（' + formatRelativeTime(memoryTime) + '）' : ''
+      var relativeStr = memoryTime ? '（' + formatRelativeTime(memoryTime,atTime) + '）' : ''
       var layerTag = '【' + (LAYER_LABEL[m.injectionLayer] || '第二层') + '】'
       var keywordsTag = (m.keywords && m.keywords.length) ? ' 关键词：' + m.keywords.join('、') : ''
       return `${i + 1}. ${layerTag}【${sourceLabel}｜${timeStr}${relativeStr}】${m.title}：${m.content}${keywordsTag}`
@@ -1070,8 +1104,9 @@ ${lines}`
     }
 
     // 追加结构化事件日志（时间100%准确）
-    var eventCtx = getStructuredEventContext(charId)
+    var eventCtx = getStructuredEventContext(charId, ownerUid, atTime)
     if (eventCtx) result += eventCtx
+    if(window.WanWanMemory.getConversationProgress) result += '\n'+await window.WanWanMemory.getConversationProgress(charId,ownerUid,atTime)
 
     return result
   }
@@ -1099,9 +1134,9 @@ ${lines}`
     return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + ((min < 10 ? '0' : '') + min + '分')
   }
 
-  function formatRelativeTime(ts) {
+  function formatRelativeTime(ts, referenceTime) {
     if (!isValidTimestamp(ts)) return ''
-    var diff = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - Number(ts)
+    var diff = (referenceTime == null ? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) : referenceTime) - Number(ts)
     if (diff < 0) return '刚刚'
     var mins = Math.floor(diff / 60000)
     if (mins < 1) return '刚刚'
@@ -1869,118 +1904,19 @@ ${lines}`
 
   // 生成记忆面板文本（注入prompt用）
   async function getMemoryPanelContext(chatId, charId, ownerUid) {
-    if (!db.memories || !charId) return ''
-    try {
-      var rows = await db.memories.where('charId').equals(charId).filter(function(m) {
-        return m.status !== 'archived' && getDecayPercent(m) > 0
-      }).toArray()
-      if (!rows.length) return ''
-
-      var now = new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()))
-      var today = formatDateStr(now)
-      var yesterday = formatDateStr(new Date(now - 86400000))
-      var dayBefore = formatDateStr(new Date(now - 172800000))
-
-      // 按日期分组
-      var grouped = { before: [], yesterday: [], today: [], future: [] }
-      var todayTime = new Date(today).getTime()
-
-      rows.forEach(function(m) {
-        var memDate = formatDateStr(new Date(m.sourceAt || m.createdAt))
-        if (memDate === today) grouped.today.push(m)
-        else if (memDate === yesterday) grouped.yesterday.push(m)
-        else if (new Date(memDate).getTime() < todayTime) grouped.before.push(m)
-        else grouped.future.push(m)
-      })
-
-      // 从config加载记忆面板数据（用户配置的）
-      var panelKey = 'memoryPanel_' + charId
-      var panelStored = await db.config.get(panelKey)
-      var panel = (panelStored && panelStored.value) || {}
-
-      var lines = []
-      lines.push('【记忆面板 — 截至' + (now.getMonth() + 1) + '月' + now.getDate() + '日】')
-      lines.push('')
-
-      // 前天
-      if (grouped.before.length) {
-        lines.push('━━ 前天（' + dayBefore + '）━━')
-        grouped.before.slice(-5).forEach(function(m) {
-          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
-          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
-        })
-        lines.push('')
-      }
-
-      // 昨天
-      if (grouped.yesterday.length) {
-        lines.push('━━ 昨天（' + yesterday + '）━━')
-        grouped.yesterday.slice(-5).forEach(function(m) {
-          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
-          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
-        })
-        lines.push('')
-      }
-
-      // 今天
-      if (grouped.today.length) {
-        lines.push('━━ 今天（' + today + '）━━')
-        grouped.today.slice(-5).forEach(function(m) {
-          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
-          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
-        })
-        lines.push('')
-      }
-
-      // 将要做的事
-      if (grouped.future.length) {
-        lines.push('━━ 将要做的事 ━━')
-        grouped.future.forEach(function(m) {
-          var time = m.sourceAt ? formatTimeShort(m.sourceAt) : ''
-          lines.push('• ' + time + ' ' + m.title + '：' + m.content)
-        })
-        lines.push('')
-      }
-
-      // 用户配置的面板数据
-      if (panel.health || panel.mood) {
-        lines.push('━━ 当前状态 ━━')
-        if (panel.health) lines.push('• 身体：' + panel.health)
-        if (panel.mood) lines.push('• 情绪：' + panel.mood)
-        lines.push('')
-      }
-
-      if (panel.belongings && panel.belongings.length) {
-        lines.push('━━ 随身物品/信物 ━━')
-        panel.belongings.forEach(function(b) {
-          var typeLabel = b.type === 'keepsake' ? '信物' : (b.type === 'borrowed' ? '借物' : '日常')
-          lines.push('• ' + b.name + (b.source ? '（' + b.source + '）' : '') + ' [' + typeLabel + ']')
-        })
-        lines.push('')
-      }
-
-      if (panel.promises && panel.promises.length) {
-        lines.push('━━ 约定 ━━')
-        panel.promises.forEach(function(p) {
-          var statusLabel = p.status === 'done' ? '已完成' : (p.status === 'pending' ? '待定' : '进行中')
-          lines.push('• ' + p.title + (p.date ? '（' + p.date + '）' : '') + ' [' + statusLabel + ']')
-        })
-        lines.push('')
-      }
-
-      if (panel.togetherDate) {
-        var startDate = new Date(panel.togetherDate)
-        var diffDays = Math.floor((now - startDate) / 86400000)
-        lines.push('━━ 在一起天数 ━━')
-        lines.push('在一起第 ' + diffDays + ' 天（自' + (startDate.getMonth() + 1) + '月' + startDate.getDate() + '日起）')
-        lines.push('')
-      }
-
-      return lines.join('\n')
-    } catch(e) {
-      console.warn('[memory] 生成记忆面板失败:', e)
-      return ''
-    }
+    if (!db.memories || !charId || !ownerUid || !(await getSettings(chatId)).enabled) return ''
+    var now = window.WanWanRuntime.now()
+    var rows = await db.memories.where('charId').equals(charId).filter(function(m) {
+      return String(m.ownerUid) === String(ownerUid) && m.status !== 'archived' && getDecayPercent(m) > 0 && Number(m.sourceAt || m.createdAt) <= now
+    }).toArray()
+    rows.sort(function(a,b) { return (b.sourceAt || b.createdAt || 0) - (a.sourceAt || a.createdAt || 0) })
+    var lines = rows.slice(0, 12).map(function(m) { return formatMemoryDateTime(m.sourceAt || m.createdAt) + ' ' + m.title + '：' + m.content })
+    var row = await db.config.get('memoryPanel_' + ownerUid + '_' + charId)
+    var panel = row && row.value || {}
+    ;['wearing','activity','location','mood','next','healthAi','healthUser'].forEach(function(k) {
+      var v = panel[k]; if (v) lines.push(k + '：' + (typeof v === 'object' ? v.v || '' : v))
+    })
+    return lines.length ? '【记忆面板（按实际日期）】\n' + lines.join('\n') : ''
   }
 
   function formatDateStr(date) {
@@ -2012,6 +1948,7 @@ ${lines}`
 
   // 重新总结单条记忆（覆盖原内容）
   async function resummarizeMemory(memoryId) {
+    memoryId = Number(memoryId) || memoryId
     var m = await db.memories.get(memoryId)
     if (!m) { window.toast && window.toast('\u8bb0\u5fc6\u4e0d\u5b58\u5728'); return { ok: false } }
 
@@ -2060,6 +1997,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       var callFn = window.callMemoryAI || window.callAI
       var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
       parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories)) parsed.memories = parsed.memories.filter(function(m) { return m && String(m.content || '').trim() })
     } catch(e) { window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u5931\u8d25'); return { ok: false } }
 
     if (!parsed || !Array.isArray(parsed.memories) || !parsed.memories.length) {
@@ -2112,6 +2050,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
         if (!callFn) { lastError = 'AI不可用'; break }
         var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
         parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories)) parsed.memories = parsed.memories.filter(function(m) { return m && String(m.content || '').trim() })
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'
       } catch(e) {
@@ -2138,35 +2077,28 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       row.sourceType = run.sourceType || 'wechat'
       rows.push(row)
     }
-    var newMem = parsed.memories[0]
-    var row = normalizeMemory(newMem, {
-      ownerUid: run.ownerUid, charId: run.charId, chatId: run.chatId,
-      fromMsgId: run.fromMsgId, toMsgId: run.toMsgId, sourceAt: run.sourceAt
+    if (!rows.length) return { ok: false, reason: '总结内容为空' }
+    await db.transaction('rw', db.memories, db.memoryRuns, db.config, async function() {
+      var memoryIds
+      if (overwriteMemoryId) { await db.memories.update(Number(overwriteMemoryId), rows[0]); memoryIds = [Number(overwriteMemoryId)] }
+      else memoryIds = await db.memories.bulkAdd(rows, { allKeys: true })
+      await db.memoryRuns.update(runId, { status: 'success', memoryIds: memoryIds, memoryCount: memoryIds.length, failReason: null, updatedAt: window.WanWanRuntime.now() })
+      if (run.sourceType === 'wechat' || run.mode === 'auto' || run.mode === 'manual') {
+        var settings = await getSettings(run.chatId)
+        await saveSettings(run.chatId, { lastSummarizedMessageId: Math.max(settings.lastSummarizedMessageId, Number(run.toMsgId) || 0) })
+      }
     })
-    if (!row) { window.toast && window.toast('总结内容为空'); return { ok: false } }
-    row.sourceType = run.sourceType || 'wechat'
-    if (overwriteMemoryId) {
-      await db.memories.update(overwriteMemoryId, {
-        title: row.title, content: row.content, keywords: row.keywords,
-        importance: row.importance, valence: row.valence, arousal: row.arousal,
-        updatedAt: Date.now()
-      })
-    } else {
-      await db.memories.add(row)
-      syncToImprintMemory(row)
-    }
-    await db.memoryRuns.update(runId, { status: 'success', memoryCount: 1, failReason: null, updatedAt: Date.now() })
-    window.toast && window.toast('重新总结成功')
-    return { ok: true, memoryCount: 1 }
+    rows.forEach(syncToImprintMemory)
+    return { ok: true, memoryCount: overwriteMemoryId ? 1 : rows.length }
   }
 
   // ===== 结构化事件日志（双层记忆第一层）=====
   // 时间100%准确，系统自动记录，不依赖AI回忆
   var EVENT_LOG_KEY = 'memoryEventLog_'
 
-  function logStructuredEvent(charId, eventData) {
+  function logStructuredEvent(charId, eventData, ownerUid) {
     if (!charId || !eventData || !eventData.event) return
-    var key = EVENT_LOG_KEY + charId
+    var key = EVENT_LOG_KEY + (ownerUid || window._wechatUid || 'unassigned') + '_' + charId
     var events = []
     try { events = JSON.parse(localStorage.getItem(key) || '[]') } catch(e) {}
     var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
@@ -2182,23 +2114,23 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       source: eventData.source || 'chat'
     })
     // 只保留最近200条
-    if (events.length > 200) events = events.slice(-200)
+    // Retain event history; the prompt reads only the most recent window.
     try { localStorage.setItem(key, JSON.stringify(events)) } catch(e) {}
   }
 
-  function getStructuredEvents(charId, limit) {
+  function getStructuredEvents(charId, limit, ownerUid) {
     if (!charId) return []
-    var key = EVENT_LOG_KEY + charId
+    var key = EVENT_LOG_KEY + (ownerUid || window._wechatUid || 'unassigned') + '_' + charId
     try {
       var events = JSON.parse(localStorage.getItem(key) || '[]')
       return events.slice(-(limit || 50))
     } catch(e) { return [] }
   }
 
-  function getStructuredEventContext(charId) {
-    var events = getStructuredEvents(charId, 20)
+  function getStructuredEventContext(charId, ownerUid, atTime) {
+    var events = getStructuredEvents(charId, 20, ownerUid).filter(function(e) { return !atTime || e.timestamp <= atTime })
     if (!events.length) return ''
-    return '\n\n【近期事件日志（系统自动记录，时间精确）】\n' + events.map(function(e) {
+    return '\n\n【近期事件日志（时间为记录时刻，事件中的昨天等以原文为准）】\n' + events.map(function(e) {
       return e.timeStr + ' ' + e.event + (e.location ? '，在' + e.location : '')
     }).join('\n')
   }
@@ -2234,7 +2166,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     charName = charName || '角色'
     userName = userName || '用户'
     var recentMsgs = messages.slice(-10).map(function(m) {
-      var speaker = m.role === 'assistant' ? charName : userName
+      var speaker = m.speakerName || (m.role === 'assistant' ? charName : userName)
       return speaker + '：' + String(m.content || '').slice(0, 200)
     }).join('\n')
     var prompt = '从以下聊天中提取关键事实信息。只提取用户明确提到的事实，不要推测。\n\n' +
@@ -2245,12 +2177,13 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       '3. 时间：具体时间点或时间段\n' +
       '4. 地点：提到的地点\n' +
       '5. 偏好：用户的喜欢/不喜欢、习惯变化\n\n' +
-      '返回JSON：{"facts":[{"type":"person|event|time|location|preference","content":"...","importance":1-10}]}\n' +
+      '返回JSON：{"facts":[{"type":"person|event|time|location|preference","content":"...","importance":1-10,"subjectKey":"事实主体和主题的稳定键"}]}\n' +
       '如果没有发现事实，返回 {"facts":[]}'
     try {
       var callFn = window.callMemoryAI || window.callAI
       var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
       var parsed = extractJson(raw)
+        if (parsed && Array.isArray(parsed.memories)) parsed.memories = parsed.memories.filter(function(m) { return m && String(m.content || '').trim() })
       if (!parsed || !Array.isArray(parsed.facts) || !parsed.facts.length) return []
       var facts = parsed.facts.filter(function(f) {
         return f && f.content && (f.importance || 5) >= 4
@@ -2265,17 +2198,19 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
   async function autoExtractAndStore(chatId, charId, ownerUid, messages, charName, userName) {
     if (!chatId || !charId || !ownerUid) return
     if (!db.memories) return
+    if (!(await getSettings(chatId)).enabled) return
     var callKey = chatId + '_' + charId
     var count = (_extractFactsCallCount[callKey] || 0) + 1
     _extractFactsCallCount[callKey] = count
     if (count % 10 !== 0) return
-    var facts = await extractFacts(messages, charName, userName)
+    var facts = await extractFacts((messages || []).filter(function(m) { return m.role === 'user' }), charName, userName)
     if (!facts.length) return
     var now = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
     for (var i = 0; i < facts.length; i++) {
       var f = facts[i]
       var row = {
         ownerUid: ownerUid, charId: charId, chatId: chatId,
+        factKey: typeof f.subjectKey === 'string' ? f.subjectKey : null,
         title: '[' + (f.type || '事实') + '] ' + String(f.content || '').slice(0, 20),
         content: f.content, keywords: [f.type || '事实'],
         valence: 0, arousal: 0.2, importance: clamp(f.importance, 1, 10, 5),
@@ -2285,7 +2220,8 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
         participants: [], lastRecalledAt: null,
         createdAt: now, updatedAt: now, lastAccessedAt: null, accessCount: 0
       }
-      await db.memories.add(row)
+      if(row.factKey && window.WanWanMemory.resolveConflict) await window.WanWanMemory.resolveConflict(row)
+      else {var duplicate=await db.memories.where('charId').equals(charId).filter(function(m){return String(m.ownerUid)===String(ownerUid)&&m.content===row.content}).first();if(!duplicate)await db.memories.add(row)}
       syncToImprintMemory(row)
     }
     console.log('[memory] autoExtracted ' + facts.length + ' facts for charId=' + charId)
@@ -2306,23 +2242,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
   }
 
   async function getTimeSinceLastChat(charId) {
-    if (!charId || !db.chats) return ''
-    try {
-      var allChats = await db.chats.toArray()
-      var charChats = allChats.filter(function(c) { return c.charId === charId })
-      if (!charChats.length) return ''
-      var lastChat = charChats.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0) })[0]
-      if (!lastChat || !lastChat.updatedAt) return ''
-      var diff = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - lastChat.updatedAt
-      if (diff < 60000) return '\u521a\u521a'
-      var mins = Math.floor(diff / 60000)
-      if (mins < 60) return mins + '\u5206\u949f\u524d'
-      var hours = Math.floor(mins / 60)
-      if (hours < 24) return hours + '\u5c0f\u65f6\u524d'
-      var days = Math.floor(hours / 24)
-      if (days < 30) return days + '\u5929\u524d'
-      return Math.floor(days / 30) + '\u4e2a\u6708\u524d'
-    } catch(e) { return '' }
+    return window.TimeWorld ? window.TimeWorld.getTimeSinceLastChat(charId, window._wechatUid) : ''
   }
 
   async function buildTimeAwarenessContext(charId) {
@@ -2335,7 +2255,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
     }
     if (charId) {
       var timeSince = await getTimeSinceLastChat(charId)
-      if (timeSince) parts.push('上次聊天是' + timeSince + '前')
+      if (timeSince) parts.push('上次聊天是' + timeSince)
     }
     return parts.join('，')
   }

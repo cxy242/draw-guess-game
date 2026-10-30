@@ -21,8 +21,10 @@ self.addEventListener('message', function (e) {
   }
 });
 
+var keepAliveTimer=null;
 function startKeepAlive() {
-  setInterval(function () {
+  if(keepAliveTimer)return;
+  keepAliveTimer=setInterval(function () {
     self.clients.matchAll({ type: 'window' }).then(function (clients) {
       clients.forEach(function (client) {
         client.postMessage({ type: 'keepalive-ping', time: Date.now() });

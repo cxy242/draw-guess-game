@@ -200,57 +200,14 @@ function bindPanelEvents(panel) {
 var _LAST_MOMENT_KEY = 'autoMomentsLastPost';
 var _inflight = false; /* [v1.1修复·竞态] tick 在途标志 */
 
-async function startScheduler() {
-  stopScheduler();
-  var enabled = await getCfg(AM.enabled);
-  console.log('[AutoMoments] startScheduler enabled=' + enabled);
-  if (!enabled) return;
-  var hours = await getCfg(AM.interval) || 4;
-  var intervalMs = hours * 3600000;
-  var now = Date.now();
-
-  // 补回逻辑：始终检查，不管lastPost是否为0
-  var lastPost = parseInt(localStorage.getItem(_LAST_MOMENT_KEY)) || 0;
-  if (lastPost === 0) {
-    // 首次启用，记录当前时间，不补回
-    localStorage.setItem(_LAST_MOMENT_KEY, String(now));
-    console.log('[AutoMoments] 首次启用，记录时间');
-  } else {
-    var elapsed = now - lastPost;
-    var missed = Math.floor(elapsed / intervalMs);
-    if (missed > 0) {
-      missed = Math.min(missed, 10);
-      console.log('[AutoMoments] 需补回' + missed + '条，距上次' + Math.round(elapsed/60000) + '分钟');
-      window.showToastLong('正在补回 ' + missed + ' 条朋友圈...', 4000);
-      try {
-        var ok = await catchUpMoments(missed);
-        localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
-        window.showToastLong('补回完成 ' + ok + ' 条朋友圈', 3000);
-        console.log('[AutoMoments] 补回完成: ' + ok + '条');
-      } catch(e) {
-        console.warn('[AutoMoments] 补回失败:', e);
-        localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
-        window.showToastLong('补回失败：' + (e.message || '未知错误'), 3000);
-      }
-    } else {
-      console.log('[AutoMoments] 无需补回，下次发帖在' + Math.round((intervalMs - elapsed) / 60000) + '分钟后');
-    }
-  }
-
-  // 启动定时器
-  _timer = setTimeout(async function tick() {
-    console.log('[AutoMoments] 定时发帖触发');
-    _inflight = true; /* [v1.1修复·竞态] 发帖在途守卫：防 keepalive 兜底双发（克劳德遗留1） */
-    try {
-      var result = await postMoment();
-      if (result) console.log('[AutoMoments] 发帖成功:', result.content ? result.content.slice(0, 20) : '');
-    } catch (e) { console.warn('[AutoMoments] 发帖失败:', e); }
-    finally { _inflight = false; }
-    localStorage.setItem(_LAST_MOMENT_KEY, String(Date.now()));
-    var h = await getCfg(AM.interval) || 4;
-    _timer = setTimeout(tick, h * 3600000);
-  }, intervalMs);
-  console.log('[AutoMoments] 定时器已启动，间隔' + hours + '小时');
+async function startScheduler(){
+  stopScheduler();if(!await getCfg(AM.enabled))return;
+  try{await catchUpMoments(10)}catch(e){console.warn('[AutoMoments] 积压保留待重试',e);window.toast&&toast('朋友圈补回未完成，稍后重试')}
+  _timer=setTimeout(async function tick(){
+    if(!await getCfg(AM.enabled))return;
+    try{await catchUpMoments(10)}catch(e){console.warn('[AutoMoments] 待重试',e)}
+    _timer=setTimeout(tick,60000);
+  },60000);
 }
 
 function stopScheduler() {
@@ -319,219 +276,47 @@ async function getRecentChat(charId, charName) {
   } catch (_) { return ''; }
 }
 
-async function catchUpMoments(count) {
-  console.log('[AutoMoments] catchUpMoments count=' + count);
-  if (!window.callAI) { console.warn('[AutoMoments] callAI不可用'); return 0; }
-
-  // [v1.1修复] 记忆联通段原在 char 定义前早引用（char.id → TypeError 被空catch吞，联通是摆设），
-  // 挪到 picked 确定后、callAI 之前（克劳德审查遗留2+3）
-  var memCtx = '';
-  var charIds = await getCfg(AM.chars) || [];
-  if (!charIds.length) { console.warn('[AutoMoments] 未配置发帖角色'); return 0; }
-  var mode = await getCfg(AM.mode) || 'daily';
-  var chars = [];
-  for (var ci = 0; ci < charIds.length; ci++) {
-    var c = await window.db.characters.get(charIds[ci]);
-    if (c) chars.push(c);
-  }
-  if (!chars.length) { console.warn('[AutoMoments] 配置的角色均不可用'); return 0; }
-  var picked = [];
-  for (var i = 0; i < count; i++) picked.push(chars[Math.floor(Math.random() * chars.length)]);
-  // [v1.1修复] 记忆加载：picked 确定后取首角记忆（原 L271 char.id 早引用已废）
-  try {
-    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext && picked[0]) {
-      memCtx = await window.WanWanMemory.getMemoryContext(null, picked[0].id, window._wechatUid, []);
-    }
-  } catch(e) { console.warn('[AutoMoments] 记忆上下文加载失败:', e); }
-  var charDescs = picked.map(function(c, i) { return (i+1) + '. ' + c.name; }).join(', ');
-  var modeDesc = mode === 'daily' ? '80%日常+20%提到用户' : '50%日常+50%提到用户';
-  // 获取其他AI角色
-    var otherAI = [];
-  try { otherAI = (await window.db.characters.where('type').equals('char').toArray()).filter(function(c) { return picked.indexOf(c) === -1; }); } catch(_) {}
-  var aiNames = otherAI.map(function(c) { return c.name; }).join('\u3001') || '\u5c0f\u7f8e\u3001\u963f\u6770';
-
-  var prompt = '\u4e3a\u4ee5\u4e0b' + count + '\u4e2a\u89d2\u8272\u5404\u751f\u62101\u6761\u670b\u53cb\u5708\u3002\u89d2\u8272\uff1a' + charDescs + '\u3002\u65b9\u5411\uff1a' + modeDesc + '\u3002\u6bcf\u67611-3\u53e5\u4e0d\u8d85\u8fc780\u5b57\uff0c\u53e3\u8bed\u5316\u81ea\u7136\u3002\n\n' +
-    '\u3010\u8bc4\u8bba\u89c4\u5219\u3011\n' +
-    '- \u6bcf\u6761\u914d5\u6761\u8bc4\u8bba\n' +
-    '- \u8bc4\u8bba\u4eba\u5fc5\u987b\u7528\u771f\u5b9e\u540d\u5b57\uff1a' + aiNames + '\n' +
-    '- \u53d1\u5e16\u89d2\u8272\u5fc5\u987b\u56de\u590d\u5176\u4e2d2-3\u6761\u8bc4\u8bba\n' +
-    '- \u88ab\u56de\u590d\u7684\u4eba\u53ef\u4ee5\u518d\u56de\u590d\uff0c\u5f62\u6210\u5bf9\u8bdd\n\n' +
-    '\u8fd4\u56deJSON\uff1a{posts:[{text:\u6587\u6848,likes:[\u4eba\u540d],comments:[{from:\u4eba,to:null,text:\u8bc4\u8bba}]}]}';
-
-try {
-  // [v1.1修复] 记忆拼接必须在 callAI 之前（原 L302 拼接晚于调用，memCtx 永远进不了 AI）
-  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object' });
-    var data = parseJSON(raw);
-    if (!data || !Array.isArray(data.posts)) {
-      console.warn('[AutoMoments] AI返回格式错误:', raw ? raw.slice(0, 100) : 'null');
-      return 0;
-    }
-    var ok = 0;
-    var ownerUid = window._wechatUid || null;
-    console.log('[AutoMoments] catchUp ownerUid=' + ownerUid + ' (window._wechatUid=' + window._wechatUid + ')');
-    for (var pi = 0; pi < data.posts.length; pi++) {
-      var p = data.posts[pi];
-      if (!p || !p.text) continue;
-      var char = picked[pi] || picked[0];
-      var ts = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now());
-      var moment = {
-        charId: char.id,
-        ownerUid: ownerUid || String(char.id),
-        content: p.text,
-        images: [],
-        likes: Array.isArray(p.likes) ? p.likes.map(function(n, li) { return { uid: 'npc_' + li, name: String(n), createdAt: ts }; }) : [{uid:'npc_0',name:'点赞人',createdAt:ts}],
-        comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
-          return { id: 'cmt_' + ts + '_' + ci + '_' + pi, uid: c.from === char.name ? 'char_' + char.id : 'npc_' + ci, name: c.from, replyToId: c.to ? 'cmt_prev' : '', replyToName: c.to || '', text: c.text, createdAt: ts + ci * 1000 };
-        }),
-        createdAt: ts - (count - pi) * 60000,
-        realCreatedAt: Date.now(),
-      };
-      // 确保至少有一条评论
-      if (!moment.comments.length) {
-        moment.comments = [{id:'cmt_'+ts+'_d_'+pi, uid:'npc_0', name:(otherAI[0] && otherAI[0].name) || '小美', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
+async function catchUpMoments(count){
+  var user=await WanWanIdentity.currentUser();
+  return WanWanRuntime.withLock('moments-schedule:'+user.id,async function(){
+    var ids=await getCfg(AM.chars)||[];var chars=[];
+    for(var id of ids){var c=await db.characters.get(Number(id)||id);if(c&&c.type!=='user')chars.push(c)}
+    if(!chars.length)return 0;
+    var interval=Math.max(1,Number(await getCfg(AM.interval))||4)*3600000;
+    var key='schedule:moments:'+user.id;var state=await WanWanRuntime.config(key,null),now=WanWanRuntime.now();
+    if(!state){var old=Number(localStorage.getItem(_LAST_MOMENT_KEY));state={lastPlan:old?old+(now-Date.now()):now};await WanWanRuntime.put(key,state)}
+    var n=0;_inflight=true;
+    try{
+      while(state.lastPlan+interval<=now&&n<Math.min(10,count||10)){
+        var slot=state.lastPlan+interval;var c=chars[Math.floor(slot/interval)%chars.length];
+        await postMoment({charId:c.id,slot:slot,ownerUid:user.id,jobId:'am_'+user.id+'_'+slot});
+        state={lastPlan:slot};await WanWanRuntime.put(key,state);n++;
       }
-      await window.db.moments.put(moment);
-      ok++;
-      console.log('[AutoMoments] 补回成功:', char.name, p.text.slice(0, 30));
-    }
-    if (ok > 0) refreshMomentsPage();
-    return ok;
-  } catch(e) { console.warn('[AutoMoments] catchUpMoments失败:', e); return 0; }
+    }finally{_inflight=false}
+    if(n)refreshMomentsPage();return n;
+  });
+}
+async function postMoment(opts){
+  opts=opts||{};
+  var user=await WanWanIdentity.currentUser(opts.ownerUid?{id:opts.ownerUid}:null);
+  var ids=await getCfg(AM.chars)||[];var id=opts.charId||ids[Math.floor(Math.random()*ids.length)];
+  var char=await db.characters.get(Number(id)||id);if(!char)throw new Error('请先选择发帖角色');
+  var slot=opts.slot==null?WanWanRuntime.now():opts.slot;
+  var jobId=opts.jobId||'manual_'+user.id+'_'+Date.now()+'_'+Math.random();
+  var existing=await WanWanRuntime.config('job:'+jobId,null);if(existing)return db.moments.get(existing);
+  var data=await WanWanSocial.generate(char,slot,(opts.userMsg||'朋友圈：自然日常与用户相关经历皆可，不要重复学校等单一话题'),user.id);
+  var rows=await WanWanSocial.comments(data.comments||[],char,jobId,slot);
+  var moment={ownerUid:user.id,charId:char.id,content:data.content,images:[],likes:[],comments:rows.map(function(c){return{id:c.id,uid:/^\d+$/.test(c.authorId)?Number(c.authorId):c.authorId,name:c.authorName,avatar:c.authorAvatar,replyToId:c.replyTo,replyToName:c.replyToName,text:c.content,createdAt:new Date(c.createdAt).getTime()}}),createdAt:slot,realCreatedAt:Date.now(),jobId:jobId};
+  await db.transaction('rw',db.moments,db.memories,db.config,async function(){
+    var done=await db.config.get('job:'+jobId);if(done){moment=await db.moments.get(done.value);return;}
+    moment.id=await db.moments.add(moment);
+    var participants=new Set([char.id]);rows.filter(function(c){return !c.isNpc}).forEach(function(c){participants.add(Number(c.authorId)||c.authorId)});
+    for(var participant of participants)await db.memories.add({ownerUid:user.id,charId:participant,chatId:'moments_'+moment.id,title:char.name+'的朋友圈',content:data.content,sourceType:'moments',sourceAt:slot,createdAt:slot,realCreatedAt:Date.now(),updatedAt:slot,status:'active',decayPercent:80,importance:4,arousal:0.2,injectionLayer:2,keywords:['朋友圈'],participants:Array.from(participants)});
+    await db.config.put({key:'job:'+jobId,value:moment.id});
+  });
+  refreshMomentsPage();return moment;
 }
 
-async function postMoment(opts) {
-  opts = opts || {};
-  var charIds = await getCfg(AM.chars) || [];
-  if (!charIds.length && opts.charId) charIds = [opts.charId];
-  if (!charIds.length) return null;
-
-  var charId = opts.charId || charIds[Math.floor(Math.random() * charIds.length)];
-  var char = await window.db.characters.get(charId);
-  if (!char) return null;
-
-  var mode       = await getCfg(AM.mode) || 'daily';
-  var commentsOn = await getCfg(AM.commentsOn);
-  var imagesOn   = await getCfg(AM.imagesOn);
-
-  /* 获取关系人 */
-  var relations = (char.relations || []).map(function (r) {
-    return r.desc || r.type || '';
-  }).filter(Boolean);
-
-  /* 获取最近聊天 */
-  var chatCtx = await getRecentChat(charId, char.name);
-
-  /* 构建 prompt */
-  var sys = await buildPrompt(char, mode, commentsOn, relations, opts.manual);
-  // Inject relationship context
-  if (window.getRelationshipContext) {
-    try {
-      var relCtx = await window.getRelationshipContext(charId);
-      if (relCtx) sys += relCtx;
-    } catch(_) {}
-  }
-  var msgs = [{ role: 'system', content: sys }];
-  var userMsg = opts.userMsg || '请生成一条朋友圈动态。';
-  if (chatCtx) userMsg += '\n\n最近聊天参考：\n' + chatCtx;
-  msgs.push({ role: 'user', content: userMsg });
-
-  try {
-    var raw = await window.callAI(msgs, { responseFormat: 'json_object', charAntiDrift: true });
-    var data = parseJSON(raw);
-    if (!data || !data.text) return null;
-
-    /* 配图 */
-    if (imagesOn && data.imagesDesc && data.imagesDesc.length) {
-      await genImages(char, data);
-    }
-
-    /* 构造 moment 并持久化（格式匹配 buildMomentCardHTML） */
-    var ownerUid = window._wechatUid || null;
-    console.log('[AutoMoments] postMoment ownerUid=' + ownerUid);
-    var ts = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now());
-    var moment = {
-      charId:    charId,
-      ownerUid:  ownerUid || String(charId),
-      content:   data.text,
-      images:    (data.imagesDesc || []).map(function(desc) {
-        return { src: '', desc: desc };
-      }),
-      likes:     Array.isArray(data.likes) ? data.likes.map(function(name, i) {
-        return { uid: 'npc_' + i, name: name, createdAt: ts };
-      }) : [{uid:'npc_0',name:'点赞人',createdAt:ts}],
-      comments:  normalizeComments(data.comments, char.name).map(function(c, i) {
-        return {
-          id:        'cmt_' + ts + '_' + i,
-          uid:       c.from === char.name ? 'char_' + charId : 'npc_' + i,
-          name:      c.from,
-          replyToId: c.to ? 'cmt_prev' : '',
-          replyToName: c.to || '',
-          text:      c.text,
-          createdAt: ts + i * 1000,
-          realCreatedAt: Date.now(),
-        };
-      }),
-      createdAt: ts,
-      realCreatedAt: Date.now(),
-    };
-    // 确保至少有一条评论
-    if (!moment.comments.length) {
-      moment.comments = [{id:'cmt_'+ts+'_d', uid:'npc_0', name:'小美', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
-    }
-    await window.db.moments.put(moment);
-
-    // 批量记忆：记录朋友圈互动
-    if (window.addToBatchMemory && window.checkAndFlushBatchMemory) {
-      var commentSummary = (moment.comments || []).map(function(c) {
-        return c.name + (c.replyToName ? '回复' + c.replyToName : '') + '：' + c.text;
-      }).slice(0, 3).join('；');
-      var likeSummary = (moment.likes || []).map(function(l) { return l.name; }).slice(0, 5).join('、');
-      addToBatchMemory('moments', charId, {
-        title: char.name + '发了朋友圈',
-        content: char.name + '发了一条朋友圈："' + data.text.slice(0, 60) + '"' +
-          (commentSummary ? '。评论：' + commentSummary : '') +
-          (likeSummary ? '。点赞：' + likeSummary : ''),
-        keywords: ['朋友圈', char.name]
-      });
-      checkAndFlushBatchMemory('moments', charId);
-    }
-
-    console.log('[AutoMoments] 已发布:', char.name, data.text.slice(0, 30));
-    window.toast && window.toast('[朋友圈] 已发布: ' + char.name);
-    // 写入记忆：发帖角色记住自己发了朋友圈，评论的角色也记住
-    try {
-      var posterName = char.nick || char.name;
-      var commentNames = (moment.comments || []).map(function(c) { return c.name; }).filter(function(n) { return n && n !== posterName; });
-      // 发帖角色的记忆
-      if (db.memories && window._wechatUid) {
-        await db.memories.add({
-          ownerUid: window._wechatUid, charId: char.id, chatId: 'moments_' + char.id,
-          title: posterName + '发了朋友圈',
-          content: posterName + '发了一条朋友圈："' + data.text.slice(0, 60) + '"' + (commentNames.length ? '。' + commentNames.join('、') + '来评论了。' : ''),
-          keywords: ['朋友圈', posterName], valence: 0.3, arousal: 0.2, importance: 4,
-          sourceType: 'moments', status: 'active', decayPercent: 80, injectionLayer: 2,
-          createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), updatedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
-        });
-        // 评论的AI角色也记住
-        var uniqueCommenters = [];
-        (moment.comments || []).forEach(function(c) {
-          if (c.uid && c.uid.indexOf('char_') === 0 && uniqueCommenters.indexOf(c.name) === -1) {
-            uniqueCommenters.push(c.name);
-          }
-        });
-      }
-    } catch(memErr) { console.warn('[AutoMoments] 记忆写入失败:', memErr); }
-
-    refreshMomentsPage();
-    return moment;
-  } catch (e) {
-    console.warn('[AutoMoments] 发帖失败:', e);
-    return null;
-  }
-}
-
-/* ── 校验评论结构 ───────────────────────────────── */
 function normalizeComments(raw, charName) {
   if (!Array.isArray(raw)) return [];
   return raw.filter(function (c) {
@@ -662,103 +447,10 @@ function refreshMomentsPage() {
    ══════════════════════════════════════════════════ */
 
 // === AI批量发帖（一次API生成多条）===
-async function batchPostMoments(charIds, countPerChar) {
-  if (!window.callAI) { window.toast && window.toast('AI服务未配置'); return 0; }
-  if (!charIds || !charIds.length) { window.toast && window.toast('请选择角色'); return 0; }
-
-  var chars = [];
-  for (var i = 0; i < charIds.length; i++) {
-    var c = await window.db.characters.get(charIds[i]);
-    if (c) chars.push(c);
-  }
-  if (!chars.length) { window.toast && window.toast('未找到角色'); return 0; }
-
-  var totalCount = chars.length * countPerChar;
-  var charDescs = chars.map(function(c, i) {
-    return (i+1) + '. ' + c.name + ' (' + (c.description || (c.identity && c.identity.bio) || '').slice(0, 50) + ')';
-  }).join('\n');
-
-  var relations = [];
-  chars.forEach(function(c) {
-    (c.relations || []).forEach(function(r) {
-      if (r.desc || r.type) relations.push(r.desc || r.type);
-    });
-  });
-  var relStr = relations.length ? relations.slice(0, 5).join('、') : '小美';
-
-  // 获取所有AI角色信息
-  var allAIChars = [];
-  try { allAIChars = await window.db.characters.where('type').equals('char').toArray(); } catch(_) {}
-  var otherAI = allAIChars || []; /* [v1.3修复·P1] 原 L675 otherAI 未声明——就地取材 allAIChars */
-  /* [v1.3修复·P0] memCtx 未声明（原 L650 读未声明变量必炸，批量路径 100% 失败）——
-     多角记忆全带+角色名标签（清波2账：防 deep catch-up 串角） */
-  var memCtx = '';
-  try {
-    if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
-      var memParts = [];
-      for (var mi = 0; mi < chars.length; mi++) {
-        var mc = await window.WanWanMemory.getMemoryContext(null, chars[mi].id, window._wechatUid, []);
-        if (mc) memParts.push('角色' + chars[mi].name + '的记忆：\n' + mc.slice(0, 400));
-      }
-      memCtx = memParts.join('\n\n');
-    }
-  } catch(e) { console.warn('[AutoMoments] 多角记忆加载失败:', e); }
-
-  var prompt = '为以下' + chars.length + '个角色各生成' + countPerChar + '条朋友圈。\n\n' +
-    '角色：\n' + charDescs + '\n\n' +
-    '评论人可选（各有独特人设）：' + relStr + "\n\n" +
-    '评论人人设：\n' + allAIChars.map(function(c){return c.name+"："+((c.description||c.persona||"").slice(0,50))}).join("\n") + "\n\n" +
-     '\n\n' +
-    '要求：\n' +
-    '1. 每条1-3句，不超过80字，口语化自然\n' +
-    '2. 每条配5条评论。评论人来源：角色的关系人 + 其他AI角色（' + allAIChars.map(function(c) { return c.name; }).filter(function(n) { return n; }).join('、') + '）\n' +
-    '3. 角色回复其中1-2条评论\n' +
-    '4. 不同角色的朋友圈风格要不同\n\n' +
-    '返回JSON：\n' +
-    '{"posts":[{"charIndex":0,"text":"文案","likes":["点赞人"],"comments":[{"from":"人","to":null,"text":"评论"}]}]}';
-
-  window.toast && window.toast('正在生成' + totalCount + '条朋友圈...');
-  try {
-  // [v1.2修复·第二现场] 记忆拼接必须在 callAI 之前（小艾终审抓的 L649-650 同款病，斩草除根）
-  if (memCtx) prompt += '\u89d2\u8272\u8bb0\u5fc6\uff1a\n' + memCtx.slice(0, 500) + '\n\n';
-    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
-    if (!data || !data.posts || !data.posts.length) { window.toast && window.toast('AI未返回内容'); return 0; }
-
-    var ownerUid = window._wechatUid || null;
-    var ok = 0;
-    for (var pi = 0; pi < data.posts.length; pi++) {
-      var p = data.posts[pi];
-      if (!p || !p.text) continue;
-      var charIdx = (typeof p.charIndex === 'number') ? p.charIndex : (pi % chars.length);
-      var char = chars[charIdx] || chars[0];
-      var ts = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now());
-      var moment = {
-        charId: char.id,
-        ownerUid: ownerUid || String(char.id),
-        content: p.text,
-        images: [],
-        likes: Array.isArray(p.likes) ? p.likes.map(function(n, li) { return {uid:'npc_'+li, name:String(n), createdAt:ts}; }) : [{uid:'npc_0',name:'点赞人',createdAt:ts}],
-        comments: normalizeComments(p.comments, char.name).map(function(c, ci) {
-          return {id:'cmt_'+ts+'_'+ci+'_'+pi, uid:c.from===char.name?'char_'+char.id:'npc_'+ci, name:c.from, replyToId:c.to?'cmt_prev':'', replyToName:c.to||'', text:c.text, createdAt:ts+ci*1000};
-        }),
-        createdAt: ts - (data.posts.length - pi) * 60000,
-        realCreatedAt: Date.now(),
-      };
-      if (!moment.comments.length) {
-        moment.comments = [{id:'cmt_'+ts+'_d_'+pi, uid:'npc_0', name:(otherAI[0] && otherAI[0].name) || '小美', replyToId:'', replyToName:'', text:'哈哈', createdAt:ts}];
-      }
-      await window.db.moments.put(moment);
-      ok++;
-    }
-    window.toast && window.toast('已生成' + ok + '条朋友圈');
-    if (ok > 0) refreshMomentsPage();
-    return ok;
-  } catch(e) {
-    console.warn('[AutoMoments] batchPostMoments失败:', e);
-    window.toast && window.toast('生成失败：' + (e.message || '未知错误'));
-    return 0;
-  }
+async function batchPostMoments(charIds,countPerChar){
+  var count=0;
+  for(var id of charIds||[])for(var i=0;i<Math.max(1,Number(countPerChar)||1);i++){await postMoment({charId:Number(id)||id,manual:true});count++}
+  window.toast&&toast('已保存'+count+'条朋友圈');return count;
 }
 
 // === AI发帖弹窗 ===
@@ -852,8 +544,7 @@ window.showMomentsBatchDialog = async function() {
     btn.disabled = true;
     btn.textContent = '生成中...';
 
-    await batchPostMoments(selectedIds, selectedCount);
-    overlay.remove();
+    try { await batchPostMoments(selectedIds, selectedCount); overlay.remove(); } catch(e) { btn.disabled=false;btn.textContent="重试生成";window.toast&&toast(e.message); }
   };
 };
 
@@ -963,7 +654,7 @@ setTimeout(initScheduler, 2000);
 
 // === Service Worker 注册 ===
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+  (window.registerWanWanServiceWorker ? window.registerWanWanServiceWorker() : navigator.serviceWorker.register('service.js')).then(function(reg) {
     console.log('[AutoMoments] SW registered');
     // 发送启动消息
     if (reg.active) {

@@ -1,0 +1,410 @@
+[
+  {
+    "name": "全页面脚本启动",
+    "status": "passed",
+    "details": {
+      "pageErrors": []
+    }
+  },
+  {
+    "name": "真实IndexedDB：默认匿名短信可写入且账号匹配",
+    "status": "passed",
+    "details": {
+      "result": {
+        "ok": true,
+        "conversationId": 1,
+        "messageCount": 3
+      },
+      "conv": [
+        {
+          "ownerUid": 10,
+          "ownerPhone": "222",
+          "remotePhone": "15092642341",
+          "remoteName": "神秘人",
+          "displayName": "神秘人",
+          "remoteAvatar": "b.png",
+          "_anonCharId": 2,
+          "_anonCharName": "小B",
+          "_anonCharAvatar": "b.png",
+          "revealed": false,
+          "createdAt": 1793347258634,
+          "realCreatedAt": 1793347258635,
+          "category": "normal",
+          "unreadCount": 3,
+          "id": 1,
+          "lastMessage": "今天过得怎么样？",
+          "lastMessageAt": 1793347258634,
+          "updatedAt": 1793347258634
+        }
+      ],
+      "rows": 3
+    }
+  },
+  {
+    "name": "匿名发送任务去重、空角色与历史开关",
+    "status": "passed",
+    "details": {
+      "after": 3,
+      "empty": {
+        "ok": false,
+        "skipped": true,
+        "reason": "当前账号没有符合角色开关及聊天历史条件的人物"
+      },
+      "nohistory": {
+        "ok": false,
+        "skipped": true,
+        "reason": "当前账号没有符合角色开关及聊天历史条件的人物"
+      }
+    }
+  },
+  {
+    "name": "短信解除匿名恢复当前角色头像",
+    "status": "passed",
+    "details": {
+      "revealed": true,
+      "avatar": "b.png"
+    }
+  },
+  {
+    "name": "短信总结按会话所属账号归档",
+    "status": "passed",
+    "details": {
+      "owner": 20,
+      "charId": 2
+    }
+  },
+  {
+    "name": "总结存储事务、并发去重和回退时间游标",
+    "status": "passed",
+    "details": {
+      "result": [
+        {
+          "ok": true,
+          "skipped": false,
+          "memoryCount": 1,
+          "messageCount": 10,
+          "embeddingFailed": false
+        },
+        {
+          "ok": true,
+          "skipped": false,
+          "memoryCount": 1,
+          "messageCount": 10,
+          "embeddingFailed": false
+        }
+      ],
+      "count": 1,
+      "pointer": 10
+    }
+  },
+  {
+    "name": "空总结不推进游标",
+    "status": "passed",
+    "details": {
+      "result": {
+        "ok": false,
+        "skipped": false,
+        "reason": "AI返回为空或格式错误",
+        "memoryCount": 0,
+        "messageCount": 10,
+        "failed": true,
+        "originalText": "[2026/10/30 16:00:58] 当前用户：信息1\n[2026/10/30 16:00:58] 当前用户：信息2\n[2026/10/30 16:00:58] 当前用户：信息3\n[2026/10/30 16:00:58] 当前用户：信息4\n[2026/10/30 16:00:58] 当前用户：信息5\n[2026/10/30 16:00:58] 当前用户：信息6\n[2026/10/30 16:00:58] 当前用户：信息7\n[2026/10/30 16:00:58] 当前用户：信息8\n[2026/10/30 16:00:58] 当前用户：信息9\n[2026/10/30 16:00:58] 当前用户：信息10"
+      },
+      "count": 0,
+      "pointer": 0
+    }
+  },
+  {
+    "name": "面板账号隔离与记忆关闭",
+    "status": "passed",
+    "details": {
+      "isolated": "",
+      "disabled": ""
+    }
+  },
+  {
+    "name": "X发帖落盘、熟人真实头像、禁止代用户评论",
+    "status": "passed",
+    "details": {
+      "emptyCount": 0,
+      "post": {
+        "id": "test_x",
+        "ownerUid": 10,
+        "authorId": "1",
+        "authorName": "小A",
+        "authorAvatar": "a.png",
+        "authorHandle": "@小A",
+        "realAuthorId": "1",
+        "realAuthorName": "小A",
+        "realAuthorAvatar": "a.png",
+        "realAuthorHandle": "@小A",
+        "content": "午休发现一只可爱的猫。",
+        "tags": [],
+        "isAnonymous": false,
+        "engagement": {
+          "views": 171302,
+          "likes": 20418,
+          "retweets": 1778,
+          "quotes": 143
+        },
+        "createdAt": "2026-10-30T08:00:58.816Z",
+        "realCreatedAt": 1793347258821
+      },
+      "comments": [
+        {
+          "id": "test_x_c_0",
+          "postId": "test_x",
+          "authorId": "2",
+          "authorName": "小B",
+          "authorAvatar": "b.png",
+          "authorHandle": "@小B",
+          "isNpc": false,
+          "content": "它好可爱。",
+          "stats": {
+            "likes": 0
+          },
+          "createdAt": "2026-10-30T08:00:58.816Z",
+          "realCreatedAt": 1793347258822,
+          "isReply": false,
+          "replyTo": null,
+          "replyToName": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "X匿名帖解除身份",
+    "status": "passed",
+    "details": {
+      "id": "test_anon",
+      "ownerUid": 10,
+      "authorId": "1",
+      "authorName": "小A",
+      "authorAvatar": "a.png",
+      "authorHandle": "@小A",
+      "realAuthorId": "1",
+      "realAuthorName": "小A",
+      "realAuthorAvatar": "a.png",
+      "realAuthorHandle": "@小A",
+      "content": "匿名生活见闻",
+      "tags": [],
+      "isAnonymous": false,
+      "engagement": {
+        "views": 135642,
+        "likes": 3061,
+        "retweets": 11032,
+        "quotes": 402
+      },
+      "createdAt": "2026-10-30T08:00:58.828Z",
+      "realCreatedAt": 1793347258832
+    }
+  },
+  {
+    "name": "X刷新重进仍保留所有历史",
+    "status": "passed",
+    "details": {
+      "total": 2,
+      "visible": [
+        "test_anon",
+        "test_x"
+      ]
+    }
+  },
+  {
+    "name": "备份包含X、关系和信格",
+    "status": "passed",
+    "details": {
+      "posts": 2,
+      "comments": 1,
+      "keys": true
+    }
+  },
+  {
+    "name": "X两千帖持久保存且界面分页读取",
+    "status": "passed",
+    "details": {
+      "count": 2002,
+      "first": 20,
+      "second": 40
+    }
+  },
+  {
+    "name": "群像离场角色各自总结、原文归档及约会读取",
+    "status": "passed",
+    "details": {
+      "memories": [
+        1,
+        2
+      ],
+      "archived": 3,
+      "dateContextA": 3,
+      "dateContextB": 2
+    }
+  },
+  {
+    "name": "群像失败保留原文",
+    "status": "passed",
+    "details": {
+      "rows": [
+        {
+          "ownerUid": 10,
+          "charId": 1,
+          "chatId": 0,
+          "mode": "ensemble",
+          "sessionId": "fail_group",
+          "role": "user",
+          "content": "记录不得丢失",
+          "presentCharIds": [
+            1
+          ],
+          "createdAt": 1793347259196,
+          "id": 4
+        }
+      ],
+      "memories": 0
+    }
+  },
+  {
+    "name": "批量互动记忆按账号写入，写入失败不清空待处理",
+    "status": "passed",
+    "details": {
+      "retained": 10,
+      "count": 1,
+      "owner": 10,
+      "remaining": null
+    }
+  },
+  {
+    "name": "关系网头像与四圈布局",
+    "status": "passed",
+    "details": {
+      "display": "none",
+      "rings": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "radii": [
+        140,
+        240,
+        340,
+        440
+      ]
+    }
+  },
+  {
+    "name": "未来信本地日期启封与信箱不重复",
+    "status": "passed",
+    "details": {
+      "opened": true,
+      "mailboxes": 1
+    }
+  },
+  {
+    "name": "补帖按计划时刻生成并避免未来记忆",
+    "status": "passed",
+    "details": {
+      "count": 3,
+      "intervalMs": 18000000
+    }
+  },
+  {
+    "name": "写入失败保留旧迁移原件，不显示已落盘",
+    "status": "passed",
+    "details": {
+      "failed": true,
+      "retained": "[{\"id\":\"legacy\",\"content\":\"原件\"}]",
+      "migrated": true,
+      "removedAfterCommit": true
+    }
+  },
+  {
+    "name": "补回失败不推进进度，超过10条保留剩余债务",
+    "status": "passed",
+    "details": {
+      "failed": true,
+      "unchanged": true,
+      "count": 10,
+      "remainingSlots": 10
+    }
+  },
+  {
+    "name": "朋友圈独立计划槽、真实身份和空响应重试",
+    "status": "passed",
+    "details": {
+      "posts": 2,
+      "comments": [
+        {
+          "id": "am_10_1793329259501_c_0",
+          "uid": 2,
+          "name": "小B",
+          "avatar": "b.png",
+          "replyToId": null,
+          "replyToName": "",
+          "text": "好可爱",
+          "createdAt": 1793329259501
+        }
+      ]
+    }
+  },
+  {
+    "name": "匿名25分钟任务失败后可重试并成功",
+    "status": "passed",
+    "details": {
+      "failed": {
+        "id": "due_test",
+        "dueReal": 1793347259533,
+        "done": false,
+        "lastAttempt": 1793347259537,
+        "reason": "mock unavailable"
+      },
+      "success": {
+        "id": "due_test",
+        "dueReal": 1793347259533,
+        "done": true,
+        "lastAttempt": 1793347259541,
+        "reason": "mock unavailable"
+      },
+      "count": 1
+    }
+  },
+  {
+    "name": "真实界面：短信、X与关系网返回上一层",
+    "status": "passed",
+    "details": {
+      "sms": true,
+      "x": true,
+      "relationshipBack": true
+    }
+  },
+  {
+    "name": "数据库18→19升级保留旧数据并新增短信索引",
+    "status": "passed",
+    "details": {
+      "version": 19,
+      "post": {
+        "id": "old18",
+        "content": "升级前帖子",
+        "createdAt": "2026-10-01"
+      },
+      "sms": 1
+    }
+  },
+  {
+    "name": "虚拟10倍速抗计时器节流并刷新恢复",
+    "status": "passed",
+    "details": {
+      "elapsedVirtual": 600030,
+      "refreshPreserved": true,
+      "pausePreserved": true
+    }
+  },
+  {
+    "name": "完整回归期间无页面脚本异常",
+    "status": "passed",
+    "details": {
+      "pageErrors": []
+    }
+  }
+]

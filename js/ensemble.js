@@ -29,7 +29,7 @@ window.showEnsemblePage = async function() {
         // Fallback: find user from db.characters
         try {
           var users = await db.characters.where('type').equals('user').toArray();
-          if (users.length) uid = users[0].id;
+          if (users.length === 1) uid = users[0].id;
         } catch(e2) {}
       }
       if (uid) {
@@ -45,7 +45,7 @@ window.showEnsemblePage = async function() {
     // Check for active session (temporary exit auto-resume)
     var activeSession = null;
     try { activeSession = JSON.parse(localStorage.getItem('ensemble_active_session') || 'null'); } catch(e) {}
-    if (activeSession && activeSession.uid && activeSession.chars && activeSession.chars.length) {
+    if (activeSession && uid && String(activeSession.uid) === String(uid) && activeSession.chars && activeSession.chars.length) {
       // Auto-resume: reload characters and enter chat
       var reloadedChars = [];
       try {
@@ -54,7 +54,7 @@ window.showEnsemblePage = async function() {
       } catch(e) {}
       if (reloadedChars.length) {
         _state._historyLoaded = false;
-        enterMeet(page, activeSession.uid, reloadedChars);
+        enterMeet(page, activeSession.uid, reloadedChars, activeSession.sessionId);
         return;
       }
     }
@@ -106,8 +106,10 @@ function showExitModal(page) {
     try {
       localStorage.setItem('ensemble_active_session', JSON.stringify({
         uid: _state.uid,
-        chars: (_state.current || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
-        mode: _state.mode || 'meet'
+        chars: (_state.chars || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
+        currentIds: (_state.current || []).map(function(c) { return c.char.id; }),
+        mode: _state.mode || 'meet',
+        sessionId: getSessionId()
       }));
     } catch(e) {}
     window.closePage('ens-page');
@@ -126,7 +128,8 @@ function showExitModal(page) {
           key: 'ensemble_history_' + now,
           value: {
             uid: _state.uid,
-            chars: (_state.current || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
+            chars: (_state.chars || []).map(function(c) { return { id: c.char.id, name: chName(c.char) }; }),
+        currentIds: (_state.current || []).map(function(c) { return c.char.id; }),
             mode: _state.mode || 'meet',
             charNames: charNames,
             endedAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
@@ -145,6 +148,9 @@ function handleBack(page) {
     // Show exit modal
     showExitModal(page);
     return;
+  } else if (_state.view === 'settings') {
+    // 设置页返回 → 回到聊天原文段，绝不退出
+    renderChat(page);
   } else if (_state.view === 'modes') {
     renderChars(page, _state.uid);
   } else if (_state.view === 'chars') {
@@ -358,14 +364,17 @@ async function renderModes(page, uid, chars) {
 }
 
 // ===== 见面模式 =====
-function enterMeet(page, uid, chars) {
-  setState(page, { view: 'chat', mode: 'meet', uid: uid, chars: chars, current: chars.slice() });
+function enterMeet(page, uid, chars, sessionId) {
+  // sessionId按"参与者组合"稳定生成：同一群人=同一会话，历史不丢
+  setState(page, { view: 'chat', mode: 'meet', uid: uid, chars: chars, current: chars.slice(), sessionId: sessionId || uid + '_ens_' + chars.map(function(c){return c.char.id}).sort(function(a,b){return a-b}).join('-'), participants: chars.map(function(c){return c.char.id}), pendingWrites: [] });
+  try { var saved=JSON.parse(localStorage.getItem('ensemble_active_session')||'null');if(saved&&saved.sessionId===sessionId&&Array.isArray(saved.currentIds))_state.current=chars.filter(function(c){return saved.currentIds.map(String).includes(String(c.char.id))}); } catch(e){}
   setTitle(page, '群像 · ' + chars.length + '人在线');
   renderChat(page);
 }
 
 // ===== 聊天渲染 =====
 function renderChat(page) {
+  setState(page, { view: 'chat' });
   var body = page.querySelector('#ens-body');
   if (!body) return;
   var chars = _state.current || [];
@@ -391,6 +400,11 @@ function renderChat(page) {
   // 更新header的CAST头像和更多按钮
   var header = page.querySelector('.ens-header');
   if (header) {
+    // 先清掉旧的cast组和设置按钮，防止重复叠加（两个"设置"的病根）
+    var oldCast = header.querySelector('.ens-header-cast');
+    if (oldCast) oldCast.remove();
+    var oldMore = header.querySelector('.ens-header-more');
+    if (oldMore) oldMore.remove();
     var titleEl = header.querySelector('.ens-header-title');
     if (titleEl) {
       titleEl.outerHTML =
@@ -556,26 +570,33 @@ async function buildGroupPrompt(chars, mode, scriptData) {
 
   p += '## 用户\n用户（我）正在与这些角色互动。\n\n';
 
-  p += '## \u56de\u590d\u683c\u5f0f\uff08\u4e25\u683c\u9075\u5b88\uff09\n';
-  p += '\u6bcf\u6b21\u56de\u590d\u5fc5\u987b\u6309\u4ee5\u4e0b\u683c\u5f0f\u5199\uff0c\u6bcf\u4e2a\u89d2\u8272\u5355\u72ec\u4e00\u6bb5\uff0c\u6bb5\u9996\u5199\u89d2\u8272\u540d\uff1a\n';
+  p += '## \u56de\u590d\u683c\u5f0f\uff08\u4e25\u683c\u9075\u5b88\uff0c\u56fa\u5316\u6807\u8bb0\uff09\n';
+  p += '\u6bcf\u6b21\u56de\u590d\u5fc5\u987b\u6309\u4ee5\u4e0b\u683c\u5f0f\u5199\uff0c\u6bcf\u4e2a\u89d2\u8272\u5355\u72ec\u4e00\u6bb5\uff0c\u6bb5\u9996\u5355\u72ec\u4e00\u884c\u5199\u89d2\u8272\u540d\uff1a\n';
   p += '\n';
   p += '\u683c\u5f0f\u793a\u4f8b\uff1a\n';
   p += '\u6e29\u666f\u7136\n';
-  p += '\u4ed6\u8d70\u5230\u7a97\u8fb9\uff0c\u770b\u7740\u5916\u9762\u7684\u96e8\uff0c\u8f7b\u8f7b\u53f9\u4e86\u53e3\u6c14\u3002\n';
-  p += '\u201c\u4eca\u5929\u7684\u5929\u6c14\u771f\u4e0d\u9519\u3002\u201d\u4ed6\u8f6c\u8fc7\u5934\uff0c\u5634\u89d2\u5fae\u5fae\u4e0a\u626c\u3002\n';
-  p += '\n';
-  p += '\u827e\u56e0\n';
-  p += '\u4ed6\u4ece\u6c99\u53d1\u4e0a\u7ad9\u8d77\u6765\uff0c\u4f38\u4e86\u4e2a\u61d2\u8170\u3002\n';
-  p += '\u201c\u662f\u554a\uff0c\u4e0d\u8fc7\u6211\u66f4\u559c\u6b22\u6674\u5929\u3002\u201d\u4ed6\u8d70\u5230\u6e29\u666f\u7136\u8eab\u8fb9\u3002\n';
+  p += '\uff08\u5fc3\uff09\u4ed6\u770b\u7740\u7a97\u5916\u7684\u96e8\uff0c\u5fc3\u60f3\u4eca\u5929\u7684\u5929\u6c14\u771f\u4e0d\u9519\u3002\n';
+  p += '\uff08\u52a8\uff09\u4ed6\u8f7b\u8f7b\u53f9\u4e86\u53e3\u6c14\uff0c\u8f6c\u8fc7\u5934\u3002\n';
+  p += '\uff08\u8a00\uff09\u201c\u4eca\u5929\u7684\u5929\u6c14\u771f\u4e0d\u9519\u3002\u201d\n';
   p += '\n';
   p += '\u89c4\u5219\uff1a\n';
-  p += '1. \u6bcf\u4e2a\u89d2\u8272\u7684\u540d\u5b57\u5355\u72ec\u4e00\u884c\uff0c\u540e\u9762\u8ddf\u8be5\u89d2\u8272\u7684\u52a8\u4f5c\u548c\u53f0\u8bcd\n';
-  p += '2. \u52a8\u4f5c\u63cf\u5199\u76f4\u63a5\u5199\u6587\u5b57\uff0c\u4e0d\u8981\u4efb\u4f55\u6807\u8bb0\u7b26\u53f7\n';
-  p += '3. \u53f0\u8bcd\u7528\u4e2d\u6587\u53cc\u5f15\u53f7\u201c\u201d\u5305\u88f9\n';
+  p += '1. \u89d2\u8272\u540d\u5fc5\u987b\u5355\u72ec\u4e00\u884c\uff0c\u540e\u9762\u8ddf\u8be5\u89d2\u8272\u7684\u5168\u90e8\u63cf\u5199\u548c\u53f0\u8bcd\n';
+  p += '2. \u6bcf\u884c\u5f00\u5934\u5fc5\u987b\u5e26\u6807\u8bb0\uff1a\uff08\u5fc3\uff09=\u5fc3\u7406\u6216\u73af\u5883\u63cf\u5199\u3001\uff08\u52a8\uff09=\u52a8\u4f5c\u795e\u6001\u3001\uff08\u8a00\uff09=\u89d2\u8272\u8bf4\u7684\u8bdd\n';
+  p += '3. \u53f0\u8bcd\u7528\u4e2d\u6587\u53cc\u5f15\u53f7\u201c\u201d\u5305\u88f9\uff0c\u4e00\u884c\u53ea\u5199\u4e00\u53e5\u8bdd\u6216\u4e00\u6bb5\u63cf\u5199\n';
   p += '4. \u7981\u6b62\u4f7f\u7528\u661f\u53f7*\u3001\u52a0\u7c97**\u3001\u659c\u4f53_\u3001\u6ce2\u6d6a\u7ebf~\u7b49\u4efb\u4f55markdown\u6807\u8bb0\n';
-  p += '5. \u6bcf\u6b21\u56de\u590d\u5fc5\u987b\u8ba9\u6240\u6709\u5728\u573a\u89d2\u8272\u90fd\u51fa\u573a\uff0c\u6bcf\u4e2a\u89d2\u8272\u5fc5\u987b\u6709\u81ea\u5df1\u72ec\u7acb\u7684\u6bb5\u843d\uff08\u540d\u5b57+\u52a8\u4f5c+\u53f0\u8bcd\uff09\uff0c\u4e0d\u80fd\u628a\u6240\u6709\u89d2\u8272\u5199\u5728\u540c\u4e00\u6bb5\n';
+  p += '5. \u6bcf\u6b21\u56de\u590d\u5fc5\u987b\u8ba9\u6240\u6709\u5728\u573a\u89d2\u8272\u90fd\u51fa\u573a\uff0c\u6bcf\u4e2a\u89d2\u8272\u5fc5\u987b\u6709\u81ea\u5df1\u72ec\u7acb\u7684\u6bb5\u843d\uff0c\u4e0d\u80fd\u628a\u6240\u6709\u89d2\u8272\u5199\u5728\u540c\u4e00\u6bb5\n';
+  p += '6. \u53ea\u80fd\u5199\u4e0a\u9762\u5217\u51fa\u7684\u5728\u573a\u89d2\u8272\uff0c\u4e0d\u5728\u573a\u7684\u4eba\u7edd\u5bf9\u4e0d\u80fd\u51fa\u573a\u3001\u4e0d\u80fd\u6709\u52a8\u4f5c\u548c\u53f0\u8bcd\n';
   var minW = _state.minWords || 200; var maxW = _state.maxWords || 600;
-  p += '6. ' + minW + '-' + maxW + '\u5b57\n';
+  p += '7. ' + minW + '-' + maxW + '\u5b57\n';
+
+  // 已离场角色清单——请离后彻底退场（M/N病根）
+  try {
+    var removedNames = (_state.chars || []).map(function(c) { return chName(c.char); })
+      .filter(function(n) { return !(chars || []).some(function(c) { return chName(c.char) === n; }); });
+    if (removedNames.length) {
+      p += '\n\u8b66\u544a\uff1a' + removedNames.join('\u3001') + ' \u5df2\u7ecf\u79bb\u5f00\u573a\u666f\uff01\u4ed6\u4eec\u7edd\u5bf9\u4e0d\u80fd\u518d\u51fa\u73b0\uff0c\u4e0d\u80fd\u6709\u4efb\u4f55\u63cf\u5199\u3001\u52a8\u4f5c\u6216\u53f0\u8bcd\u3002\n';
+    }
+  } catch(e) {}
 
   // 世界书注入
   try { if (window._BUILTIN_ANTI_DRIFT_LORE) p += '\n\n' + window._BUILTIN_ANTI_DRIFT_LORE; } catch(e) { /* ignore */ }
@@ -605,12 +626,14 @@ function addMsg(page, role, text) {
   if (!log) return;
   var div = document.createElement('div');
   var chars = _state.current || [];
+  var idx = log.querySelectorAll('.miss-entry').length;
+  var time = formatTime((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()));
 
   if (role === 'user') {
-    // 用户消息 - miss-entry is-user结构，头像在右边
+    // 用户消息 - miss-entry is-user结构（与历史加载完全一致）
     var userName = _state.userName || '我';
     div.className = 'miss-entry is-user';
-    div.setAttribute('data-msg-idx', log.children.length);
+    div.setAttribute('data-msg-idx', idx);
     div.innerHTML =
       '<button class="miss-entry-head" type="button">' +
         '<div class="miss-entry-person">' +
@@ -623,14 +646,17 @@ function addMsg(page, role, text) {
       '<div class="miss-entry-card">' +
         '<div class="miss-msg-text">' + esc(text) + '</div>' +
         '<div class="miss-entry-footer">' +
-          '<span>' + formatTime((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())) + '</span>' +
+          '<span>' + esc(time) + '</span>' +
+          '<button type="button" class="miss-entry-more" data-idx="' + idx + '" title="更多"><i class="fa-solid fa-ellipsis"></i></button>' +
+          '<button type="button" class="miss-entry-delete" data-idx="' + idx + '" title="删除"><i class="fa-regular fa-trash-can"></i></button>' +
         '</div>' +
       '</div>';
   } else {
-    // AI叙事 - 白色NARRATION大卡片
-    div.className = 'ens-narr-msg';
+    // AI叙事 - miss-entry is-char结构（与历史加载完全一致）
+    div.className = 'miss-entry is-char';
+    div.setAttribute('data-msg-idx', idx);
 
-    // 解析文本，按角色分段
+    // 解析文本，按角色分段（离场角色自动丢弃）
     var segments = parseNarrationSegments(text, chars);
     var charsHTML = '';
     segments.forEach(function(seg) {
@@ -649,20 +675,41 @@ function addMsg(page, role, text) {
       charsHTML = '<div class="ens-text-env">' + esc(text) + '</div>';
     }
 
+    var avHtml = '';
+    if (chars.length > 0) {
+      var ch = chars[0].char;
+      avHtml = ch.avatar ? '<img src="' + esc(ch.avatar) + '" alt="">' : '<span>' + esc(chName(ch).charAt(0)) + '</span>';
+    }
+    var charNames = chars.map(function(c) { return chName(c.char); }).join('\u3001');
+
     div.innerHTML =
-      '<div class="ens-narr-card">' +
-        '<div class="ens-narr-header">' +
-          '<span class="ens-narr-icon"><i class="fa-solid fa-play"></i></span>' +
-          '<span class="ens-narr-label">NARRATION</span>' +
-          '<span class="ens-narr-mode">Multi</span>' +
+      '<button class="miss-entry-head" type="button">' +
+        '<div class="miss-entry-person">' +
+          '<div class="miss-msg-avatar">' + avHtml + '</div>' +
+          '<div class="miss-entry-nameblock">' +
+            '<div class="miss-msg-name">' + esc(charNames) + '</div>' +
+          '</div>' +
         '</div>' +
+        '<div class="miss-entry-floor">#' + (idx + 1) + '</div>' +
+      '</button>' +
+      '<div class="miss-entry-card">' +
         '<div class="ens-narr-body">' + charsHTML + '</div>' +
+        '<div class="miss-entry-footer">' +
+          '<span>' + esc(time) + '</span>' +
+          '<button type="button" class="miss-entry-more" data-idx="' + idx + '" title="更多"><i class="fa-solid fa-ellipsis"></i></button>' +
+          '<button type="button" class="miss-entry-delete" data-idx="' + idx + '" title="删除"><i class="fa-regular fa-trash-can"></i></button>' +
+        '</div>' +
       '</div>';
   }
 
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
-  saveChatMsg(role, text);
+  // 挂上数据库ID，编辑/删除按ID精确定位
+  saveChatMsg(role, text).then(function(id) {
+    if (id) div.setAttribute('data-mid', id);
+  });
+  // 新消息也要能编辑/删除
+  bindMsgActions(page);
 }
 
 function addSysMsg(page, text) {
@@ -676,110 +723,136 @@ function addSysMsg(page, text) {
 }
 
 // ===== 叙事文本解析 =====
+// ===== 叙事文本解析（格式固化版） =====
+// 固化格式：角色名单独一行；每行以（心）（动）（言）标记开头
+// （心）心理/环境 → 浅灰 #999  （动）动作 → #333  （言）台词 → #111加粗
+// 无标记的旧文本走启发式回退；行首不是角色名的行绝不再乱切段
 function parseNarrationSegments(text, chars) {
   if (!text) return [];
-  var lines = text.split('\n').filter(function(l) { return l.trim(); });
-  var segments = [];
-  var currentChar = null;
-  var currentLines = [];
+  var lines = String(text).split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
 
-  function flushSegment() {
-    if (currentLines.length === 0) return;
-    var bodyHtml = currentLines.map(function(line) {
-      var t = line.trim();
-      if (!t) return '';
-      if (isDialogue(t)) return '<div class="ens-text-dialogue">' + esc(t) + '</div>';
-      if (isAction(t)) return '<div class="ens-text-action">' + esc(t) + '</div>';
-      return '<div class="ens-text-env">' + esc(t) + '</div>';
-    }).filter(Boolean).join('');
-
-    var ch = currentChar || (chars.length > 0 ? chars[0].char : null);
-    if (ch) {
-      segments.push({
-        name: chName(ch),
-        avatarHtml: avatarHtml(ch.avatar, chName(ch)),
-        bodyHtml: bodyHtml
-      });
-    }
-    currentLines = [];
-  }
-
-  // Build name->char map
+  // 在场角色表
   var nameMap = {};
-  chars.forEach(function(c) {
-    var name = chName(c.char);
-    if (name) nameMap[name] = c.char;
+  (chars || []).forEach(function(c) {
+    var n = chName(c.char);
+    if (n) nameMap[n] = c.char;
   });
-  var nameList = Object.keys(nameMap).sort(function(a,b) { return b.length - a.length; });
 
-  function findCharInLine(t) {
-    for (var i = 0; i < nameList.length; i++) {
-      var name = nameList[i];
-      var idx = t.indexOf(name);
-      if (idx !== -1) {
-        var after = t.charAt(idx + name.length);
-        if (!after || after === ' ' || after === '\u3001' || after === ',' || after === '\uff0c' || after === '\u3002' || after === '\uff1a' || after === '\uff01' || after === '\uff1f' || after === '\u201c' || after === '\u201d') {
-          return nameMap[name];
+  // 全员名单（含已离场），用于识别"离场者的段落"并整段丢弃
+  var allNames = Object.keys(nameMap);
+  try {
+    (_state.chars || []).forEach(function(c) {
+      var n = chName(c.char);
+      if (n && allNames.indexOf(n) === -1) allNames.push(n);
+    });
+  } catch(e) {}
+  allNames.sort(function(a, b) { return b.length - a.length; });
+
+  // 只认行首的角色名——台词里提到别人名字绝不再乱切段
+  function matchLineStart(t) {
+    for (var i = 0; i < allNames.length; i++) {
+      var n = allNames[i];
+      if (t === n) return { name: n, rest: '' };
+      if (t.indexOf(n) === 0) {
+        var after = t.charAt(n.length);
+        if (!after || after === '\uff1a' || after === ':' || after === '\uff0c' || after === ',' ||
+            after === '\u3001' || after === ' ' || after === '\u3000' || after === '\u2014' || after === '-') {
+          return { name: n, rest: t.substring(n.length).replace(/^[\s\uff1a:,，、\u3000-]+/, '') };
         }
       }
     }
     return null;
   }
 
-  lines.forEach(function(line) {
-    var t = line.trim();
-    var matchedChar = findCharInLine(t);
-    if (matchedChar && matchedChar !== currentChar) {
-      flushSegment();
-      currentChar = matchedChar;
-      var name = chName(matchedChar);
-      var idx = t.indexOf(name);
-      if (idx === 0) {
-        t = t.substring(name.length).replace(/^\\s*[\\u3001,\\uff0c]?\\s*/, '');
-      }
-      if (t) currentLines.push(t);
-    } else {
-      currentLines.push(line);
-    }
-  });
-  flushSegment();
-  if (segments.length === 0 && currentLines.length > 0) {
-    var ch = chars.length > 0 ? chars[0].char : null;
-    if (ch) {
-      var bodyHtml = currentLines.map(function(line) {
-        var t = line.trim();
-        if (isDialogue(t)) return '<div class="ens-text-dialogue">' + esc(t) + '</div>';
-        if (isAction(t)) return '<div class="ens-text-action">' + esc(t) + '</div>';
-        return '<div class="ens-text-env">' + esc(t) + '</div>';
-      }).filter(Boolean).join('');
+  var segments = [];
+  var cur = null;
+
+  function flush() {
+    if (!cur) return;
+    // 已离场角色的段落整段丢弃，绝不顶着别人的头像出现
+    if (!cur.removed && cur.char && cur.lines.length) {
       segments.push({
-        name: chName(ch),
-        avatarHtml: avatarHtml(ch.avatar, chName(ch)),
-        bodyHtml: bodyHtml
+        name: chName(cur.char),
+        avatarHtml: avatarHtml(cur.char.avatar, chName(cur.char)),
+        bodyHtml: renderNarrLines(cur.lines)
       });
     }
+    cur = null;
   }
 
+  lines.forEach(function(line) {
+    var hit = matchLineStart(line);
+    if (hit) {
+      flush();
+      var ch = nameMap[hit.name] || null;
+      cur = { char: ch, removed: !ch, lines: [] };
+      if (hit.rest) cur.lines.push(hit.rest);
+    } else {
+      if (!cur) cur = { char: (chars && chars.length ? chars[0].char : null), removed: false, lines: [] };
+      cur.lines.push(line);
+    }
+  });
+  flush();
   return segments;
+}
+
+// 逐行渲染：（心）（动）（言）标记优先，无标记按引号+关键词回退
+function renderNarrLines(linesArr) {
+  return linesArr.map(function(line) {
+    return renderNarrLine(line);
+  }).join('');
+}
+
+function renderNarrLine(line) {
+  var t = (line || '').trim();
+  if (!t) return '';
+
+  // 固化标记：（心）（动）（言）
+  var m = t.match(/^[（(]\s*([心动言])\s*[）)]\s*/);
+  if (m) {
+    var tag = m[1];
+    var rest = t.substring(m[0].length).trim();
+    if (!rest) return '';
+    if (tag === '\u8a00') return '<div class="ens-text-dialogue">' + esc(rest) + '</div>';
+    if (tag === '\u52a8') return '<div class="ens-text-action">' + esc(rest) + '</div>';
+    return '<div class="ens-text-env">' + esc(rest) + '</div>';
+  }
+
+  // 无标记回退：引号内=台词，引号外按动作/心理分色
+  var out = '';
+  var re = /([“「"][^”」"]*[”」"])/g;
+  var last = 0;
+  var mm;
+  while ((mm = re.exec(t)) !== null) {
+    if (mm.index > last) out += renderPlainPart(t.substring(last, mm.index));
+    out += '<div class="ens-text-dialogue">' + esc(mm[1]) + '</div>';
+    last = mm.index + mm[1].length;
+  }
+  if (last < t.length) out += renderPlainPart(t.substring(last));
+  return out || '<div class="ens-text-env">' + esc(t) + '</div>';
+}
+
+function renderPlainPart(part) {
+  var t = (part || '').trim();
+  if (!t) return '';
+  if (isAction(t)) return '<div class="ens-text-action">' + esc(t) + '</div>';
+  return '<div class="ens-text-env">' + esc(t) + '</div>';
 }
 
 function isDialogue(line) {
   if (line.indexOf('\u201c') !== -1 && line.indexOf('\u201d') !== -1) return true;
   if (line.indexOf('\u300c') !== -1 && line.indexOf('\u300d') !== -1) return true;
-  if (line.indexOf('"') !== -1 && line.indexOf('"') !== -1) return true;
+  if (line.indexOf('\u2018') !== -1 && line.indexOf('\u2019') !== -1) return true;
   return false;
 }
 
 function isAction(line) {
-  var kw = ['轻轻','缓缓','看向','站起','坐下','转身','微笑','皱眉','点头','摇头','叹了口气','伸出手','低下头','抬起','走来','离开','说道','开口','沉默','注视'];
+  var kw = ['轻轻','缓缓','看向','站起','坐下','转身','微笑','皱眉','点头','摇头','叹了口气','叹气','伸出手','低下头','抬起头','走来','离开','说道','开口','沉默','注视','走到','靠','握','拉','推','端','拿','放','抱','拍','摸','揉','挥','扬','垂','蹲','躺','倚','凑','挡','拦','递','接','掏','翻','关上','打开','起身','回头','抬眼','眯眼','眨眼','咬','抿','撇','笑','哭','哼','耸肩','挑眉','歪头'];
   for (var i = 0; i < kw.length; i++) {
     if (line.indexOf(kw[i]) !== -1) return true;
   }
-  var chars = _state.current || [];
-  for (var j = 0; j < chars.length; j++) {
-    var n = chName(chars[j].char);
-    if (line.indexOf(n) === 0 && line.indexOf('「') === -1 && line.indexOf('\u201c') === -1) return true;
-  }
+  // 「了/着/过」结尾的行为叙述也归动作
+  if (/[了着过][。！？…]*$/.test(line) && !/想|觉得|心|脑|念|忆|盼|愿|怕|惊|疑/.test(line)) return true;
   return false;
 }
 
@@ -810,6 +883,24 @@ function hideTyping(page) {
 function showCastModal(page) {
   var all = _state.chars || [];
   var cur = _state.current || [];
+
+  // 请离/加入后同步刷新header头像组
+  function refreshHeaderCast() {
+    var header = page.querySelector('.ens-header');
+    if (!header) return;
+    var oldCast = header.querySelector('.ens-header-cast');
+    if (oldCast) oldCast.remove();
+    var titleEl = header.querySelector('.ens-header-title');
+    var chars = _state.current || [];
+    var castAvatars = chars.map(function(c) {
+      return '<div class="ens-header-cast-avatar">' + avatarHtml(c.char.avatar, chName(c.char)) + '</div>';
+    }).join('');
+    if (titleEl) {
+      titleEl.outerHTML =
+        '<span class="ens-header-title">' + esc(chars.map(function(c) { return chName(c.char); }).join('、')) + '</span>' +
+        '<div class="ens-header-cast">' + castAvatars + '</div>';
+    }
+  }
 
   var overlay = document.createElement('div');
   overlay.className = 'sheet-overlay';
@@ -861,10 +952,10 @@ function showCastModal(page) {
     b.onclick = function() {
       var cid = parseInt(b.dataset.cid);
       var ch = cur.find(function(x) { return x.char.id === cid; });
-      _state.current = cur.filter(function(x) { return x.char.id !== cid; });
+      _state.current = (_state.current || []).filter(function(x) { return x.char.id !== cid; });
       if (ch) addSysMsg(page, chName(ch.char) + ' 离开了聊天');
       close();
-      showCastModal(page);
+      refreshHeaderCast();
       setTitle(page, '群像 · ' + _state.current.length + '人在线');
     };
   });
@@ -873,12 +964,12 @@ function showCastModal(page) {
     b.onclick = function() {
       var cid = parseInt(b.dataset.cid);
       var ch = all.find(function(x) { return x.char.id === cid; });
-      if (ch) {
+      if (ch && !(_state.current || []).find(function(x) { return x.char.id === cid; })) {
         _state.current.push(ch);
         addSysMsg(page, chName(ch.char) + ' 加入了聊天');
       }
       close();
-      showCastModal(page);
+      refreshHeaderCast();
       setTitle(page, '群像 · ' + _state.current.length + '人在线');
     };
   });
@@ -1087,20 +1178,53 @@ async function showHistory(page, uid, chars) {
 }
 
 // ===== 聊天保存/加载 =====
-async function saveChatMsg(role, text) {
+// ===== 消息存取（统一过滤器，修"文案丢失"） =====
+function getSessionId() {
+  // 按"参与者组合"稳定生成会话ID：同一群人=同一会话，重进历史不丢
+  // （全选角池 _state.chars 参与生成，请离/加入不改ID，历史归属稳定——Codex审查意见已考虑）
+  if (_state.sessionId) return _state.sessionId;
+  var list = _state.chars || _state.current || [];
+  var ids = list.map(function(c) { return c.char.id; }).sort(function(a, b) { return a - b; });
+  return (_state.uid || 0) + '_ens_' + ids.join('-');
+}
+
+function queryMsgRows() {
+  // 按会话ID匹配；旧数据没有sessionId时回退到"charId在本会话角色表内"
+  var sid = getSessionId();
+  var sessCharIds = (_state.chars || _state.current || []).map(function(c) { return c.char.id; });
+  return db.offlineChats.toArray().then(function(all) {
+    return all.filter(function(m) {
+      if (m.ownerUid !== _state.uid || m.mode !== 'ensemble' || m.ended) return false;
+      if (m.sessionId) return m.sessionId === sid;
+      return sessCharIds.indexOf(m.charId) !== -1;
+    }).sort(function(a, b) { return (a.createdAt||0) - (b.createdAt||0); });
+  });
+}
+
+function saveChatMsg(role,text){
+  var task=saveChatMsgInternal(role,text);_state.pendingWrites=_state.pendingWrites||[];_state.pendingWrites.push(task);
+  task.catch(function(e){_state.saveError=e;window.toast&&toast('群像记录保存失败，请重试后再结束');});
+  return task;
+}
+async function saveChatMsgInternal(role, text) {
   try {
-    if (!_state.uid || !db.offlineChats || _state._loading) return;
-    await db.offlineChats.add({
+    if (!_state.uid || !db.offlineChats || _state._loading) return null;
+    var id = await db.offlineChats.add({
       ownerUid: _state.uid,
       chatId: 0,
       charId: _state.current && _state.current[0] ? _state.current[0].char.id : 0,
+      sessionId: getSessionId(),
+      participantIds: (_state.chars || []).map(function(c){return c.char.id}),
+      presentCharIds: (_state.current || []).map(function(c){return c.char.id}),
+      speakerName: role === 'user' ? (_state.userName || '用户') : '群像记录（各角色分段标注）',
       mode: 'ensemble',
       role: role,
       content: text,
       createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
       realCreatedAt: Date.now(),
     });
-  } catch(e) { console.error('[ensemble] save:', e); }
+    return id;
+  } catch(e) { console.error('[ensemble] save:', e); throw e; }
 }
 
 async function loadChatHistory(page) {
@@ -1113,11 +1237,7 @@ async function loadChatHistory(page) {
     var log = page.querySelector('#ens-log');
     if (!log) { _state._loading = false; return; }
 
-    var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
-    var all = await db.offlineChats.toArray();
-    var rows = all.filter(function(m) {
-      return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
-    }).sort(function(a, b) { return (a.createdAt||0) - (b.createdAt||0); });
+    var rows = await queryMsgRows();
 
     if (!rows.length) { _state._loading = false; return; }
 
@@ -1152,7 +1272,7 @@ async function loadChatHistory(page) {
           '</div>';
         });
         if (!charsHTML) charsHTML = '<div class="ens-text-env">' + esc(m.content || '') + '</div>';
-        return '<article class="miss-entry is-char" data-msg-idx="' + i + '">' +
+        return '<article class="miss-entry is-char" data-msg-idx="' + i + '" data-mid="' + (m.id || '') + '">' +
           '<button class="miss-entry-head" type="button">' +
             '<div class="miss-entry-person">' +
               '<div class="miss-msg-avatar">' + avHtml + '</div>' +
@@ -1173,7 +1293,7 @@ async function loadChatHistory(page) {
         '</article>';
       }
 
-      return '<article class="miss-entry is-user" data-msg-idx="' + i + '">' +
+      return '<article class="miss-entry is-user" data-msg-idx="' + i + '" data-mid="' + (m.id || '') + '">' +
         '<button class="miss-entry-head" type="button">' +
           '<div class="miss-entry-person">' +
             '<div class="miss-msg-avatar">' + avHtml + '</div>' +
@@ -1198,9 +1318,9 @@ async function loadChatHistory(page) {
 
     rows.forEach(function(m) {
       if (m.role === 'user') {
-        _state.history.push({ role: 'user', content: m.content });
+        _state.history.push(Object.assign({},m,{role:'user'}));
       } else if (m.role === 'assistant' || m.role === 'ai') {
-        _state.history.push({ role: 'assistant', content: m.content });
+        _state.history.push(Object.assign({},m,{role:'assistant'}));
       }
     });
 
@@ -1218,6 +1338,12 @@ function bindMsgActions(page) {
   var log = page.querySelector('#ens-log');
   if (!log) return;
 
+  // 按数据库ID精确定位（行号在删除后会错位，Codex审查意见）
+  function rowIdOf(btn) {
+    var a = btn.closest('.miss-entry');
+    return a ? (parseInt(a.getAttribute('data-mid')) || 0) : 0;
+  }
+
   // Delete button
   log.querySelectorAll('.miss-entry-delete').forEach(function(btn) {
     btn.onclick = function(e) {
@@ -1225,18 +1351,18 @@ function bindMsgActions(page) {
       var article = btn.closest('.miss-entry');
       if (!article) return;
       var idx = parseInt(btn.dataset.idx);
+      var mid = rowIdOf(btn);
       // Show confirm
       if (confirm('\u786e\u5b9a\u5220\u9664\u8fd9\u6761\u6d88\u606f\uff1f')) {
         article.remove();
         // Remove from db
         try {
-          var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
-          db.offlineChats.toArray().then(function(all) {
-            var rows = all.filter(function(m) {
-              return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
-            }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
-            if (rows[idx]) db.offlineChats.delete(rows[idx].id);
-          });
+          if (mid) { db.offlineChats.delete(mid); }
+          else {
+            queryMsgRows().then(function(rows) {
+              if (rows[idx]) db.offlineChats.delete(rows[idx].id);
+            });
+          }
         } catch(e) {}
       }
     };
@@ -1283,13 +1409,13 @@ function bindMsgActions(page) {
           textEl.textContent = newText;
           // Update in db
           try {
-            var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
-            db.offlineChats.toArray().then(function(all) {
-              var rows = all.filter(function(m) {
-                return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
-              }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
-              if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: newText });
-            });
+            var mid = rowIdOf(btn);
+            if (mid) { db.offlineChats.update(mid, { content: newText }); }
+            else {
+              queryMsgRows().then(function(rows) {
+                if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: newText });
+              });
+            }
           } catch(e) {}
         }
       };
@@ -1324,13 +1450,13 @@ function bindMsgActions(page) {
           }
           // Update in db
           try {
-            var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
-            db.offlineChats.toArray().then(function(all) {
-              var rows = all.filter(function(m) {
-                return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
-              }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
-              if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: reply });
-            });
+            var mid = rowIdOf(btn);
+            if (mid) { db.offlineChats.update(mid, { content: reply }); }
+            else {
+              queryMsgRows().then(function(rows) {
+                if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: reply });
+              });
+            }
           } catch(e) {}
         } catch(e) {
           hideTyping(page);
@@ -1345,13 +1471,13 @@ function bindMsgActions(page) {
         if (confirm('\u786e\u5b9a\u5220\u9664\u8fd9\u6761\u6d88\u606f\uff1f')) {
           article.remove();
           try {
-            var charId = _state.current && _state.current[0] ? _state.current[0].char.id : 0;
-            db.offlineChats.toArray().then(function(all) {
-              var rows = all.filter(function(m) {
-                return m.ownerUid === _state.uid && m.mode === 'ensemble' && m.charId === charId;
-              }).sort(function(a,b) { return (a.createdAt||0)-(b.createdAt||0); });
-              if (rows[idx]) db.offlineChats.delete(rows[idx].id);
-            });
+            var mid = rowIdOf(btn);
+            if (mid) { db.offlineChats.delete(mid); }
+            else {
+              queryMsgRows().then(function(rows) {
+                if (rows[idx]) db.offlineChats.delete(rows[idx].id);
+              });
+            }
           } catch(e) {}
         }
       };
@@ -1362,11 +1488,9 @@ function bindMsgActions(page) {
 async function clearChatHistory() {
   try {
     if (!_state.uid || !db.offlineChats) return;
-    var all = await db.offlineChats.toArray();
-    var ids = all.filter(function(m) {
-      return m.ownerUid === _state.uid && m.mode === 'ensemble';
-    }).map(function(m) { return m.id; });
-    if (ids.length) await db.offlineChats.bulkDelete(ids);
+    var rows = await queryMsgRows();
+    var ids = rows.map(function(m) { return m.id; });
+    if (ids.length) await db.offlineChats.where('id').anyOf(ids).modify({ ended: true });
     _state.history = [];
     _state._historyLoaded = false;
   } catch(e) { console.error('[ensemble] clear:', e); }
@@ -1491,42 +1615,32 @@ async function openEnsembleSettings(page, uid, chars) {
 
 // ===== 见面总结 =====
 async function summarizeAndEnd(page) {
-  if (!window.WanWanMemory || !window.WanWanMemory.summarizeMeeting) {
-    window.toast && window.toast('记忆系统未加载');
-    return;
-  }
-  window.toast && window.toast('正在总结...');
-  try {
-    var uid = _state.uid;
-    var chars = _state.current || [];
-    var history = _state.history || [];
-    if (!history.length) { window.toast && window.toast('没有聊天内容'); return; }
-
-    for (var i = 0; i < chars.length; i++) {
-      var ch = chars[i].char;
-      var sessionId = 'ensemble_' + uid + '_' + ch.id + '_' + Date.now();
-      var summaryMsgs = history.map(function(m) { return { role: m.role, content: m.content }; });
-      try {
-        await window.WanWanMemory.summarizeMeeting(ch.id, ch.id, uid, sessionId, summaryMsgs, (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()));
-      } catch(e) { console.error('[ensemble] summarize ' + ch.name, e); }
+  if(_state.summaryPending)return;_state.summaryPending=true;
+  try{
+    await Promise.all(_state.pendingWrites||[]);
+    if(_state.saveError)throw _state.saveError;
+    var rows=await queryMsgRows();
+    if(!rows.length)throw new Error('没有可总结的聊天记录');
+    var participants=new Set();
+    rows.forEach(function(m){(m.presentCharIds||m.participantIds||(_state.chars||[]).map(function(c){return c.char.id})).forEach(function(id){participants.add(id)})});
+    var failures=[];
+    for(var id of participants){
+      var ch=await db.characters.get(Number(id)||id);if(!ch||ch.type==='user')continue;
+      var source=rows.filter(function(m){return !m.presentCharIds||m.presentCharIds.map(String).includes(String(id))});
+      if(!source.some(function(m){return m.role!=='system'}))continue;
+      var chat=await db.chats.where('[ownerUid+charId]').equals([_state.uid,ch.id]).first();
+      var chatId=chat&&chat.id||await db.chats.add({ownerUid:_state.uid,charId:ch.id,createdAt:WanWanRuntime.now(),realCreatedAt:Date.now(),unread:0});
+      var sourceId=getSessionId()+':'+rows[0].id+'-'+rows[rows.length-1].id;
+      try{
+        var result=await WanWanMemory.summarizeMeeting(chatId,ch.id,_state.uid,sourceId,source,WanWanRuntime.now(),{sourceType:'ensemble',participants:Array.from(participants)});
+        if(!result||!result.ok)failures.push(ch.name);
+      }catch(e){failures.push(ch.name);console.error('[ensemble] 总结待重试',e)}
     }
-
-    if (db.offlineChats) {
-      await db.offlineChats.add({
-        ownerUid: uid, chatId: 0, charId: 0,
-        mode: 'ensemble', role: 'system',
-        content: '见面结束 · ' + (window.TimeWorld ? window.TimeWorld.getFormattedNow() : new Date().toLocaleString()),
-        createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
-      });
-    }
-
-    await clearChatHistory();
-    window.toast && window.toast('已总结并保存');
-    renderChat(page);
-  } catch(e) {
-    console.error('[ensemble] summarize error:', e);
-    window.toast && window.toast('总结失败');
-  }
+    if(failures.length)throw new Error(failures.join('、')+'总结失败，原文已保留，可重试');
+    await clearChatHistory();localStorage.removeItem('ensemble_active_session');
+    window.toast&&toast('参与角色的独立记忆已保存，原文已归档');renderChat(page);
+  }catch(e){window.toast&&toast(e.message||'总结失败，原文已保留');}
+  finally{_state.summaryPending=false;}
 }
 
 // ===== 记忆读取 =====

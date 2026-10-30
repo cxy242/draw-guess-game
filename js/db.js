@@ -347,6 +347,13 @@ function initDB() {
     xingeLetters:      '++id, senderKey, recipientType, status, createdAt, scheduledAt, readAt, favorite',
     xingePresets:      '++id, kind, name'
   })
+  db.version(19).stores({
+    messages: '++id, chatId, charId, createdAt, [chatId+createdAt], clientMessageId, serverMessageId, onlineStatus',
+    smsMessages: '++id, conversationId, direction, createdAt',
+    xPosts: 'id, authorId, createdAt, ownerUid',
+    xComments: '++id, postId, createdAt',
+    offlineChats: '++id, charId, ownerUid, sessionId, createdAt'
+  })
   installWanWanDBRecovery()
 }
 
