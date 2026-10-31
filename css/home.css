@@ -150,7 +150,15 @@
 .icon-bg svg {
   width: 30px; height: 30px;
 }
-.icon-bg svg path, .icon-bg svg circle, .icon-bg svg rect, .icon-bg svg ellipse {
+/* 着色规则：桌面所有图标统一填色（原规则，未改动）
+   —— 2026-10-25 回滚：克劳德曾把这里改成「只给有 fill 的图形着色」+ 描边图走 stroke，
+      结果二十多个桌面图标被波及（变金/变灰/变黑），主人投诉"图标颜色有的变成金色、
+      有的变成灰色、有的变成黑色"。原主人诉求只针对信格 App 内部那一枚粉红圆圈图标，
+      与桌面软件图标无关 —— 桌面规则一律恢复原样。 */
+.icon-bg svg path,
+.icon-bg svg circle,
+.icon-bg svg rect,
+.icon-bg svg ellipse {
   fill: var(--icon-color, var(--c-accent-dark));
 }
 .icon-bg img {
@@ -252,7 +260,11 @@ html.has-android-bottom-inset .dock-area {
 .dock-icon-bg svg {
   width: 26px; height: 26px;
 }
-.dock-icon-bg svg path, .dock-icon-bg svg circle, .dock-icon-bg svg rect, .dock-icon-bg svg ellipse {
+/* 同 .icon-bg：原规则，未改动（2026-10-25 回滚克劳德的误改） */
+.dock-icon-bg svg path,
+.dock-icon-bg svg circle,
+.dock-icon-bg svg rect,
+.dock-icon-bg svg ellipse {
   fill: var(--icon-color, var(--c-accent-dark));
 }
 

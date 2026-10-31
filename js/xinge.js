@@ -162,7 +162,12 @@
   var _inFlight = null;   // 生成请求 in-flight 守卫
 
   function later(fn, ms) {
-    var h = setTimeout(fn, ms);
+    var h = setTimeout(function () {
+      // 移除已执行的 handle，避免长会话下 _timers 无限增长
+      var i = _timers.indexOf(h);
+      if (i >= 0) _timers.splice(i, 1);
+      fn();
+    }, ms);
     _timers.push(h);
     return h;
   }
@@ -201,8 +206,20 @@
   }
 
   // 打开一页（挂 full-page，进栈，页面渐入）
+  // 注意：跳转采用 replace 语义——销毁栈上旧页，只留当前页。
+  // 旧实现只 push 不销毁，导致多页 position:fixed 同时在场、各自跑 is-entering
+  // 动画与背景图 → 整屏闪 + 一卡一卡（主人 2026-10-24 实机投诉）。
   function openPage(id, html, opts) {
     opts = opts || {};
+    // 0) 换页时清掉上一页遗留的定时器 —— 否则旧页的动画定时器继续跑，
+    //    往已被销毁的 DOM 上写 class → 闪屏 + 空转（主人 2026-10-24 投诉"一直闪"）
+    clearTimers();
+    // 1) 清空旧页（保留 DOM 里的非 .xg-page 元素）
+    while (_stack.length) {
+      var oldId = _stack.pop();
+      var oldEl = document.getElementById(oldId);
+      if (oldEl && oldEl.parentNode) oldEl.parentNode.removeChild(oldEl);
+    }
     var el = document.getElementById(id);
     if (el) el.remove();
     el = document.createElement('div');
@@ -213,9 +230,19 @@
     _stack.push(id);
     // 背景动效配景（一景一动，按页 id 自动注入）
     injectDrift(el);
-    // 渐入钩子
+    // 渐入钩子（登记到 _timers，换页时能一并清掉，不留游离定时器）
     el.classList.add('is-entering');
-    setTimeout(function () { el.classList.remove('is-entering'); }, 700);
+    later(function () { el.classList.remove('is-entering'); }, 700);
+    // 按钮涟漪（深检 2026-10-24 接线：effects.bindRipple 一直零调用；
+    // 统一给本页按钮挂水波反馈，提升手感）
+    if (Xinge.effects && typeof Xinge.effects.bindRipple === 'function') {
+      try {
+        var rippleBtns = el.querySelectorAll('.xg-btn, .xg-icon-btn, .xg-chip, .xg-topbar-back');
+        for (var ri = 0; ri < rippleBtns.length; ri++) {
+          Xinge.effects.bindRipple(rippleBtns[ri]);
+        }
+      } catch (e) { /* 涟漪失败不影响按钮 */ }
+    }
     return el;
   }
   // 退一层（主人规格：只退到上一页）
@@ -227,7 +254,16 @@
     var el = document.getElementById(id);
     if (!el) return;
     el.classList.add('is-closing');
-    setTimeout(function () { if (el.parentNode) el.remove(); }, 400);
+    later(function () { if (el.parentNode) el.remove(); }, 400);
+  }
+  // 回首页：清空整栈 + 所有页（主人"看完信退不出去"的兜底出口）
+  function resetToHome() {
+    clearTimers();
+    if (_inFlight && _inFlight.cancel) { try { _inFlight.cancel(); } catch (e) {} _inFlight = null; }
+    _stack.length = 0;
+    Array.prototype.slice.call(document.querySelectorAll('.xg-page')).forEach(function (e) {
+      if (e.parentNode) e.parentNode.removeChild(e);
+    });
   }
 
   /* ===== 4. 顶栏模板 ===== */
@@ -252,8 +288,15 @@
             '<div class="xg-inbox-unread" id="xg-inbox-count"></div>' +
           '</div>' +
           '<div class="xg-meander-bar xg-inbox-bar"></div>' +
-          '<div class="xg-filter-row" id="xg-inbox-filters">' +
-            '<button class="xg-chip is-selected" data-xg-filter="all">全部</button>' +
+          // 搜索框 + 筛选行（深检 2026-10-24：xinge-ui.js 的 bindInboxSearch
+          // 一直零调用 —— 搜索功能写好却没上线；此处补 DOM 钩子并接线）
+          '<div class="xg-search-wrap xg-search-row">' +
+            '<span class="xg-search-ic"></span>' +
+            '<input type="search" class="xg-search-input" placeholder="搜一搜信里的内容…" aria-label="搜索信件">' +
+            '<button class="xg-search-clear" aria-label="清空搜索"></button>' +
+          '</div>' +
+          '<div class="xg-filter-row xg-chip-row" id="xg-inbox-filters" data-xg-inbox-filter>' +
+            '<button class="xg-chip is-selected is-sel" data-xg-filter="all">全部</button>' +
             '<button class="xg-chip" data-xg-filter="unread">未读</button>' +
             '<button class="xg-chip" data-xg-filter="fav">收藏</button>' +
           '</div>' +
@@ -265,20 +308,26 @@
     var el = openPage('xg-page-inbox', html);
     fillInbox(el, 'all');
 
+    // 搜索 + 筛选统一接线（深检 2026-10-24：ui.bindInboxSearch 一直零调用）
+    // —— 搜索框与筛选 chip 都交给 xinge-ui.js 的实现，避免两套并行逻辑打架
+    if (Xinge.ui && typeof Xinge.ui.bindInboxSearch === 'function') {
+      Xinge.ui.bindInboxSearch(el, function (f, kw) {
+        fillInbox(el, f || 'all', kw || '');
+      });
+    }
+
     el.addEventListener('click', function (e) {
       var back = e.target.closest('[data-xg-act="back"]');
-      if (back) { window.showXingePage._goHome ? window.showXingePage._goHome() : popPage(); return; }
+      // 信箱页是栈底：返回应退出信格回桌面，而不是 popPage 把自己弹掉（页面残留）
+      if (back) {
+        if (window.showXingePage && window.showXingePage._goHome) window.showXingePage._goHome();
+        else resetToHome();
+        return;
+      }
       var goWrite = e.target.closest('[data-xg-act="go-write"]');
       if (goWrite) { clearTimers(); Xinge.nav.write(); return; }
       var goSet = e.target.closest('[data-xg-act="go-settings"]');
       if (goSet) { clearTimers(); Xinge.nav.settings(); return; }
-      var filter = e.target.closest('[data-xg-filter]');
-      if (filter) {
-        el.querySelectorAll('[data-xg-filter]').forEach(function (c) { c.classList.remove('is-selected'); });
-        filter.classList.add('is-selected');
-        fillInbox(el, filter.getAttribute('data-xg-filter'));
-        return;
-      }
       var card = e.target.closest('[data-xg-letter-id]');
       if (card && !card.classList.contains('is-flying')) {
         clearTimers();
@@ -291,7 +340,7 @@
     });
   }
 
-  function fillInbox(el, filter) {
+  function fillInbox(el, filter, keyword) {
     var listBox = el.querySelector('#xg-inbox-list');
     if (listBox) {
       listBox.innerHTML = '<div class="xg-skeleton xg-skeleton-card"></div>' +
@@ -299,9 +348,20 @@
         '<div class="xg-skeleton xg-skeleton-card"></div>';
     }
     loadLetters().then(function (list) {
+      var kw = String(keyword || '').trim().toLowerCase();
       var filtered = list.filter(function (x) {
-        if (filter === 'unread') return !x.readAt;
-        if (filter === 'fav') return !!x.favorite;
+        if (filter === 'unread' && x.readAt) return false;
+        if (filter === 'fav' && !x.favorite) return false;
+        if (kw) {
+          // 搜正文 / 收信人 / 写信人 / 信封留言
+          var hay = [summarize(x), (x.params && x.params.toName) || '',
+                     (x.params && x.params.senderName) || '', x.envelopeNote || ''].join(' ').toLowerCase();
+          var body = '';
+          try {
+            body = (x.papers || []).map(function (p) { return p.body || ''; }).join(' ').toLowerCase();
+          } catch (e) { body = ''; }
+          if (hay.indexOf(kw) < 0 && body.indexOf(kw) < 0) return false;
+        }
         return true;
       });
       var unread = list.filter(function (x) { return !x.readAt; }).length;
@@ -319,9 +379,11 @@
         return;
       }
       listBox.innerHTML = filtered.map(function (x, i) {
+        // 信封图标改用邀请函风格信笺（主人 2026-10-24 给图：白底 + 蓝色纹样边框）。
+        // 原先是 asset-stamp.webp（空白邮票底坯）+ xg-postmark.svg（邮戳）两张图
+        // 叠在同一处 → 重合成一团（主人投诉"特别丑"），已改成单张邀请函框。
         return '<div class="xg-en-card xg-stagger-item' + (x.readAt ? '' : ' is-unread') + '" data-xg-letter-id="' + esc(x.id) + '">' +
-          '<div class="xg-en-stamp"><img src="' + XG_IMG + 'asset-stamp.webp" alt=""></div>' +
-          '<div class="xg-env-post-faint"><img src="' + XG_IMG + 'xg-postmark.svg" alt=""></div>' +
+          '<div class="xg-en-stamp"><img src="' + XG_IMG + 'xg-invitation.webp" alt=""></div>' +
           '<div class="xg-en-main">' +
             '<div class="xg-en-to">致 ' + esc((x.params && x.params.toName) || '你') + '</div>' +
             '<div class="xg-en-summary">' + esc(summarize(x)) + '</div>' +
@@ -329,6 +391,17 @@
           '<div class="xg-en-time">' + esc(fmtTime(x.scheduledAt || x.createdAt)) + '</div>' +
         '</div>';
       }).join('');
+      // 长按菜单接线（深检 2026-10-24：ui.attachCardLongPress 一直零调用，
+      // xinge.js 自己的 attachLongPress 只做了"收藏/删除"底部弹层，没有盖章动效；
+      // 这里两套并存：卡片长按走 ui.js 的浮层（收藏盖章 + 折纸飞机删除确认）
+      if (Xinge.ui && typeof Xinge.ui.attachCardLongPress === 'function') {
+        var cards = listBox.querySelectorAll('.xg-en-card[data-xg-letter-id]');
+        for (var ci = 0; ci < cards.length; ci++) {
+          try {
+            Xinge.ui.attachCardLongPress(cards[ci], cards[ci].getAttribute('data-xg-letter-id'));
+          } catch (e) { /* 单个卡片失败不影响列表 */ }
+        }
+      }
     });
   }
 
@@ -480,6 +553,9 @@
       '<div class="xg-scroll"><div class="xg-recipient-wrap xg-content-fade">' +
         '<div class="xg-question-title">这封信，让谁写给你？</div>' +
         '<div class="xg-guide-bar" data-xg-act="goto-chars"><span class="xg-guide-text">角色档案里的人（AI 角色）会以自己的身份给你写信</span><span class="xg-guide-arrow">›</span></div>' +
+        // 头像快选（激活死 CSS .xg-crest-picker / .xg-crest-opt：
+        // 头像圆盘一排，点一下就选中写信人；下方列表仍是完整列表）
+        '<div class="xg-crest-picker" id="xg-sender-crest"></div>' +
         '<div class="xg-group-card" id="xg-sender-list"></div>' +
         '<div class="xg-orn-divider"><span class="xg-orn-leaf"><img src="' + XG_IMG + '12-laurel.webp" alt=""></span></div>' +
         '<div class="xg-arch-card xg-hoverable" data-xg-sender="none">' +
@@ -512,6 +588,17 @@
           (c.description ? '<div class="xg-avatar-tag">' + esc(String(c.description).slice(0, 18)) + '</div>' : '') +
           '</div><div class="xg-avatar-arrow">›</div></div>';
       }).join('');
+      // 头像快选盘（激活死 CSS .xg-crest-picker / .xg-crest-opt）
+      var crestBox = el.querySelector('#xg-sender-crest');
+      if (crestBox) {
+        crestBox.innerHTML = list.slice(0, 8).map(function (c) {
+          var bg = c.avatar
+            ? ' style="background-image:url(' + esc(c.avatar) + ')"'
+            : '';
+          return '<button class="xg-crest-opt" data-xg-sender-crest="' + esc(c.id) + '"' +
+            bg + ' title="' + esc(c.name) + '" aria-label="' + esc(c.name) + '"></button>';
+        }).join('');
+      }
     });
 
     el.addEventListener('click', function (e) {
@@ -527,6 +614,21 @@
         return;
       }
       var row = e.target.closest('[data-xg-sender-id]');
+      // 头像快选盘（与列表同一套选人逻辑）
+      var crest = e.target.closest('[data-xg-sender-crest]');
+      if (crest) {
+        var cid = crest.getAttribute('data-xg-sender-crest');
+        charsPromise.then(function (chars) {
+          var cp = null;
+          (chars || []).forEach(function (c) { if (String(c.id) === String(cid)) cp = c; });
+          if (!cp) return;
+          _draft.senderCharId = cp.id;
+          _draft.senderName = cp.name;
+          _draft.senderDesc = String(cp.description || cp.persona || '').slice(0, 200);
+          clearTimers(); Xinge.nav.preset();
+        });
+        return;
+      }
       if (row) {
         var sid = row.getAttribute('data-xg-sender-id');
         charsPromise.then(function (chars) {
@@ -569,7 +671,51 @@
         clearTimers(); Xinge.nav.sender(); // 先选谁给我写信
         return;
       }
-      if (e.target.closest('[data-xg-rec="other"]')) { clearTimers(); Xinge.nav.target(); }
+      if (e.target.closest('[data-xg-rec="other"]')) {
+        // 主人 2026-10-28：选「给其他人写的」后要先问一句 —— 自己写还是让 AI 写？
+        // 自己写 → 以那个人的口吻手写（AI 不代笔）；让 AI 写 → 走原来的生成管线。
+        clearTimers(); Xinge.nav.writerChoice();
+      }
+    });
+  }
+
+  /* ===== 6.x 谁来写（自己写 / 让 AI 写） =====
+     主人 2026-10-28 原话：
+     "给其他人写信这一个其他人选择了之后应该再跳转到一个页面是自己给其他人写信，
+      还是让AI给其他人写信？然后再跳转到写给谁联系人自己自定义，
+      然后就以那个人的口吻去写信，或者是自己给其他人写信，那就得自己写，不能让AI来代写"
+     —— 两种都接着走「写给谁（联系人 / 自定义）」，只是最后一步不同。 */
+  function renderWriterChoice() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('谁来写') +
+      '<div class="xg-scroll"><div class="xg-recipient-wrap xg-content-fade">' +
+        '<div class="xg-question-title">这封信，谁来写？</div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-writer="self">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">我自己写</div>' +
+          '<div class="xg-arch-sub">用那个人的口吻亲手写，AI 不代笔</div>' +
+        '</div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-writer="ai">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">让 AI 写</div>' +
+          '<div class="xg-arch-sub">照着设定替你写好这一封</div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-writer-choice', html);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var self = e.target.closest('[data-xg-writer="self"]');
+      if (self) {
+        _draft = Object.assign({}, _draft || {}, { recipientType: 'other', writerMode: 'self' });
+        clearTimers(); Xinge.nav.target();   // → 写给谁（联系人 / 自定义）
+        return;
+      }
+      var ai = e.target.closest('[data-xg-writer="ai"]');
+      if (ai) {
+        _draft = Object.assign({}, _draft || {}, { recipientType: 'other', writerMode: 'ai' });
+        clearTimers(); Xinge.nav.target();
+      }
     });
   }
 
@@ -628,7 +774,10 @@
           charId: row.getAttribute('data-xg-char-id'),
           toName: row.getAttribute('data-xg-char-name') || 'TA'
         });
-        clearTimers(); Xinge.nav.preset();
+        clearTimers();
+        // 自己写 → 直接进手写页（不走 AI 生成）；让 AI 写 → 走原来的预设/生成管线
+        if (_draft.writerMode === 'self') Xinge.nav.selfWrite();
+        else Xinge.nav.preset();
       }
     });
   }
@@ -789,7 +938,109 @@
           tone: tone || '温柔',
           topic: (el.querySelector('#xg-c-topic') || {}).value || ''
         });
-        clearTimers(); Xinge.nav.preset();
+        clearTimers();
+        // 自己写 → 直接进手写页；让 AI 写 → 走预设/生成
+        if (_draft.writerMode === 'self') Xinge.nav.selfWrite();
+        else Xinge.nav.preset();
+      }
+    });
+  }
+
+  /* ===== 6.x 手写信（自己写，以那个人的口吻） =====
+     主人 2026-10-28："或者是自己给其他人写信，那就得自己写，不能让AI来代写"
+     —— 这页是纯手写输入：红横线信纸 + 逐字显示，写完直接落库成一封信。
+     —— 写完信之后的后续步骤（是否寄出/定时等）主人说"这个之后再做"，
+        这里先做最直接的一步：写完 → 落库 → 跳信封页看这封信。 */
+  function renderSelfWrite() {
+    var toName = (_draft && _draft.toName) || 'TA';
+    var html =
+      '<div class="xg-bg xg-bg-veil-soft"></div>' +
+      topbar('自己写') +
+      '<div class="xg-scroll"><div class="xg-selfwrite-wrap xg-content-fade">' +
+        '<div class="xg-selfwrite-to">致 ' + esc(toName) + '</div>' +
+        '<div class="xg-letter xg-paper-sheet xg-letter-lined ps-letter" id="xg-self-paper">' +
+          '<div class="xg-letter-head-block"><div class="xg-letter-title">致 ' + esc(toName) + ' 的一封信</div></div>' +
+          '<div class="xg-letter-to xg-letter-head"><span class="xg-letter-hi">亲爱的 ' + esc(toName) + '：</span></div>' +
+          '<textarea class="xg-selfwrite-input" id="xg-self-input" rows="12" ' +
+            'placeholder="亲爱的 ' + esc(toName) + '：&#10;&#10;在这里写下你想说的话…"></textarea>' +
+          '<div class="xg-letter-sign xg-sign-zone">' +
+            '<div class="xg-letter-sign-name xg-sign-script">' + esc(toName) + '</div>' +
+            '<div class="xg-letter-sign-date">' + esc(fmtTime(nowTs())) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="xg-selfwrite-foot">' +
+          '<button class="xg-btn xg-btn-ghost" data-xg-act="back">再想想</button>' +
+          '<button class="xg-btn xg-btn-primary" data-xg-act="self-send">写好了，寄出</button>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-selfwrite', html);
+    el.classList.add('xg-settings-page');
+
+    // 逐字显示：输入时把已写的字渲染成 .xg-w（跟阅读页同一套显字动效）
+    var ta = el.querySelector('#xg-self-input');
+    if (ta) {
+      ta.addEventListener('input', function () {
+        var paper = el.querySelector('#xg-self-paper');
+        if (!paper) return;
+        var body = paper.querySelector('.xg-letter-body');
+        if (!body) {
+          body = document.createElement('div');
+          body.className = 'xg-letter-body';
+          var sign = paper.querySelector('.xg-sign-zone');
+          if (sign) paper.insertBefore(body, sign); else paper.appendChild(body);
+        }
+        var paras = String(ta.value || '').split(/\n+/).filter(function (s) { return s.trim(); });
+        body.innerHTML = paras.map(function (t) {
+          var chars = Array.from(t).map(function (ch) {
+            return '<span class="xg-w">' + esc(ch) + '</span>';
+          }).join('');
+          return '<p class="xg-letter-p xg-letter-para is-shown">' + chars + '</p>';
+        }).join('');
+      });
+    }
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      if (e.target.closest('[data-xg-act="self-send"]')) {
+        var text = String((el.querySelector('#xg-self-input') || {}).value || '').trim();
+        if (!text) {
+          toast('还没写呢');
+          return;
+        }
+        var paras = text.split(/\n+/).filter(function (s) { return s.trim(); });
+        // 自己写的信 → 同样三张结构（2 张正常 + 1 张心里话）
+        var papers = [
+          { kind: 'letter', title: '', body: paras[0] || text },
+          { kind: 'letter', title: '', body: paras[1] || paras[0] || text },
+          { kind: 'heart', title: '', body: paras[2] || '（这封是你亲手写的，末尾没有藏着的话）' }
+        ];
+        clearTimers();
+        saveLetter({
+          senderKey: (_draft && _draft.presetKey) || 'friend',
+          recipientType: (_draft && _draft.recipientType) || 'other',
+          charId: (_draft && _draft.charId) || null,
+          status: 'done',
+          scheduledAt: null,
+          writerMode: 'self',
+          papers: papers,
+          envelopeNote: '',
+          params: {
+            toName: toName,
+            presetKey: (_draft && _draft.presetKey) || 'friend',
+            mood: (_draft && _draft.mood) || 50,
+            tendency: (_draft && _draft.tendency) || '',
+            mention: '',
+            senderName: toName,
+            senderCharId: null
+          }
+        }).then(function (saved) {
+          toast('信已写好');
+          var lid = saved && (saved.id || saved);
+          Xinge.nav.envelope(lid);
+        }).catch(function (err) {
+          console.warn('[xinge] 手写信保存失败', err);
+          toast('写好了但没存上');
+        });
       }
     });
   }
@@ -923,6 +1174,9 @@
         senderKey: draft.presetKey || 'friend',
         recipientType: draft.recipientType || 'me',
         charId: draft.charId || null,
+        // 写信人（角色档案选人页选的）：必须落库，否则阅读页署名取不到
+        senderName: draft.senderName || '',
+        senderCharId: draft.senderCharId || null,
         status: 'done',
         scheduledAt: draft.scheduledAt || null,
         papers: parsed.papers,
@@ -932,7 +1186,10 @@
           presetKey: draft.presetKey,
           mood: draft.mood,
           tendency: draft.tendency || '',
-          mention: draft.mention || ''
+          mention: draft.mention || '',
+          // 写信人落 params（阅读页署名优先取它）
+          senderName: draft.senderName || '',
+          senderCharId: draft.senderCharId || null
         }
       });
     }).then(function () {
@@ -992,7 +1249,29 @@
       '<div class="xg-bg xg-bg-veil-dark"></div>' +
       '<div class="xg-compose-wrap">' +
         '<div class="xg-c2-stage">' +
-          '<div class="xg-c2-paper">' +
+          '<div class="xg-c2-paper xg-parchment">' +
+            // parchment 装饰系统（主人 2026-10-24 分镜明写：双线框+四角回纹花+顶部月桂弧）
+            '<div class="xg-parchment-grain"></div>' +
+            '<div class="xg-parchment-wear"></div>' +
+            '<div class="xg-parchment-crease c-1"></div>' +
+            '<div class="xg-parchment-crease c-2"></div>' +
+            '<div class="xg-parchment-crease-v cv-1"></div>' +
+            '<div class="xg-parchment-frame"></div>' +
+            '<i class="xg-parchment-corner f-tl"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<i class="xg-parchment-corner f-tr"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<i class="xg-parchment-corner f-bl"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<i class="xg-parchment-corner f-br"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<div class="xg-parchment-laurel"><svg viewBox="0 0 132 26">' +
+              '<path d="M26 20C40 4 92 4 106 20" fill="none" stroke="#896D59" stroke-width="1.4" stroke-linecap="round"/>' +
+              '<g fill="rgba(158,169,141,0.62)">' +
+              '<ellipse cx="40" cy="12" rx="5" ry="2.4" transform="rotate(-28 40 12)"/>' +
+              '<ellipse cx="54" cy="8" rx="5" ry="2.4" transform="rotate(-12 54 8)"/>' +
+              '<ellipse cx="66" cy="7" rx="5" ry="2.4"/>' +
+              '<ellipse cx="78" cy="8" rx="5" ry="2.4" transform="rotate(12 78 8)"/>' +
+              '<ellipse cx="92" cy="12" rx="5" ry="2.4" transform="rotate(28 92 12)"/>' +
+              '</g>' +
+              '<circle cx="66" cy="14" r="2.6" fill="rgba(199,161,155,0.7)"/>' +
+              '</svg></div>' +
             '<div class="xg-c2-frame"><i class="f-tl"></i><i class="f-tr"></i><i class="f-bl"></i><i class="f-br"></i></div>' +
             '<svg class="xg-c2-orn" viewBox="0 0 220 160" preserveAspectRatio="none">' +
             '<g stroke="rgba(137,109,89,0.5)" fill="none" stroke-width="1.2" stroke-linecap="round">' +
@@ -1008,13 +1287,21 @@
             '</g>' +
             '</svg>' +
             '<svg class="xg-c2-ink" viewBox="0 0 220 160">' +
-            '<circle class="xg-c2-dot" cx="14" cy="26" r="3"/>' +
-            '<circle class="xg-c2-dot" cx="16" cy="64" r="3"/>' +
-            '<circle class="xg-c2-dot" cx="20" cy="102" r="3"/>' +
+            // 行首小花点（主人 2026-10-24 分镜：行首落一朵小花点）
+            // 五瓣小花 + 花心，描边随笔迹渐显
+            '<g class="xg-c2-dot"><path d="M14 26c0-2.6 2.2-4.4 4.6-3.9-1-2.3.6-5 3-5.4-1.6-1.9-.9-4.8 1.4-6 .1 2.7 2.6 4.2 5 3.6 1-2.6 4.4-3.2 6.2-1.2-1.9 1.7-1.5 4.7.8 6.3 2.4-1 5 .6 5.6 3.1 2.4-1 5 1.4 5 4.2-2.6.5-4.4 2.6-3.9 4.7 1.9 2.1.3 5-1.8 6.1 2.3-1.1 4.8-4.2 4.7-1.2 2.4-4.3 3.4-6.3 2.4 1.1 4.6-.4 6.1-2.8 1.4 2.4-1.3 4.6-4 4.3Z"/><circle cx="14.6" cy="22" r="1.5"/></g>' +
+            '<g class="xg-c2-dot"><path d="M16 64c0-2.6 2.2-4.4 4.6-3.9-1-2.3.6-5 3-5.4-1.6-1.9-.9-4.8 1.4-6 .1 2.7 2.6 4.2 5 3.6 1-2.6 4.4-3.2 6.2-1.2-1.9 1.7-1.5 4.7.8 6.3 2.4-1 5 .6 5.6 3.1 2.4-1 5 1.4 5 4.2-2.6.5-4.4 2.6-3.9 4.7 1.9 2.1.3 5-1.8 6.1 2.3-1.1 4.8-4.2 4.7-1.2 2.4-4.3 3.4-6.3 2.4 1.1 4.6-.4 6.1-2.8 1.4 2.4-1.3 4.6-4 4.3Z"/><circle cx="16.6" cy="60" r="1.5"/></g>' +
+            '<g class="xg-c2-dot"><path d="M20 102c0-2.6 2.2-4.4 4.6-3.9-1-2.3.6-5 3-5.4-1.6-1.9-.9-4.8 1.4-6 .1 2.7 2.6 4.2 5 3.6 1-2.6 4.4-3.2 6.2-1.2-1.9 1.7-1.5 4.7.8 6.3 2.4-1 5 .6 5.6 3.1 2.4-1 5 1.4 5 4.2-2.6.5-4.4 2.6-3.9 4.7 1.9 2.1.3 5-1.8 6.1 2.3-1.1 4.8-4.2 4.7-1.2 2.4-4.3 3.4-6.3 2.4 1.1 4.6-.4 6.1-2.8 1.4 2.4-1.3 4.6-4 4.3Z"/><circle cx="20.6" cy="98" r="1.5"/></g>' +
             '<path d="M26 28 C 52 18, 78 36, 106 26 S 156 16, 196 30"/>' +
             '<path d="M28 66 C 58 56, 84 74, 114 64 S 162 54, 198 68"/>' +
             '<path d="M32 104 C 60 96, 88 112, 120 102 S 166 94, 198 106"/>' +
-            '<path class="xg-c2-flourish" d="M170 118 c 10 4 18 3 24-3 M186 112 l 8-3 -3 8"/>' +
+            // 行尾收笔卷草勾（主人分镜：行尾收笔卷草勾）
+            '<g class="xg-c2-flourish">' +
+            '<path d="M168 118c9 4 18 3 25-4"/>' +
+            '<path d="M186 113c4-3 9-3 12 1-3 4-9 5-12-1Z"/>' +
+            '<path d="M193 114c3-4 8-4 11 0-3 4-8 5-11 0Z"/>' +
+            '<path d="M198 117c4-2 8 0 8 4-4 2-8 0-8-4Z"/>' +
+            '</g>' +
             '</svg>' +
             '<div class="xg-c2-blot"></div>' +
           '</div>' +
@@ -1048,12 +1335,17 @@
     }, 600);
 
     el.addEventListener('click', function (e) {
-      if (e.target.closest('[data-xg-act="skip"]')) {
+      // 生成页「跳过」：HTML 生成的是 data-xg-act="compose-skip"，
+      // 原处理器只匹配 "skip" → 按钮点了完全没反应（深检 2026-10-24 实锤）
+      if (e.target.closest('[data-xg-act="compose-skip"]') ||
+          e.target.closest('[data-xg-act="skip"]')) {
         clearTimers();
         Xinge.compose.skipToResult();
         return;
       }
-      if (e.target.closest('[data-xg-act="retry"]')) {
+      // 「再写一次」：xinge-ui.js 生成的是 compose-retry，这里两个名字都接
+      if (e.target.closest('[data-xg-act="compose-retry"]') ||
+          e.target.closest('[data-xg-act="retry"]')) {
         clearTimers();
         el.classList.remove('is-error');
         Xinge.compose.run(_draft);
@@ -1065,29 +1357,86 @@
   var _currentLetterId = null;
   var _revealLetterId = null;   // 刚拆开的信：必走显字动画
   var _readModePref = '直接全文'; // S5 偏好缓存（renderPrefs 同步）
+  var _arrangedLetterId = null; // 已在信封页落成叠放的信（阅读页返回时不再重拆）
 
-  function renderEnvelope(letterId) {
+  /* 三张纸的三态（信封页与叠放页共用同一套规则）
+     idx === readIdx → is-next（当前该读，浮到最上层，可点）
+     idx <  readIdx → is-read（已读过，可回看）
+     idx >  readIdx → is-locked（还没轮到，点它弹提示） */
+  function applyPaperLocks(papersEls, readIdx) {
+    papersEls.forEach(function (pp, idx) {
+      pp.classList.remove('is-next', 'is-locked', 'is-read');
+      if (idx === readIdx) pp.classList.add('is-next');
+      else if (idx < readIdx) pp.classList.add('is-read');
+      else pp.classList.add('is-locked');
+    });
+  }
+  /* 三层角色（top/mid/back）按主人 2026-10-24 定的堆叠提示词分配：
+     当前该读的那张 → top（居中、轮廓完整、最上层）
+     其余两张按先后顺序占 mid（偏左顺时针）/ back（偏右逆时针）
+     —— 2026-10-30 修正：原来"没轮到的都算 back"，两张纸会叠在同一个位置，
+        豆包那个"三张各占一层、边缘互相穿插"的构图就没了。
+        现在三张各占一层，谁在最上永远跟着当前该读的那张走。 */
+  function applyPaperRoles(papersEls, readIdx) {
+    var n = papersEls.length;
+    var rest = [];
+    papersEls.forEach(function (pp, idx) { if (idx !== readIdx) rest.push(pp); });
+    papersEls.forEach(function (pp, idx) {
+      var role;
+      if (readIdx >= n) {
+        // 全读完了：按顺序各占一层
+        role = idx === 0 ? 'top' : (idx === 1 ? 'mid' : 'back');
+      } else if (idx === readIdx) {
+        role = 'top';
+      } else {
+        role = rest.indexOf(pp) === 0 ? 'mid' : 'back';
+      }
+      pp.setAttribute('data-xg-role', role);
+    });
+  }
+
+  function renderEnvelope(letterId, opts) {
+    opts = opts || {};
     _currentLetterId = letterId;
-    var html =
-      '<div class="xg-bg"></div>' +
-      topbar('一封信') +
-      '<div class="xg-scroll"><div class="xg-content-fade" style="padding-top:3vh">' +
+    var readIdx = parseInt(opts.readIdx, 10);
+    if (isNaN(readIdx) || readIdx < 0) readIdx = 0;
+    loadLetters().then(function (list) {
+      var letter = null;
+      list.forEach(function (x) { if (String(x.id) === String(letterId)) letter = x; });
+      if (!letter) { toast('信不见了'); popPage(); return; }
+      var papers = letter.papers || [];
+      // 每张纸露出的第一行（第三张是心里话，不露正文）
+      function headOf(p) {
+        if (!p) return '';
+        return String(p.body || '').replace(/~~/g, '').replace(/\n+/g, ' ').trim().slice(0, 24);
+      }
+      var html =
+        '<div class="xg-bg"></div>' +
+        topbar('一封信') +
+        // 波浪纸边滤镜（叠放页同款；信封页也要一份，否则滤镜引用落空）
+        '<svg width="0" height="0" style="position:absolute"><defs>' +
+        '<filter id="xg-wavy-paper"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/>' +
+        '<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter>' +
+        '</defs></svg>' +
+        '<div class="xg-scroll"><div class="xg-content-fade xg-env-wrap xg-env-wrap-burst" id="xg-env-wrap">' +
         '<div class="xg-env4-stage is-arriving" id="xg-env2-stage">' +
           '<div class="xg-env4">' +
-            '<div class="xg-env4-back"></div>' +
-            '<div class="xg-env4-letter" id="xg-env2-letters"></div>' +
-            '<div class="xg-env4-pocket">' +
-              '<div class="xg-env4-vine"><svg viewBox="0 0 460 310" preserveAspectRatio="none"><g stroke="rgba(137,109,89,0.6)" fill="none" stroke-width="1.3" stroke-linecap="round"><path d="M60 292c26-5 46-16 56-32 7-12 6-24-2-31-7-6-17-5-21 2-4 5-1 12 5 13 4 1 8-2 7-6"/><path d="M400 292c-26-5-46-16-56-32-7-12-6-24 2-31 7-6 17-5 21 2 4 5 1 12-5 13-4 1-8-2-7-6"/><path d="M180 28c12 5 28 5 40 0M240 28c12 5 28 5 40 0"/></g><g fill="none" stroke="rgba(137,109,89,0.55)" stroke-width="1.1"><path d="M76 262c-4-7-3-14 3-19M96 246c-5-6-5-13-1-18M384 262c4-7 3-14-3-19M364 246c5-6 5-13 1-18"/><path d="M212 40c-5-7-4-15 2-20M226 48c-6-5-8-13-5-19M248 48c6-5 8-13 5-19M262 40c5-7 4-15-2-20"/></g></svg></div>' +
-            '</div>' +
-            '<div class="xg-env4-hinge">' +
-              '<div class="xg-env4-flap">' +
-                '<div class="xg-env4-flap-out"></div>' +
-                '<div class="xg-env4-flap-in"></div>' +
+            // 信封本体（退场时整体缩小淡出）：纸**不在**这一层里，
+            // 纸飞出来的时候不会被信封带着一起淡出（实测踩过：纸一起没了）
+            '<div class="xg-env4-body">' +
+              '<div class="xg-env4-back"></div>' +
+              '<div class="xg-env4-pocket">' +
+                '<div class="xg-env4-vine"><svg viewBox="0 0 460 310" preserveAspectRatio="none"><g stroke="rgba(137,109,89,0.6)" fill="none" stroke-width="1.3" stroke-linecap="round"><path d="M60 292c26-5 46-16 56-32 7-12 6-24-2-31-7-6-17-5-21 2-4 5-1 12 5 13 4 1 8-2 7-6"/><path d="M400 292c-26-5-46-16-56-32-7-12-6-24 2-31 7-6 17-5 21 2 4 5 1 12-5 13-4 1-8-2-7-6"/><path d="M180 28c12 5 28 5 40 0M240 28c12 5 28 5 40 0"/></g><g fill="none" stroke="rgba(137,109,89,0.55)" stroke-width="1.1"><path d="M76 262c-4-7-3-14 3-19M96 246c-5-6-5-13-1-18M384 262c4-7 3-14-3-19M364 246c5-6 5-13 1-18"/><path d="M212 40c-5-7-4-15 2-20M226 48c-6-5-8-13-5-19M248 48c6-5 8-13 5-19M262 40c5-7 4-15-2-20"/></g></svg></div>' +
               '</div>' +
-              
-            '</div>' +
-          '</div>' +
-            '<div class="xg-env4-seal-hinge">' +
+              '<div class="xg-env4-hinge">' +
+                '<div class="xg-env4-flap">' +
+                  '<div class="xg-env4-flap-out"></div>' +
+                  '<div class="xg-env4-flap-in"></div>' +
+                '</div>' +
+              '</div>' +
+              // 探出的那条纸边（装饰层，在袋口之下 → 被 V 口切出豁口）
+              '<div class="xg-env4-mouth" id="xg-env-mouth"><div class="xg-env4-mouth-edge"></div></div>' +
+              '<div class="xg-env4-seal-hinge">' +
               '<div class="xg-env4-seal">' +
                 '<div class="xg-seal-overflow"></div><div class="xg-seal-overflow b"></div>' +
                 '<div class="xg-seal-wax"></div>' +
@@ -1109,57 +1458,264 @@
                 '</svg></div>' +
                 '<div class="xg-seal-gloss"></div>' +
               '</div>' +
-        '</div>' +
-        '<div class="xg-env4-hint">拆开看看</div>' +
+            '</div>' +   // 封 .xg-env4-seal-hinge
+          '</div>' +     // 封 .xg-env4-body
+          // 探出信纸的点击热区（挂在信封里 → 百分比按信封算；
+          // 挂在外面会被信封自己的盒子拉偏）
+          '<button class="xg-env4-mouth-hit" id="xg-mouth-hit" aria-label="抽出信纸"></button>' +
+        '</div>' +       // 封 .xg-env4
+        '<div class="xg-env4-hint" id="xg-env-hint">拆开看看</div>' +
+      '</div>' +         // 封 .xg-env4-stage
+      // 三张纸：**住在页面层，不挂在信封里**
+      // —— 挂在 .xg-env4 里会被信封的层整个盖住（实测：纸明明在那儿，却一个像素都看不见）；
+      //    挂在页面层才画得出来。探出的那条纸边另有装饰元素（.xg-env4-mouth）。
+      '<div class="xg-fan2-stage xg-fan2-stage-env" id="xg-fan-stage">' +
+        '<div class="xg-fan2-paper fp-1" data-xg-idx="0"><div class="xg-fan2-sheet">' +
+          '<div class="xg-fan2-first">' + esc(headOf(papers[0])) + '</div></div></div>' +
+        '<div class="xg-fan2-paper fp-2" data-xg-idx="1"><div class="xg-fan2-sheet">' +
+          '<div class="xg-fan2-first">' + esc(headOf(papers[1])) + '</div></div></div>' +
+        // 第三张是心里话：不给正文，只给"点开才知"的暗示
+        '<div class="xg-fan2-paper fp-3" data-xg-idx="2"><div class="xg-fan2-sheet">' +
+          '<div class="xg-fan2-secret">藏着的一张</div>' +
+        '</div></div>' +
+      '</div>' +
+      // 落定后的提示条 + 读完三封的收尾卡
+      '<div class="xg-env-burst-foot" id="xg-burst-foot">共三封 · 按顺序拆读</div>' +
+      '<div class="xg-env-finale" id="xg-finale">' +
+        '<button class="xg-btn xg-btn-ghost" data-xg-act="fav">收藏</button>' +
+        '<button class="xg-btn xg-btn-primary" data-xg-act="again">再来一封</button>' +
+        '<button class="xg-btn xg-btn-ghost" data-xg-act="inbox">回信箱</button>' +
+      '</div>' +
       '</div></div>';
-    var el = openPage('xg-page-envelope', html);
-    // 信封背景注入（bg-P6）
-    var bg = el.querySelector('.xg-bg');
-    if (bg) bg.style.backgroundImage = 'url(' + XG_IMG + 'bg-P6-vx.webp)';
+      var el = openPage('xg-page-envelope', html);
+      // 信封背景注入（bg-P6）
+      var bg = el.querySelector('.xg-bg');
+      if (bg) bg.style.backgroundImage = 'url(' + XG_IMG + 'bg-P6-vx.webp)';
 
-    var stage = el.querySelector('#xg-env2-stage');
-    var opened = false;
-    // S0 出现动画播完 → 静置微晃（等待拆信）
-    later(function () {
-      if (stage) { stage.classList.remove('is-arriving'); stage.classList.add('is-waiting'); }
-    }, 1180);
-    function doDone() {
-      markRead(letterId);
-      _revealLetterId = letterId; // 本次会话刚拆：阅读页必走显字
-      clearTimers();
-      Xinge.nav.fan(letterId, 0);
-    }
-    function playUnseal() {
-      if (!stage) { doDone(); return; }
-      if (document.body.classList.contains('xg-motion-low')) { doDone(); return; }
-      stage.classList.remove('is-arriving', 'is-waiting');
-      stage.classList.add('is-p1-press');           // S1 火漆按压 0.5s
-      later(function () {
-        stage.classList.remove('is-p1-press');
-        stage.classList.add('is-p2-open');          // S2 翻盖绕铰链 0.95s
-        later(function () {
-          stage.classList.add('is-p3-rising');      // S3 三纸升出 1.05s
-          later(function () {
-            stage.classList.remove('is-p3-rising');
-            stage.classList.add('is-p4-fanning');   // S4 扇形飞散 0.95s
-            later(function () {
-              stage.classList.add('is-p5-away');    // S5 信封淡出
-              later(doDone, 480);
-            }, 950);
-          }, 1080);
-        }, 980);
-      }, 520);
-    }
-    // 点击信封任意处拆信
-    el.addEventListener('click', function (ev) {
-      if (ev.target.closest('[data-xg-act="back"]')) {
-        if (opened) return; // 动画中禁止返回（防半截状态）
-        clearTimers(); popPage();
-        return;
+      var stage = el.querySelector('#xg-env2-stage');
+      var fanStage = el.querySelector('#xg-fan-stage');
+      var hintEl = el.querySelector('#xg-env-hint');
+      var footEl = el.querySelector('#xg-burst-foot');
+      var finaleEl = el.querySelector('#xg-finale');
+      var papersEls = Array.prototype.slice.call(el.querySelectorAll('.xg-fan2-paper'));
+      var opened = false;        // 拆信（火漆 + 翻盖）已触发
+      var pulled = false;        // 已点信纸抽出
+      var sealFinished = false;  // 拆信动画是否已走完（走完后返回键恢复可用）
+      var lowMotion = document.body.classList.contains('xg-motion-low');
+      var peek = null;           // 起飞点（从袋口那条纸边量出来的）
+
+      /* ===== 起飞点：三张纸从袋口探出的那条纸边那儿起飞 =====
+         —— 位置全部量出来算，别写死像素（信封宽度是流体的）。
+         —— 量的时候必须**临时关掉过渡**：清掉 transform 会触发 0.62s 的过渡，
+            这时量到的是动画起点而不是静态位置 → 算出来的偏移全错（实测踩过）。 */
+      function measurePeek() {
+        var mouthEl = el.querySelector('#xg-env-mouth');
+        if (!mouthEl || !papersEls.length || !fanStage) return false;
+        var mr = mouthEl.getBoundingClientRect();
+        if (!mr.height) return false;              // 布局还没稳 → 稍后重试
+        var s = 0.44;                              // 缩着塞在信封里
+        var items = [];
+        papersEls.forEach(function (p, i) {
+          var pt = p.style.transition;
+          p.style.transition = 'none';             // 量静态位置：过渡必须关
+          p.style.transform = '';
+          var r = p.getBoundingClientRect();
+          p.style.transition = pt;
+          items.push({
+            dx: (mr.left + mr.width / 2) - (r.left + r.width / 2) + (i - 1) * 6,
+            dy: (mr.top + (r.height * s) / 2) - (r.top + r.height / 2),
+            s: s
+          });
+        });
+        peek = { items: items };
+        return true;
       }
-      if (opened) return;
-      opened = true;
-      playUnseal();
+
+      /* ===== 探出位置：把三张纸摆到"袋口只露一条边"的地方 =====
+         —— 袋口是 V 形（中间低两边高），信纸从中间探出来，
+            下缘被袋口切出一个 V 豁口 —— 老信封插着信的样子。
+         —— 位置全部量出来算，别写死像素（信封宽度是流体的）。
+         —— 量的时候必须**临时关掉过渡**：清掉 transform 会触发 0.62s 的过渡，
+            这时量到的是动画起点而不是静态位置 → 算出来的偏移全错（实测踩过）。 */
+      function measurePeek() {
+        var pocket = el.querySelector('.xg-env4-pocket');
+        if (!pocket || !papersEls.length) return false;
+        var pr = pocket.getBoundingClientRect();
+        if (!pr.height) return false;                 // 布局还没稳（袋口还没高度）→ 稍后重试
+        var vBottom = pr.top + pr.height * 0.20;       // V 口最低点（中心）
+        var visible = Math.max(30, pr.height * 0.22); // 露出多少
+        var wantTop = vBottom - visible;               // 纸顶边该在的位置
+        var s = 0.44;                                  // 缩着塞在信封里
+        var items = [];
+        papersEls.forEach(function (p, i) {
+          var pt = p.style.transition;
+          p.style.transition = 'none';                // 量静态位置：过渡必须关
+          p.style.transform = '';
+          var r = p.getBoundingClientRect();
+          p.style.transition = pt;
+          var staticCenter = r.top + r.height / 2;
+          items.push({
+            dx: (i - 1) * 5,                           // 三张错开一点，像一叠
+            dy: (wantTop + r.height * s / 2) - staticCenter
+          });
+        });
+        peek = { items: items, s: s };
+        return true;
+      }
+
+      /* ===== S1–S3：压印 → 开启 → 探出（到探出为止就停，等主人点） ===== */
+      function playUnseal() {
+        if (!stage) return;
+        if (lowMotion) {
+          stage.classList.remove('is-arriving', 'is-waiting');
+          stage.classList.add('is-p2-open', 'is-p3-mouth');
+          measurePeek();
+          sealFinished = true;
+          if (hintEl) hintEl.textContent = '点信纸抽出来';
+          return;
+        }
+        stage.classList.remove('is-arriving', 'is-waiting');
+        stage.classList.add('is-p1-press');           // S1 火漆按压（含顿帧）
+        later(function () {
+          stage.classList.remove('is-p1-press');
+          stage.classList.add('is-p2-open');          // S2 翻盖绕顶边 0°→-165°
+          later(function () {
+            // S3 信纸只从袋口探出一条边 —— 然后停住，等主人点它
+            // 起飞点这时才量：页面刚建好时布局还会再挪几十像素（图片/字体落定），
+            // 那时量出来的偏移会偏 —— 翻盖打开时布局早稳了。
+            if (!measurePeek()) later(function () { measurePeek(); }, 120);
+            stage.classList.add('is-p3-mouth');
+            if (hintEl) hintEl.textContent = '点信纸抽出来';
+            sealFinished = true;                      // 动画走完 → 返回键可用
+          }, 640);
+        }, 340);
+      }
+
+      /* ===== S4–S5：抽出三张 → 落进叠放 → 信封退场 ===== */
+      function playPull() {
+        if (pulled || !fanStage) return;
+        pulled = true;
+        var hit = el.querySelector('#xg-mouth-hit');
+        if (hit) hit.style.display = 'none';
+        // 纸在页面层，本来就压在信封上面，不用抬层
+        fanStage.classList.add('is-fanned');
+        applyPaperRoles(papersEls, readIdx);   // 落点 = 主人定的那套叠放
+        void fanStage.offsetWidth;             // 强制回流，终态先算出来
+        // 逐张起飞：keyframes 从袋口那条纸边飞到"叠放位"（错峰 0/110/220ms）
+        papersEls.forEach(function (p, i) {
+          var it = (peek && peek.items[i]) || { dx: 0, dy: 0, s: 0.44 };
+          p.style.setProperty('--bx', it.dx + 'px');
+          p.style.setProperty('--by', it.dy + 'px');
+          p.style.setProperty('--bs', String(it.s));
+          p.style.setProperty('--xg-burst-i', String(i));
+          p.classList.add('is-flying', 'is-show');
+        });
+        later(function () { stage.classList.add('is-p5-away'); }, 220);
+        later(function () {
+          stage.classList.add('is-gone');
+          // 动画跑完：交还控制权（去掉 is-flying 与 inline transform，
+          // 之后点开转场 A5 才能再改 transform）
+          papersEls.forEach(function (p) {
+            p.classList.remove('is-flying', 'is-show');
+            p.style.transform = '';
+            p.style.removeProperty('--bx');
+            p.style.removeProperty('--by');
+            p.style.removeProperty('--bs');
+            p.style.removeProperty('--xg-burst-i');
+          });
+          applyPaperLocks(papersEls, readIdx);
+          _arrangedLetterId = String(letterId);
+          markRead(letterId);
+          _revealLetterId = letterId;          // 阅读页必走显字
+          if (hintEl) hintEl.style.display = 'none';
+          if (footEl) footEl.classList.add('is-on');
+          if (finaleEl) finaleEl.classList.toggle('is-on', readIdx >= 3);
+        }, 980);
+      }
+
+      /* ===== 三张纸：顺序锁 + 点开转场（与叠放页同一套规则） ===== */
+      function openPaperFromFan(paper) {
+        var idx = parseInt(paper.getAttribute('data-xg-idx'), 10) || 0;
+        if (idx > readIdx) {
+          // A9 顺序锁：nudge + toast（点后面的要提示先点第一张）
+          paper.classList.remove('is-nudge');
+          void paper.offsetWidth;
+          paper.classList.add('is-nudge');
+          toast(readIdx === 0 ? '先从第一封看起' : '先看完第 ' + (readIdx + 1) + ' 封');
+          return;
+        }
+        if (idx < readIdx) {
+          clearTimers();
+          Xinge.nav.reading(letterId, idx);
+          return;
+        }
+        // A5 点开转场：当前张前移放大，其余后退虚影，然后进 P8
+        clearTimers();
+        paper.classList.add('is-open');
+        fanStage.classList.add('is-opening');
+        later(function () { Xinge.nav.reading(letterId, idx); }, lowMotion ? 10 : 520);
+      }
+
+      /* ===== 直接进叠放态（从阅读页返回，不重拆） ===== */
+      if (opts.arranged) {
+        stage.classList.remove('is-arriving');
+        stage.classList.add('is-gone');
+        fanStage.classList.add('is-fanned');
+        applyPaperRoles(papersEls, readIdx);
+        applyPaperLocks(papersEls, readIdx);
+        papersEls.forEach(function (p) { p.style.transform = ''; p.classList.add('is-show'); });
+        if (hintEl) hintEl.style.display = 'none';
+        if (footEl) footEl.classList.add('is-on');
+        if (finaleEl) finaleEl.classList.toggle('is-on', readIdx >= 3);
+        sealFinished = true;
+      } else {
+        // S0 出现动画播完 → 静置微晃（等待拆信）
+        // 注意：若用户在这之前已点开信封，这个定时器不能再把 is-waiting 加回去
+        // （否则状态类打架，翻盖动画被压掉 —— 主人 2026-10-28 实测踩到）
+        later(function () {
+          if (stage && !opened) {
+            stage.classList.remove('is-arriving');
+            stage.classList.add('is-waiting');
+          }
+        }, 880);
+        // 探出位置等 S3 再量（那时布局已稳）；这里先把纸按原位摆好（不可见）
+        peek = null;
+      }
+
+      // 点击：信封 → 拆信；信纸 → 抽出；三张纸 → 顺序锁
+      el.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-xg-act="back"]')) {
+          // 主人 2026-10-24 投诉"退出键点了没用"：
+          // 原来 opened 一旦为 true 就直接 return，返回键永久失灵。
+          // 现在：动画进行中仍拦（防半截状态），但动画结束后一律能退。
+          if (opened && !sealFinished) return;
+          clearTimers();
+          popPage();
+          return;
+        }
+        if (ev.target.closest('[data-xg-act="fav"]')) {
+          toggleFavorite(letterId, true).then(function () { toast('已盖「藏」章'); });
+          return;
+        }
+        if (ev.target.closest('[data-xg-act="again"]')) {
+          clearTimers();
+          Xinge.nav.write();
+          return;
+        }
+        if (ev.target.closest('[data-xg-act="inbox"]')) {
+          clearTimers();
+          while (_stack.length > 1) popPage();
+          return;
+        }
+        // 三张纸（抽出之后才可点）
+        var paper = ev.target.closest('.xg-fan2-paper');
+        if (paper && pulled) { openPaperFromFan(paper); return; }
+        // 点信纸 → 把三张抽出来
+        if (ev.target.closest('#xg-mouth-hit')) { playPull(); return; }
+        if (pulled || opened) return;
+        opened = true;
+        playUnseal();
+      });
     });
   }
 
@@ -1205,12 +1761,15 @@
         '<div class="xg-fan-wrap xg-content-fade">' +
           '<div class="xg-fan2-stage is-fanned" id="xg-fan-stage">' +
             '<div class="xg-fan2-paper fp-1" data-xg-idx="0"><div class="xg-fan2-sheet">' +
-              '<div class="xg-fan2-first">' + esc(((papers[0] && papers[0].body) || '').slice(0, 24)) + '</div></div></div>' +
+              '<div class="xg-fan2-first">' + esc(((papers[0] && papers[0].body) || '').replace(/~~/g, '').slice(0, 24)) + '</div></div></div>' +
             '<div class="xg-fan2-paper fp-2" data-xg-idx="1"><div class="xg-fan2-sheet">' +
-              '<div class="xg-fan2-first">' + esc(((papers[1] && papers[1].body) || '').slice(0, 24)) + '</div></div></div>' +
-            '<div class="xg-fan2-paper fp-3" data-xg-idx="2"><div class="xg-fan2-sheet"></div></div>' +
+              '<div class="xg-fan2-first">' + esc(((papers[1] && papers[1].body) || '').replace(/~~/g, '').slice(0, 24)) + '</div></div></div>' +
+            // 第三张是心里话：不给正文，只给"点开才知"的暗示（主人分镜：点开才知的秘密）
+            '<div class="xg-fan2-paper fp-3" data-xg-idx="2"><div class="xg-fan2-sheet">' +
+              '<div class="xg-fan2-secret">藏着的一张</div>' +
+            '</div></div>' +
           '</div>' +
-          '<div class="xg-fan2-foot">共三封 · 按顺序拆读</div>' +
+          '<div class="xg-fan2-foot" id="xg-fan2-foot">共三封 · 按顺序拆读</div>' +
           '<div class="xg-fan-finale" id="xg-finale">' +
             '<button class="xg-btn xg-btn-ghost" data-xg-act="fav">收藏</button>' +
             '<button class="xg-btn xg-btn-primary" data-xg-act="again">再来一封</button>' +
@@ -1222,11 +1781,21 @@
       var papers2 = Array.prototype.slice.call(el.querySelectorAll('.xg-fan2-paper'));
 
       function syncLocks() {
-        papers2.forEach(function (pp, idx) {
-          pp.classList.remove('is-next', 'is-locked');
-          if (idx === readIdx) pp.classList.add('is-next');
-          else if (idx > readIdx) pp.classList.add('is-locked');
-        });
+        // 三态（主人 2026-10-24 定）：
+        //   idx === readIdx → is-next（当前该读，浮到最上层，可点）
+        //   idx <  readIdx → is-read（已读过，可回看）
+        //   idx >  readIdx → is-locked（还没轮到，压最底，点它弹提示）
+        //
+        // 三层角色（top/mid/back）按主人的堆叠提示词分配：
+        //   当前该读的那张 → top（居中、轮廓完整、最上层）
+        //   已读过的       → mid（偏左顺时针）
+        //   未解锁的       → back（偏右逆时针）
+        // 这样「谁在最上」永远跟着当前该读的那张走 → 点它一定能点中。
+        //
+        // 2026-10-30：信封页也用同一套规则（那边是"抽出三张后落到叠放位"），
+        // 所以抽成两个共用函数，两边不会走偏。
+        applyPaperLocks(papers2, readIdx);
+        applyPaperRoles(papers2, readIdx);
         var finale = el.querySelector('#xg-finale');
         if (finale && readIdx >= 3) finale.style.display = '';
         else if (finale) finale.style.display = 'none';
@@ -1258,11 +1827,11 @@
         if (!paper) return;
         var idx = parseInt(paper.getAttribute('data-xg-idx'), 10) || 0;
         if (idx > readIdx) {
-          // A9 顺序锁：nudge + toast
+          // A9 顺序锁：nudge + toast（主人 2026-10-24：点后面的要提示先点第一张）
           paper.classList.remove('is-nudge');
           void paper.offsetWidth;
           paper.classList.add('is-nudge');
-          toast('先从第一封看起');
+          toast(readIdx === 0 ? '先从第一封看起' : '先看完第 ' + (readIdx + 1) + ' 封');
           return;
         }
         if (idx < readIdx) {
@@ -1271,7 +1840,7 @@
           Xinge.nav.reading(letterId, idx);
           return;
         }
-        // A5 点开转场：当前张前移放大，其余虚影，然后进 P8
+        // A5 点开转场：当前张前移放大，其余后退虚影，然后进 P8
         clearTimers();
         paper.classList.add('is-open');
         stage.classList.add('is-opening');
@@ -1303,13 +1872,31 @@
       if (fresh) _revealLetterId = null;
       var readMode = fresh ? false : (_readModePref === '重放动画' ? false : !!letter.readAt);
 
+      var total = (letter.papers && letter.papers.length) || 1;
+      var isLast = paperIndex >= total - 1;
+      // 落款署名：优先写信人（params.senderName），缺省回落收信人
+      var signWho = (letter.params && letter.params.senderName) || (letter.params && letter.params.toName) || '';
+
       var html =
         '<div class="xg-bg"></div>' +
+        '<div class="xg-read-topbar">' +
+          '<button class="xg-read-back" data-xg-act="back" aria-label="返回">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>' +
+          '</button>' +
+          '<div class="xg-read-title">第 ' + (paperIndex + 1) + ' / ' + total + ' 封</div>' +
+          '<div class="xg-read-spacer"></div>' +
+        '</div>' +
         '<div class="xg-read-wrap">' +
-          '<div class="xg-letter xg-paper-sheet' + (isHeart ? ' is-heart xg-heart-paper ps-heart' : ' ps-letter') + '" id="xg-letter">' +
-            '<div class="xg-letter-postmark xg-postmark-stamp is-stamping"></div>' +
-            (isHeart ? '<div class="xg-heart-label">from the heart</div><div class="xg-heart-rose"><img src="' + XG_IMG + '13-rose-branch.webp" alt=""></div>' : '') +
-            '<div class="xg-letter-to xg-letter-head"><span class="xg-letter-hi">亲爱的 ' + esc((letter.params && letter.params.toName) || '你') + '：</span><div class="xg-letter-vine"></div></div>' +
+          // 信纸：2026-10-28 按主人给的格式参考重做
+          // —— 米白纸 + 淡红横线（CSS 画，不贴任何图）
+          // —— 标题居中 / 称呼顶格 / 正文首行缩进两格 / 落款右下（名字 + 日期）
+          // —— 拆掉 2026-10-24 我加的所有贴花装饰（回纹角花/胶带/折痕/蜡封/玫瑰枝）——
+          //    主人原话："信纸上不要再用那个图片花去贴图，那个花都没有抠像"
+          '<div class="xg-letter xg-paper-sheet xg-letter-lined' + (isHeart ? ' is-heart xg-heart-paper ps-heart' : ' ps-letter') + '" id="xg-letter">' +
+            '<div class="xg-letter-head-block">' +
+              '<div class="xg-letter-title">致 ' + esc((letter.params && letter.params.toName) || '你') + ' 的一封信</div>' +
+            '</div>' +
+            '<div class="xg-letter-to xg-letter-head"><span class="xg-letter-hi">亲爱的 ' + esc((letter.params && letter.params.toName) || '你') + '：</span></div>' +
             '<div class="xg-letter-body" id="xg-letter-body">' +
               paras.map(function (t) {
                 var isStrike = /^~~[\s\S]*~~$/.test(t.trim());
@@ -1326,17 +1913,27 @@
             '<div class="xg-letter-wish"><span class="xg-wish-word">愿你一切都好。</span>' +
               '<span class="xg-wish-cursive">Yours,</span></div>' +
             '<div class="xg-letter-sign xg-sign-zone">' +
-              '<div class="xg-sign-vine"><img src="' + XG_IMG + 'xg-meander.svg" alt=""></div>' +
-              '<div class="xg-letter-sign-name xg-sign-script">' + esc((letter.params && letter.params.toName) || '') + '</div>' +
+              // 落款：名字 + 日期右上下对齐（参考图格式）；去掉月桂徽章贴图与回纹条
+              '<div class="xg-letter-sign-name xg-sign-script">' + esc(signWho) + '</div>' +
               '<div class="xg-letter-sign-date">' + esc(fmtTime(letter.scheduledAt || letter.createdAt)) + '</div>' +
-              '<div class="xg-sign-seal"><img src="' + XG_IMG + 'xg-crest-laurel.svg" alt=""></div>' +
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="xg-read-foot"><button class="xg-icon-btn xg-strike-toggle" data-xg-act="toggle-strikes" aria-label="切换划线"><img src="' + XG_IMG + 'icon-heart.svg" alt=""></button></div>';
+        '<div class="xg-read-foot">' +
+          '<button class="xg-icon-btn xg-strike-toggle" data-xg-act="toggle-strikes" aria-label="切换划线"><img src="' + XG_IMG + 'icon-heart.svg" alt=""></button>' +
+          // 下一张按钮（主人 2026-10-24 明确要：看完第一张就能点下一张；最后一封显示"回信箱"）
+          '<button class="xg-btn xg-btn-primary xg-read-next" data-xg-act="next-paper">' +
+            (isLast ? '回到信箱' : '下一封') +
+          '</button>' +
+        '</div>';
 
       var el = openPage('xg-page-reading', html);
       var parasEls = Array.prototype.slice.call(el.querySelectorAll('.xg-letter-p'));
+      // 邮戳盖章动效（深检 2026-10-24 接线：effects.stampPostmark 一直零调用，
+      // 邮戳的 is-stamping 类是静态写死的 → 盖章动画永远停在首帧，永远不播）
+      if (Xinge.effects && typeof Xinge.effects.stampPostmark === 'function') {
+        try { Xinge.effects.stampPostmark(el); } catch (e) { /* 不影响阅读 */ }
+      }
 
       // 显字驱动（快于默读：段间 400–700ms）
       var allShown = false;
@@ -1356,9 +1953,23 @@
       }
 
       el.addEventListener('click', function (e) {
+        // 返回键：回扇形页（主人 2026-10-24 投诉"退出键点了没用"——原来阅读页压根没有返回键）
+        // 2026-10-30：信是在信封页里抽出来落到叠放位的 → 回到信封页的叠放态，
+        // 别跳到旧的扇形页（那样会看见信封又冒出来）
         if (e.target.closest('[data-xg-act="back"]')) {
           clearTimers();
-          Xinge.nav.fan(letterId, nextReadIndex(paperIndex));
+          backToPapers(letterId, nextReadIndex(paperIndex));
+          return;
+        }
+        // 下一封 / 回到信箱
+        if (e.target.closest('[data-xg-act="next-paper"]')) {
+          clearTimers();
+          if (isLast) {
+            // 最后一封：直接回信箱（明确出口，别让主人找不到路）
+            Xinge.nav.inbox();
+          } else {
+            Xinge.nav.reading(letterId, paperIndex + 1);
+          }
           return;
         }
         // 划线切换（全局多米诺）
@@ -1386,9 +1997,9 @@
           allShown = true;
           return;
         }
-        if (!e.target.closest('.xg-strike-toggle')) {
+        if (!e.target.closest('.xg-strike-toggle') && !e.target.closest('.xg-read-foot')) {
           clearTimers();
-          Xinge.nav.fan(letterId, nextReadIndex(paperIndex));
+          backToPapers(letterId, nextReadIndex(paperIndex));
         }
       });
     });
@@ -1397,6 +2008,18 @@
   function nextReadIndex(paperIndex) {
     // 读完第 i 张后扇形页应看第 i+1 张（顺序锁推进）
     return Math.min(3, (parseInt(paperIndex, 10) || 0) + 1);
+  }
+
+  /* 读完一张后回到"三张纸"那边
+     —— 2026-10-30：这封信是在信封页里点信纸抽出来、落到叠放位的 →
+        回信封页的叠放态（不重拆信、不重播抽出动画）
+     —— 从信箱直接翻旧信（没走抽信流程）→ 仍旧回旧的扇形页 */
+  function backToPapers(letterId, readIdx) {
+    if (_arrangedLetterId === String(letterId)) {
+      Xinge.nav.envelope(letterId, { arranged: 1, readIdx: readIdx });
+      return;
+    }
+    Xinge.nav.fan(letterId, readIdx);
   }
 
   /* ===== 6.11 回看（R1） ===== */
@@ -1573,7 +2196,17 @@
               return '<button class="xg-chip" data-xg-sfreq="' + f + '">' + f + '</button>';
             }).join('') +
           '</div></div>' +
-          '<div class="xg-timer-line"><div class="xg-timer-label">时间</div><div class="xg-time-pick"><input class="xg-input" id="xg-time-hh" maxlength="2" value="21"> : <input class="xg-input" id="xg-time-mm" maxlength="2" value="00"></div></div>' +
+          '<div class="xg-timer-line"><div class="xg-timer-label">时间</div>' +
+            '<div class="xg-time-pick xg-wheel-pair">' +
+              // 滚轮选时间（深检 2026-10-24 提升：effects.bindWheel 一直零调用，
+              // 定时页原来只能手敲数字；现接上滚轮，input 保留作降级/无障碍路径）
+              '<div class="xg-wheel" id="xg-wheel-hh"><div class="xg-wheel-list"></div></div>' +
+              '<span class="xg-wheel-sep">:</span>' +
+              '<div class="xg-wheel" id="xg-wheel-mm"><div class="xg-wheel-list"></div></div>' +
+              '<input class="xg-input xg-time-input" id="xg-time-hh" maxlength="2" value="21" inputmode="numeric" aria-label="小时">' +
+              '<input class="xg-input xg-time-input" id="xg-time-mm" maxlength="2" value="00" inputmode="numeric" aria-label="分钟">' +
+            '</div>' +
+          '</div>' +
           '<div class="xg-timer-line"><div class="xg-timer-label">写信人</div><div class="xg-freq-tags" id="xg-sender-pick">' +
             ['指定', '轮换', '随机'].map(function (m) {
               return '<button class="xg-chip" data-xg-sendermode="' + m + '">' + m + '</button>';
@@ -1584,6 +2217,25 @@
       '</div></div>';
     var el = openPage('xg-page-timer', html);
     el.classList.add('xg-settings-page');
+    // 滚轮选时间（深检 2026-10-24 提升：effects.bindWheel 一直零调用）
+    var _wheelHH = null, _wheelMM = null;
+    if (Xinge.effects && typeof Xinge.effects.bindWheel === 'function') {
+      var hhVals = [], mmVals = [];
+      for (var wi = 0; wi < 24; wi++) hhVals.push(String(wi).padStart(2, '0'));
+      for (var wj = 0; wj < 60; wj++) mmVals.push(String(wj).padStart(2, '0'));
+      var hhIn = el.querySelector('#xg-time-hh'), mmIn = el.querySelector('#xg-time-mm');
+      try {
+        _wheelHH = Xinge.effects.bindWheel(el.querySelector('#xg-wheel-hh'), hhVals, function (v) {
+          if (hhIn && hhIn.value !== v) { hhIn.value = v; saveTimerFields(el, {}); }
+        });
+        _wheelMM = Xinge.effects.bindWheel(el.querySelector('#xg-wheel-mm'), mmVals, function (v) {
+          if (mmIn && mmIn.value !== v) { mmIn.value = v; saveTimerFields(el, {}); }
+        });
+      } catch (e) { _wheelHH = null; _wheelMM = null; }
+    }
+    // 注：ui.bindFreqExpand 的选择器已扩展到认本页的 data-xg-sfreq，
+    // 但本页原有委托已完整实现频次/写信人切换（落库 + 下一封预览），
+    // 再叠一层属重复处理 → 这里不重复绑定。
 
     getConfig('xinge:settings', {}).then(function (s) {
       s = s || {};
@@ -1602,6 +2254,11 @@
         if (c.getAttribute('data-xg-sendermode') === (s.senderMode || '随机')) c.classList.add('is-selected');
       });
       updateNextStrip(el, s);
+      // 滚轮回填（深检 2026-10-24 提升：接入 effects.bindWheel）
+      if (_wheelHH && _wheelMM) {
+        _wheelHH.setValue(hh.value);
+        _wheelMM.setValue(mm.value);
+      }
     });
 
     el.addEventListener('click', function (e) {
@@ -1684,6 +2341,9 @@
       '</div></div>';
     var el = openPage('xg-page-prefs', html);
     el.classList.add('xg-settings-page');
+    // 注：ui.bindSeg 已把选择器扩展到兼容本页的 .xg-segment / .xg-segment-item，
+    // 但本页原有 click 委托已完整实现分段切换（落库 + 动效降级），
+    // 再叠一层会重复处理 → 这里不重复绑定，保留原实现。
     getConfig('xinge:settings', {}).then(function (s) {
       s = s || {};
       prefs.forEach(function (p) {
@@ -1768,9 +2428,24 @@
         '<div class="xg-group-card"><div class="xg-storage-block">' +
           '<div class="xg-storage-text" id="xg-storage-text">统计中…</div>' +
           '<div class="xg-storage-bar"><div class="xg-storage-fill" id="xg-storage-fill"></div></div>' +
+          // 存储图例（ui.bindDataPage 会往这里写 KB / 信件数）
+          '<div class="xg-storage-legend" id="xg-storage-legend">' +
+            '<span class="xg-storage-legend-kb">0 KB</span>' +
+            '<span class="xg-storage-legend-n">0 封信</span>' +
+          '</div>' +
         '</div></div>' +
-        '<div class="xg-danger-block">' +
-          '<button class="xg-btn xg-btn-danger xg-btn-full" data-xg-act="clear-all">清空信箱（不可恢复）</button>' +
+        // 导出 / 导入（深检 2026-10-24：xinge-effects.js 的 exportLetters/importLetters
+        // 一直零调用 —— 写信导出功能写好却没上线；此处补按钮并接线）
+        '<div class="xg-group-title">备份</div>' +
+        '<div class="xg-group-card"><div class="xg-data-actions">' +
+          '<button class="xg-btn xg-btn-full" data-xg-act="export-letters">导出全部信件（JSON）</button>' +
+          '<button class="xg-btn xg-btn-full" data-xg-act="import-letters">从备份导入</button>' +
+          '<input type="file" accept="application/json,.json" class="xg-file-input" id="xg-import-file" hidden>' +
+        '</div></div>' +
+        '<div class="xg-danger-zone xg-danger-block">' +
+          '<div class="xg-danger-title">危险操作</div>' +
+          '<div class="xg-danger-desc">清空后所有信件将被永久删除，无法找回。建议先导出备份。</div>' +
+          '<button class="xg-btn xg-btn-danger xg-danger-btn xg-btn-full" data-xg-act="clear-all">清空信箱（不可恢复）</button>' +
         '</div>' +
       '</div></div>';
     var el = openPage('xg-page-data', html);
@@ -1782,8 +2457,18 @@
       if (textEl) textEl.textContent = '信箱里有 ' + n + ' 封信';
       if (fill) fill.style.width = Math.min(100, n * 2) + '%';
     });
+    // 存储条图例 + 导出按钮接线（激活 ui.bindDataPage / effects.exportLetters）
+    if (Xinge.ui && typeof Xinge.ui.bindDataPage === 'function') {
+      try { Xinge.ui.bindDataPage(el); } catch (e) { /* 降级：不影响清空功能 */ }
+    }
     el.addEventListener('click', function (e) {
       if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      // 导入：点按钮唤起文件选择
+      if (e.target.closest('[data-xg-act="import-letters"]')) {
+        var fileInput = el.querySelector('#xg-import-file');
+        if (fileInput) fileInput.click();
+        return;
+      }
       if (e.target.closest('[data-xg-act="clear-all"]')) {
         if (!window.confirm('清空信箱？所有信件将永久删除，无法恢复')) return;
         dbWrite(function () {
@@ -1792,6 +2477,24 @@
         }).then(function () { toast('信箱已清空'); popPage(); renderData(); });
       }
     });
+    // 导入文件选中后走 effects.importLetters
+    var importInput = el.querySelector('#xg-import-file');
+    if (importInput && Xinge.effects && typeof Xinge.effects.importLetters === 'function') {
+      importInput.addEventListener('change', function () {
+        var f = importInput.files && importInput.files[0];
+        if (!f) return;
+        Xinge.effects.importLetters(f, function (done, total) {
+          toast('正在导入 ' + done + '/' + total);
+        }).then(function (n) {
+          toast('已导入 ' + n + ' 封信', 'ok');
+          importInput.value = '';
+          renderData();
+        }).catch(function (err) {
+          toast('导入失败：' + ((err && err.message) || '文件不对'));
+          importInput.value = '';
+        });
+      });
+    }
   }
 
   /* S4 关系提示词管理 */
@@ -2022,9 +2725,24 @@
       fan: renderFan,
       reading: renderReading,
       recall: renderRecall,
+      // 深检 2026-10-24：xinge-ui.js 调用了这两个方法但 nav 上没有 → 点了没反应。
+      // back：失败态「先回去」按钮；refreshInbox：删信后刷新信箱。
+      back: function () {
+        clearTimers();
+        popPage();
+      },
+      // 原地重填信箱列表（不重开页面，避免闪屏）
+      refreshInbox: function () {
+        var el = document.getElementById('xg-page-inbox');
+        if (el) { fillInbox(el, 'all'); return true; }
+        return renderInbox();
+      },
       settings: function () { if (typeof renderSettings === 'function') renderSettings(); else toast('设置页马上就位'); },
       timer: function () { if (typeof renderTimer === 'function') renderTimer(); else toast('设置页马上就位'); },
-      presetManager: function () { if (typeof renderPresetManager === 'function') renderPresetManager(); else toast('设置页马上就位'); }
+      presetManager: function () { if (typeof renderPresetManager === 'function') renderPresetManager(); else toast('设置页马上就位'); },
+      // 主人 2026-10-28：谁来写（自己写 / 让 AI 写）+ 手写信编辑页
+      writerChoice: renderWriterChoice,
+      selfWrite: renderSelfWrite
     },
     compose: {
       run: runCompose,
@@ -2069,7 +2787,15 @@
       ensureSeedPresets: ensureSeedPresets,
       getConfig: getConfig,
       setConfig: setConfig,
-      DEFAULT_PRESETS: DEFAULT_PRESETS
+      DEFAULT_PRESETS: DEFAULT_PRESETS,
+      // 深检 2026-10-24：xinge-effects.js 的导出功能调用 Xinge.data.nowTs()，
+      // 但 data 面没有这个成员 → 导出信件必抛 TypeError。补上（与 util 同源）。
+      nowTs: nowTs,
+      nowReal: nowReal,
+      // xinge-ui.js 调用 Xinge.data.isFavorite 判断是否已收藏（原来恒为 false）
+      isFavorite: function (letter) {
+        try { return !!(letter && letter.favorite); } catch (e) { return false; }
+      }
     },
     util: {
       nowTs: nowTs, nowReal: nowReal, fmtTime: fmtTime, dayString: dayString,
@@ -2079,6 +2805,13 @@
       attachLongPress: attachLongPress
     },
     ui: { renderInbox: renderInbox, renderWrite: renderWrite }
+  };
+  /* xinge-ui.js 挂载时用它自己的 ui 对象整体覆盖了上面的 { renderInbox, renderWrite }，
+     导致这两个成员被抹掉（深检 2026-10-24）。这里提供合并口，ui.js 改为并入而非覆盖。 */
+  window.__xingeMergeUI = function (incoming) {
+    try {
+      Xinge.ui = Object.assign({}, Xinge.ui || {}, incoming || {});
+    } catch (e) { Xinge.ui = incoming; }
   };
 
   // 入口首行铁律
@@ -2101,6 +2834,18 @@
       if (s && s.readMode) _readModePref = s.readMode;
       if (s && s.motionLevel === '简化') document.body.classList.add('xg-motion-low');
     });
+  };
+  /* 退出信格回桌面（深检 2026-10-24 接线：原先 _goHome 从未被赋值，
+     信箱页返回键永远走 popPage 把自己弹掉 → 页面残留、主人说"退不出去"） */
+  window.showXingePage._goHome = function () {
+    resetToHome();
+    // 若桌面提供关闭接口就走它，否则信格页面已清空 = 视觉上已退出
+    try {
+      if (typeof window.closeXingePage === 'function') { window.closeXingePage(); return; }
+      if (window.XG_PAGE_ROOT && window.XG_PAGE_ROOT.classList) {
+        window.XG_PAGE_ROOT.classList.remove('xg-page-active');
+      }
+    } catch (e) { /* 桌面无对应接口时静默 */ }
   };
 
   console.log('[xinge] xinge.js ' + XG_VER + ' 就绪');

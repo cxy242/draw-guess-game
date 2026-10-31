@@ -88,7 +88,8 @@ var DESKTOP_ICONS = [
   { id: 'bookstore', svg: SVG_ICONS.bookstore,          label: 'Readen', action: function() { window.showBookstorePage && showBookstorePage() } },
   { id: 'yumyum',    fa: 'fa-solid fa-drumstick-bite',  label: 'YumYum',   action: function() { window.showYumYumPage && showYumYumPage() } },
   { id: 'anyDoor',   fa: 'fa-solid fa-cubes',           label: '任意门',   action: function() { window.showAnyDoorPage && showAnyDoorPage() } },
-  { id: 'gameHall',  fa: 'fa-solid fa-dice',            label: '游戏大厅', action: function() { window.showGameHallPage && showGameHallPage() } }
+  { id: 'gameHall',  fa: 'fa-solid fa-dice',            label: '游戏大厅', action: function() { window.showGameHallPage && showGameHallPage() } },
+  { id: 'shili',    fa: 'fa-solid fa-gift',             label: '拾礼',     action: function() { window.showShiliPage && showShiliPage() } }
 ]
 
 var DESKTOP_PAGE2_ICONS = [

@@ -277,10 +277,19 @@
 }
 .xg-en-card:active { transform: scale(0.98); }
 .xg-en-card .xg-en-stamp {
-  width: 40px; height: 52px;
+  width: 44px; height: 62px;
   flex: none;
   border-radius: 2px;
-  background: url('../img/xinge/asset-stamp.webp') center / cover no-repeat;
+  overflow: hidden;
+  background: #FDFCF9;
+  box-shadow: 0 1px 3px rgba(47, 53, 39, 0.14);
+}
+.xg-en-card .xg-en-stamp img {
+  width: 100%; height: 100%;
+  /* 邀请函原图（736x1030 竖版）完整显示，不裁不切 */
+  object-fit: contain;
+  object-position: center;
+  display: block;
 }
 .xg-en-card .xg-en-main { flex: 1; min-width: 0; }
 .xg-en-card .xg-en-to {

@@ -5,6 +5,15 @@
    规范：动画只动 transform/opacity；禁 transition:all；禁纯黑白
    ============================================================ */
 
+/* ===== 0. 盒模型基线 =====
+   信格各卷此前都没声明 box-sizing，默认 content-box：
+   .xg-letter { width:82%; padding:30px 26px 40px } → 实际宽 = 82% + 52px，
+   在 390px 屏上溢出右边界 → 信纸右侧被裁、落款日期与火漆掉到纸外
+   （主人 2026-10-24 实机投诉）。此处统一 border-box。 */
+.xg-page, .xg-page *, .xg-page *::before, .xg-page *::after {
+  box-sizing: border-box;
+}
+
 /* ===== 1. 字体（三级） ===== */
 /* 书信级：霞鹜文楷（LXGW WenKai Lite，OFL 开源）——部署时 woff2 嵌入 */
 @font-face {
