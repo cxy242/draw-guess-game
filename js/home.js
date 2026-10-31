@@ -3919,8 +3919,10 @@ async function showWidgetsSheet() {
 
   var overlay = document.createElement('div')
   overlay.className = 'sheet-overlay widgets-sheet-overlay'
+  overlay.style.zIndex = '240' // [v6.5.8] 修复：防止.sheet-overlay被全局样式抬高压住modal-sheet
   var sheet = document.createElement('div')
   sheet.className = 'modal-sheet widgets-sheet'
+  sheet.style.zIndex = '241'
   sheet.innerHTML =
     '<div class="sheet-handle"></div>' +
     '<div class="widgets-sheet-header">添加组件</div>' +

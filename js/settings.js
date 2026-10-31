@@ -714,8 +714,10 @@ function syncModelSelectOption(page, idPrefix, model) {
 function showPresetNameDialog(page) {
   var overlay = document.createElement('div')
   overlay.className = 'sheet-overlay show'
+  overlay.style.zIndex = '300' // [v6.5.8] 修复：ensemble.css把.sheet-overlay全局抬到1000会盖住801的卡片→变灰点不动
   var modal = document.createElement('div')
   modal.className = 'img-picker-modal show'
+  modal.style.zIndex = '301'
   modal.innerHTML =
     '<div class="img-picker-title">保存预设</div>' +
     '<div class="img-picker-url-area">' +
@@ -3317,6 +3319,9 @@ async function fetchAI(cfg, messages, opts) {
       messages: system ? [{ role: 'system', content: system }].concat(activeMessages) : activeMessages
     }
     if (temperature != null) body.temperature = temperature
+    // [v6.5.8] 输出上限：不设时部分服务商会按默认小值砍断JSON（记忆总结截断真凶）
+    var mt = Number(opts.maxTokens || opts.max_tokens)
+    if (mt > 0) body.max_tokens = mt
     var js = opts.responseJsonSchema
     if (js && js.name && js.schema) {
       body.response_format = {

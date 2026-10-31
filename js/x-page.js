@@ -1575,7 +1575,7 @@ async function generateAIComments(post, user) {
       '4. NPC之间可以互评\n' +
       '5. 形成3层对话链\n' +
       '6. 评论真实自然\n' +
-      '7.【身份铁律】绝对不能以「' + _xUserName + '」（用户本人）的身份或口吻发言，用户名字绝不出现在name字段；发帖人的回复必须完全是发帖人自己的口吻，绝不能写成用户的口吻\n\n' +
+      '7.【身份铁律】绝对禁止生成「' + _xUserName + '」（用户本人）的任何评论或发言，用户不参与评论区；所有评论只能来自NPC或角色档案里的人物，且口吻必须是评论者本人的，发帖人回复必须是发帖人的口吻，都绝不能像用户的口吻\n\n' +
       '返回JSON：\n' +
       '{"comments":[{"name":"NPC名","content":"评论内容","npcType":5,"isNpc":true}]' +
       ((isAnon || isUserPost) ? '' : ',"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"发帖人回复"}]') +
@@ -1620,16 +1620,32 @@ async function generateAIComments(post, user) {
       });
     }
 
-    // Add comments
+    // Add comments — [v6.5.8 身份铁律] 评论者身份一律走档案，绝不让AI捏假人
     if (data.comments) {
+      // 先取人物档案名单（用户+AI角色），供评论者对号入座
+      var _cRoster = [];
+      try { if (window.db && db.characters) _cRoster = await db.characters.toArray(); } catch(e) {}
       data.comments.forEach(function(c) {
         var npcType = X_NPC_TYPES.find(function(n) { return n.id === c.npcType; }) || randomPick(X_NPC_TYPES);
+        // 精确匹配档案（含用户本人——但用户名字的评论已被硬过滤剔除，这里只对AI角色）
+        var cname = (c.name || '').trim().toLowerCase();
+        var match = cname ? _cRoster.find(function(x) {
+          return ((x.name || '').trim().toLowerCase() === cname || ((x.nick || '') && x.nick.trim().toLowerCase() === cname)) && String(x.id) !== String(user && user.id);
+        }) : null;
+        var aId, aName, aAvatar;
+        if (match) {
+          // 已有AI角色：原档案ID、名称、头像，绝不用AI生成的版本
+          aId = match.id; aName = match.name; aAvatar = match.avatar || null;
+        } else {
+          // 确认是档案外的全新真人物：才允许立独立NPC
+          aId = 'npc_' + xGenId(); aName = c.name || randomPick(X_NPC_NAMES); aAvatar = null;
+        }
         comments.push({
           id: xGenId(),
-          authorId: c.isNpc ? 'npc_' + xGenId() : (post.authorId || 'anon'),
-          authorName: c.name || randomPick(X_NPC_NAMES),
+          authorId: aId,
+          authorName: aName,
           authorHandle: '@user-' + String(c.id || '').slice(-4),
-          authorAvatar: null,
+          authorAvatar: aAvatar,
           isNpc: !!c.isNpc,
           npcType: npcType,
           content: c.content,

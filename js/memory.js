@@ -40,6 +40,7 @@
     getStructuredEvents: getStructuredEvents,
     getStructuredEventContext: getStructuredEventContext,
     detectAndLogEvent: detectAndLogEvent,
+    resummarizeMemory: resummarizeMemory,
     extractFacts: extractFacts,
     autoExtractAndStore: autoExtractAndStore,
     getFormattedNow: getFormattedNow,
@@ -516,7 +517,7 @@ function buildSummaryPrompt(messages, charName, userName) {
           timeStr = '[' + d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日' + period + h12 + '点' + ((min < 10 ? '0' : '') + min + '分') + '] '
         }
       }
-      return timeStr + speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
+      return timeStr + speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 2000)
     }).join('\n')
     return `你是一个长期记忆整理器。请根据下面的聊天记录，提取适合长期保存的记忆。每条记录前面有时间戳。
 
@@ -527,8 +528,10 @@ function buildSummaryPrompt(messages, charName, userName) {
 4. 不要价值升华，不要写感悟，不要总结人生意义。
 5. 禁止加入聊天记录中没有出现的信息。
 6. 标题应尽量简短；内容应控制在，适合未来${charName}回复时参考。
-7. 【强制】content必须写明时间范围：开始时间到结束时间。格式为"YYYY年M月D日下午X点XX分到下午X点XX分"。例如："2026年9月12日下午3点15分到下午4点30分 用户和${charName}在咖啡店聊天，讨论了周末计划"。绝对不能只写事件不写时间。必须使用聊天记录中的精确时间戳（包含分钟），不能自己编造时间。
-8. 【强制】content必须详细描述，至少10-20句话。说清楚谁做了什么、说了什么、怎么发展的、结果是什么。禁止用"任务""事情""活动"等模糊词代替具体内容。例如：不要写"用户完成了任务"，要写"用户花了半小时帮${charName}修改了简历，把工作经历部分重新排版，${charName}看完后觉得很好但希望把自我评价也改一下"。
+7. 【强制】content必须写明时间范围：开始时间到结束时间。格式为"YYYY年M月D日下午X点XX分到下午X点XX分"。例如："2026年9月12日下午3点15分到下午4点30分 ${userName}和${charName}在咖啡店聊天，讨论了周末计划"。绝对不能只写事件不写时间。必须使用聊天记录中的精确时间戳（包含分钟），不能自己编造时间。
+8. 【强制】content必须详细描述，至少10-20句话。说清楚谁做了什么、说了什么、怎么发展的、结果是什么。禁止用"任务""事情""活动"等模糊词代替具体内容。例如：不要写"${userName}完成了任务"，要写"${userName}花了半小时帮${charName}修改了简历，把工作经历部分重新排版，${charName}看完后觉得很好但希望把自我评价也改一下"。
+
+【强制】人物一律使用真实姓名（${userName}、${charName}等），严禁写\"用户\"\"角色A\"等代称。
 
 请返回合法 JSON，不要输出 Markdown，不要输出 JSON 以外的文字。
 
@@ -537,7 +540,7 @@ JSON 格式：
   "memories": [
     {
       "title": "简短标题",
-      "content": "2026年9月12日下午3点15分到4点30分 用户和${charName}聊天。\n【做的事情】\n1. 下午3点15分 用户提到想吃火锅，${charName}说可以一起去\n2. 下午3点40分 两人讨论了去哪家店，${charName}推荐了海底捞\n3. 下午4点10分 约好周六晚上7点去吃",
+      "content": "2026年9月12日下午3点15分到4点30分 ${userName}和${charName}聊天。\n【做的事情】\n1. 下午3点15分 ${userName}提到想吃火锅，${charName}说可以一起去\n2. 下午3点40分 两人讨论了去哪家店，${charName}推荐了海底捞\n3. 下午4点10分 约好周六晚上7点去吃",
       "keywords": ["关键词1", "关键词2"],
       "valence": 0,
       "arousal": 0.3,
@@ -562,7 +565,7 @@ ${lines}`
     userName = userName || '用户'
     var lines = messages.map(function(m) {
       var speaker = m.role === 'assistant' ? charName : userName
-      return speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 800)
+      return speaker + '：' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 2000)
     }).join('\n')
     return `你是一个线下见面记忆整理器。请根据下面的见面记录，提取适合长期保存的记忆。
 
@@ -574,12 +577,15 @@ ${lines}`
    【物品与伏笔】出现的重要物品，对话中暗示的未来事件
    【未完成的悬念】答应但还没做的事，未解决的问题
    【剧情总结】10-20句话，开头必须写明精确时间（年月日几点到几点），然后精确描述每一步发生了什么、谁说了什么、怎么发展的、结果如何。禁止用任务事情活动等模糊词，必须写具体
-   【做的事情】用序号列出用户和角色在这次见面中做的每件事，每件事必须有精确时间（带分钟），例如：1. 下午3点15分 用户和角色A一起到了咖啡馆 2. 下午3点30分 角色A点了拿铁 3. 下午4点 两人讨论了周末计划
+   【做的事情】用序号列出${userName}和${charName}在这次见面中做的每件事，每件事必须有精确时间（带分钟），例如：1. 下午3点15分 ${userName}和${charName}一起到了咖啡馆 2. 下午3点30分 ${charName}点了拿铁 3. 下午4点 两人讨论了周末计划
 3. 区分已经发生的事件和尚未完成的计划，不要将计划写成事实。
 4. 禁止使用强烈情绪词汇，不要进行文学化描写。
 5. 禁止加入见面记录中没有出现的信息。
 6. 标题应尽量简短；内容按6板块格式，每板块2-3句话。
+7. 【强制】本条记忆只写${charName}与${userName}之间的事（${charName}视角）；其他角色的言行不要写成${charName}的，只能作背景一笔带过。
 7. 【强制】content开头必须写明时间范围："YYYY年M月D日下午X点XX分到下午X点XX分"。例如："2026年9月12日下午3点到下午5点"。
+
+【强制】人物一律使用真实姓名（${userName}、${charName}等），严禁写\"用户\"\"角色A\"等代称。
 
 请返回合法 JSON，不要输出 Markdown，不要输出 JSON 以外的文字。
 
@@ -709,7 +715,7 @@ ${lines}`
     var parsed = null
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'),  })
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'), maxTokens: 6000 })
         parsed = extractJson(raw)
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
           // 校验每条记忆是否有时间引用
@@ -888,7 +894,7 @@ ${lines}`
     var parsed = null
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'),  })
+        var raw = await window.callMemoryAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', temperature: await window.getAITemperaturePreset('summaryMode'), maxTokens: 6000 })
         parsed = extractJson(raw)
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'
@@ -2075,38 +2081,42 @@ ${lines}`
 
     window.toast && window.toast('\u6b63\u5728\u91cd\u65b0\u603b\u7ed3...')
 
+    // ===== v6.5.8 重做：真实姓名 + 每人视角各一条 + 不截断 =====
+    var charName = 'AI', userName = '\u7528\u6237'
+    try {
+      var cm = await db.characters.get(m.charId); if (cm) charName = getCharName(cm, 'AI')
+      var um = await db.characters.get(m.ownerUid); if (um) userName = getCharName(um, '\u7528\u6237')
+    } catch(e) {}
+    // 参与角色：原文出现过真名的在档角色（每人视角各生成一条记忆）
+    var partNames = []
+    try {
+      var allCharsScan = await db.characters.toArray()
+      allCharsScan.forEach(function(c) {
+        if (c.id === m.ownerUid) return
+        var nm = getCharName(c, '')
+        if (nm && nm !== charName && String(matchingRun.originalText || '').indexOf(nm) >= 0) partNames.push(nm)
+      })
+    } catch(e) {}
+    if (partNames.indexOf(charName) < 0) partNames.unshift(charName)
+    var nameList = partNames.join('\u3001')
     var isOffline = m.sourceType === 'offlineMeet'
-    var prompt = ''
-    if (isOffline) {
-      prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u7ebf\u4e0b\u89c1\u9762\u8bb0\u5f55\uff0c\u63d0\u53d61\u6761\u8bb0\u5fc6\u3002\n\n' +
-        '\u89c1\u9762\u5185\u5bb9\uff1a\n' + matchingRun.originalText.slice(0, 3000) + '\n\n' +
-        '\u8981\u6c42\uff1a\n' +
-        '1. \u4f7f\u7528\u7b2c\u4e09\u4eba\u79f0\u53d9\u8ff0\u3002\n' +
-        '2. \u5185\u5bb9\u5fc5\u987b\u6309\u4ee5\u4e0b5\u4e2a\u677f\u5757\u7ed3\u6784\u5316\uff1a\n' +
-        '   \u3010\u5f53\u524d\u72b6\u6001\u3011\u65f6\u95f4\u3001\u5730\u70b9\u3001\u6c1b\u56f4\uff0c\u5404\u89d2\u8272\u7684\u72b6\u6001\n' +
-        '   \u3010\u8ba4\u77e5\u4e0e\u53d8\u52a8\u3011\u5bf9\u8bdd\u4e2d\u83b7\u5f97\u7684\u65b0\u8ba4\u77e5\uff0c\u5173\u7cfb\u7684\u53d8\u5316\n' +
-        '   \u3010\u7269\u54c1\u4e0e\u4f0f\u7b14\u3011\u91cd\u8981\u7269\u54c1\uff0c\u6697\u793a\u7684\u672a\u6765\u4e8b\u4ef6\n' +
-        '   \u3010\u672a\u5b8c\u6210\u7684\u60ac\u5ff5\u3011\u7b54\u5e94\u4f46\u8fd8\u6ca1\u505a\u7684\u4e8b\uff0c\u672a\u89e3\u51b3\u7684\u95ee\u9898\n' +
-        '   \u3010\u5267\u60c5\u603b\u7ed3\u30113-5\u53e5\u8bdd\u6982\u62ec\u6838\u5fc3\u4e8b\u4ef6\u548c\u60c5\u611f\u53d8\u5316\n' +
-        '3. \u7981\u6b62\u4f7f\u7528\u5f3a\u70c8\u60c5\u7eea\u8bcd\u6c47\u3002\n' +
-        '4. \u6807\u9898\u5c3d\u91cf\u7b80\u77ed\uff1b\u5185\u5bb9\u63095\u677f\u5757\u683c\u5f0f\uff0c\u6bcf\u677f\u57572-3\u53e5\u8bdd\u3002\n\n' +
-        '\u8fd4\u56deJSON\u683c\u5f0f\uff1a\n' +
-        '{"memories":[{"title":"\u6807\u9898","content":"\u3010\u5f53\u524d\u72b6\u6001\u3011...\u3010\u8ba4\u77e5\u4e0e\u53d8\u52a8\u3011...\u3010\u7269\u54c1\u4e0e\u4f0f\u7b14\u3011...\u3010\u672a\u5b8c\u6210\u7684\u60ac\u5ff5\u3011...\u3010\u5267\u60c5\u603b\u7ed3\u3011...","keywords":["\u5173\u952e\u8bcd"],"importance":7,"valence":0.5,"arousal":0.4}]}'
-    } else {
-prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53d61\u6761\u8bb0\u5fc6\u3002\u6bcf\u6761\u804a\u5929\u8bb0\u5f55\u524d\u9762\u6709\u65f6\u95f4\u6233\u3002\n\n' +
-        '\u804a\u5929\u5185\u5bb9\uff1a\n' + matchingRun.originalText.slice(0, 3000) + '\n\n' +
-        '\u8981\u6c42\uff1a\n' +
-        '1. \u4f7f\u7528\u7b2c\u4e09\u4eba\u79f0\u53d9\u8ff0\u3002\n' +
-        '2. content\u91cc\u5fc5\u987b\u5199\u660e\u65f6\u95f4\uff0c\u683c\u5f0f\u4e3a\"YYYY\u5e74M\u6708D\u65e5\u4e0b\u5348X\u70b9\u505a\u4e86\u4ec0\u4e48\"\u3002\u4f8b\u5982\uff1a\"2026\u5e749\u670812\u65e5\u4e0b\u53483\u70b9 \u7528\u6237\u8bf4\u60f3\u53bb\u5496\u5561\u5e97\"\u3002\n' +
-        '3. \u7edd\u5bf9\u4e0d\u80fd\u53ea\u5199\u4e8b\u4ef6\u4e0d\u5199\u65f6\u95f4\u3002\n\n' +
-        '\u8fd4\u56deJSON\u683c\u5f0f\uff1a\n' +
-        '{"memories":[{"title":"\u6807\u9898","content":"2026\u5e749\u670812\u65e5\u4e0b\u53483\u70b9 \u7528\u6237\u63d0\u5230...","keywords":["\u5173\u952e\u8bcd"],"importance":5,"valence":0,"arousal":0.3}]}'
-    }
+    var prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b' + (isOffline ? '\u7ebf\u4e0b\u89c1\u9762' : '\u804a\u5929') + '\u8bb0\u5f55\uff0c\u4e3a\u6bcf\u4f4d\u53c2\u4e0e\u89d2\u8272\u5404\u751f\u62101\u6761\u8bb0\u5fc6\uff08\u6bcf\u4e2a\u89d2\u8272\u4e00\u6761\uff0c\u5171' + partNames.length + '\u6761\uff09\u3002\n' +
+      '\u53c2\u4e0e\u89d2\u8272\uff1a' + nameList + '\u3002\u8bb0\u5f55\u7684\u53e6\u4e00\u65b9\u662f' + userName + '\u3002\n\n' +
+      '\u8981\u6c42\uff1a\n' +
+      '1. \u6bcf\u6761\u8bb0\u5fc6\u4ee5"\u8be5\u89d2\u8272\u4e0e' + userName + '"\u7684\u89c6\u89d2\u5199\uff1a\u8fd9\u4e2a\u89d2\u8272\u505a\u4e86\u4ec0\u4e48\u3001\u8bf4\u4e86\u4ec0\u4e48\u3001\u548c' + userName + '\u4e4b\u95f4\u53d1\u751f\u4e86\u4ec0\u4e48\u3002\n' +
+      '2. \u3010\u5f3a\u5236\u3011\u4eba\u7269\u4e00\u5f8b\u4f7f\u7528\u771f\u5b9e\u59d3\u540d\uff08' + nameList + '\u3001' + userName + '\uff09\uff0c\u4e25\u7981\u5199"\u7528\u6237""\u89d2\u8272A"\u7b49\u4ee3\u79f0\u3002\n' +
+      '3. \u6bcf\u6761\u8bb0\u5fc6\u5fc5\u987b\u5e26 charName \u5b57\u6bb5\uff0c\u5199\u660e\u662f\u54ea\u4e2a\u89d2\u8272\u7684\u8bb0\u5fc6\u3002\n' +
+      '4. \u7b2c\u4e09\u4eba\u79f0\u53d9\u8ff0\uff1bcontent \u5f00\u5934\u5fc5\u987b\u5199\u660e\u65f6\u95f4\u8303\u56f4\uff08\u683c\u5f0f"YYYY\u5e74M\u6708D\u65e5\u4e0b\u5348X\u70b9XX\u5206\u5230\u4e0b\u5348X\u70b9XX\u5206"\uff0c\u7528\u8bb0\u5f55\u4e2d\u7684\u771f\u5b9e\u65f6\u95f4\uff0c\u4e0d\u80fd\u7f16\u9020\uff09\u3002\n' +
+      '5. content \u5fc5\u987b\u5b8c\u6574\u8be6\u7ec6\uff0810-20\u53e5\u8bdd\uff1a\u8c01\u505a\u4e86\u4ec0\u4e48\u3001\u8bf4\u4e86\u4ec0\u4e48\u3001\u600e\u4e48\u53d1\u5c55\u3001\u7ed3\u679c\u5982\u4f55\uff09\uff0c\u5fc5\u987b\u5199\u5b8c\u6574\uff0c\u4e25\u7981\u4e2d\u9014\u622a\u65ad\uff0c\u7981\u6b62\u7528"\u4efb\u52a1""\u4e8b\u60c5""\u6d3b\u52a8"\u7b49\u6a21\u7cca\u8bcd\u3002\n' +
+      '6. \u7981\u6b62\u5f3a\u70c8\u60c5\u7eea\u8bcd\u6c47\uff1b\u7981\u6b62\u52a0\u5165\u8bb0\u5f55\u4e2d\u6ca1\u6709\u7684\u4fe1\u606f\u3002\n\n' +
+      '\u8fd4\u56de\u5408\u6cd5JSON\uff08\u4e0d\u8981Markdown\uff09\uff1a\n' +
+      '{"memories":[{"charName":"' + (partNames[0] || '\u89d2\u8272\u540d') + '","title":"\u7b80\u77ed\u6807\u9898","content":"...","keywords":["\u5173\u952e\u8bcd"],"importance":7,"valence":0.5,"arousal":0.4}]}\n\n' +
+      (isOffline ? '\u89c1\u9762\u8bb0\u5f55\uff1a\n' : '\u804a\u5929\u8bb0\u5f55\uff1a\n') + matchingRun.originalText
 
     var parsed = null
     try {
       var callFn = window.callMemoryAI || window.callAI
-      var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+      var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object', maxTokens: 6000 })
       parsed = extractJson(raw)
     } catch(e) { window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u5931\u8d25'); return { ok: false } }
 
@@ -2115,17 +2125,56 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       return { ok: false }
     }
 
-    var newMem = parsed.memories[0]
-    await db.memories.update(memoryId, {
-      title: newMem.title || m.title,
-      content: newMem.content || m.content,
-      keywords: newMem.keywords || m.keywords,
-      importance: newMem.importance || m.importance,
-      updatedAt: Date.now()
-    })
-    window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u6210\u529f')
-    return { ok: true }
-  }  // 重新总结（从失败记录的原文重新调用API）
+    // 每条按 charName 找档案ID；点击的那条更新，其他角色的新增（不捏假身份，找不到档案就并入本条）
+    var savedCount = 0
+    for (var i = 0; i < parsed.memories.length; i++) {
+      var nm = parsed.memories[i]
+      if (!nm || !String(nm.content || '').trim()) continue
+      var cid = m.charId
+      try {
+        if (nm.charName) {
+          var allChars = await db.characters.toArray()
+          var want = String(nm.charName).trim()
+          var hit = allChars.find(function(c) {
+            return c.id !== m.ownerUid && (getCharName(c, '') === want || c.name === want || c.nick === want)
+          })
+          if (hit) cid = hit.id
+        }
+      } catch(e) {}
+      var fields = {
+        title: String(nm.title || m.title || '').trim().slice(0, 30) || '\u672a\u547d\u540d\u8bb0\u5fc6',
+        content: String(nm.content || m.content || '').trim(),
+        keywords: Array.isArray(nm.keywords) ? nm.keywords : m.keywords,
+        importance: nm.importance || m.importance,
+        charId: cid,
+        updatedAt: Date.now()
+      }
+      var targetId = null
+      if (cid === m.charId) {
+        targetId = memoryId
+      } else {
+        try {
+          var dup = await db.memories.where('chatId').equals(m.chatId).filter(function(x) {
+            return x.id !== memoryId && x.charId === cid && x.sourceMsgStartId === m.sourceMsgStartId && x.sourceMsgEndId === m.sourceMsgEndId
+          }).first()
+          if (dup) targetId = dup.id
+        } catch(e) {}
+      }
+      if (targetId) {
+        await db.memories.update(targetId, fields)
+      } else {
+        var row = Object.assign({}, m, fields)
+        delete row.id
+        row.createdAt = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+        row.realCreatedAt = Date.now()
+        await db.memories.add(row)
+      }
+      savedCount++
+    }
+    if (!savedCount) { window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u5931\u8d25'); return { ok: false } }
+    window.toast && window.toast('\u91cd\u65b0\u603b\u7ed3\u6210\u529f\uff0c\u751f\u6210' + savedCount + '\u6761\u8bb0\u5fc6')
+    return { ok: true, memoryCount: savedCount }
+  }  // \u91cd\u65b0\u603b\u7ed3\uff08\u4ece\u5931\u8d25\u8bb0\u5f55\u7684\u539f\u6587\u91cd\u65b0\u8c03\u7528API\uff09
   async function retrySummary(runId, overwriteMemoryId) {
     var run = await db.memoryRuns.get(runId)
     if (!run || !run.originalText) { window.toast && window.toast('找不到原始记录'); return { ok: false } }
@@ -2158,7 +2207,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       try {
         var callFn = window.callMemoryAI || window.callAI
         if (!callFn) { lastError = 'AI不可用'; break }
-        var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+        var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object', maxTokens: 6000 })
         parsed = extractJson(raw)
         if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) break
         lastError = 'AI返回为空或格式错误'
@@ -2297,7 +2346,7 @@ prompt = '\u8bf7\u6839\u636e\u4ee5\u4e0b\u804a\u5929\u8bb0\u5f55\uff0c\u63d0\u53
       '如果没有发现事实，返回 {"facts":[]}'
     try {
       var callFn = window.callMemoryAI || window.callAI
-      var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object' })
+      var raw = await callFn([{ role: 'user', content: prompt }], { responseFormat: 'json_object', maxTokens: 6000 })
       var parsed = extractJson(raw)
       if (!parsed || !Array.isArray(parsed.facts) || !parsed.facts.length) return []
       var facts = parsed.facts.filter(function(f) {

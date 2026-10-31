@@ -740,23 +740,89 @@ async function _relExtractAllRelationships(chars, page) {
   _relToast('已提取 ' + total + ' 条关系');
   localStorage.setItem('rel_last_gen_time', String(Date.now()));
 
-  // Refresh
-  _relRenderSelectPage(page);
+  // [v6.5.8] 有歧义人物就逐个让用户选，选完再刷新
+  _relShowPendingChoices(page, function() {
+    _relRenderSelectPage(page);
+  });
+}
+
+// [v6.5.8 身份铁律] 歧义人物待选清单：名字对不上唯一档案时不捏替身，攒起来让用户选
+var _relPendingChoices = [];
+
+function _relShowPendingChoices(page, done) {
+  if (!_relPendingChoices.length) { if (done) done(); return; }
+  var item = _relPendingChoices.shift();
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(30,32,36,0.45);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 200ms ease-out';
+  var opts = item.options.map(function(o) {
+    return '<button data-id="' + o.id + '" data-name="' + _relEsc(o.name) + '" style="display:block;width:100%;padding:13px 16px;margin:6px 0;border:1px solid rgba(107,125,141,0.15);border-radius:12px;background:#fff;font-size:14px;text-align:left;cursor:pointer">用档案：' + _relEsc(o.name) + '</button>';
+  }).join('');
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:18px;max-width:420px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(40,50,64,0.18);transform:scale(0.96);transition:transform 220ms cubic-bezier(0.23,1,0.32,1)';
+  box.innerHTML =
+    '<div style="font-size:15px;font-weight:600;color:#2d2b2e;margin-bottom:6px">「' + _relEsc(item.name) + '」是谁？</div>' +
+    '<div style="font-size:12px;color:#9aabab;margin-bottom:12px">来自 ' + _relEsc(item.owner || '') + ' 的人设 · 关系：' + _relEsc(item.type || '认识') + '。名字有歧义，小艾不擅自定身份，请你选：</div>' +
+    opts +
+    '<button data-id="__new__" data-name="' + _relEsc(item.name) + '" style="display:block;width:100%;padding:13px 16px;margin:6px 0;border:1px dashed rgba(107,125,141,0.3);border-radius:12px;background:rgba(107,125,141,0.05);font-size:14px;cursor:pointer">都不是，TA 是新的人物（独立 NPC）</button>' +
+    '<button data-id="__skip__" style="display:block;width:100%;padding:11px;margin:8px 0 0;border:none;border-radius:12px;background:transparent;color:#9aabab;font-size:13px;cursor:pointer">跳过这个</button>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function() { overlay.style.opacity = '1'; box.style.transform = 'scale(1)'; });
+  function close(cb) {
+    overlay.style.opacity = '0'; box.style.transform = 'scale(0.96)';
+    setTimeout(function() { overlay.remove(); if (cb) cb(); }, 220);
+  }
+  box.querySelectorAll('button').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-id');
+      try {
+        if (id === '__skip__') {
+          // 跳过：不写任何关系，绝不捏替身
+        } else if (id === '__new__') {
+          await db.relationships.add({
+            charId: item.charId, targetId: 'npc_' + Date.now(),
+            targetName: item.name, targetAvatar: '',
+            type: item.type || '认识', desc: item.desc || '',
+            affinity: 50, source: 'ai', createdAt: Date.now(), updatedAt: Date.now()
+          });
+          if (window.syncRelationshipsToProfile) await syncRelationshipsToProfile(item.charId);
+        } else {
+          await db.relationships.add({
+            charId: item.charId, targetId: id,
+            targetName: btn.getAttribute('data-name'), targetAvatar: '',
+            type: item.type || '认识', desc: item.desc || '',
+            affinity: 50, source: 'ai', createdAt: Date.now(), updatedAt: Date.now()
+          });
+          if (window.syncRelationshipsToProfile) await syncRelationshipsToProfile(item.charId);
+        }
+      } catch(e) { console.warn('[relmap] 待选落库失败:', e); }
+      close(function() { _relShowPendingChoices(page, done); });
+    });
+  });
 }
 
 async function _relExtractFromPersona(char) {
   if (!char || !window.callAI) return 0;
 
+  // [v6.5.8 身份铁律] 身份一律来自档案：先取用户档案+角色档案名单给AI对号入座
+  var _roster = await _relGetAllChars();
+  var _rosterLines = _roster.map(function(c) {
+    return '- ' + (c.name || '未命名') + (c.nick ? '（昵称：' + c.nick + '）' : '') + (c.type === 'user' ? '【这是用户本人】' : '');
+  }).join('\n');
+
   var prompt = '你是关系网络分析器。根据以下角色人设，提取所有提到的人物和他们与角色的关系。\n\n' +
     '角色名：' + (char.name || '未知') + '\n' +
     '人设：\n' + (char.description || '暂无') + '\n\n' +
+    '已知人物档案名单（提取到的人物如果在名单里，name 必须逐字用名单里的名字）：\n' + (_rosterLines || '（无）') + '\n\n' +
     '要求：\n' +
     '1. 提取人设中明确提到的所有人物\n' +
     '2. 每个人物要有名字、关系类型、详细描述（50-100字，包含相处方式、情感深度、互动特点）\n' +
-    '3. 如果人设中没有提到其他人，返回空数组\n\n' +
+    '3. name 字段优先使用档案名单里的原名；只有确定是名单外的全新真实人物时才写新名字\n' +
+    '4. 绝对禁止虚构档案名单中人物的别名、替身或仿造名\n' +
+    '5. 如果人设中没有提到其他人，返回空数组\n\n' +
     '返回JSON：{"relations":[{"name":"人名","type":"关系类型","desc":"详细描述这段关系，50-100字，包含相处方式、情感深度、互动特点"}]}';
 
-  var raw = await window.callAI([{role: 'user', content: prompt}], {responseFormat: 'json_object', charAntiDrift: true});
+  var raw = await window.callAI([{role: 'user', content: prompt}], {responseFormat: 'json_object'}); // [v6.5.8] 提取任务不挂角色世界书
 
   var parsed;
   try {
@@ -780,16 +846,31 @@ async function _relExtractFromPersona(char) {
     if (!r.name) continue;
     if (existingNames.indexOf(r.name.toLowerCase()) >= 0) continue;
 
-    var targetId = 'npc_' + Date.now() + '_' + j;
-    var match = otherChars.find(function(c) {
-      return (c.name || '').toLowerCase() === r.name.toLowerCase() ||
-             (c.nick || '').toLowerCase() === r.name.toLowerCase();
+    // [v6.5.8 身份铁律] 精确匹配档案(含用户本人)→用原档案ID/名称/头像；歧义→跳过让用户选；全无匹配→才立真NPC
+    var nameLow = r.name.toLowerCase();
+    var exact = _roster.filter(function(c) {
+      return (c.name || '').toLowerCase() === nameLow || ((c.nick || '').toLowerCase() === nameLow);
     });
-    if (match) targetId = match.id;
+    if (exact.length > 1) {
+      // 名字歧义（多个档案同名）：不擅自生成替身，记待选清单让用户定
+      _relPendingChoices.push({ charId: char.id, owner: char.name, name: r.name, type: r.type, desc: r.desc, options: exact.map(function(c) { return { id: c.id, name: c.name, avatar: c.avatar || '' }; }) });
+      continue;
+    }
+    var match = exact[0] || null;
+    var targetId, targetName, targetAvatar;
+    if (match) {
+      targetId = match.id;
+      targetName = match.name; // 用档案原名，不用AI写的
+      targetAvatar = match.avatar || '';
+    } else {
+      targetId = 'npc_' + Date.now() + '_' + j;
+      targetName = r.name;
+      targetAvatar = '';
+    }
 
     await db.relationships.add({
       charId: char.id, targetId: targetId,
-      targetName: r.name, targetAvatar: match ? (match.avatar || '') : '',
+      targetName: targetName, targetAvatar: targetAvatar,
       type: r.type || '认识', desc: r.desc || '',
       affinity: 50, source: 'ai',
       createdAt: Date.now(), updatedAt: Date.now()
@@ -1029,7 +1110,7 @@ async function _relShowDetailCard(node, centerCharId) {
           typeHTML +
         '</div>' +
       '</div>' +
-      '<div class="rel-detail-body" style="padding:20px 24px">' +
+      '<div class="rel-detail-body" style="padding:20px 24px;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch">' +
         descHTML +
         affinityHTML +
         '<div class="rel-detail-section" style="margin-top:16px">' +
@@ -1928,8 +2009,59 @@ _relCleanupGraph = function() {
 //  RELATIONSHIP BATCH IMPORT FROM PERSONA (一次性全部提取)
 // =============================================================
 
+// ===== [v6.5.8 身份铁律] 错误替身安全清理 =====
+// 能确认身份的（名字精确匹配档案/用户）→ 合并进真档案（保留关系故事）；无法确认的 → 保留并提示，绝不误删
+window.cleanupRelationshipImposters = async function(silent) {
+  if (!window.db || !db.relationships) return { merged: 0, kept: 0 };
+  var roster = await _relGetAllChars(); // 含用户(type='user')和所有AI角色
+  var all = await db.relationships.toArray();
+  var merged = 0, kept = 0, keptNames = [];
+  for (var i = 0; i < all.length; i++) {
+    var rel = all[i];
+    var tid = String(rel.targetId || '');
+    if (tid.indexOf('npc_') !== 0) continue; // 只审AI捏的替身
+    var tname = (rel.targetName || '').trim().toLowerCase();
+    if (!tname) { kept++; keptNames.push(rel.targetName || '（无名）'); continue; }
+    var exact = roster.filter(function(c) {
+      return (c.name || '').trim().toLowerCase() === tname || ((c.nick || '') && c.nick.trim().toLowerCase() === tname);
+    });
+    if (exact.length === 1) {
+      // 能确认身份：合并进真档案（改targetId/头像/名称，desc等关系故事全保留）
+      var real = exact[0];
+      await db.relationships.update(rel.id, {
+        targetId: real.id,
+        targetName: real.name,
+        targetAvatar: real.avatar || '',
+        updatedAt: Date.now(),
+        mergedFrom: tid // 留痕可追溯
+      });
+      merged++;
+    } else if (exact.length > 1) {
+      // 多个档案同名有歧义：保留并提示，让用户自己定，绝不擅自合并
+      kept++; keptNames.push(rel.targetName + '（歧义:' + exact.map(function(c) { return c.name; }).join('/') + '）');
+    } else {
+      // 完全无法确认：保留（可能是真NPC朋友），提示用户核对，绝不误删关系故事
+      kept++; keptNames.push(rel.targetName);
+    }
+  }
+  if (merged) {
+    // 合并后同步各当事角色的档案关系
+    var owners = {};
+    all.forEach(function(r) { owners[r.charId] = 1; });
+    for (var k in owners) { await syncRelationshipsToProfile(k); }
+  }
+  if (!silent) {
+    var msg = '替身清理：合并 ' + merged + ' 条进档案';
+    if (keptNames.length) msg += '，保留 ' + keptNames.length + ' 条待你核对（' + keptNames.slice(0, 3).join('、') + (keptNames.length > 3 ? '等' : '') + '）';
+    _relToast(msg);
+  }
+  return { merged: merged, kept: kept, keptNames: keptNames };
+};
+
 window.generateAllRelationships = async function() {
   if (!window.db || !window.callAI) { _relToast('服务未就绪'); return; }
+  // [v6.5.8] 提取前先安全清理旧替身（合并可确认的、保留可核对的，绝不误删）
+  try { await window.cleanupRelationshipImposters(true); } catch(e) { console.warn('[relmap] 替身清理失败:', e); }
   var chars = await _relGetAllChars();
   var charTypeChars = chars.filter(function(c) { return c.type === 'char'; });
   if (!charTypeChars.length) { _relToast('没有角色'); return; }
