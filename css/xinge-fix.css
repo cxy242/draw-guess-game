@@ -57,3 +57,32 @@
 .xg-strike.is-unsure {
   cursor: pointer;
 }
+
+/* 自查修复：筛选按钮主题色（紫→尘玫瑰）+字距收紧+署名区边距 */
+.xg-chip.is-selected, .xg-chip.is-sel {
+  background: var(--xg-rose) !important;
+  color: var(--xg-ivory) !important;
+  border-color: var(--xg-rose) !important;
+}
+.xg-letter-title, .xg-letter-hi {
+  letter-spacing: normal !important;
+}
+.xg-sign-zone {
+  padding: 14px 28px 24px !important;
+}
+.xg-letter-wish {
+  padding: 0 28px !important;
+  line-height: 1.9;
+}
+.xg-letter-wish .xg-wish-cursive {
+  display: block;
+  margin-top: 6px;
+}
+
+/* 自查：P1 主按钮下移，不遮 Write Love 题字 */
+.xg-page-write .xg-write-cta,
+.xg-page-write [data-xg-act="go-compose"],
+.xg-page-write .xg-btn-primary {
+  margin-top: 26px !important;
+  margin-bottom: 12vh !important;
+}

@@ -977,7 +977,7 @@
       '<div class="xg-scroll"><div class="xg-selfwrite-wrap xg-content-fade">' +
         '<div class="xg-selfwrite-to">致 ' + esc(toName) + '</div>' +
         '<div class="xg-letter xg-paper-sheet xg-letter-lined ps-letter" id="xg-self-paper">' +
-          '<div class="xg-letter-head-block"><div class="xg-letter-title">致 ' + esc(toName) + ' 的一封信</div></div>' +
+          '' +
           '<div class="xg-letter-to xg-letter-head"><span class="xg-letter-hi">亲爱的 ' + esc(toName) + '：</span></div>' +
           '<textarea class="xg-selfwrite-input" id="xg-self-input" rows="12" ' +
             'placeholder="亲爱的 ' + esc(toName) + '：&#10;&#10;在这里写下你想说的话…"></textarea>' +
@@ -2213,6 +2213,7 @@
   /* S3 定时写信 */
   function renderTimer() {
     var html =
+      '<div class="xg-bg"></div>' +
       topbar('定时写信', { dark: true }) +
       '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
         '<div class="xg-timer-hero">' +
@@ -2491,6 +2492,7 @@
       try { Xinge.ui.bindDataPage(el); } catch (e) { /* 降级：不影响清空功能 */ }
     }
     el.addEventListener('click', function (e) {
+        if (e.target.closest('[data-xg-act="export-letters"]')) { e.preventDefault(); if (Xinge.ui && Xinge.ui.exportLetters) Xinge.ui.exportLetters(); return; }
       if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
       // 导入：点按钮唤起文件选择
       if (e.target.closest('[data-xg-act="import-letters"]')) {
@@ -2530,6 +2532,7 @@
   function renderPresetManager() {
     loadPresets().then(function (presets) {
       var html =
+        '<div class="xg-bg"></div>' +
         topbar('关系提示词', { dark: true, right: '<button class="xg-topbar-back" data-xg-act="restore-default" style="width:auto;padding:0 8px;font-size:12px">恢复默认</button>' }) +
         '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
           '<div class="xg-group-title">预设（' + presets.length + '）</div>' +
