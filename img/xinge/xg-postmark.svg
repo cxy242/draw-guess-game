@@ -13,8 +13,8 @@
   <text font-family="Georgia, serif" font-size="12" letter-spacing="2" fill="#896D59" opacity="0.85">
     <textPath href="#arcBottom" startOffset="50%" text-anchor="middle">OLIVE POST</textPath>
   </text>
-  <!-- 中心日期位：{{DATE}} 由 JS 动态替换 -->
-  <text x="100" y="95" font-family="Georgia, serif" font-size="16" text-anchor="middle" fill="#896D59" opacity="0.9">{{DATE}}</text>
+  <!-- 中心日期位：XINGE 由 JS 动态替换 -->
+  <text x="100" y="95" font-family="Georgia, serif" font-size="16" text-anchor="middle" fill="#896D59" opacity="0.9">XINGE</text>
   <!-- 中心橄榄枝 -->
   <g stroke="#896D59" stroke-width="2" fill="none" opacity="0.85">
     <path d="M 78 118 Q 100 128 122 118"/>

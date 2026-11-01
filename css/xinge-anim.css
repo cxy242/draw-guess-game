@@ -243,51 +243,37 @@
 }
 
 /* A7 划线一笔（280ms linear 匀速=手划感）
-   —— 2026-10-31 修 A2（主人点名）：线必须画在**每个字**上。
-      原来画在整段 .xg-strike-line 的 ::after 上 —— 划掉改成行内 span 之后，
-      那个 ::after 的包含块变成整段（实测：336px 宽、两行段落只画一条线、压在中间），
-      跟文字行完全对不上。改成每个 .xg-w 自己一条，换行也连续。
-      —— 划线颜色/粗细三态（轻划/重划/涂改圈）在 xinge-paper.css 的 N4 段。 */
-.xg-strike .xg-w {
+   伪元素线替代静态 text-decoration（可动画） */
+.xg-strike .xg-strike-line {
   position: relative;
   text-decoration: none;
 }
-.xg-strike .xg-w::after {
+.xg-strike .xg-strike-line::after {
   content: '';
   position: absolute;
-  left: 0; right: 0;
-  top: 76%;              /* 落在基线附近（54% 会穿过字中间） */
+  left: -1px; right: -1px;
+  top: 52%;
   height: 1px;
   background: rgba(74, 66, 56, 0.45);
   transform: scaleX(0);
   transform-origin: left center;
-  opacity: 0;
 }
-.xg-strike.is-swept .xg-w::after {
-  opacity: 1;
+.xg-strike.is-swept .xg-strike-line::after {
   transform: scaleX(1);
-  transition: transform 0.28s linear, opacity 0.08s linear;
-  transition-delay: var(--xg-sweep-delay, 0ms);
+  transition: transform 0.28s linear;
 }
-/* 点击横线消失（从中间向两端收掉 200ms）
-   —— 收线的错峰用 --xg-retract-delay（JS 按"离中间多远"算），
-      划线时用 --xg-sweep-delay（从左往右，一笔写出来）。 */
-.xg-strike.is-undone .xg-w::after {
-  opacity: 0;
+/* 点击横线消失（从中间向两端收掉 200ms） */
+.xg-strike.is-undone .xg-strike-line::after {
   transform: scaleX(0);
-  transform-origin: right center;
-  transition: transform 0.2s var(--xg-ease-out), opacity 0.12s linear;
-  transition-delay: var(--xg-retract-delay, var(--xg-sweep-delay, 0ms));
+  transform-origin: center;
+  transition: transform 0.2s var(--xg-ease-out);
 }
-.xg-strike.is-undone .xg-w {
+.xg-strike.is-undone .xg-strike-line {
   color: var(--xg-olive-ink);
   font-style: normal;
 }
 /* 全局切换多米诺（JS 逐段挂 is-undone 30ms 错峰） */
 .xg-strike.is-domino {
-  transition-delay: var(--xg-domino-delay, 0ms);
-}
-.xg-strike.is-domino .xg-w::after {
   transition-delay: var(--xg-domino-delay, 0ms);
 }
 
@@ -713,24 +699,3 @@
   animation: none !important;
 }
 .xg-motion-low .xg-en-card.is-flying { display: none; }
-
-/* ===== A4（主人点名：降级链全覆盖复核）=====
-   —— 拆信链（新加的等点提示、抽出、扇飞、退场）在 reduced-motion 下必须直落终态，
-      不能停在半截（半截 = 用户看到"卡死"）。 */
-@media (prefers-reduced-motion: reduce) {
-  .xg-env4-stage *,
-  .xg-env4-stage *::before,
-  .xg-env4-stage *::after {
-    animation: none !important;
-    transition: none !important;
-  }
-  /* 等点提示：不做动画，但保留药丸外观（看得见在等他点） */
-  .xg-env4-hint.is-waiting-tap {
-    animation: none !important;
-    transform: none !important;
-  }
-  /* 行内划掉：不做收线动画，但线的显隐照旧（功能不能丢） */
-  .xg-strike .xg-w::after {
-    transition: none !important;
-  }
-}

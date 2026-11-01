@@ -1,3 +1,5 @@
+@import url('https://fonts.loli.net/css2?family=ZCOOL+XiaoWei&display=swap');
+@import url('https://fonts.font.im/css2?family=ZCOOL+XiaoWei&display=swap');
 /* ============================================================
    信格 xinge-pages.css — 页面卷 · 前半（B2a：P0–P4）
    每页四态：默认 / 空态 / 加载骨架 / 错误态
@@ -872,15 +874,16 @@
   overflow-y: auto;
   display: flex;
   justify-content: center;
-  padding: 26px 0 90px;
+  /* 顶部留出返回键栏的空间（.xg-read-topbar 绝对定位） */
+  padding: 62px 0 110px;
 }
 /* 信纸主体 */
 .xg-letter {
   position: relative;
-  width: 82%;
+  width: 88%;
   max-width: 340px;
   min-height: 62dvh;
-  padding: 30px 26px 40px;
+  padding: 30px 26px 52px;
   border-radius: 2px;
   background: url('../img/xinge/09-paper-letter.webp') center / cover no-repeat;
   box-shadow: var(--xg-shadow-lift);
@@ -1272,4 +1275,16 @@
   background-image: url('../img/xinge/bg-P3b-vx.webp');
   filter: blur(8px) brightness(0.82);
   transform: scale(1.06);
+}
+
+/* ===== 「信格」标题：开源 ZCOOL XiaoWei + 放大 ===== */
+.xg-headline-cn {
+  font-family: 'ZCOOL XiaoWei', 'XG-Kai', serif;
+  font-size: 30px !important;
+  letter-spacing: 8px;
+}
+/* ===== 筛选条下移（不粘搜索框） ===== */
+.xg-filter-row,
+.xg-chip-row {
+  margin-top: 18px;
 }

@@ -127,36 +127,27 @@
    N4b 重划（粗线 70%+多重线）：内心阴暗面，划得狠
    N4c 圈涂（涂改圈）：写错划掉重写感
    ============================================================ */
-/* 划掉三态（N4）
-   —— 2026-10-31 修 A2：线改由每个 .xg-w 的 ::after 画（可动画、换行也对），
-      这三态的"线"也跟着改成 ::after 的颜色与粗细；
-      text-decoration 只留 none，免得两套线叠在一起（A2 实锤：多一条横贯整段的长线）。 */
 .xg-strike-soft .xg-w {
-  text-decoration: none;
-}
-.xg-strike-soft .xg-w::after {
-  background: rgba(47, 53, 39, 0.4);
-  height: 1px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(47, 53, 39, 0.4);
+  text-decoration-thickness: 1px;
 }
 .xg-strike-hard .xg-w {
-  text-decoration: none;
-}
-.xg-strike-hard .xg-w::after {
-  background: rgba(47, 53, 39, 0.7);
-  height: 2px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(47, 53, 39, 0.7);
+  text-decoration-thickness: 2px;
+  text-decoration-style: solid;
 }
 .xg-strike-hard {
   opacity: 0.88;
 }
 .xg-strike-scratch .xg-w {
-  text-decoration: none;
+  text-decoration: line-through;
+  text-decoration-color: rgba(47, 53, 39, 0.55);
+  text-decoration-thickness: 1px;
 }
-.xg-strike-scratch .xg-w::after {
-  background: rgba(47, 53, 39, 0.55);
-  height: 1px;
-}
-.xg-strike-scratch .xg-w:nth-child(3n)::after {
-  height: 2px;
+.xg-strike-scratch .xg-w:nth-child(3n) {
+  text-decoration-thickness: 2px;
 }
 /* 涂改圈（手绘圈涂感） */
 .xg-scribble {

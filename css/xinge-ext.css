@@ -1041,7 +1041,110 @@
   opacity: 1;
 }
 
-/* ===== FAB 粉球内图标：黑→浅棕（clay） ===== */
+/* ===== FAB 粉球内图标：黑→浅棕（clay） =====
+   2026-10-25 修正：这里原写的是 filter:none（等于把图案还原成纯黑），
+   与注释意图正好相反 —— 主人看到"粉红圆圈里的图案颜色不对"就是这条。
+   现在按注释意图给浅棕；图案尺寸收在圈内见 xinge-decor.css 的 .xg-fab-seal。 */
 .xg-fab-seal img {
-  filter: none;
+  filter: sepia(0.35) saturate(0.55) brightness(0.86) hue-rotate(-8deg);
+  opacity: 0.82;
+}
+
+/* ===== FAB 图标居中 ===== */
+.xg-fab-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.xg-fab-seal img {
+}
+
+/* ===== FAB 图标放大（不超球） ===== */
+.xg-fab-img img {
+  width: 68% !important;
+  height: 68% !important;
+}
+
+/* ===== FAB 图标：强制棕+放大 ===== */
+.xg-fab-seal .xg-fab-img img {
+  width: 96% !important;
+  height: 96% !important;
+}
+
+/* ===== 按钮放大（触摸友好）+空态 CTA 提上来不被裁 ===== */
+.xg-chip {
+  min-height: 44px;
+  min-width: 64px;
+  padding: 10px 20px;
+  font-size: 15px;
+}
+.xg-inbox-list .xg-empty,
+.xg-inbox-list .xg-state-box {
+  padding: 16px 24px 22vh;
+  justify-content: center;
+}
+.xg-empty .xg-btn,
+.xg-empty-text + .xg-btn {
+  min-height: 52px;
+  min-width: 190px;
+  font-size: 17px;
+  padding: 14px 32px;
+  margin-top: 22px;
+}
+.xg-btn {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+/* ===== P8 阅读页底部按钮栏：钉框底提到可视区 ===== */
+.xg-read-foot {
+  position: absolute !important;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(238, 232, 218, 0) 0%, rgba(238, 232, 218, 0.92) 32%);
+}
+.xg-read-foot .xg-read-next {
+  min-height: 50px;
+  min-width: 140px;
+  font-size: 17px;
+}
+.xg-read-foot .xg-icon-btn {
+  width: 50px;
+  height: 50px;
+}
+
+/* ===== 署名中文书法体（开源马善政毛笔）===== */
+@import url('https://fonts.loli.net/css2?family=Ma+Shan+Zheng&display=swap');
+@import url('https://fonts.font.im/css2?family=Ma+Shan+Zheng&display=swap');
+.xg-sign-script {
+  font-family: 'Ma Shan Zheng', 'XG-Kai', cursive;
+  font-size: 26px;
+}
+/* ===== 信纸行距收紧（离边近一点，一行字多）===== */
+.xg-letter-card {
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+.xg-letter-body {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.xg-letter-para {
+  margin-bottom: 0.9em;
+}
+.xg-letter-salute {
+  margin-bottom: 2em;
+}
+/* 行内划掉样式 */
+.xg-strike.is-unsure {
+  cursor: pointer;
 }
