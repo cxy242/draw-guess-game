@@ -75,38 +75,25 @@
   /* ============================================================
      U3. 分段器接线（S5 阅读偏好）
      ============================================================ */
-  /* 分段器接线（S5 阅读偏好）
-     深检 2026-10-24：原实现只认 .xg-seg-opt / data-xg-seg-val，
-     而 xinge.js 的阅读偏好页用的是 .xg-segment / .xg-segment-item / data-xg-pref-opt
-     → 两者对不上，本函数成了死代码。现改为两套命名都认，接线即可用。 */
-  function segItems(wrap) {
-    return wrap.querySelectorAll('.xg-seg-opt, .xg-segment-item');
-  }
-  function segValue(opt) {
-    return opt.getAttribute('data-xg-seg-val') || opt.getAttribute('data-xg-pref-opt');
-  }
   ui.bindSeg = function (wrap, onChange) {
     if (!wrap) return;
     wrap.addEventListener('click', function (e) {
-      var opt = e.target.closest('.xg-seg-opt, .xg-segment-item');
+      var opt = e.target.closest('.xg-seg-opt');
       if (!opt || !wrap.contains(opt)) return;
-      var all = segItems(wrap);
-      for (var i = 0; i < all.length; i++) {
-        all[i].classList.remove('is-active', 'is-selected');
-      }
-      opt.classList.add('is-active', 'is-selected');
-      if (onChange) onChange(segValue(opt));
+      var all = wrap.querySelectorAll('.xg-seg-opt');
+      for (var i = 0; i < all.length; i++) all[i].classList.remove('is-active');
+      opt.classList.add('is-active');
+      if (onChange) onChange(opt.getAttribute('data-xg-seg-val'));
     });
     return {
       get: function () {
-        var a = wrap.querySelector('.xg-seg-opt.is-active, .xg-segment-item.is-selected, .xg-segment-item.is-active');
-        return a ? segValue(a) : null;
+        var a = wrap.querySelector('.xg-seg-opt.is-active');
+        return a ? a.getAttribute('data-xg-seg-val') : null;
       },
       set: function (v) {
-        var all = segItems(wrap);
+        var all = wrap.querySelectorAll('.xg-seg-opt');
         for (var i = 0; i < all.length; i++) {
-          all[i].classList.toggle('is-active', segValue(all[i]) === v);
-          all[i].classList.toggle('is-selected', segValue(all[i]) === v);
+          all[i].classList.toggle('is-active', all[i].getAttribute('data-xg-seg-val') === v);
         }
       }
     };
@@ -114,21 +101,18 @@
 
   /* ============================================================
      U4. S3 定时页：频率签展开（每天/每周/每月/随机）
-     深检 2026-10-24：原实现只认 .xg-chip[data-xg-freq]，
-     而 xinge.js 的定时页用 data-xg-sfreq → 对不上，成了死代码。
-     现两套命名都认，接线即可用。
      ============================================================ */
   ui.bindFreqExpand = function (wrap) {
     if (!wrap) return;
     wrap.addEventListener('click', function (e) {
-      var chip = e.target.closest('.xg-chip[data-xg-freq], [data-xg-sfreq]');
-      if (!chip || !wrap.contains(chip)) return;
-      var chips = wrap.querySelectorAll('.xg-chip[data-xg-freq], [data-xg-sfreq]');
+      var chip = e.target.closest('.xg-chip[data-xg-freq]');
+      if (!chip) return;
+      var chips = wrap.querySelectorAll('.xg-chip[data-xg-freq]');
       for (var i = 0; i < chips.length; i++) chips[i].classList.remove('is-sel');
       chip.classList.add('is-sel');
       chip.classList.add('is-pulse');
       setTimeout(function () { chip.classList.remove('is-pulse'); }, 380);
-      var freq = chip.getAttribute('data-xg-freq') || chip.getAttribute('data-xg-sfreq');
+      var freq = chip.getAttribute('data-xg-freq');
       // 展开区切换
       var zones = wrap.querySelectorAll('.xg-freq-expand');
       for (var j = 0; j < zones.length; j++) {
@@ -137,12 +121,11 @@
     });
   };
 
-  /* 星期七签 / 日期签 多选
-     兼容 xinge.js 的 .xg-week-cell / .xg-date-chip 命名 */
+  /* 星期七签 / 日期签 多选 */
   ui.bindMultiPick = function (wrap, onChange) {
     if (!wrap) return;
     wrap.addEventListener('click', function (e) {
-      var cell = e.target.closest('.xg-week-dot, .xg-date-cell, .xg-week-cell, .xg-date-chip');
+      var cell = e.target.closest('.xg-week-dot, .xg-date-cell');
       if (!cell || !wrap.contains(cell)) return;
       cell.classList.toggle('is-sel');
       if (onChange) {
@@ -154,17 +137,16 @@
     });
   };
 
-  /* 写信人三选签
-     兼容 xinge.js 的 [data-xg-sendermode] 命名 */
+  /* 写信人三选签 */
   ui.bindRadioPills = function (wrap, onChange) {
     if (!wrap) return;
     wrap.addEventListener('click', function (e) {
-      var pill = e.target.closest('.xg-radio-pill, [data-xg-sendermode]');
+      var pill = e.target.closest('.xg-radio-pill');
       if (!pill || !wrap.contains(pill)) return;
-      var all = wrap.querySelectorAll('.xg-radio-pill, [data-xg-sendermode]');
+      var all = wrap.querySelectorAll('.xg-radio-pill');
       for (var i = 0; i < all.length; i++) all[i].classList.remove('is-sel');
       pill.classList.add('is-sel');
-      if (onChange) onChange(pill.getAttribute('data-xg-pill-val') || pill.getAttribute('data-xg-sendermode'));
+      if (onChange) onChange(pill.getAttribute('data-xg-pill-val'));
     });
   };
 
@@ -395,8 +377,6 @@
     }
   };
 
-  /* 挂载（合并而非覆盖：保留 xinge.js 的 ui.renderInbox / ui.renderWrite，
-     深检 2026-10-24 修：原来直接 Xinge.ui = ui 把那两个成员抹掉了） */
-  if (typeof window.__xingeMergeUI === 'function') window.__xingeMergeUI(ui);
-  else Xinge.ui = Object.assign({}, Xinge.ui || {}, ui);
+  /* 挂载 */
+  Xinge.ui = ui;
 })();

@@ -1041,11 +1041,7 @@
   opacity: 1;
 }
 
-/* ===== FAB 粉球内图标：黑→浅棕（clay） =====
-   2026-10-25 修正：这里原写的是 filter:none（等于把图案还原成纯黑），
-   与注释意图正好相反 —— 主人看到"粉红圆圈里的图案颜色不对"就是这条。
-   现在按注释意图给浅棕；图案尺寸收在圈内见 xinge-decor.css 的 .xg-fab-seal。 */
+/* ===== FAB 粉球内图标：黑→浅棕（clay） ===== */
 .xg-fab-seal img {
-  filter: sepia(0.35) saturate(0.55) brightness(0.86) hue-rotate(-8deg);
-  opacity: 0.82;
+  filter: none;
 }

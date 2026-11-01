@@ -166,20 +166,20 @@
   font-style: normal;
   cursor: pointer;
 }
+/* 2026-10-31 修 A2：划线改由每个 .xg-w 的 ::after 画（可动画、换行也对）。
+   原来靠 text-decoration —— 行内化之后它跟伪元素那套线叠在一起，
+   多出一条横贯整段的长线（实测）。这里只留"文字变回常态"的活。 */
 .xg-letter-lined .xg-strike-line {
-  text-decoration-line: line-through;
-  text-decoration-color: rgba(74, 68, 60, 0.62);
-  text-decoration-thickness: 1.4px;
-  transition: text-decoration-color 0.2s ease, color 0.2s ease;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
-.xg-letter-lined .xg-strike-soft .xg-strike-line {
-  text-decoration-color: rgba(74, 68, 60, 0.42);
-  text-decoration-thickness: 1px;
+.xg-letter-lined .xg-strike-soft .xg-w::after {
+  background: rgba(74, 68, 60, 0.42);
+  height: 1px;
 }
-.xg-letter-lined .xg-strike-hard .xg-strike-line {
-  text-decoration-color: rgba(74, 68, 60, 0.78);
-  text-decoration-thickness: 2.2px;
-  text-decoration-style: double;
+.xg-letter-lined .xg-strike-hard .xg-w::after {
+  background: rgba(74, 68, 60, 0.78);
+  height: 2.2px;
 }
 .xg-letter-lined .xg-strike-circle .xg-strike-line {
   background-image: radial-gradient(
@@ -296,7 +296,8 @@
 @media (prefers-reduced-motion: reduce) {
   .xg-letter-lined .xg-w,
   .xg-letter-lined .xg-letter-para,
-  .xg-letter-lined .xg-strike-line {
+  .xg-letter-lined .xg-strike-line,
+  .xg-letter-lined .xg-strike .xg-w::after {
     transition: none !important;
   }
 }

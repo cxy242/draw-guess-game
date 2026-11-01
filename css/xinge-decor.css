@@ -264,23 +264,14 @@
   cursor: pointer;
   transition: transform 0.2s var(--xg-ease-out), box-shadow 0.2s;
   z-index: 40;
-  /* 图案必须收在粉红圆圈里（主人 2026-10-25：图形抽出圈外） */
-  overflow: hidden;
 }
 .xg-fab-seal:active { transform: scale(0.96); box-shadow: 0 4px 12px rgba(47, 53, 39, 0.22); }
-/* 图案缩到圈内（原来 68% 且 SVG 自身留白大 → 视觉上顶出圆圈） */
 .xg-fab-seal .xg-fab-img {
-  width: 54%;
-  height: 54%;
-  margin: 23%;
+  width: 68%;
+  height: 68%;
+  margin: 16%;
 }
-.xg-fab-seal .xg-fab-img img {
-  width: 100%; height: 100%;
-  object-fit: contain;
-  /* 图案改浅棕（主人 2026-10-25：信格内部这枚粉红圆圈里的图案改浅棕色） */
-  filter: sepia(0.35) saturate(0.55) brightness(0.86) hue-rotate(-8deg);
-  opacity: 0.82;
-}
+.xg-fab-seal .xg-fab-img img { width: 100%; height: 100%; object-fit: contain; }
 
 /* ============================================================
    D4. P1 写信首页装饰
@@ -810,57 +801,15 @@
 }
 .xg-letter-sign .xg-sign-date {
   margin-top: 6px;
-  padding-right: 42px;   /* 给右下角火漆让位，别压住日期（主人 2026-10-24） */
   font-family: 'XG-Kai', serif;
   font-size: 13px;
   color: var(--xg-clay);
 }
 .xg-read-foot {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-end;
   gap: 10px;
-  padding: 12px var(--xg-gap-page) calc(12px + env(safe-area-inset-bottom, 0px));
-}
-/* 阅读页顶栏（主人 2026-10-24 投诉"没有退出键" → 补返回键 + 进度） */
-.xg-read-topbar {
-  position: absolute;
-  left: 0; right: 0; top: 0;
-  z-index: var(--xg-z-content, 20);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
-  pointer-events: none;
-}
-.xg-read-topbar > * { pointer-events: auto; }
-.xg-read-back {
-  width: 40px; height: 40px;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(137, 109, 89, 0.35);
-  border-radius: 50%;
-  background: rgba(253, 252, 249, 0.86);
-  color: var(--xg-olive-ink);
-  cursor: pointer;
-  transition: transform 0.16s var(--xg-ease-out), background-color 0.16s;
-}
-.xg-read-back:active { transform: scale(0.92); background: var(--xg-ivory-deep); }
-.xg-read-title {
-  flex: 1;
-  text-align: center;
-  font-family: 'XG-Kai', serif;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  color: var(--xg-clay);
-}
-.xg-read-spacer { width: 40px; flex: none; }
-/* 下一封按钮 */
-.xg-read-next {
-  flex: none;
-  min-width: 108px;
+  padding: 12px var(--xg-gap-page);
 }
 .xg-icon-btn {
   width: 44px;

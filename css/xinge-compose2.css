@@ -5,10 +5,7 @@
   height: 300px;
   margin: 0 auto;
 }
-/* 信纸
-   —— 2026-10-28 主人："信纸你去给我找开源仓库，好看点，不要再把那个花的素材放在上面了"
-      这张纸改为纯米白 + 极淡纸纹（SVG 噪点，非图片），不再贴 xg-paper.webp 纹理图。
-      真正的"旧纸底图"另从 Wikimedia Commons 取 PD 素材，见 xg-paper-pd 目录。 */
+/* 信纸 */
 .xg-c2-paper {
   position: absolute;
   left: 12%;
@@ -17,23 +14,20 @@
   bottom: 16%;
   border: 1px solid rgba(137, 109, 89, 0.5);
   border-radius: 2px;
-  background-color: #FBF8F0;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+  background:
+    linear-gradient(180deg, rgba(238,232,218,0.97), rgba(238,232,218,0.97)),
+    url('img/xinge/xg-paper.webp') repeat center / 220px auto;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.35);
   overflow: hidden;
 }
-/* 墨迹行（SVG 描边渐显=真"写"出来）
-   —— 优化（主人 2026-10-24）：原来三行 0.9/1.9/2.9s 就写完，8 秒循环里 5 秒是空转；
-      现在拉长到 1.1/2.4/3.7s 起笔、每行写 1.3s，行与行之间留呼吸，写字占满前 5 秒。 */
+/* 墨迹行（SVG 描边渐显=写字） */
 .xg-c2-ink {
   position: absolute;
-  /* 与纸等宽（纸是 left/right 12%）→ 墨迹不偏左，笔尖落在行末 */
-  inset: 12% 12%;
+  inset: 12% 10%;
   width: 80%;
   height: 76%;
 }
-.xg-c2-ink path:not(.xg-c2-flourish) {
+.xg-c2-ink path {
   fill: none;
   stroke: rgba(47, 53, 39, 0.72);
   stroke-width: 2.2;
@@ -42,14 +36,14 @@
   stroke-dashoffset: 300;
   animation: xg-c2-write 8s linear infinite;
 }
-.xg-c2-ink path:not(.xg-c2-flourish):nth-of-type(1) { animation-delay: 1.1s; }
-.xg-c2-ink path:not(.xg-c2-flourish):nth-of-type(2) { animation-delay: 2.4s; }
-.xg-c2-ink path:not(.xg-c2-flourish):nth-of-type(3) { animation-delay: 3.7s; }
+.xg-c2-ink path:nth-child(1) { animation-delay: 0.9s; }
+.xg-c2-ink path:nth-child(2) { animation-delay: 1.9s; }
+.xg-c2-ink path:nth-child(3) { animation-delay: 2.9s; }
 @keyframes xg-c2-write {
   0% { stroke-dashoffset: 300; }
-  16% { stroke-dashoffset: 0; }   /* 每行约 1.3s 写完 */
-  78% { stroke-dashoffset: 0; opacity: 1; }
-  86% { opacity: 0; }
+  32% { stroke-dashoffset: 0; }
+  82% { stroke-dashoffset: 0; opacity: 1; }
+  90% { opacity: 0; }
   100% { stroke-dashoffset: 300; opacity: 0; }
 }
 /* 纸角轻翻（4.6-6s 段） */
@@ -106,60 +100,45 @@
   70% { transform: scale(1.15); opacity: 0.55; }
   82%, 100% { transform: scale(1.2); opacity: 0; }
 }
-/* 羽毛笔（主人 2026-10-28：笔从右上出发 → 蘸墨 → 沿纸面三行写字 → 收笔）
-   —— 修正：原来笔的起点在右上角、整段动画都在纸外侧晃，视觉重心偏右、纸显得偏左。
-      现在起点在纸面右上，蘸墨后移到纸面中线，三行写字沿纸面走，
-      笔尖始终压在墨迹行上（写字动效的核心是"笔在写"）。
-   —— 无限循环保留：这是"正在生成"的持续状态，属实���指示（state indication），
-      但时长拉到 8s 且位移小，避免视觉噪音。 */
+/* 羽毛笔（SVG 摆动游走） */
 .xg-c2-pen {
   position: absolute;
-  right: 14%;
-  top: 4%;
-  width: 72px;
+  right: 8%;
+  top: 6%;
+  width: 78px;
   transform-origin: 82% 88%;
   animation: xg-c2-pen 8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 .xg-c2-pen svg { width: 100%; height: auto; display: block; }
 @keyframes xg-c2-pen {
-  /* ① 蘸墨：笔尖落进墨瓶（右下） */
   0% { transform: translate(0, 0) rotate(0deg); }
-  5% { transform: translate(26px, 118px) rotate(24deg); }
-  11% { transform: translate(26px, 118px) rotate(24deg); }   /* 蘸墨停顿 */
-  /* ② 写字：笔移到纸面第一行起点 */
-  17% { transform: translate(-10px, 22px) rotate(-14deg); }
-  /* 第一行 */
-  25% { transform: translate(-96px, 30px) rotate(-16deg); }
-  31% { transform: translate(-150px, 36px) rotate(-14deg); }
-  /* 第二行 */
-  39% { transform: translate(-40px, 68px) rotate(-16deg); }
-  45% { transform: translate(-138px, 74px) rotate(-14deg); }
-  /* 第三行 */
-  53% { transform: translate(-24px, 106px) rotate(-16deg); }
-  59% { transform: translate(-126px, 112px) rotate(-14deg); }
-  /* ③ 收笔抬起 */
-  68% { transform: translate(-30px, 60px) rotate(-4deg); }
-  /* ④ 火漆：笔往纸下移开 */
-  76% { transform: translate(20px, 150px) rotate(10deg); }
-  88% { transform: translate(20px, 150px) rotate(10deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
+  6% { transform: translate(-2px, 10px) rotate(2deg); }
+  12% { transform: translate(0, 0) rotate(0deg); }
+  18% { transform: translate(-72px, 26px) rotate(-16deg); }
+  30% { transform: translate(-118px, 44px) rotate(-12deg); }
+  42% { transform: translate(-160px, 62px) rotate(-16deg); }
+  54% { transform: translate(-118px, 84px) rotate(-12deg); }
+  66% { transform: translate(-64px, 100px) rotate(-16deg); }
+  74% { transform: translate(-20px, 74px) rotate(-8deg); }
+  82% { transform: translate(0, 30px) rotate(0deg); }
+  92%, 100% { transform: translate(0, 0) rotate(0deg); }
 }
-/* 墨水瓶（右下角，笔蘸墨的目标） */
+/* 墨水瓶 */
 .xg-c2-inkpot {
   position: absolute;
-  right: 10%;
-  bottom: 4%;
-  width: 58px;
+  right: 8%;
+  bottom: 6%;
+  width: 62px;
 }
 .xg-c2-inkpot svg { width: 100%; height: auto; display: block; }
-/* 火漆压印（主人分镜⑤：纸落定后压火漆） */
+/* 火漆压印（收尾 6.2-7.2s） */
 .xg-c2-sealdrop {
   position: absolute;
   left: 50%;
-  top: 62%;
-  width: 38px;
-  height: 38px;
-  margin-left: -19px;
+  top: 30%;
+  width: 42px;
+  height: 42px;
+  margin-left: -21px;
   border-radius: 50%;
   background:
     radial-gradient(circle at 34% 28%, rgba(255,255,255,0.7), rgba(255,255,255,0) 48%),
@@ -169,14 +148,12 @@
   opacity: 0;
   animation: xg-c2-seal 8s cubic-bezier(0.23, 1, 0.32, 1) infinite;
 }
-/* 火漆滴落（与笔动画对齐：笔在 76% 移到纸下 → 火漆落下 → 留到循环末）
-   —— 按动效规范：不要从 scale(0) 出现，改 scale(0.92)+opacity */
 @keyframes xg-c2-seal {
-  0%, 76% { transform: scale(0.92) rotate(-18deg); opacity: 0; }
-  80% { transform: scale(1.12) rotate(-6deg); opacity: 1; }
-  85% { transform: scale(0.98) rotate(-6deg); }
-  90%, 96% { transform: scale(1) rotate(-6deg); opacity: 1; }
-  100% { transform: scale(0.92) rotate(-18deg); opacity: 0; }
+  0%, 72% { transform: scale(0) rotate(-18deg); opacity: 0; }
+  78% { transform: scale(1.25) rotate(-6deg); opacity: 1; }
+  84% { transform: scale(0.96) rotate(-6deg); }
+  88%, 96% { transform: scale(1) rotate(-6deg); opacity: 1; }
+  100% { transform: scale(0) rotate(-18deg); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .xg-c2-stage * { animation: none !important; }
@@ -212,45 +189,30 @@
 }
 .xg-c2-orn svg { width: 100%; height: 100%; }
 
-/* 墨迹行首花点 + 行尾卷草勾（书写装饰）
-   —— 修：原来用 nth-of-type(4/5/6) 定位花点，但 SVG 里 circle 是独立元素类型，
-      第 4 个 circle 根本不存在 → 花点永远不出现（主人 2026-10-24 要求真"写出来"）
-   —— 深检 2026-10-24 再升级：花点由空心圆改成五瓣小花（<g> 包裹 path+circle），
-      行尾由单条勾线改成三段卷草。故选择器从 .xg-c2-dot 改为按 g 计数。 */
+/* 墨迹行首花点 + 行尾小勾（书写装饰） */
 .xg-c2-ink .xg-c2-dot {
-  fill: rgba(199, 161, 155, 0.78);
-  stroke: rgba(137, 109, 89, 0.45);
-  stroke-width: 0.5;
+  fill: rgba(199, 161, 155, 0.75);
+  stroke: none;
   opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
   animation: xg-c2-dot-in 8s ease-out infinite;
 }
-.xg-c2-ink g.xg-c2-dot:nth-of-type(1) { animation-delay: 1.15s; }
-.xg-c2-ink g.xg-c2-dot:nth-of-type(2) { animation-delay: 2.45s; }
-.xg-c2-ink g.xg-c2-dot:nth-of-type(3) { animation-delay: 3.75s; }
+.xg-c2-ink .xg-c2-dot:nth-of-type(4) { animation-delay: 0.9s; }
+.xg-c2-ink .xg-c2-dot:nth-of-type(5) { animation-delay: 1.9s; }
+.xg-c2-ink .xg-c2-dot:nth-of-type(6) { animation-delay: 2.9s; }
 @keyframes xg-c2-dot-in {
   0%, 6% { opacity: 0; transform: scale(0); }
   12% { opacity: 1; transform: scale(1); }
-  82% { opacity: 1; transform: scale(1); }
-  90%, 100% { opacity: 0; transform: scale(0); }
+  82% { opacity: 1; }
+  90%, 100% { opacity: 0; }
 }
-/* 行尾卷草勾 */
 .xg-c2-ink .xg-c2-flourish {
   fill: none;
   stroke: rgba(137, 109, 89, 0.55);
   stroke-width: 1.4;
   stroke-linecap: round;
-  stroke-linejoin: round;
   stroke-dasharray: 80;
   stroke-dashoffset: 80;
   animation: xg-c2-flourish 8s linear infinite;
-}
-.xg-c2-ink .xg-c2-flourish path:nth-child(2),
-.xg-c2-ink .xg-c2-flourish path:nth-child(3),
-.xg-c2-ink .xg-c2-flourish path:nth-child(4) {
-  fill: rgba(199, 161, 155, 0.35);
-  stroke-width: 1;
 }
 @keyframes xg-c2-flourish {
   0%, 62% { stroke-dashoffset: 80; }
