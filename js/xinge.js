@@ -1968,13 +1968,16 @@
         el.querySelectorAll('.xg-strike').forEach(function (s) { s.classList.add('is-swept'); });
         allShown = true;
       } else {
+        // A3（2026-10-24）：显字快于默读——段数多时收紧步长，总时长封顶 ~2.4s
+        var A3_TOTAL = 2400, A3_START = 260;
+        var A3_STEP = Math.max(110, Math.min(420, Math.round((A3_TOTAL - A3_START) / Math.max(1, parasEls.length))));
         parasEls.forEach(function (p, i) {
           later(function () {
             p.classList.add('is-shown');
             var strike = p.querySelector('.xg-strike');
             if (strike) later(function () { strike.classList.add('is-swept'); }, 240);
             if (i === parasEls.length - 1) allShown = true;
-          }, 300 + i * 520);
+          }, A3_START + i * A3_STEP);
         });
       }
 

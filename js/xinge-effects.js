@@ -259,7 +259,7 @@
   effects.bindStrikethrough = function (pageEl) {
     if (!pageEl) return;
     pageEl.addEventListener('click', function (e) {
-      var para = e.target.closest('.xg-letter-para.is-struck');
+      var para = e.target.closest('.xg-strike.is-unsure') || e.target.closest('.xg-letter-para.is-struck');
       if (!para) return;
       para.classList.add('is-unstriking');
       setTimeout(function () {
