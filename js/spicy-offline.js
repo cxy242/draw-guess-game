@@ -27,7 +27,7 @@
     var memoryCtx = ''
     try {
       if (window.WanWanMemory && window.WanWanMemory.getMemoryContext) {
-        memoryCtx = await window.WanWanMemory.getMemoryContext(null, charId, null, [])
+        memoryCtx = await window.WanWanMemory.getMemoryContext(null, charId, window._wechatUid, [])
       }
     } catch(e){}
 
@@ -64,7 +64,7 @@
     var recentHistory = _chatHistory.slice(-10)
 
     try {
-      var reply = await window.callAI(recentHistory, { system: system, temperature: 0.85 })
+      var reply = await window.callAI(recentHistory, { system: system, temperature: 0.85, charId:charId, shiliOwnerUid:window._wechatUid })
       _chatHistory.push({ role: 'assistant', content: reply })
       return reply
     } catch(e) { return null }

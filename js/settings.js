@@ -2984,7 +2984,8 @@ async function generateImageWithConfig(cfg, prompt, opts) {
       var editRes = await fetch(getImageEditsUrl(cfg.url), {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + cfg.key },
-        body: form
+        body: form,
+        signal: opts.signal
       })
       if (editRes.ok) {
         var editJson = await readApiTestJsonResponse(editRes, '图片编辑失败')
@@ -3019,7 +3020,8 @@ async function generateImageWithConfig(cfg, prompt, opts) {
     var res = await fetch(getImageGenerationUrl(cfg.url), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.key },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: opts.signal
     })
     var json = await readApiTestJsonResponse(res, '图片生成失败')
     var image = parseImageGenerationResult(json)
@@ -3659,6 +3661,7 @@ function showApiTestModal(title, ok, message, detail) {
 // ===== 全局AI调用（主 API） =====
 window.callAI = async function(messages, opts) {
   opts = opts || {}
+  if (window.ShiliIntegration && window.db) opts = await window.ShiliIntegration.enrichOptions(window.db, opts)
   // Char角色防八股世界书注入
   if (opts.charAntiDrift && typeof _BUILTIN_ANTI_DRIFT_LORE !== 'undefined') {
     opts = Object.assign({}, opts)
@@ -3681,7 +3684,7 @@ window.callAI = async function(messages, opts) {
 // ===== 记忆总结 AI 调用 =====
 // 专属 API 只有在 URL、Key、模型均完整时启用；请求失败时不回退主 API。
 window.callMemoryAI = async function(messages, opts) {
-  opts = opts || {}
+  opts = Object.assign({}, opts || {}, { noShiliContext: true })
   var cfg = await window.loadMemoryApiConfig()
   if (cfg.complete) {
     return await fetchAI(cfg, messages, Object.assign({}, opts, { apiConsoleType: '记忆专属 API' }))
@@ -3704,6 +3707,7 @@ window.callMcpAI = async function(messages, opts) {
 // 专属 API 只有在 URL、Key、模型均完整时启用；请求失败时不回退主 API。
 window.callGameAI = async function(messages, opts) {
   opts = opts || {}
+  if (window.ShiliIntegration && window.db) opts = await window.ShiliIntegration.enrichOptions(window.db, opts)
   var gameCfg = await loadGameApiConfig()
   if (gameCfg.url && gameCfg.key && gameCfg.model) {
     return await fetchAI(gameCfg, messages, Object.assign({}, opts, { apiConsoleType: '游戏专属 API' }))

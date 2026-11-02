@@ -350,7 +350,7 @@
   background:
     radial-gradient(ellipse at 8% 92%, rgba(199, 161, 155, 0.28), rgba(199, 161, 155, 0) 52%),
     radial-gradient(ellipse at 92% 8%, rgba(199, 161, 155, 0.2), rgba(199, 161, 155, 0) 46%),
-    url('img/xinge/xg-paper.webp') repeat center / 280px auto,
+    url('../img/xinge/xg-paper.webp') repeat center / 280px auto,
     var(--xg-ivory);
 }
 

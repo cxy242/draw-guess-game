@@ -747,10 +747,10 @@ ${MISS_BEAUTY_CLASS_TEXT}`
   }
 
   async function addOfflineMessage(ownerUid, chatId, charId, mode, role, content) {
-    return await db.offlineChats.add({
-      ownerUid, chatId, charId, mode, role, content,
-      createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
-    })
+    const row = { ownerUid, chatId, charId, mode, role, content, createdAt:(window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), realCreatedAt:Date.now(), timeMode:window.TimeWorld?.isEnabled?.()?'virtual':'real' }
+    const id = await db.offlineChats.add(row)
+    if (role !== 'user' && window.ShiliBridge) { try { await window.ShiliBridge.ingest(db,'wechat-offline',row,id,ownerUid,charId) } catch(e) { console.warn('[拾礼] 线下礼物可补扫',e.message||e) } }
+    return id
   }
 
   async function refreshOfflineChat(page) {
@@ -1237,7 +1237,7 @@ ${MISS_BEAUTY_CLASS_TEXT}`
     const isContinuation = !!(options.preferContinue && lastOffline && lastOffline.role !== 'user')
     const system = await buildOfflineSystemPrompt(ownerUid, char, user, loreCtx, memoryCtx, offlineAll, settings)
     const timeline = buildOfflineTimeline(timelineContext.textHistory || [], { isContinuation })
-    const raw = await window.callAI(timeline, { system, temperature: await window.getAITemperaturePreset('offlineMode'), charId: chat.charId })
+    const raw = await window.callAI(timeline, { system, temperature: await window.getAITemperaturePreset('offlineMode'), charId: chat.charId, shiliOwnerUid:ownerUid, shiliChatId:chat.id })
     const reply = cleanOfflineReply(raw)
     if (!reply) throw new Error('AI 返回了空响应，请检查 API 配置或稍后重试')
     return reply

@@ -1,0 +1,108 @@
+{
+  "source": "MASTER_REFERENCE.png / 31634.png",
+  "purpose": "Decorative artwork only; never substitutes for user gift imagery or live text.",
+  "regions": {
+    "tulips": [
+      108,
+      650,
+      217,
+      788
+    ],
+    "atelier": [
+      324,
+      516,
+      507,
+      684
+    ],
+    "wrapped-gift": [
+      259,
+      1067,
+      480,
+      1167
+    ],
+    "opening-gift": [
+      499,
+      1091,
+      719,
+      1321
+    ],
+    "paper-strip": [
+      1198,
+      401,
+      1286,
+      434
+    ],
+    "blue-floral": [
+      1344,
+      1349,
+      1442,
+      1391
+    ],
+    "floral-stamp": [
+      1374,
+      440,
+      1435,
+      529
+    ],
+    "bow": [
+      402,
+      222,
+      509,
+      322
+    ],
+    "swan-stamp": [
+      626,
+      220,
+      719,
+      324
+    ],
+    "lace": [
+      506,
+      231,
+      623,
+      283
+    ],
+    "botanical": [
+      524,
+      277,
+      607,
+      342
+    ],
+    "torn-paper": [
+      1244,
+      58,
+      1334,
+      169
+    ],
+    "pink-gingham": [
+      1243,
+      196,
+      1337,
+      325
+    ],
+    "blue-damask": [
+      1347,
+      55,
+      1444,
+      177
+    ],
+    "rose-stamp": [
+      1361,
+      1190,
+      1445,
+      1312
+    ]
+  },
+  "raw_reference_fragments": "reports/visual-recovery/asset-sources/ (inputs and audit only; not button icons)",
+  "functional_icons": "CSS geometry only, see css/shili.css and qa/icon-review.html",
+  "transparent_restorations": [
+    "assets/shili/reference/botanical-transparent.png",
+    "assets/shili/reference/floral-stamp-transparent.png",
+    "assets/shili/reference/opening-gift-transparent.png",
+    "assets/shili/reference/swan-stamp-transparent.png",
+    "assets/shili/reference/wrapped-gift-transparent.png",
+    "assets/shili/reference/gift-layer-body.png",
+    "assets/shili/reference/gift-layer-lid.png"
+  ],
+  "layer_assembly": "Independent registered body/lid PNGs, CSS bow loops/knot/tails, CSS tissue planes, real data-driven gift image/letter; no full-box crossfade."
+}

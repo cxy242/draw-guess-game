@@ -3625,7 +3625,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
     if (!isPrivateChatPageCurrent(chatPage, chat.id)) return
     // 自动生成记忆面板（首次打开聊天时调用API）
     try {
-    var _memPanelKey = 'memPanel_' + char.id
+    var _memPanelKey = 'memPanel_' + _wechatUid + '_' + char.id
     var _existingMemPanel = null
     try { _existingMemPanel = JSON.parse(localStorage.getItem(_memPanelKey) || 'null') } catch(e) {}
     var _needGen = !_existingMemPanel || !_existingMemPanel.updatedAt || (Date.now() - _existingMemPanel.updatedAt > 24 * 60 * 60 * 1000)
@@ -3814,7 +3814,7 @@ async function openPrivateChat(wechatPage, charId, chatId) {
             _mpData.mood = _panel.mood ? _panel.mood.v : ''
             _mpData.memories = []
             _mpData.lastUpdated = _now
-            await db.config.put({ key: 'memoryPanel_' + char.id, value: _mpData })
+            await db.config.put({ key: 'memoryPanel_' + _wechatUid + '_' + char.id, value: _mpData })
           } catch(_dbErr) {}
           _memBanner.innerHTML = '<span style="color:var(--c-accent,#00d4aa)">✓ 记忆面板已生成</span>'
           setTimeout(function() { _memBanner.remove() }, 2000)
@@ -6072,6 +6072,20 @@ async function addPrivateMessageIdempotently(message) {
   }
 }
 
+// 拾礼：仅在原消息写库成功后尝试登记；不影响聊天消息成功与否。
+const __shiliOriginalAddPrivate = addPrivateMessageIdempotently;
+addPrivateMessageIdempotently = async function(message) {
+  const id = await __shiliOriginalAddPrivate(message);
+  if (message && message.role !== 'user' && window.ShiliBridge) {
+    try {
+      const saved = await db.messages.get(id);
+      const chat = saved && await db.chats.get(saved.chatId);
+      if (chat) await window.ShiliBridge.ingest(db, 'wechat-private', saved, id, chat.ownerUid, chat.charId);
+    } catch (e) { console.warn('[拾礼] 私聊礼物登记失败，可补扫', e); }
+  }
+  return id;
+};
+
 async function updatePrivateMessageIdempotently(messageId, changes) {
   const update = () => db.messages.update(messageId, changes)
   return window.runWanWanDBIdempotentWrite
@@ -6106,7 +6120,7 @@ async function addUserMsg(chatPage, content, createdAt, extra = null) {
     : createPrivateMessageOperationId(chatId, 'user')
   const msg = {
     chatId, charId, role: 'user', content, clientMessageId,
-    createdAt: createdAt ?? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+    createdAt: createdAt ?? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()), realCreatedAt: Date.now()
   }
   if (extra && typeof extra === 'object') Object.assign(msg, extra)
   if (isOnlineFriend) {
@@ -6350,6 +6364,8 @@ function startPrivateAIReply(chatId, charId, options = {}) {
   const key = _aiKey('chat', chatId)
   _pendingAIReplies.add(key)
   applyTypingUI('chat', chatId, true)
+  const responseOwnerUid = _wechatUid
+  const responseUser = _wechatUser
   const task = (async () => {
     let firstMsgId = null
     let popupShown = false
@@ -6360,14 +6376,18 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       if (window.runWanWanDBRead) {
         await window.runWanWanDBRead(() => db.config.limit(1).toArray())
       }
+      const responseCharacter = await db.characters.get(charId)
+      const charName = responseCharacter?.nick || responseCharacter?.name || ''
       const notify = await getChatMsgNotifySettings(chatId)
       const thoughtTemplate = await getChatThoughtTemplateConfig(chatId)
-      let { thought, status, reply, pat, blockAction, narrative, chill, memPanel: memPanelData } = await generateAIReply(chatId, charId, {
+      let { thought, status, reply, pat, blockAction, narrative, gift, chill, memPanel: memPanelData } = await generateAIReply(chatId, charId, {
         replyRequirement: options.replyRequirement,
         idleTriggerMode: options.idleTriggerMode,
         idleMinutes: options.idleMinutes,
         allowMcp: options.allowMcp === true
       })
+      if (String(_wechatUid)!==String(responseOwnerUid)) return
+      const shiliGiftBatchId = gift ? createPrivateMessageOperationId(chatId, 'gift-batch') : null
       if (thoughtTemplate.enabled) {
         if (!thought || !String(thought).trim()) {
           const char = await window.getCharacter(charId)
@@ -6390,6 +6410,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       const base = (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
       for (let i = 0; i < lines.length; i++) {
         if (i > 0) await _sleep(SEND_BUBBLE_GAP_MS)
+        if (String(_wechatUid)!==String(responseOwnerUid)) return
         const parsed = parseMsgType(lines[i])
         if (parsed.type === 'status-update') {
           await updateCharacterStatusFromAI(chatId, charId, parsed.data.status)
@@ -6406,7 +6427,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
         const id = await addPrivateMessageIdempotently({
           chatId, charId, role: 'assistant',
           clientMessageId: createPrivateMessageOperationId(chatId, 'assistant'),
-          content: lines[i], createdAt: base + i
+          content: lines[i], createdAt: base + i, shiliGiftBatchId: shiliGiftBatchId, realCreatedAt:Date.now(),timeMode:window.TimeWorld?.isEnabled?.()?'virtual':'real'
         })
         if (!firstMsgId) firstMsgId = id
         notifiableCount++
@@ -6424,6 +6445,23 @@ function startPrivateAIReply(chatId, charId, options = {}) {
         }
         const cw = _getVisibleChatWindow('chat', chatId)
         if (cw) await refreshChat(cw, { scrollToBottom: true })
+      }
+      if (gift && window.ShiliBridge && _wechatUid) {
+        const ownedChat = await db.chats.get(chatId)
+        if (ownedChat && String(ownedChat.ownerUid) === String(_wechatUid) && String(ownedChat.charId) === String(charId)) {
+          const giftContent = '__GIFT__' + JSON.stringify({ itemName: gift.itemName, reason: gift.reason, recipientUid: _wechatUid })
+          const giftTime = window.TimeWorld ? window.TimeWorld.getNow() : Date.now()
+          const giftId = await addPrivateMessageIdempotently({
+            chatId, charId, role: 'assistant',
+            clientMessageId: createPrivateMessageOperationId(chatId, 'assistant-gift'),
+            content: giftContent, createdAt: giftTime, realCreatedAt: Date.now(), shiliGiftBatchId:shiliGiftBatchId,timeMode:window.TimeWorld?.isEnabled?.()?'virtual':'real'
+          })
+          if (!firstMsgId) firstMsgId = giftId
+          notifiableCount++
+          lastNotifiable = { content: giftContent, createdAt: giftTime }
+          const giftWindow = _getVisibleChatWindow('chat', chatId)
+          if (giftWindow) await refreshChat(giftWindow, { scrollToBottom: true })
+        }
       }
       if (notify.enabled && document.visibilityState === 'visible'
           && !_getVisibleChatWindow('chat', chatId) && lastNotifiable) {
@@ -6456,6 +6494,7 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           await addPrivateMessageIdempotently({
             chatId, charId, role: 'assistant',
             content: '__NARRATIVE__' + narrative,
+            shiliGiftBatchId:shiliGiftBatchId, realCreatedAt:Date.now(),timeMode:window.TimeWorld?.isEnabled?.()?'virtual':'real',
             clientMessageId: createPrivateMessageOperationId(chatId, 'narrative'),
             createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - 1
           })
@@ -6518,21 +6557,27 @@ function startPrivateAIReply(chatId, charId, options = {}) {
       }
       if (window.WanWanMemory?.summarizeIfNeeded) {
         setTimeout(() => {
-          window.WanWanMemory.summarizeIfNeeded(chatId, charId, _wechatUid)
+          window.WanWanMemory.summarizeIfNeeded(chatId, charId, responseOwnerUid)
         }, 0)
+      }
+      if (window.WanWanMemory?.autoExtractAndStore) {
+        db.messages.where('chatId').equals(chatId).reverse().limit(10).toArray().then(messages => WanWanMemory.autoExtractAndStore(chatId,charId,responseOwnerUid,messages.reverse(),charName,responseUser?.name)).catch(e=>console.warn('[memory] 事实提取失败',e))
+      }
+      if(window.WanWanMemory?.saveConversationProgress){
+        db.messages.where('chatId').equals(chatId).reverse().limit(3).toArray().then(messages=>WanWanMemory.saveConversationProgress(charId,{lastTopic:messages.find(m=>m.role==='user')?.content?.slice(0,150)||'',lastMessage:messages[0]?.content?.slice(0,200)||'',endedAt:TimeWorld.getNow()},responseOwnerUid)).catch(e=>console.warn('[Memory] 进度保存失败',e))
       }
       // 自动回忆：AI回复后检查是否引用了记忆内容
       if (window.WanWanMemory?.autoRecallMemories) {
         try {
           const batch = await getTrailingAssistantBatch(chatId)
           const replyText = batch.map(m => m.content || '').join(' ')
-          if (replyText) window.WanWanMemory.autoRecallMemories(chatId, charId, _wechatUid, replyText)
+          if (replyText) window.WanWanMemory.autoRecallMemories(chatId, charId, responseOwnerUid, replyText)
         } catch(e) {}
       }
       // 保存记忆面板数据到localStorage（每次AI回复后更新）
       if (memPanelData && (memPanelData.wearing || memPanelData.activity || memPanelData.mood)) {
         try {
-          var _existing = JSON.parse(localStorage.getItem('memPanel_' + charId) || '{}')
+          var _existing = JSON.parse(localStorage.getItem('memPanel_' + _wechatUid + '_' + charId) || '{}')
           var _now = Date.now()
           if (memPanelData.wearing) _existing.wearing = { v: memPanelData.wearing, t: _now }
           if (memPanelData.activity) _existing.activity = { v: memPanelData.activity, t: _now }
@@ -6542,8 +6587,8 @@ function startPrivateAIReply(chatId, charId, options = {}) {
           if (memPanelData.healthAi) _existing.healthAi = { v: memPanelData.healthAi, t: _now }
           if (memPanelData.healthUser) _existing.healthUser = { v: memPanelData.healthUser, t: _now }
           _existing.updatedAt = _now
-          localStorage.setItem('memPanel_' + charId, JSON.stringify(_existing))
-          if (window.db && db.config) db.config.put({ key: 'memoryPanel_' + charId, value: _existing }).catch(function(){})
+          localStorage.setItem('memPanel_' + _wechatUid + '_' + charId, JSON.stringify(_existing))
+          if (window.db && db.config) db.config.put({ key: 'memoryPanel_' + _wechatUid + '_' + charId, value: _existing }).catch(function(){})
         } catch(e) {}
       }
     } catch (e) {
@@ -6859,7 +6904,12 @@ function normalizeWechatAIFields(parsed) {
     if (val) { chill[key] = val; hasChill = true }
   })
 
-  return { thought, status, reply, pat, blockAction, narrative, chill: hasChill ? chill : null,
+  const gift = parsed.gift && typeof parsed.gift === 'object' && !Array.isArray(parsed.gift)
+    && parsed.gift.action === 'send' && typeof parsed.gift.itemName === 'string'
+    && parsed.gift.itemName.trim() && parsed.gift.itemName.length <= 80
+    ? { itemName: parsed.gift.itemName.trim(), reason: typeof parsed.gift.reason === 'string' ? parsed.gift.reason.trim().slice(0, 500) : '' }
+    : null
+  return { thought, status, reply, pat, blockAction, narrative, gift, chill: hasChill ? chill : null,
     memPanel: {
       wearing: typeof parsed.mem_wearing === 'string' ? parsed.mem_wearing.trim() : '',
       activity: typeof parsed.mem_activity === 'string' ? parsed.mem_activity.trim() : '',
@@ -6931,15 +6981,15 @@ async function runWechatActiveReplyCheck() {
       const lastMessage = await db.messages.where('chatId').equals(chat.id).last()
       if (!lastMessage) continue
       if (lastMessage.role !== 'assistant' && lastMessage.role !== 'user') continue
-      const idleMs = Date.now() - (Number(lastMessage.createdAt) || 0)
+      const idleMs = Date.now() - (Number(lastMessage.realCreatedAt) || (Number(lastMessage.createdAt) - (window.TimeWorld ? TimeWorld.getOffset() : 0)) || 0)
       if (!Number.isFinite(idleMs) || idleMs < cfg.intervalMinutes * 60 * 1000) continue
       const fingerprint = buildActiveReplyTriggerFingerprint(chat.id, lastMessage)
       if (_activeReplyTriggeredFingerprints.get(chat.id) === fingerprint) continue
       _activeReplyTriggeredFingerprints.set(chat.id, fingerprint)
-      startPrivateAIReply(chat.id, chat.charId, {
+      Promise.resolve(startPrivateAIReply(chat.id, chat.charId, {
         idleTriggerMode: lastMessage.role === 'assistant' ? 'followup' : 'auto_reply',
         idleMinutes: Math.max(1, Math.floor(idleMs / 60000))
-      })
+      })).finally(() => { setTimeout(() => { if (_activeReplyTriggeredFingerprints.get(chat.id) === fingerprint) _activeReplyTriggeredFingerprints.delete(chat.id) }, 60000) }).catch(err => console.warn('[wechat] 主动回复待重试',err))
     } catch (err) {
       console.warn('[wechat] 主动回复巡检失败:', err)
     }
@@ -7008,7 +7058,7 @@ function filterWechatCallRowsForWindow(rows, windowStart, windowEnd) {
 async function loadWechatContextRoundWindow(chatId, charId, historyLimit, ownerUid) {
   const limit = Math.max(1, Number(historyLimit) || 1)
   const batchSize = Math.min(200, Math.max(50, limit))
-  const windowEnd = Date.now()
+  const windowEnd = (window.TimeWorld ? TimeWorld.getNow() : Date.now())
   const [initialMessages, allOfflineRows, allCallRows] = await Promise.all([
     readWechatContextRows(() => getChatRecentMessages(chatId, batchSize)),
     readWechatContextRows(() => getWechatContextOfflineRows(chatId, charId, 0, windowEnd, ownerUid)),
@@ -7252,7 +7302,7 @@ async function estimateWechatPromptContext(chatId, charId, ownerUid = _wechatUid
     else summary.wechatChars += countPromptTextChars(text)
   }
 
-  const memoryCtx = window.WanWanMemory?.getMemoryContext
+  let memoryCtx = window.WanWanMemory?.getMemoryContext
     ? await window.WanWanMemory.getMemoryContext(chatId, charId, ownerUid, context.loreMessages)
     : ''
   summary.memoryChars = countPromptTextChars(memoryCtx)
@@ -7353,16 +7403,14 @@ function buildWechatTextFallbackContent(item, options = {}) {
   return desc ? `[图片；图片重点补充：${desc}]` : '[图片]'
 }
 
-async function getWechatContextOfflineRows(chatId, charId, windowStart, windowEnd, ownerUid = _wechatUid) {
-  if (!ownerUid || !db.offlineChats) return []
-  const rows = await db.offlineChats.where('charId').equals(charId).toArray()
-  return rows
-    .filter(m => m.ownerUid === ownerUid && m.chatId === chatId)
-    .filter(m => {
-      const ts = m.createdAt || 0
-      return ts >= windowStart && ts <= windowEnd
-    })
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+async function getWechatContextOfflineRows(chatId,charId,windowStart,windowEnd,ownerUid=_wechatUid){
+  if(!ownerUid||!db.offlineChats)return [];
+  const rows=await db.offlineChats.where('ownerUid').equals(ownerUid).toArray();
+  return rows.filter(m=>{
+    if(String(m.ownerUid)!==String(ownerUid))return false;
+    if(m.mode==='ensemble')return (m.presentCharIds||m.participantIds||[m.charId]).map(String).includes(String(charId));
+    return String(m.chatId)===String(chatId)&&String(m.charId)===String(charId);
+  }).filter(m=>(m.createdAt||0)>=windowStart&&(m.createdAt||0)<=windowEnd).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
 }
 
 async function getWechatContextCallRows(chatId, charId, windowStart, windowEnd, onlineMsgs = [], ownerUid = _wechatUid) {
@@ -7805,7 +7853,7 @@ function buildWechatOfflineSessions(rows) {
   })
   return [...groups.values()].map(messages => {
     messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
-    const ended = messages.some(m => m.endedAt)
+    const ended = messages.some(m => m.endedAt || m.ended)
     return {
       ended,
       startAt: messages[0]?.createdAt || 0,
@@ -7835,7 +7883,7 @@ function formatWechatOfflineMessage(row) {
   const speaker = row.role === 'assistant' ? '角色' : '用户'
   const text = String(row.content || '').trim()
   if (!text) return ''
-  return `线下见面中，${speaker}：${text}`
+  return row.mode === 'ensemble' ? `此前群像现场记录（只按各角色公开言行理解）：${text}` : `线下见面中，${speaker}：${text}`
 }
 
 function isFormatRetryableAIError(e) {
@@ -8099,11 +8147,11 @@ async function getWechatMcpPrefetchConfig() {
     const row = await db.config.get('mcpPrefetch')
     const v = (row && row.value) || {}
     return {
-      mode: v.mode === 'off' ? 'off' : 'on',
+      mode: ['on','off','async'].includes(v.mode) ? v.mode : 'off',
       timeoutSec: Number(v.timeoutSec) > 0 ? Number(v.timeoutSec) : 20
     }
   } catch (e) {
-    return { mode: 'on', timeoutSec: 20 }
+    return { mode: 'off', timeoutSec: 20 }
   }
 }
 
@@ -8112,6 +8160,15 @@ async function runWechatMcpPrefetchBounded(allowMcp, traceContext = {}, history 
   try {
     const cfg = await getWechatMcpPrefetchConfig()
     if (cfg.mode === 'off') return off
+    if (cfg.mode === 'async') {
+      const key='mcpNotice:'+_wechatUid+':'+traceContext.scope+':'+traceContext.conversationId
+      const cached=await db.config.get(key)
+      if(cached)await db.config.delete(key)
+      runWechatMcpPrefetch(allowMcp,traceContext,history).then(async m=>{
+        try{if(m?.noticeText)await db.config.put({key,value:{text:m.noticeText,at:Date.now()}})}finally{await m?.close?.()}
+      }).catch(e=>console.warn('[MCP] 后台查询失败',e))
+      return cached&&Date.now()-cached.value.at<300000?{enabled:true,noticeText:cached.value.text,close:async()=>{}}:off
+    }
     const prefetch = runWechatMcpPrefetch(allowMcp, traceContext, history)
     let timer = null
     const gate = new Promise(function (resolve) {
@@ -8270,6 +8327,9 @@ function appendWechatTransientTimeNotice(messages, notice) {
 
 // 生成AI回复，同时提取角色心声和当前状态，返回 { thought, status, reply }
 async function generateAIReply(chatId, charId, options = {}) {
+  const ownedChat = await db.chats.get(chatId)
+  if (!ownedChat || String(ownedChat.ownerUid) !== String(_wechatUid) || String(ownedChat.charId) !== String(charId)) throw Error('当前账号与会话不匹配')
+  const replyOwnerUid = ownedChat.ownerUid
   const historyLimit = await getChatHistoryLimit(chatId)
   const tzStored = await db.config.get(`chatTimezone_${chatId}`)
   const tzConfig = tzStored?.value || {}
@@ -8325,6 +8385,8 @@ async function generateAIReply(chatId, charId, options = {}) {
   const opts = {
     system,
     charId,
+    shiliOwnerUid: replyOwnerUid,
+    shiliChatId: chatId,
     responseFormat: 'json_object',
     temperature: await window.getAITemperaturePreset('wechatPrivate')
   }
@@ -8649,7 +8711,7 @@ function buildSystemPart5(charName, userName, thoughtTemplate, blockSettings, bl
   const blockFields = bCfg.enabled
     ? `\n- "block_action"：可选字段。当你决定拉黑用户时填 "block_user"，当你决定取消拉黑时填 "unblock_user"，不需要操作时填 ""（空字符串）。这是一个真实执行通道，填了就会真的拉黑/取消拉黑。${blockState?.aiBlockedUser ? '\n⚠️ 你当前已拉黑用户，正在气头上。如果用户来道歉哄你、你决定原谅他，就填 "unblock_user" 来取消拉黑。如果你自己消气了也可以主动取消。' : '不要滥用这个功能，只在真正生气时才拉黑。'}`
     : ''
-  const fieldCount = bCfg.enabled ? '五个键' : '四个键'
+  const fieldCount = bCfg.enabled ? '必填字段' : '必填字段'
   const blockExample = bCfg.enabled ? ',"block_action":""' : ''
   return `# 【输出格式（最高优先级，全程生效）】
 
@@ -8662,6 +8724,7 @@ ${thoughtLine}
 - "reply"：实际发给${userName}的内容，多条消息之间用 \\n 隔开。**必须至少包含一条可见聊天消息，不得只写状态更新格式。**${blockFields}
 - "narrative"：可选的白描字段，用于动作、神态、场景描写，例如："他轻轻叹了口气"。会作为独立灰色消息显示。不写时填 ""。
 - "pat"：可选的拍一拍字段，填写拍一拍的文字内容（用{User}代表用户名）。不拍时填 ""。
+- "gift"：可选。仅当你此刻确实将一份新礼物送给${userName}时填写 {"action":"send","itemName":"具体礼物名称","reason":"简短心意"}；其余情况填 null。承诺、回忆、假设、拒绝及重复赠送绝不能填写。本轮白描明确完成赠礼时也要同时填写gift；礼物名称要具体，不能只写礼物或礼盒。填写后系统会在当前私聊发送礼物卡片、归档到拾礼，并在已配置图片API时生成一次礼物照片；普通 reply 中只需自然说话。
 
 ✅ 正确：{"chain":"用户语气冲，可能累了…先稳住。","thought":"他今天心情不好，我得小心点…","status":"正在聊天","reply":"怎么了？\\n发生什么事了吗"${blockExample}}
 ✅ 无长推理：{"chain":"","thought":"他今天心情不好，我得小心点…","status":"有点担心","reply":"怎么了？\\n发生什么事了吗"${blockExample}}
@@ -13228,6 +13291,8 @@ image_desc 字段：当 images > 0 时，用一句话描述配图内容。`
 
   const raw = await window.callAI([{ role: 'user', content: prompt }], {
     temperature: await window.getAITemperaturePreset('wechatMoments'),
+    charId: char.id,
+    shiliOwnerUid: ownerUid,
     responseFormat: 'json_object'
   })
   const parsed = extractAIJson(raw)
@@ -15677,6 +15742,9 @@ async function generateGroupScript(groupId, group, members, userChar, userUid, o
   const messages = appendWechatTransientTimeNotice(baseMessages, mcp.noticeText)
   const opts = {
     system,
+    shiliOwnerUid: userUid,
+    shiliGroupId: groupId,
+    shiliActorIds: members.map(member => member.id),
     responseFormat: 'json_object',
     temperature: await window.getAITemperaturePreset('wechatGroup')
   }
@@ -15764,7 +15832,7 @@ async function buildGroupDirectorSystem(group, groupId, members, userChar, userU
     if (lore && lore.trim()) worldBookBlock = lore.trim()
   } catch (e) { console.warn('[群聊导演] 世界书读取失败', e) }
 
-  const memoryBlock = '（暂无）'
+  var memoryParts=[];if(window.WanWanMemory?.getMemoryContext){for(const member of members){const text=await window.WanWanMemory.getMemoryContext(null,member.id,userUid,[]);if(text)memoryParts.push('【仅'+(member.name||member.nick)+'自己的记忆】\n'+text);}}const memoryBlock=memoryParts.join('\n\n')||'（暂无）'
 
   let stickerBlock = '当前群未挂载表情包，禁止使用 sticker 指令。'
   try {
@@ -15928,10 +15996,17 @@ ${pollBlock}
 
 // 往群里加一条消息，返回 {id, senderId, content, createdAt}
 async function addGroupRow(groupId, senderId, content, extra, createdAt) {
-  const ts = createdAt ?? Date.now()
-  const row = { groupId, senderId, role: senderId === _wechatUid ? 'user' : 'assistant', content, createdAt: ts }
+  const ts = createdAt ?? (window.TimeWorld ? window.TimeWorld.getNow() : Date.now())
+  const row = { groupId, senderId, role: senderId === _wechatUid ? 'user' : 'assistant', content, createdAt: ts, realCreatedAt:Date.now(), timeMode:window.TimeWorld?.isEnabled?.()?'virtual':'real' }
   if (extra && typeof extra === 'object') Object.assign(row, extra)
   const id = await db.groupMessages.add(row)
+  if (row.role !== 'user' && window.ShiliBridge) {
+    try {
+      const persistedGroup=await db.groupChats.get(groupId);
+      if (persistedGroup?.ownerUid != null) await window.ShiliBridge.ingest(db, 'wechat-group', row, id, persistedGroup.ownerUid, senderId);
+    }
+    catch (e) { console.warn('[拾礼] 群聊礼物登记失败', e); }
+  }
   return { id, senderId, content, createdAt: ts }
 }
 
@@ -16073,6 +16148,9 @@ async function applyDirectorAction(action, group, groupId, nameToId, members, ai
         reason: String(action.reason || ''),
         recipients: Array.isArray(action.recipients) ? action.recipients : []
       }
+      const recipientNames = data.recipients.map(value => String(value).trim())
+      const selfNames = [user?.name, user?.nick].filter(Boolean).map(value => String(value).trim())
+      if (recipientNames.some(value => selfNames.includes(value))) data.recipientUid = userUid
       return [await add(`__GIFT__${JSON.stringify(data)}`)]
     }
     default:
@@ -16092,7 +16170,7 @@ async function deliverPrivateMessagesFromGroup(charId, contents, ownerUid = _wec
   for (const c of contents) {
     const t = String(c || '').trim()
     if (!t) continue
-    await addPrivateMessageIdempotently({ chatId: chat.id, charId, role: 'assistant', content: t, createdAt: base + n })
+    await addPrivateMessageIdempotently({ chatId: chat.id, charId, role: 'assistant', content: t, createdAt: base + n, realCreatedAt:Date.now(), timeMode:window.TimeWorld?.isEnabled?.()?'virtual':'real' })
     n++
   }
   if (n) await db.chats.update(chat.id, { unread: (chat.unread || 0) + n })
@@ -16434,7 +16512,7 @@ function renderGiftCard(data, msg) {
   const recipients = Array.isArray(data?.recipients) ? data.recipients.join('、') : ''
   const price = data?.itemPrice !== '' && data?.itemPrice != null ? `<div class="gift-price">¥${wcEscHtml(String(data.itemPrice))}</div>` : ''
   return `
-    <div class="msg-card gift-card">
+    <button type="button" class="msg-card gift-card" data-shili-message-id="${Number(msg?.id)||0}" data-shili-group="${msg?.groupId != null ? 1 : 0}" onclick="window.openWechatShiliGift(this)">
       <div class="gift-icon"><i class="fa-solid fa-gift"></i></div>
       <div class="gift-info">
         <div class="gift-name">${wcEscHtml(data?.itemName || '礼物')}</div>
@@ -16442,7 +16520,36 @@ function renderGiftCard(data, msg) {
         ${recipients ? `<div class="gift-to">送给 ${wcEscHtml(recipients)}</div>` : ''}
         ${data?.reason ? `<div class="gift-reason">${wcEscHtml(data.reason)}</div>` : ''}
       </div>
-    </div>`
+    </button>`
+}
+
+window.openWechatShiliGift = async function(button) {
+  try {
+    const owner=String(_wechatUid || ""),id=Number(button?.dataset.shiliMessageId),isGroup=button?.dataset.shiliGroup==="1"
+    if (!owner||!id||!window.ShiliBridge||!window.ShiliUI) throw Error("请先登录微信并打开拾礼")
+    const message=await (isGroup?db.groupMessages:db.messages).get(id)
+    if (!message) throw Error("礼物消息已不存在")
+    let charId
+    if(isGroup){
+      const group=await db.groupChats.get(message.groupId)
+      if(!group||String(group.ownerUid)!==owner)throw Error("当前账号无法查看这条群消息")
+      charId=message.senderId
+    }else{
+      const chat=await db.chats.get(message.chatId)
+      if(!chat||String(chat.ownerUid)!==owner)throw Error("当前账号无法查看这条私聊消息")
+      charId=chat.charId
+    }
+    const gift=await window.ShiliBridge.giftForMessage(db,owner,isGroup?"wechat-group":"wechat-private",id,charId)
+    let resolved=gift;
+    if(!resolved && !isGroup && message.role==='user'){
+      const data=parseMsgType(message.content).data||{};
+      const candidate=await db.gifts.get(Number(data.giftId));
+      if(candidate&&String(candidate.ownerUid)===owner&&String(candidate.charId)===String(charId)&&candidate.wechatMessageId===id&&candidate.wechatClientMessageId===message.clientMessageId&&candidate.deliveryStatus==='sent')resolved=candidate;
+    }
+    if(!resolved)throw Error("这条消息尚无可打开的礼物记录")
+    if(String(_wechatUid)!==owner)throw Error("账号已切换，请重新打开")
+    window.ShiliUI.openGift(resolved.id)
+  }catch(error){window.toast?.(String(error.message||error))}
 }
 
 function renderSystemNote(data) {
@@ -21108,6 +21215,9 @@ async function sendCallAIRequest(page) {
 
     const raw = await window.callAI(messages, {
       system: _callSystemPrompt,
+      charId: _callCharId,
+      shiliChatId: _callChatId,
+      shiliOwnerUid: window._wechatUid,
       responseFormat: 'json_object',
       responseJsonSchema: CALL_AI_JSON_SCHEMA,
       temperature: await window.getAITemperaturePreset('wechatCall')

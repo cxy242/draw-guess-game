@@ -710,7 +710,7 @@ var TOP_LEVEL_BACKUP_KEYS = ['version', 'exportedAt', 'appName', 'config', 'char
   'chats', 'messages', 'groupChats', 'groupMessages', 'moments', 'finance', 'offlineChats',
   'stickers', 'stickerCategories', 'memories', 'memoryRuns', 'callRecords',
   'smsConversations', 'smsMessages', 'imageBlobs', 'doorModules', 'doorResults',
-  'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'localStorage']
+  'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets', 'localStorage']
 
 // 按主键分批遍历一张表，批间让出主线程；峰值内存只保留一批记录，而非整表。
 async function eachTableBatch(table, batchSize, fn) {
@@ -850,9 +850,15 @@ async function collectBackupData(onProgress, serializeBlobValues) {
   data.avgConfigs = db.avgConfigs ? await db.avgConfigs.toArray() : []
   data.mcpServers = db.mcpServers ? await db.mcpServers.toArray() : []
   data.mcpToolTraces = db.mcpToolTraces ? await db.mcpToolTraces.toArray() : []
+  for (var shiliTable of ['gifts','giftEvents','giftGenerationJobs','shiliAnniversaries']) {
+    data[shiliTable] = db[shiliTable] ? await db[shiliTable].toArray() : []
+  }
   await yieldMain()
 
   report(85, '读取本地存储...')
+  for (var tableName of ['xPosts','xComments','relationships','npcCharacters','xingeLetters','xingePresets']) {
+    data[tableName] = db[tableName] ? await db[tableName].toArray() : []
+  }
   data.localStorage = collectLocalStorage()
   await yieldMain()
 
@@ -932,8 +938,15 @@ window.importBackupData = async function(data, onProgress, options) {
   if (Array.isArray(data.avgConfigs) && db.avgConfigs) await db.avgConfigs.bulkPut(data.avgConfigs)
   if (Array.isArray(data.mcpServers) && db.mcpServers) await db.mcpServers.bulkPut(data.mcpServers)
   if (Array.isArray(data.mcpToolTraces) && db.mcpToolTraces) await db.mcpToolTraces.bulkPut(data.mcpToolTraces)
+  // Restore primary gifts before their event and image-job references.
+  for (var shiliTable of ['shiliAnniversaries','gifts','giftEvents','giftGenerationJobs']) {
+    if (Array.isArray(data[shiliTable]) && db[shiliTable]) await db[shiliTable].bulkPut(data[shiliTable])
+  }
   await yieldMain()
 
+  for (var tableName of ['xPosts','xComments','relationships','npcCharacters','xingeLetters','xingePresets']) {
+    if (Array.isArray(data[tableName]) && db[tableName]) await db[tableName].bulkPut(data[tableName])
+  }
   report(90, '恢复本地存储...')
   if (data.localStorage) {
     var entries = Object.entries(data.localStorage)
@@ -953,8 +966,8 @@ async function clearAppDataForImport() {
     'groupChats', 'groupMessages', 'moments', 'finance', 'offlineChats',
     'stickers', 'stickerCategories', 'memories', 'memoryRuns',
     'callRecords', 'smsConversations', 'smsMessages', 'imageBlobs',
-    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces']
-  await Promise.all(tables.map(function(t) { return db[t] ? db[t].clear() : Promise.resolve() }))
+    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets', 'gifts', 'giftEvents', 'giftGenerationJobs', 'shiliAnniversaries']
+  await Promise.all(tables.filter(function(t){return t!=='xPosts'&&t!=='xComments'}).map(function(t) { return db[t] ? db[t].clear() : Promise.resolve() }))
   localStorage.clear()
 }
 
@@ -986,7 +999,7 @@ var STREAM_EXPORT_FALLBACK_LIMIT = 100 * 1024 * 1024
 var STREAM_EXPORT_TABLES = ['config', 'characters', 'chats', 'messages', 'groupChats',
   'groupMessages', 'moments', 'finance', 'offlineChats', 'stickers', 'stickerCategories',
   'memories', 'memoryRuns', 'callRecords', 'smsConversations', 'smsMessages', 'imageBlobs',
-  'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces']
+  'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets', 'gifts', 'giftEvents', 'giftGenerationJobs', 'shiliAnniversaries']
 
 function bytesToBase64(bytes) {
   var out = '', step = 0x6000
@@ -1444,7 +1457,7 @@ async function clearAllData() {
     'groupChats', 'groupMessages', 'moments', 'finance', 'offlineChats',
     'stickers', 'stickerCategories', 'memories', 'memoryRuns',
     'callRecords', 'smsConversations', 'smsMessages', 'imageBlobs',
-    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces']
+    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces', 'xPosts', 'xComments', 'relationships', 'npcCharacters', 'xingeLetters', 'xingePresets', 'gifts', 'giftEvents', 'giftGenerationJobs', 'shiliAnniversaries']
   await Promise.all(tables.map(function(t) { return db[t] ? db[t].clear() : Promise.resolve() }))
   localStorage.clear()
 }

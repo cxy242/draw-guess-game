@@ -354,6 +354,13 @@ function initDB() {
     xComments: '++id, postId, createdAt',
     offlineChats: '++id, charId, ownerUid, sessionId, createdAt'
   })
+  // 拾礼：只新增表，保留 v19 及以前全部定义。
+  db.version(20).stores({
+    gifts: '++id, &eventKey, ownerUid, charId, [ownerUid+charId], status, createdAt',
+    giftEvents: '&eventKey, giftId, ownerUid, charId, sourceType, sourceId',
+    giftGenerationJobs: '++id, giftId, ownerUid, status, createdAt'
+  })
+  db.version(21).stores({shiliAnniversaries: '++id, ownerUid, charId, timeMode, date, enabled'})
   installWanWanDBRecovery()
 }
 

@@ -492,7 +492,7 @@ async function generateAnonReply(conversationId, char, userText, page) {
       } catch(_) {}
     }
     
-    var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true})
+    var reply = await window.callAI([{role:'user',content:prompt}], {charAntiDrift:true,charId:char.id,shiliOwnerUid:currentConversation?.ownerUid||window._wechatUid})
     if (reply) {
       await db.smsMessages.add({
         conversationId: conversationId,
@@ -1331,7 +1331,7 @@ async function sendAnonymousCharSMS(user, jobId) {
         (probe?'可自然表达关心或试探，但不得违背人设。':'只允许自然日常、问候或生活分享，禁止试探、套话、猜测秘密。')+
         '\n只使用这个账号的记忆：'+memory+'\n当前时间：'+(window.TimeWorld?TimeWorld.getFormattedNow():new Date().toLocaleString())+
         '\n返回JSON：{"messages":["消息1","消息2","消息3"]}，生成3到5条自然短信，不代用户发言。';
-      var raw=await callAI([{role:'user',content:prompt}],{responseFormat:'json_object',charId:char.id});
+      var raw=await callAI([{role:'user',content:prompt}],{responseFormat:'json_object',charId:char.id,shiliOwnerUid:user.id});
       var data=typeof raw==='string'?JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g,'')):raw;
       var messages=(data.messages||[]).filter(function(m){return typeof m==='string'&&m.trim()}).slice(0,5);
       if(!messages.length)throw new Error('模型未返回有效短信');
@@ -1577,7 +1577,7 @@ function startWechatBlockSmsTimer(charId, charName) {
         '4. 示例："你怎么不理我了..." / "我找不到你了"\n\n' +
         '返回JSON：{"messages":["第一条"]}'
 
-      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true })
+      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true,charId:charId,shiliOwnerUid:window._wechatUid })
       var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw
       if (!data) return
 

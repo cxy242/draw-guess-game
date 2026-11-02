@@ -375,7 +375,7 @@
 }
 /* 空头像用徽记底 */
 .xg-crest-opt:not([style]) {
-  background-image: url('img/xinge/xg-crest-laurel.svg');
+  background-image: url('../img/xinge/xg-crest-laurel.svg');
   background-size: 62%;
   background-repeat: no-repeat;
   background-position: center;

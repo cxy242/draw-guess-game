@@ -85,7 +85,7 @@
   // 信件读写（表缺失时降级到 config JSON 暂存，不炸页面）
   function loadLetters() {
     return dbRead(function () {
-      if (hasLettersTable()) return window.db.xingeLetters.orderBy('createdAt').reverse().toArray();
+      if (hasLettersTable()) return window.db.xingeLetters.orderBy('createdAt').reverse().filter(function(x){return String(x.ownerUid)===String(window._wechatUid)}).toArray();
       return getConfig('xinge:lettersFallback', []);
     }).catch(function (e) {
       console.warn('[xinge] loadLetters 失败', e);
@@ -94,10 +94,11 @@
   }
   function saveLetter(letter) {
     // 双时间戳：createdAt=虚拟语义锚；realCreatedAt=现实审计锚（仅 INSERT）
-    letter.createdAt = letter.createdAt || nowTs();
+    letter.createdAt = letter.createdAt || letter.scheduledAt || nowTs();
+    letter.ownerUid=letter.ownerUid||window._wechatUid;
     if (!letter.realCreatedAt) letter.realCreatedAt = nowReal();
     return dbWrite(function () {
-      if (hasLettersTable()) return window.db.xingeLetters.add(letter);
+      if(hasLettersTable())return (letter.jobId?window.db.xingeLetters.filter(function(x){return x.jobId===letter.jobId}).first():Promise.resolve(null)).then(function(old){return old?old.id:window.db.xingeLetters.add(letter)});
       return getConfig('xinge:lettersFallback', []).then(function (arr) {
         // fallback 必须自带 id（否则后续"信不见了"）
         if (letter.id === undefined || letter.id === null) {
@@ -1171,6 +1172,7 @@
         : Promise.resolve('');
     } catch (e) { memPromise = Promise.resolve(''); }
 
+    var requestOwnerUid=window._wechatUid;
     var cancelled = false;
     _inFlight = {
       cancel: function () { cancelled = true; }
@@ -1181,14 +1183,16 @@
         if (cancelled) return null;
         userPrompt = buildUserPrompt(draft, memCtx, presets);
         if (!window.callAI) throw new Error('callAI 未加载');
-        return window.callAI([{ role: 'user', content: userPrompt }], { system: XG_SYS_BASE });
+        return window.callAI([{ role: 'user', content: userPrompt }], { system: XG_SYS_BASE,charId:draft.charId||draft.senderCharId,shiliOwnerUid:requestOwnerUid });
       });
     }).then(function (result) {
-      if (cancelled || !result) return;
+      if (cancelled || !result || String(window._wechatUid)!==String(requestOwnerUid)) return;
       var text = (typeof result === 'string') ? result : (result.content || result.text || result.message || '');
       var parsed = parseLetterJSON(text);
       if (!parsed) throw new Error('信件 JSON 解析失败');
       return saveLetter({
+        ownerUid:requestOwnerUid,
+        jobId:'xinge:manual:'+requestOwnerUid+':'+Date.now()+':'+Math.random().toString(36).slice(2),
         senderKey: draft.presetKey || 'friend',
         recipientType: draft.recipientType || 'me',
         charId: draft.charId || null,
@@ -2640,7 +2644,7 @@
     // 从 fromTs 起算下一个计划寄达点（时:分 落在今天/未来）
     var base = new Date(fromTs);
     var parts = String(s.timeHHMM || '21:00').split(':');
-    var h = parseInt(parts[0], 10) || 21;
+    var parsedHour=parseInt(parts[0],10);var h=Number.isFinite(parsedHour)?Math.max(0,Math.min(23,parsedHour)):21;
     var m = parseInt(parts[1], 10) || 0;
     var slot = new Date(base);
     slot.setHours(h, m, 0, 0);
@@ -2648,34 +2652,41 @@
     return slot.getTime();
   }
 
-  function checkSchedule() {
-    if (!hasLettersTable() && !window.db) return Promise.resolve();
-    return getConfig('xinge:settings', {}).then(function (s) {
-      if (!s || !s.scheduleOn) return null;
-      return getConfig('xinge:lastRun', {}).then(function (last) {
-        var now = nowTs();
-        var periodDays = s.freq === '每天' ? 1 : s.freq === '每月' ? 30 : s.freq === '随机惊喜' ? 3 : 7;
-        var lastPlan = (last && last.scheduledFor) || 0;
-        var due = lastPlan ? (lastPlan + periodDays * 86400000) : nextSlotTs(s, now - periodDays * 86400000);
-        if (now < due) return null;
-        // 补生成（静默：不弹页面）
-        return getConfig('xinge:pool', { allow: {} }).then(function (pool) {
-          return pickScheduledSender(s, pool).then(function (sender) {
-            return generateScheduledLetter(s, sender, due).then(function () {
-              return setConfig('xinge:lastRun', { ts: now, scheduledFor: due });
-            });
-          });
-        });
-      });
-    }).catch(function (e) {
-      console.warn('[xinge] 定时补信检查失败', e);
+  async function checkSchedule(){
+    var user=await WanWanIdentity.currentUser();
+    return WanWanRuntime.withLock('xinge-schedule:'+user.id,async function(){
+      var s=await getConfig('xinge:settings',{});if(!s.scheduleOn)return;
+      var key='xinge:lastRun:'+user.id;var last=await getConfig(key,null);
+      var now=nowTs();var period=s.freq==='每天'?1:s.freq==='每月'?30:s.freq==='随机惊喜'?3:7;
+      var anchorDay=last&&last.anchorDay||new Date(last&&last.scheduledFor||now).getDate();
+      function advanceSlot(ts){
+        var d=new Date(ts);
+        if(s.freq==='每月'){
+          d.setDate(1);d.setMonth(d.getMonth()+1);
+          d.setDate(Math.min(anchorDay,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));
+        }else d.setDate(d.getDate()+period);
+        return d.getTime();
+      }
+      var due=last&&last.scheduledFor?advanceSlot(last.scheduledFor):nextSlotTs(s,now-period*86400000);
+      if(!last||!last.anchorDay)anchorDay=new Date(last&&last.scheduledFor||due).getDate();
+      var count=0;
+      while(due<=now&&count<10){
+        var pool=await getConfig('xinge:pool',{allow:{}});var sender=await pickScheduledSender(s,pool);
+        if(!sender.allowIds.length)throw new Error('请先选择允许寄信的角色');
+        var job='xinge:'+user.id+':'+due;
+        var done=await WanWanRuntime.config('job:'+job,false);
+        if(!done){var saved=await generateScheduledLetter(Object.assign({},s,{ownerUid:user.id}),sender,due);if(!saved)throw new Error('来信未保存，计划保留待重试');await WanWanRuntime.put('job:'+job,true);}
+        await setConfig(key,{ts:now,scheduledFor:due,anchorDay:anchorDay});
+        s._rotateIndex=(Number(s._rotateIndex)||0)+1;await setConfig('xinge:settings',s);
+        due=advanceSlot(due);count++;
+      }
     });
   }
 
   function pickScheduledSender(s, pool) {
     // senderMode: 指定 / 轮换 / 随机；从允许池出
     return loadPresets().then(function (presets) {
-      var allowIds = Object.keys((pool && pool.allow) || {});
+      var allowIds = Object.keys((pool && pool.allow) || {}).filter(function(id){return pool.allow[id]!==false});
       var presetList = presets && presets.length ? presets : DEFAULT_PRESETS;
       var pick = null;
       if (s.senderMode === '指定' && s.senderId) {
@@ -2689,12 +2700,13 @@
           pick = presetList[Math.floor(Math.random() * presetList.length)];
         }
       }
-      return { preset: pick, allowIds: allowIds };
+      var chosen=allowIds[(Number(s._rotateIndex)||0)%Math.max(1,allowIds.length)];if(s.senderId&&allowIds.indexOf(String(s.senderId))>=0)chosen=String(s.senderId);return { preset: pick, allowIds: chosen?[chosen]:[] };
     });
   }
 
   function generateScheduledLetter(s, sender, planTs) {
-    // 静默生成：不 nav.composing、不跳页，只落库+提醒
+    var letterOwnerUid=s.ownerUid||window._wechatUid;
+    // Stable slot identity is checked under the per-account scheduler lock.
     var draft = {
       recipientType: 'me',
       toName: '我',
@@ -2706,22 +2718,27 @@
     var memPromise;
     try {
       memPromise = (window.WanWanMemory && window.WanWanMemory.getMemoryContext)
-        ? window.WanWanMemory.getMemoryContext(null, sender.allowIds[0] || null, window._wechatUid || '', ['定时来信']).catch(function () { return ''; })
+        ? window.WanWanMemory.getMemoryContext(null, sender.allowIds[0] || null, letterOwnerUid || '', [{content:'定时来信'}], {atTime:planTs,readOnly:true}).catch(function () { return ''; })
         : Promise.resolve('');
     } catch (e) { memPromise = Promise.resolve(''); }
 
-    return memPromise.then(function (memCtx) {
+    return memPromise.then(async function (memCtx) {
+      var person=sender.allowIds[0]?await db.characters.get(Number(sender.allowIds[0])||sender.allowIds[0]):null;
+      if(!person||person.type==='user')throw new Error('寄信角色无效');
+      draft.charId=person.id;draft._sender=person;
       return loadPresets().then(function (presets) {
         if (!window.callAI) throw new Error('callAI 未加载');
-        var prompt = buildUserPrompt(draft, memCtx, presets);
-        return window.callAI([{ role: 'user', content: prompt }], { system: XG_SYS_BASE });
+        var prompt = buildUserPrompt(draft, memCtx, presets)+'\n真实寄信人：'+JSON.stringify(draft._sender)+'\n计划寄达时间：'+fmtTime(planTs)+'。按该角色当时视角写信，不使用计划时刻之后的事情。';
+        return window.callAI([{ role: 'user', content: prompt }], { system: XG_SYS_BASE,charId:person.id,shiliOwnerUid:letterOwnerUid,shiliAtTime:planTs,shiliAllowBackground:true });
       });
     }).then(function (result) {
-      if (!result) return null;
+      if (!result) throw new Error('来信内容为空，等待重试');
       var text = (typeof result === 'string') ? result : (result.content || result.text || result.message || '');
       var parsed = parseLetterJSON(text);
       if (!parsed) throw new Error('定时信 JSON 解析失败');
       return saveLetter({
+        ownerUid: letterOwnerUid,
+        jobId:'xinge:'+letterOwnerUid+':'+planTs,
         senderKey: draft.presetKey || 'friend',
         recipientType: 'me',
         charId: sender.allowIds[0] || null,
@@ -2734,7 +2751,8 @@
     }).then(function (saved) {
       if (saved) {
         // 静默时段外才提醒（S6）
-        if (s.notifyOn !== false) toast('有一封新的信到了');
+        var clock=new Date(nowTs());var quietHour=Number(String(s.quietRange||'22:00').split(':')[0]);var quiet=!!s.quietOn&&(clock.getHours()>=quietHour||clock.getHours()<8);
+        if(s.notifyOn!==false&&!quiet)toast('有一封新的信到了');
       }
       return saved;
     });

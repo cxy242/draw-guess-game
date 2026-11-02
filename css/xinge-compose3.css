@@ -215,7 +215,7 @@
 .xg-c2-paper {
   background:
     linear-gradient(180deg, rgba(255, 252, 244, 0.98), rgba(248, 244, 234, 0.98)),
-    url('img/xinge/xg-paper.webp') repeat center / 220px auto;
+    url('../img/xinge/xg-paper.webp') repeat center / 220px auto;
 }
 /* 纸上的高光带 */
 .xg-c2-paper::after {

@@ -302,7 +302,7 @@
 .xg-env4-flap-out {
   background:
     linear-gradient(178deg, #E2C4BE, #CEACA5),
-    url('img/xinge/xg-paper.webp') repeat center / 240px auto;
+    url('../img/xinge/xg-paper.webp') repeat center / 240px auto;
   position: relative;
 }
 .xg-env4-flap-out::after {

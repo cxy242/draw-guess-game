@@ -1,0 +1,740 @@
+@import url('../assets/shili/fonts/noto-serif-sc/400.css');
+/* Formal reference 31634: cream stationery, rose ink, sage paper and album collage.
+   Decorative fragments are traced in assets/shili/reference/provenance.json.
+   All gift content, controls, counts and dates remain DOM/data driven. */
+@font-face{font-family:ShiliGaramond;font-style:italic;font-weight:400;src:url('../vendor/fonts/ebgaramond/SlGFmQSNjdsmc35JDF1K5GRwUjcdlttVFm-rI7e8QI96.ttf') format('truetype');font-display:swap}
+.shili-page{--paper:#f7f5ee;--rose:#bd8492;--ink:#665e52;--sage:#a6b38f;z-index:410;background:var(--paper) url('../assets/shili/common/paper_background.png') center top/390px auto repeat;color:var(--ink);display:flex;flex-direction:column;font-family:'Songti SC','Noto Serif CJK SC','SimSun',serif;isolation:isolate}
+.shili-page::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(90deg,#a6b38f18 0 5%,transparent 5% 8%,#a6b38f13 8% 10%,transparent 10% 90%,#e9c4d021 90%);opacity:.8}
+.shili-header{min-height:38px;flex:none;display:flex;align-items:center;padding:env(safe-area-inset-top) 10px 0;border-bottom:1px solid #b6b29935;background:repeating-linear-gradient(90deg,#b0b29b25 0 9px,#f6f1e6aa 9px 17px);position:relative}
+.shili-back{border:0;background:transparent;font-size:29px;color:#a87581;min-width:44px;height:38px;cursor:pointer;text-align:left;line-height:1}
+.shili-head-title{font-size:12px;font-weight:400;flex:1;text-align:center;margin-right:44px;letter-spacing:.22em;color:#867c6d}
+.shili-main{overflow-y:auto;overflow-x:hidden;flex:1;min-height:0;overscroll-behavior:contain;padding:0 18px calc(22px + env(safe-area-inset-bottom));scrollbar-width:thin;scrollbar-color:#c9b9ae transparent;scroll-behavior:smooth}
+.shili-page-heading{position:relative;text-align:center;padding:35px 19px 27px;margin:0 -3px 14px;isolation:isolate;background:#faf7eead;clip-path:polygon(0 4%,13% 0,26% 3%,45% 0,67% 3%,82% 0,100% 5%,98% 90%,80% 95%,65% 92%,41% 98%,21% 92%,0 97%)}
+.shili-page-heading::before{content:'';position:absolute;width:70px;height:78px;left:-23px;bottom:-3px;background:url('../assets/shili/common/botanical_sprig.png') center/contain no-repeat;transform:rotate(-16deg);opacity:.78;z-index:-1}
+.shili-page-heading::after{content:'';position:absolute;right:-9px;top:9px;width:61px;height:83px;transform:rotate(12deg);background:url('../assets/shili/reference/floral-stamp-transparent.png') center/cover no-repeat;opacity:.8;z-index:-1}
+.shili-script{font-family:ShiliGaramond,'Baskerville',Georgia,serif;font-style:italic;font-weight:400;color:var(--rose);font-size:clamp(31px,9.4vw,44px);line-height:1.04;margin-bottom:9px;letter-spacing:-.04em;text-wrap:balance}
+.shili-main h1{font-size:15px;font-weight:400;letter-spacing:.2em;margin:0;color:#7d7565;line-height:1.65;overflow-wrap:anywhere}
+.shili-subtitle{font:italic 15px/1.6 ShiliGaramond,Georgia,serif;color:#9a8e77;margin:0;white-space:pre-line}
+.shili-section{font-size:14px;font-weight:400;letter-spacing:.12em;border-bottom:1px solid #d7cdbd;padding:8px 0 10px;margin:19px 0 12px;color:#927366}
+.shili-empty{font-size:13px;color:#918578;line-height:1.9;padding:12px 8px;margin:0}
+.shili-nav{display:flex;flex:none;justify-content:space-around;border-top:1px solid #d0baae;background:#f9f5edee;padding:7px 5px max(8px,env(safe-area-inset-bottom));position:relative}
+.shili-nav::before{content:'';position:absolute;inset:-7px 0 auto;height:6px;background:url('../assets/shili/reference/blue-floral.png') center/160px auto;opacity:.38}
+.shili-nav-item{font:inherit;font-size:11px;border:0;background:transparent;color:#82796b;min-width:48px;min-height:49px;padding:3px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+.shili-nav-icon{width:25px;height:25px;object-fit:contain;opacity:.76}.shili-nav-item.active{color:#b67685}.shili-nav-item.active .shili-nav-icon{opacity:1}.shili-nav-item.active span{border-bottom:1px solid #b67685}
+.shili-btn{display:inline-flex;justify-content:center;align-items:center;border:1px solid #c28c99;background:#c58d9a;color:#fffaf3;padding:11px 17px;border-radius:20px;font:inherit;font-size:13px;cursor:pointer;min-height:44px;margin:5px 7px 5px 0;letter-spacing:.05em;max-width:100%;white-space:normal}
+.shili-btn:active{transform:scale(.985)}.shili-page button:disabled{opacity:.6;cursor:wait}.shili-page :is(button,input,textarea,select,summary):focus-visible{outline:2px solid #a36f80;outline-offset:3px}
+.shili-link{border:0;background:transparent;color:#aa7885;font:inherit;font-size:12px;cursor:pointer;padding:8px;min-height:44px}
+.shili-hero{position:relative;margin:0 -18px;padding:55px 33px 0;min-height:530px;isolation:isolate;overflow:hidden}
+.shili-hero::before{content:'';position:absolute;inset:29px 26px 18px 33px;background:#fbf8edee;box-shadow:0 4px 17px #74694c22;transform:rotate(-4deg);z-index:-1;clip-path:polygon(0 2%,18% 0,37% 1%,55% 0,100% 2%,99% 98%,76% 100%,51% 98%,20% 100%,0 97%)}
+.shili-hero::after{content:'';position:absolute;width:84px;height:155px;left:-24px;top:186px;background:repeating-linear-gradient(90deg,#a6b38f77 0 9px,#fff8 9px 18px),repeating-linear-gradient(0deg,#a6b38f66 0 9px,#fff6 9px 18px);transform:rotate(-13deg);z-index:-1}
+.shili-hero .shili-page-heading{background:transparent;clip-path:none;padding:0;margin:0 0 14px;transform:rotate(-8deg);text-align:left;max-width:260px}
+.shili-hero .shili-page-heading::before,.shili-hero .shili-page-heading::after{display:none}
+.shili-hero .shili-script{font-size:clamp(47px,14vw,62px);line-height:.98;letter-spacing:-.065em;color:#b87a89;max-width:275px}
+.shili-hero h1{font-size:12px;letter-spacing:.14em;margin:15px 0 0 24px;color:#9c8977}
+.shili-hero .shili-subtitle{position:absolute;right:33px;top:250px;text-align:right;font-size:15px;width:115px;z-index:2;transform:rotate(-7deg)}
+.shili-home-photo{position:absolute;left:87px;top:315px;width:149px;height:185px;object-fit:cover;border:7px solid #f4f0e4;box-shadow:2px 5px 7px #76604e3b;transform:rotate(-10deg)}
+.shili-home-photo::before{content:''}.shili-home-ribbon{position:absolute;right:5px;top:11px;width:157px;height:120px;object-fit:contain;transform:rotate(13deg);z-index:3}
+.shili-home-stamp{position:absolute;left:22px;top:293px;width:83px;height:116px;object-fit:contain;transform:rotate(-15deg);z-index:2}.shili-home-sprig{position:absolute;right:-14px;top:329px;width:130px;height:157px;object-fit:contain;transform:rotate(18deg);opacity:.9}
+.shili-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;position:relative;margin:-7px 0 18px}
+.shili-shortcut{min-height:94px;background:#fbf6e9;border:1px solid #d9cebb;border-radius:3px;padding:15px 3px 10px;font:inherit;color:#7c7464;cursor:pointer;box-shadow:1px 3px 5px #80705320;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.shili-shortcut::before{content:'';position:absolute;left:8px;top:-5px;width:25px;height:11px;background:#beb4a17a;transform:rotate(-27deg)}.shili-shortcut img{width:32px;height:32px;object-fit:contain}.shili-shortcut span{font-size:12px}
+.shili-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px dashed #d9c6b8;border-bottom:1px dashed #d9c6b8;padding:9px 0;font-size:11px}.shili-summary strong{color:#9c737b;font-weight:400}.shili-summary span{color:#9b9081}.shili-summary .shili-link{padding:3px;font-size:11px}
+.shili-event-link{border:1px solid #e4dbcd;background:#f9f5ecb3;display:block;width:100%;font:inherit;font-size:13px;color:var(--ink);text-align:left;padding:14px;min-height:44px;margin:7px 0;cursor:pointer}
+.shili-art{object-fit:contain}.shili-atelier{width:100%;height:242px;object-fit:cover;border:6px solid #f5f0e3;box-shadow:1px 4px 6px #77694e29;transform:rotate(-2deg);margin:7px 0 23px}
+.shili-methods{border:1px solid #ded5c6;background:#fbf8efb3;border-radius:5px;overflow:hidden}.shili-method{display:flex;align-items:center;gap:15px;width:100%;min-height:80px;border:0;border-bottom:1px solid #ded5c6;background:transparent;text-align:left;padding:13px;font:inherit;color:var(--ink);cursor:pointer}.shili-method:last-child{border-bottom:0}.shili-method>img{width:35px;height:35px;object-fit:contain}.shili-method>span:nth-child(2){flex:1;min-width:0}.shili-method strong{font-size:14px;font-weight:400;display:block}.shili-method small{display:block;font-size:11px;color:#9a9182;margin-top:7px}.shili-chevron{color:#aa9a8a;font-size:22px}
+.shili-form{display:flex;flex-direction:column;gap:16px;margin:15px 0 20px}.shili-field{display:flex;flex-direction:column;gap:7px;font-size:12px;color:#7c7164}.shili-input{background:#fffdf6c9;border:1px solid #d9d0c3;border-radius:5px;padding:11px;font:inherit;font-size:14px;color:#665e52;box-sizing:border-box;width:100%;min-width:0;min-height:44px}textarea.shili-input{min-height:100px;resize:vertical;line-height:1.8}.shili-checkbox{width:22px;height:22px;min-height:22px;accent-color:#b87f92}
+.shili-fold{border:1px solid #dcd3c3;background:#faf7edc2;border-radius:5px;margin:16px 0;padding:0 12px}.shili-fold>summary{padding:13px 0;min-height:45px;cursor:pointer;color:#a27680;font-size:13px}.shili-fold[open]>summary{border-bottom:1px solid #e0d8ca}
+.shili-filters{display:flex;gap:7px;margin:5px 0 15px}.shili-filter{flex:1;min-width:0;border:1px solid #dfd5c8;background:#f0ece2;color:#827868;border-radius:6px;font:inherit;font-size:11px;min-height:44px;padding:7px 2px;cursor:pointer}.shili-filter.active{background:#fffaf2;border-color:#c7929e;color:#b77d8b}.shili-search{font-size:12px;margin-bottom:15px;background:#fffdf69c}
+.shili-album{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 12px}.shili-album>.shili-empty{grid-column:1/-1;min-height:240px;padding:85px 30px 30px;text-align:center;background:url('../assets/shili/pages/09_empty_keepsake_frame.png') center/contain no-repeat}
+.shili-album-item{min-width:0;width:100%;border:1px solid #ded3c0;background:#f9f5e9;box-shadow:1px 3px 5px #7d6b5110;padding:8px 8px 12px;border-radius:3px;text-align:left;font:inherit;color:var(--ink);cursor:pointer;position:relative}.shili-album-item:nth-child(3n+2)::after{content:'';position:absolute;right:-5px;top:3px;width:32px;height:12px;transform:rotate(30deg);background:#b4ae9670}.shili-album-photo{aspect-ratio:1;overflow:hidden;background:#e9c4d027;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;border:1px solid #e1d9cb}.shili-album-photo>img{width:100%;height:100%;object-fit:cover}.shili-album-photo>img.shili-art{width:35px;height:35px;object-fit:contain}.shili-album-photo span{font-size:11px;color:#a28683}.shili-album-item strong{font-size:14px;font-weight:400;display:block;overflow-wrap:anywhere}.shili-album-item small,.shili-album-item time{display:block;font-size:10px;color:#958b7c;margin-top:6px;line-height:1.4;overflow-wrap:anywhere}
+.shili-gift{display:flex;align-items:center;gap:12px;width:100%;padding:13px 10px;border:1px solid #dfd6c7;background:#faf6eeb8;margin:7px 0;text-align:left;color:var(--ink);font:inherit;border-radius:4px}.shili-gift-content{display:flex;flex-direction:column;gap:7px;min-width:0;flex:1}.shili-gift-content strong{font-size:14px;font-weight:400;overflow-wrap:anywhere}.shili-gift-content small{font-size:11px;color:#9c907f;line-height:1.5}.shili-gift-mark{width:50px;height:50px;background:#eed8db;display:grid;place-items:center;flex:none}.shili-date-badge{width:49px;height:57px;flex:none;text-align:center;padding:7px 0;background:#eee5dc;border:1px solid #d3b8b1;outline:2px solid #f7f2e8;outline-offset:-4px}.shili-date-badge strong{font:25px/1 ShiliGaramond,Georgia,serif;color:#ad7986;display:block}.shili-date-badge small{font-size:10px;display:block;margin-top:4px;color:#998979}
+.shili-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center;padding-bottom:15px;gap:3px}.shili-month-grid span{min-height:35px;display:grid;place-items:center;font-size:12px;border-radius:50%}.shili-month-grid .shili-weekday{color:#ad7b89;font-size:11px}.shili-day.has-event{background:#c5ceae77}.shili-day.today{box-shadow:inset 0 0 0 1px #bb8393;color:#b17587}.shili-month-nav{display:flex;align-items:center;justify-content:space-between;gap:3px}.shili-month-nav strong{font-size:13px;font-weight:400}
+.shili-settings-group{margin:10px 0;border:1px solid #dfd4c5;background:#faf6eebe;border-radius:8px;padding:0 13px}.shili-settings-group>summary{display:flex;align-items:center;gap:14px;min-height:57px;cursor:pointer;font-size:13px;list-style:none}.shili-settings-group>summary::-webkit-details-marker{display:none}.shili-settings-group>summary::after{content:'›';margin-left:auto;color:#b3a595;font-size:24px}.shili-settings-group[open]>summary::after{transform:rotate(90deg)}.shili-settings-group>summary img{width:25px;height:25px;object-fit:contain}.shili-settings-group[open]>summary{border-bottom:1px solid #dfd4c5}
+.shili-preview{width:100%;max-height:330px;object-fit:contain;border:10px solid #f5f0e4;box-shadow:2px 5px 10px #6c594128;transform:rotate(-2deg);margin:14px 0 23px;background:#eee6da}
+.shili-placeholder{min-height:200px;margin:12px 0 23px;display:flex;align-items:center;justify-content:center;background:url('../assets/shili/pages/09_empty_keepsake_frame.png') center/contain no-repeat;color:#a48d80;font-size:13px}
+.shili-card{margin:18px 5px;padding:32px 23px;background:#fbf6e9 url('../assets/shili/pages/06_greeting_card_blank.png') center/100% 100% no-repeat;box-shadow:1px 4px 8px #8d775c1f;font-size:14px;line-height:2;min-height:125px;transform:rotate(-2deg);border:1px solid #e3d4c6;white-space:pre-wrap;overflow-wrap:anywhere}
+.shili-description{font-size:14px;line-height:1.9;overflow-wrap:anywhere;white-space:pre-wrap}.shili-meta{font-size:11px;line-height:1.8;color:#a09281;overflow-wrap:anywhere}.shili-wrapped-art{width:100%;height:200px;object-fit:cover;border:4px solid #faf4e8;margin:5px 0 15px}
+.shili-wrapping-card{min-height:210px;margin:20px 3px;padding:36px 25px 24px;background:#fffaf2 url('../assets/shili/pages/06_greeting_card_blank.png') center/100% 100% no-repeat;border:1px solid #dbc6bf;box-shadow:1px 5px 10px #80674d20;color:#9f7580;transform:rotate(-2deg);overflow-wrap:anywhere}.shili-wrapping-card h2{font:italic 27px/1.3 ShiliGaramond,Georgia,serif;font-weight:400;margin:0 0 18px}.shili-wrapping-card p{line-height:1.9;white-space:pre-wrap;font-size:14px}.shili-wrapping-card[data-wrap=sage]{color:#748061;background-color:#edf0e5}.shili-wrapping-card[data-wrap=blue]{color:#7c95a4;background-color:#edf4f7}
+.shili-swatches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.shili-swatch{padding:50px 2px 10px;min-height:80px;border:2px solid #e2d5c7;border-radius:5px;background:#f2d9df;color:#8f6e73;font:inherit;font-size:11px;cursor:pointer}.shili-swatch-pink{background:#eed5db url('../assets/shili/pages/03_wrapping_swatch_pink.png') center/cover}.shili-swatch-sage{background:#dfe5d5 url('../assets/shili/pages/04_wrapping_swatch_sage.png') center/cover}.shili-swatch-blue{background:#c8dbe9 url('../assets/shili/common/blue_stripe_tile.png') center/90px auto}.shili-swatch[aria-pressed=true]{border-color:#b97d8e;box-shadow:0 0 0 2px #fff8 inset}
+.shili-opening-stage{position:relative;margin:16px -5px 20px;display:flex;flex-direction:column;align-items:center;padding-bottom:18px;border-bottom:1px solid #dfcdbf;background:transparent;isolation:isolate}.shili-opening-art{width:100%;height:365px;object-fit:cover;box-shadow:1px 4px 9px #7e67442b}.shili-opening-stage strong{font-size:16px;font-weight:400;color:#aa7a86;text-align:center;padding:22px 10px 0;overflow-wrap:anywhere}
+.shili-page[data-view=opening] .shili-btn{display:flex;margin:16px auto;min-width:180px}.shili-page[data-view=calendar] .shili-script{color:#899074}.shili-page[data-view=settings] .shili-page-heading{margin-bottom:23px;padding-top:43px;padding-bottom:33px}
+@media(max-width:360px){.shili-main{padding-left:13px;padding-right:13px}.shili-hero{margin-left:-13px;margin-right:-13px;padding-left:30px;min-height:465px}.shili-hero .shili-script{font-size:46px}.shili-hero .shili-subtitle{top:224px;font-size:13px}.shili-home-photo{left:74px;top:279px;width:128px;height:157px}.shili-home-stamp{top:258px;width:72px}.shili-home-sprig{top:305px;width:104px}.shili-home-ribbon{width:129px;right:-5px}.shili-shortcuts{gap:9px}.shili-shortcut{min-height:83px}.shili-page-heading{padding-top:27px}.shili-nav-item{min-width:43px;font-size:10px}.shili-script{font-size:34px}.shili-album{gap:10px 8px}.shili-atelier{height:201px}.shili-method{min-height:71px}.shili-opening-art{height:315px}}
+@media(prefers-reduced-motion:reduce){.shili-page *{animation:none!important;transition:none!important;scroll-behavior:auto!important}.shili-btn:active{transform:none}}
+/* Second reference pass: use the named formal fonts and actual reference motifs. */
+@font-face{font-family:ShiliAllura;src:url('../assets/shili/fonts/Allura-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:ShiliPlayfair;src:url('../assets/shili/fonts/PlayfairDisplay.ttf') format('truetype');font-weight:400 900;font-style:normal;font-display:swap}
+.shili-script{font-family:ShiliAllura,ShiliGaramond,serif;font-style:normal;font-weight:400;letter-spacing:0;font-size:49px;line-height:.95}
+.shili-hero .shili-script{font-family:ShiliAllura,serif;font-style:normal;font-weight:400;font-size:68px;letter-spacing:-.015em;line-height:.9;max-width:278px}
+.shili-hero .shili-page-heading{max-width:280px;transform:rotate(-9deg);padding-top:13px}
+.shili-hero{padding-top:54px;min-height:540px;background:url('../assets/shili/reference/blue-damask.png') bottom -54px right -53px/155px 195px no-repeat}
+.shili-hero::before{inset:26px 24px 40px 32px;background:#fbf7ed url('../assets/shili/common/paper_background.png') center/340px auto;transform:rotate(-5deg)}
+.shili-hero::after{top:178px;height:162px;width:89px;left:-22px;opacity:.9}
+.shili-hero h1{margin-top:10px;font-size:12px}.shili-hero .shili-subtitle{top:254px;right:31px}
+.shili-home-ribbon{mix-blend-mode:multiply;width:161px;height:150px;right:-4px;top:6px;transform:rotate(7deg)}
+.shili-home-stamp{mix-blend-mode:multiply;left:17px;top:292px;width:90px;height:119px}.shili-home-sprig{mix-blend-mode:multiply;right:-19px;top:343px;width:139px;height:166px;transform:rotate(12deg)}
+.shili-home-photo{top:319px;left:83px;width:156px;height:183px;border-width:7px;transform:rotate(-11deg)}
+.shili-nav-icon{width:30px;height:30px;mix-blend-mode:multiply}.shili-nav-item{gap:2px;min-height:51px}.shili-nav-item.active .shili-nav-icon{filter:saturate(1.15)}
+.shili-shortcut img{width:37px;height:37px;mix-blend-mode:multiply}.shili-method>img{width:36px;height:36px;mix-blend-mode:multiply}
+.shili-page-heading{margin-top:4px;background:#fbf8ee url('../assets/shili/common/paper_background.png') center/360px auto;padding:36px 29px 27px}
+.shili-page-heading::before{background-image:url('../assets/shili/reference/botanical-transparent.png');width:72px;height:96px;mix-blend-mode:multiply;opacity:.8}
+.shili-page-heading::after{mix-blend-mode:multiply;width:64px;height:88px;right:-10px;top:15px}
+.shili-page[data-view=cabinet] .shili-page-heading .shili-script{font-size:46px;max-width:240px;margin-left:auto;margin-right:auto;line-height:.86}
+.shili-page[data-view=calendar] .shili-page-heading .shili-script{font-size:49px;max-width:230px;margin-left:auto;margin-right:auto;line-height:.85}
+.shili-page[data-view=settings] .shili-page-heading .shili-script{font-size:54px}
+.shili-page[data-view=preview] .shili-page-heading,.shili-page[data-view=wrapping] .shili-page-heading,.shili-page[data-view=opening] .shili-page-heading{padding:20px 25px 18px;margin-bottom:0}
+.shili-page[data-view=preview] .shili-script,.shili-page[data-view=wrapping] .shili-script,.shili-page[data-view=opening] .shili-script{font-size:45px}
+body:has(.shili-page:not(.is-closing)) #tw-ball{visibility:hidden;pointer-events:none}
+@media(max-width:360px){.shili-script{font-size:44px}.shili-hero{min-height:478px;padding-top:45px}.shili-hero .shili-script{font-size:59px}.shili-hero .shili-subtitle{top:225px}.shili-home-photo{left:75px;top:284px;width:132px;height:156px}.shili-home-ribbon{width:135px;height:132px;right:-6px}.shili-home-stamp{top:265px;width:78px;height:105px}.shili-home-sprig{top:318px;width:111px;height:128px}.shili-page[data-view=cabinet] .shili-page-heading .shili-script{font-size:42px}.shili-page[data-view=calendar] .shili-page-heading .shili-script{font-size:44px}}
+.shili-home-ribbon{clip-path:polygon(0 0,100% 0,100% 100%,68% 100%,58% 59%,42% 59%,30% 100%,0 100%)}
+.shili-settings-row{display:flex;align-items:center;gap:14px;min-height:57px;width:100%;padding:0 13px;margin:10px 0;border:1px solid #dfd4c5;border-radius:8px;background:#faf6eebe;font:inherit;font-size:13px;color:var(--ink);cursor:pointer;text-align:left}.shili-settings-row img{width:25px;height:25px;object-fit:contain;mix-blend-mode:multiply}.shili-settings-row .shili-chevron{margin-left:auto}.shili-page[data-view=settings] .shili-settings-group{margin:8px 0}.shili-page[data-view=settings] .shili-settings-group>summary,.shili-page[data-view=settings] .shili-settings-row{min-height:52px}
+.shili-page [hidden]{display:none!important}
+.shili-back{font-size:0;position:relative}.shili-back::before{content:'';display:block;width:11px;height:11px;border-left:1.5px solid #b47c8b;border-bottom:1.5px solid #b47c8b;transform:rotate(45deg);margin-left:8px}
+.shili-settings-group>summary img{width:30px;height:30px;object-fit:contain;mix-blend-mode:multiply}.shili-settings-row img{width:30px;height:30px}
+/* All functional icons are drawn with CSS borders and geometry, never bitmap crops.
+   Shape coordinates use a 32px square. The 12 child strokes have no semantic text. */
+.shili-icon{--icon-ink:#bc8493;position:relative;display:inline-block;flex:none;width:32px;height:32px;color:var(--icon-ink);vertical-align:middle;isolation:isolate}
+.shili-icon .shili-stroke{position:absolute;display:none;box-sizing:border-box;border-color:currentColor;border-style:solid;border-width:0;pointer-events:none;font-style:normal}
+.shili-nav-icon{width:30px;height:30px;opacity:.9;filter:none!important;mix-blend-mode:normal;transform:scale(.94)}
+.shili-shortcut .shili-icon{width:32px;height:32px}.shili-method>.shili-icon{width:32px;height:32px}.shili-settings-group>summary .shili-icon,.shili-settings-row .shili-icon{width:32px;height:32px;transform:scale(.8)}
+/* House: double pitched roof, small chimney, door and two windows. */
+.shili-icon-home .shili-stroke-1{display:block;left:7px;top:6px;width:18px;height:18px;border-left-width:1.5px;border-top-width:1.5px;transform:rotate(45deg);border-radius:1px}
+.shili-icon-home .shili-stroke-2{display:block;left:6px;top:13px;width:21px;height:17px;border:1.5px solid;border-top:0;border-radius:0 0 1px 1px;background:var(--paper,#f7f5ee);z-index:1}
+.shili-icon-home .shili-stroke-3{display:block;left:12px;top:19px;width:8px;height:11px;border:1.5px solid;border-bottom:0;z-index:2}
+.shili-icon-home .shili-stroke-4{display:block;left:22px;top:3px;width:4px;height:8px;border:1.5px solid;background:var(--paper,#f7f5ee);z-index:-1}
+.shili-icon-home .shili-stroke-5{display:block;left:2px;top:8px;width:5px;height:5px;border-left-width:1.5px;border-top-width:1.5px;transform:rotate(-45deg)}
+.shili-icon-home .shili-stroke-6{display:block;left:9px;top:15px;width:4px;height:4px;border:1px solid;z-index:2}
+.shili-icon-home .shili-stroke-7{display:block;left:21px;top:15px;width:4px;height:4px;border:1px solid;z-index:2}
+.shili-icon-home .shili-stroke-8{display:block;left:5px;top:2px;width:4px;height:4px;border-left-width:1px;border-top-width:1px;transform:rotate(45deg)}
+/* Gift box and tied ribbon. */
+.shili-icon-gift .shili-stroke-1{display:block;left:5px;top:14px;width:23px;height:17px;border:1.5px solid;border-radius:1px}
+.shili-icon-gift .shili-stroke-2{display:block;left:3px;top:9px;width:27px;height:7px;border:1.5px solid;background:var(--paper,#f7f5ee);border-radius:1px}
+.shili-icon-gift .shili-stroke-3{display:block;left:13px;top:9px;width:6px;height:22px;border-left-width:1.5px;border-right-width:1.5px;z-index:1}
+.shili-icon-gift .shili-stroke-4{display:block;left:7px;top:2px;width:10px;height:8px;border:1.5px solid;border-radius:60% 70% 0 70%;transform:rotate(16deg)}
+.shili-icon-gift .shili-stroke-5{display:block;left:16px;top:2px;width:10px;height:8px;border:1.5px solid;border-radius:70% 60% 70% 0;transform:rotate(-16deg)}
+/* Calendar with twin binder rings and the reference's date numerals. */
+.shili-icon-calendar .shili-stroke-1,.shili-icon-heart-calendar .shili-stroke-1{display:block;left:4px;top:7px;width:25px;height:23px;border:1.5px solid;border-radius:3px}
+.shili-icon-calendar .shili-stroke-2,.shili-icon-heart-calendar .shili-stroke-2{display:block;left:4px;top:13px;width:25px;border-top-width:1.5px}
+.shili-icon-calendar .shili-stroke-3,.shili-icon-heart-calendar .shili-stroke-3{display:block;left:10px;top:3px;height:9px;width:3px;border:1.5px solid;border-radius:3px}
+.shili-icon-calendar .shili-stroke-4,.shili-icon-heart-calendar .shili-stroke-4{display:block;left:22px;top:3px;height:9px;width:3px;border:1.5px solid;border-radius:3px}
+.shili-icon-calendar::after{content:'31';position:absolute;inset:14px 0 0;text-align:center;font:italic 14px/15px Georgia,serif;color:currentColor}
+.shili-icon-heart-calendar .shili-stroke-5{display:block;left:12px;top:19px;width:9px;height:9px;border-right-width:1.4px;border-bottom-width:1.4px;transform:rotate(45deg)}
+.shili-icon-heart-calendar .shili-stroke-6{display:block;left:10px;top:16px;width:7px;height:8px;border-left-width:1.4px;border-top-width:1.4px;border-radius:7px 7px 0 0;transform:rotate(-35deg)}
+.shili-icon-heart-calendar .shili-stroke-7{display:block;left:16px;top:16px;width:7px;height:8px;border-right-width:1.4px;border-top-width:1.4px;border-radius:7px 7px 0 0;transform:rotate(35deg)}
+/* Keepsake album, spine, inset border and botanical butterfly. */
+.shili-icon-album .shili-stroke-1{display:block;left:6px;top:3px;width:21px;height:27px;border:1.5px solid;border-radius:1px}
+.shili-icon-album .shili-stroke-2{display:block;left:8px;top:5px;width:17px;height:23px;border:1px solid}
+.shili-icon-album .shili-stroke-3{display:block;left:11px;top:6px;height:21px;border-left-width:1px}
+.shili-icon-album .shili-stroke-4{display:block;left:15px;top:11px;width:6px;height:6px;border:1px solid;border-radius:70% 0 70% 0;transform:rotate(12deg)}
+.shili-icon-album .shili-stroke-5{display:block;left:18px;top:11px;width:6px;height:6px;border:1px solid;border-radius:0 70% 0 70%;transform:rotate(-12deg)}
+.shili-icon-album .shili-stroke-6{display:block;left:17px;top:17px;height:7px;border-left-width:1px;transform:rotate(9deg)}
+.shili-icon-album .shili-stroke-7{display:block;left:12px;top:23px;width:11px;border-top-width:1px}
+/* Cog: outlined ring and eight radial teeth. */
+.shili-icon-gear .shili-stroke-1{display:block;left:6px;top:6px;width:21px;height:21px;border:1.5px solid;border-radius:50%}
+.shili-icon-gear .shili-stroke-2{display:block;left:12px;top:12px;width:9px;height:9px;border:1.5px solid;border-radius:50%}
+.shili-icon-gear .shili-stroke:nth-child(n+3):nth-child(-n+10){display:block;left:13px;top:1px;width:7px;height:6px;border:1.5px solid;border-bottom:0;background:var(--paper,#f7f5ee);transform-origin:3.5px 15.5px;border-radius:1px}
+.shili-icon-gear .shili-stroke-4{transform:rotate(45deg)}.shili-icon-gear .shili-stroke-5{transform:rotate(90deg)}.shili-icon-gear .shili-stroke-6{transform:rotate(135deg)}.shili-icon-gear .shili-stroke-7{transform:rotate(180deg)}.shili-icon-gear .shili-stroke-8{transform:rotate(225deg)}.shili-icon-gear .shili-stroke-9{transform:rotate(270deg)}.shili-icon-gear .shili-stroke-10{transform:rotate(315deg)}
+/* AI flower: five individually outlined petals around a small centre. */
+.shili-icon-flower .shili-stroke:nth-child(-n+5){display:block;left:10px;top:0;width:12px;height:17px;border:1.5px solid;border-radius:60% 60% 45% 45%;transform-origin:6px 16px;background:var(--paper,#f7f5ee)}
+.shili-icon-flower .shili-stroke-2{transform:rotate(72deg)}.shili-icon-flower .shili-stroke-3{transform:rotate(144deg)}.shili-icon-flower .shili-stroke-4{transform:rotate(216deg)}.shili-icon-flower .shili-stroke-5{transform:rotate(288deg)}
+.shili-icon-flower .shili-stroke-6{display:block;left:12px;top:12px;width:8px;height:8px;border:1.5px solid;border-radius:50%;background:var(--paper,#f7f5ee);z-index:2}
+/* Photo card, sun and two hill outlines. */
+.shili-icon-photo .shili-stroke-1{display:block;left:2px;top:3px;width:29px;height:26px;border:1.5px solid;border-radius:2px;overflow:hidden}
+.shili-icon-photo .shili-stroke-2{display:block;left:7px;top:8px;width:5px;height:5px;border:1.5px solid;border-radius:50%}
+.shili-icon-photo .shili-stroke-3{display:block;left:9px;top:18px;width:13px;height:13px;border-top-width:1.5px;border-left-width:1.5px;transform:rotate(45deg)}
+.shili-icon-photo .shili-stroke-4{display:block;left:20px;top:17px;width:8px;height:8px;border-top-width:1.5px;border-left-width:1.5px;transform:rotate(45deg)}
+.shili-icon-photo{overflow:hidden}
+/* Ribbon loops, knot and two folded tails. */
+.shili-icon-bow .shili-stroke-1{display:block;left:1px;top:3px;width:15px;height:12px;border:1.5px solid;border-radius:70% 50% 10% 60%;transform:rotate(20deg)}
+.shili-icon-bow .shili-stroke-2{display:block;left:16px;top:3px;width:15px;height:12px;border:1.5px solid;border-radius:50% 70% 60% 10%;transform:rotate(-20deg)}
+.shili-icon-bow .shili-stroke-3{display:block;left:13px;top:9px;width:6px;height:6px;border:1.5px solid;border-radius:2px;background:var(--paper,#f7f5ee);z-index:1}
+.shili-icon-bow .shili-stroke-4{display:block;left:8px;top:14px;width:7px;height:17px;border-left-width:1.5px;border-right-width:1.5px;transform:rotate(17deg)}
+.shili-icon-bow .shili-stroke-5{display:block;left:19px;top:14px;width:7px;height:17px;border-left-width:1.5px;border-right-width:1.5px;transform:rotate(-17deg)}
+.shili-icon-bow .shili-stroke-6{display:block;left:6px;top:27px;width:7px;height:5px;border-top-width:1.5px;transform:rotate(-25deg)}
+.shili-icon-bow .shili-stroke-7{display:block;left:21px;top:27px;width:7px;height:5px;border-top-width:1.5px;transform:rotate(25deg)}
+/* Settings menu symbols. */
+.shili-icon-person .shili-stroke-1{display:block;left:11px;top:2px;width:11px;height:13px;border:1.5px solid;border-radius:50%}
+.shili-icon-person .shili-stroke-2{display:block;left:5px;top:17px;width:23px;height:13px;border:1.5px solid;border-radius:50% 50% 1px 1px}
+.shili-icon-clock .shili-stroke-1{display:block;left:4px;top:5px;width:25px;height:25px;border:1.5px solid;border-radius:50%}
+.shili-icon-clock .shili-stroke-2{display:block;left:16px;top:10px;height:8px;border-left-width:1.5px}.shili-icon-clock .shili-stroke-3{display:block;left:16px;top:17px;width:6px;border-top-width:1.5px;transform:rotate(30deg);transform-origin:left center}.shili-icon-clock .shili-stroke-4{display:block;left:14px;top:1px;width:5px;height:5px;border:1.5px solid;border-radius:1px}
+.shili-icon-sync .shili-stroke-1{display:block;left:4px;top:4px;width:24px;height:24px;border:1.5px solid;border-right-color:transparent;border-radius:50%;transform:rotate(-35deg)}
+.shili-icon-sync .shili-stroke-2{display:block;left:10px;top:10px;width:12px;height:12px;border:1.5px solid;border-left-color:transparent;border-radius:50%;transform:rotate(-35deg)}
+.shili-icon-sync .shili-stroke-3{display:block;left:23px;top:20px;width:6px;height:6px;border-top-width:1.5px;border-right-width:1.5px;transform:rotate(20deg)}
+.shili-icon-sync .shili-stroke-4{display:block;left:8px;top:7px;width:5px;height:5px;border-left-width:1.5px;border-bottom-width:1.5px}
+.shili-icon-info .shili-stroke-1,.shili-icon-help .shili-stroke-1{display:block;left:3px;top:3px;width:27px;height:27px;border:1.5px solid;border-radius:50%}
+.shili-icon-info::after{content:'i';position:absolute;inset:4px 0 0;text-align:center;font:italic 24px/24px Georgia,serif;color:currentColor}
+.shili-icon-help::after{content:'?';position:absolute;inset:4px 0 0;text-align:center;font:20px/24px Georgia,serif;color:currentColor}
+.shili-icon-help .shili-stroke-2{display:block;left:3px;top:24px;width:7px;height:7px;border-left-width:1.5px;border-bottom-width:1.5px;transform:rotate(-12deg);background:var(--paper,#f7f5ee)}
+.shili-icon-palette .shili-stroke-1{display:block;left:3px;top:4px;width:27px;height:24px;border:1.5px solid;border-radius:50% 50% 40% 50%;transform:rotate(-25deg)}
+.shili-icon-palette .shili-stroke-2,.shili-icon-palette .shili-stroke-3,.shili-icon-palette .shili-stroke-4,.shili-icon-palette .shili-stroke-5{display:block;width:4px;height:4px;border:1px solid;border-radius:50%;top:9px;left:9px}.shili-icon-palette .shili-stroke-3{left:16px;top:7px}.shili-icon-palette .shili-stroke-4{left:22px;top:12px}.shili-icon-palette .shili-stroke-5{left:8px;top:17px}
+/* Decorative satin bow is CSS as well: shaded loops, knot and long folded tails. */
+.shili-home-ribbon.shili-icon-ribbon{width:157px;height:145px;clip-path:none;mix-blend-mode:normal;color:#c18a9a;overflow:visible;top:13px;right:-4px}
+.shili-icon-ribbon .shili-stroke-1,.shili-icon-ribbon .shili-stroke-2{display:block;width:75px;height:45px;border:1px solid #c99aa6;background:linear-gradient(165deg,#f5dce2 0%,#e0a8b7 35%,#f2d3dc 52%,#cc8b9f 70%,#e4b4c1 95%);box-shadow:inset 0 2px 3px #fff8,inset 2px -3px 5px #b77b8d26;z-index:2}
+.shili-icon-ribbon .shili-stroke-1{left:0;top:0;border-radius:65% 22% 13% 45%;transform:rotate(18deg)}
+.shili-icon-ribbon .shili-stroke-2{right:0;top:0;border-radius:22% 65% 45% 13%;transform:rotate(-18deg)}
+.shili-icon-ribbon .shili-stroke-3{display:block;left:67px;top:16px;width:24px;height:24px;border:1px solid #c18b9b;border-radius:6px;transform:rotate(-7deg);background:linear-gradient(100deg,#c98b9e,#edc4cf 38%,#e0a4b5 55%,#c58a9c);box-shadow:1px 2px 3px #996b7a33;z-index:3}
+.shili-icon-ribbon .shili-stroke-4{display:block;left:40px;top:28px;width:37px;height:105px;background:linear-gradient(90deg,#dca1b2,#f2cfd9 35%,#d395a9 85%);transform:rotate(24deg);clip-path:polygon(7% 0,95% 0,93% 100%,43% 85%,0 100%);z-index:1}
+.shili-icon-ribbon .shili-stroke-5{display:block;left:94px;top:30px;width:35px;height:285px;background:linear-gradient(100deg,#e5b5c2,#f0d4dc 38%,#d393a8 90%);transform:rotate(-10deg);clip-path:polygon(0 0,92% 0,100% 54%,58% 72%,90% 100%,45% 91%,0 100%,23% 70%,50% 52%);opacity:.86;z-index:1}
+.shili-icon-ribbon .shili-stroke-6{display:block;left:14px;top:14px;width:42px;height:13px;border-top:1px solid #a9697d66;border-radius:50%;transform:rotate(18deg);z-index:4}
+.shili-icon-ribbon .shili-stroke-7{display:block;left:104px;top:14px;width:40px;height:13px;border-top:1px solid #a9697d66;border-radius:50%;transform:rotate(-18deg);z-index:4}
+@media(max-width:360px){.shili-home-ribbon.shili-icon-ribbon{transform:rotate(8deg) scale(.85);transform-origin:top right;right:0;top:8px}}
+.shili-home-ribbon.shili-icon-ribbon{position:absolute}
+.shili-home-stamp,.shili-home-sprig{mix-blend-mode:normal;object-fit:contain}
+.shili-page-heading::before,.shili-page-heading::after{mix-blend-mode:normal;background-size:contain;background-repeat:no-repeat}
+.shili-atelier{object-fit:contain;border:0;box-shadow:none;clip-path:polygon(1% 4%,10% 1%,24% 3%,36% 0,51% 3%,66% 0,81% 4%,98% 0,100% 19%,97% 36%,100% 55%,98% 77%,100% 95%,84% 99%,69% 96%,50% 100%,34% 97%,18% 100%,1% 95%,3% 77%,0 53%,3% 32%);height:250px}
+.shili-wrapped-art{object-fit:contain;height:225px;border:0;background:transparent}
+.shili-opening-art{object-fit:contain;box-shadow:none;background:transparent}
+.shili-home-ribbon.shili-icon-ribbon{position:absolute!important}
+/* Remove the unrelated partial stamp from the scene; create a complete green stamp in the heading. */
+.shili-atelier{clip-path:polygon(1% 4%,10% 1%,24% 3%,36% 0,51% 3%,65% 2%,65% 17%,81% 18%,98% 17%,100% 36%,98% 55%,100% 77%,99% 95%,84% 99%,69% 96%,50% 100%,34% 97%,18% 100%,1% 95%,3% 77%,0 53%,3% 32%)}
+.shili-page[data-view=create] .shili-page-heading::after{background:#9da98b url('../assets/shili/reference/botanical-transparent.png') center/80% auto no-repeat;border:5px double #eee9d9;outline:1px solid #a3ad93;width:58px;height:83px;right:0;top:20px;box-shadow:1px 2px 3px #716d4b22;clip-path:polygon(0 3%,5% 3%,5% 0,15% 0,15% 3%,25% 3%,25% 0,35% 0,35% 3%,45% 3%,45% 0,55% 0,55% 3%,65% 3%,65% 0,75% 0,75% 3%,85% 3%,85% 0,95% 0,95% 3%,100% 3%,100% 97%,95% 97%,95% 100%,85% 100%,85% 97%,75% 97%,75% 100%,65% 100%,65% 97%,55% 97%,55% 100%,45% 100%,45% 97%,35% 97%,35% 100%,25% 100%,25% 97%,15% 97%,15% 100%,5% 100%,5% 97%,0 97%)}
+.shili-back{min-height:44px}
+.shili-atelier-scene{position:relative;isolation:isolate}
+.shili-atelier-scene .shili-atelier{clip-path:polygon(1% 4%,10% 1%,24% 3%,36% 0,51% 3%,66% 0,81% 4%,98% 0,100% 19%,97% 36%,100% 55%,98% 77%,100% 95%,84% 99%,69% 96%,50% 100%,34% 97%,18% 100%,1% 95%,3% 77%,0 53%,3% 32%)}
+.shili-atelier-scene::after{content:'';position:absolute;right:8px;top:-27px;width:76px;height:101px;background:#9ca88a url('../assets/shili/reference/botanical-transparent.png') center/76% auto no-repeat;border:6px double #ece8d9;outline:1px solid #9ca88a;transform:rotate(9deg);box-shadow:1px 2px 3px #625b4133}
+.shili-page[data-view=create] .shili-page-heading::after{display:none}
+.shili-page[data-view=preview] .shili-preview{max-height:270px;margin:10px 0 15px}
+.shili-page[data-view=preview] .shili-card{min-height:105px;padding:24px 22px;margin:12px 4px}
+.shili-page[data-view=preview] .shili-section{margin:8px 0}.shili-page[data-view=preview] .shili-description{margin:6px 0}.shili-page[data-view=preview] .shili-btn{font-size:12px;padding:11px 12px}
+.shili-page[data-view=wrapping] .shili-wrapped-art{height:170px;margin:0 0 12px}
+.shili-page[data-view=wrapping] .shili-wrapping-card{min-height:125px;padding:24px 22px 18px;margin:15px 3px}.shili-page[data-view=wrapping] .shili-wrapping-card h2{font-size:22px;margin-bottom:9px}.shili-page[data-view=wrapping] .shili-wrapping-card p{margin:6px 0;font-size:13px}
+.shili-page[data-view=wrapping] .shili-swatch{min-height:66px;padding-top:36px}
+/* Gift motion: quiet paper movement at rest; a staged, persistent opening action. */
+@keyframes shili-paper-arrive{from{opacity:0;transform:translateY(9px) rotate(-1deg)}to{opacity:1;transform:translateY(0) rotate(0)}}
+@keyframes shili-ink-arrive{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shili-gift-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}
+@keyframes shili-photo-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.018)}}
+@keyframes shili-ribbon-sway{0%,100%{transform:rotate(7deg)}50%{transform:rotate(10deg)}}
+.shili-page-heading{animation:shili-ink-arrive .5s ease both}
+.shili-album-item{animation:shili-paper-arrive .55s cubic-bezier(.2,.65,.3,1) both;animation-delay:calc(var(--shili-order,0)*45ms);transition:box-shadow .3s,translate .3s}
+.shili-album-item:hover,.shili-album-item:focus-visible{translate:0 -3px;box-shadow:2px 7px 12px #806c4d24}
+.shili-album-item:nth-child(-n+4) .shili-album-photo>img{animation:shili-photo-breathe 7s ease-in-out infinite;animation-delay:calc(var(--shili-order,0)*-1.4s)}
+.shili-wrapped-art{animation:shili-gift-float 6s ease-in-out infinite;filter:drop-shadow(0 8px 5px #80664c12)}
+.shili-home-ribbon.shili-icon-ribbon{animation:shili-ribbon-sway 8s ease-in-out infinite;transform-origin:50% 15%}
+.shili-shortcut{transition:translate .25s,box-shadow .25s}.shili-shortcut:hover{translate:0 -3px;box-shadow:2px 6px 10px #806c4d22}
+.shili-page button:active>.shili-icon{transform:scale(.9);transition:transform .15s}
+.shili-opening-stage{height:390px;min-height:390px;perspective:800px;overflow:visible;justify-content:flex-end;padding-bottom:0;border:0;margin:8px 0 14px}
+.shili-opening-stage strong{position:relative;z-index:3;padding:16px 8px 0;max-width:100%}
+.shili-unwrapping-status{text-align:center;color:#a18482;font-size:12px;line-height:1.8;min-height:24px;margin:12px 0}
+.shili-revealed-gift{position:absolute;left:50%;top:102px;width:102px;height:112px;object-fit:cover;border:5px solid #fff9ee;box-shadow:0 4px 10px #886a5330;opacity:0;transform:translate(-50%,40px) scale(.7) rotate(-5deg);z-index:2}
+.shili-opening-stage.is-open .shili-revealed-gift{opacity:1;transform:translate(-50%,-16px) scale(1) rotate(-5deg)}
+.shili-confetti{position:absolute;left:50%;top:160px;width:7px;height:12px;background:#dca9b8;opacity:0;border-radius:1px;pointer-events:none;z-index:4}
+.shili-confetti:nth-of-type(3n){background:#a6b38f;width:5px;height:11px}.shili-confetti:nth-of-type(3n+1){background:#c8dbe9;width:8px;height:8px;border-radius:50%}.shili-confetti:nth-of-type(4n){background:#dfcba3}
+@media(max-width:360px){.shili-opening-stage{height:340px;min-height:340px}.shili-closed-art,.shili-opening-stage .shili-opening-art{height:300px}.shili-revealed-gift{width:86px;height:94px;top:90px}}
+@media(prefers-reduced-motion:reduce){.shili-page *{animation:none!important;transition:none!important}.shili-album-item:hover,.shili-album-item:focus-visible,.shili-shortcut:hover{translate:none}.shili-opening-stage.is-open .shili-opening-art{transform:none}.shili-confetti{display:none}}
+@keyframes shili-framed-float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4px) rotate(-1deg)}}
+.shili-preview{animation:shili-framed-float 8s ease-in-out infinite}
+.gift-card{animation:shili-paper-arrive .55s ease both;transition:transform .25s,box-shadow .25s}.gift-card:hover,.gift-card:focus-visible{transform:translateY(-2px);box-shadow:0 5px 12px #9f788c1a}
+@media(prefers-reduced-motion:reduce){.shili-preview,.gift-card{animation:none!important;transition:none!important}.gift-card:hover,.gift-card:focus-visible{transform:none}}
+@keyframes shili-ink-arrive{from{opacity:0;translate:0 5px}to{opacity:1;translate:0 0}}
+/* Registered mechanical layers: body, lid, two paper planes, seven ribbon pieces,
+   real gift content, cast shadow and light. No whole-box crossfade is used here. */
+.shili-mechanical{height:405px;min-height:405px;perspective:900px;transform-style:preserve-3d;isolation:isolate}
+.shili-body-layer{position:absolute;left:0;top:144px;width:100%;height:auto;object-fit:contain;z-index:3;transform-origin:50% 80%;filter:drop-shadow(0 5px 3px #86674b16)}
+.shili-lid-layer{position:absolute;left:0;top:144px;width:100%;aspect-ratio:1708/920;z-index:8;transform-origin:24% 70%;transform-style:preserve-3d;filter:drop-shadow(0 3px 2px #84634524)}
+.shili-lid-registration{width:100%;height:auto;display:block;transform-origin:0 0;visibility:hidden;backface-visibility:visible}
+.shili-mechanical[data-registered=true] .shili-lid-registration{visibility:visible}
+.shili-gift-bow.shili-icon-ribbon{position:absolute;left:50%;top:182px;width:157px;height:145px;transform:translateX(-50%) scale(.88) rotate(-5deg);transform-origin:50% 18%;z-index:10;clip-path:none;overflow:visible}
+.shili-gift-bow .shili-stroke-4{height:85px}.shili-gift-bow .shili-stroke-5{height:125px}
+.shili-gift-shadow{position:absolute;left:10%;top:322px;width:80%;height:22px;background:#8a6b4a25;filter:blur(10px);border-radius:50%;z-index:0;transform:scaleX(.95)}
+.shili-gift-glow{position:absolute;left:9%;top:116px;width:82%;height:210px;background:radial-gradient(ellipse,#fff4d7b3 0,#f9e7bd33 45%,transparent 72%);opacity:0;z-index:0;pointer-events:none}
+.shili-tissue{position:absolute;top:204px;width:39%;height:110px;z-index:4;transform-origin:50% 100%;opacity:0;backface-visibility:visible;box-shadow:inset 4px 1px 8px #fff8,inset -5px -3px 8px #ac967230;background:linear-gradient(125deg,#f9f2df 0%,#e9dcc0 33%,#fff9eb 34%,#f2e7cf 67%,#e3d0b0 68%,#f8f0df 100%);clip-path:polygon(0 9%,16% 0,32% 10%,49% 1%,66% 10%,83% 0,100% 12%,95% 91%,76% 96%,58% 91%,38% 100%,18% 93%,3% 100%)}
+.shili-tissue-left{left:13%;transform:translate(15px,18px) rotateX(78deg) rotate(8deg)}
+.shili-tissue-right{right:10%;transform:translate(-15px,18px) rotateX(78deg) rotate(-8deg)}
+.shili-mechanical .shili-revealed-gift{top:198px;width:99px;height:113px;z-index:6;opacity:0;transform:translate(-50%,65px) scale(.8) rotate(4deg);filter:drop-shadow(0 4px 4px #8d6d4630)}
+.shili-revealed-letter{background:#fcf6e8;display:grid;place-items:center;color:#a68086;font:13px/1.7 serif;text-align:center;padding:10px;overflow:hidden}
+.shili-revealed-letter span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.shili-mechanical .shili-confetti{top:225px;z-index:12}
+.shili-mechanical.is-open .shili-lid-layer{transform:translate3d(7px,-130px,-40px) rotate(-13deg) rotateX(-18deg) scale(.9);z-index:2;filter:drop-shadow(4px 12px 6px #84634520)}
+.shili-mechanical.is-open .shili-gift-bow{opacity:0;visibility:hidden}
+.shili-mechanical.is-open .shili-tissue-left{opacity:1;transform:translate(-18px,-24px) rotateX(8deg) rotate(-24deg)}
+.shili-mechanical.is-open .shili-tissue-right{opacity:1;transform:translate(20px,-28px) rotateX(8deg) rotate(23deg)}
+.shili-mechanical.is-open .shili-revealed-gift{opacity:1;transform:translate(-50%,-45px) scale(1) rotate(-5deg)}
+.shili-mechanical.is-open .shili-gift-glow{opacity:.6}
+@keyframes shili-lid-lift{0%,23%{transform:translate3d(0,0,0) rotate(0);z-index:8;filter:drop-shadow(0 3px 2px #84634524)}38%{transform:translate3d(0,-14px,10px) rotate(-2deg);z-index:8;filter:drop-shadow(0 12px 5px #84634529)}62%{transform:translate3d(-11px,-108px,20px) rotate(-10deg) rotateX(-12deg);z-index:8}80%,100%{transform:translate3d(7px,-130px,-40px) rotate(-13deg) rotateX(-18deg) scale(.9);z-index:2;filter:drop-shadow(4px 12px 6px #84634520)}}
+@keyframes shili-loop-left{0%,9%{transform:rotate(18deg)}17%{transform:translate(-4px,2px) rotate(8deg) scaleX(.8)}32%{transform:translate(-31px,10px) rotate(-13deg) scaleX(1.35) scaleY(.35);opacity:1}45%,100%{transform:translate(-80px,20px) rotate(-28deg) scaleX(1.6) scaleY(.1);opacity:0}}
+@keyframes shili-loop-right{0%,9%{transform:rotate(-18deg)}17%{transform:translate(4px,2px) rotate(-8deg) scaleX(.8)}32%{transform:translate(31px,10px) rotate(13deg) scaleX(1.35) scaleY(.35);opacity:1}45%,100%{transform:translate(80px,20px) rotate(28deg) scaleX(1.6) scaleY(.1);opacity:0}}
+@keyframes shili-knot-release{0%,11%{transform:rotate(-7deg) scale(1)}22%{transform:rotate(14deg) scale(.62,.85);opacity:1}37%,100%{transform:translateY(-18px) rotate(35deg) scale(.2);opacity:0}}
+@keyframes shili-tail-left{0%,12%{transform:rotate(24deg)}26%{transform:translate(-18px,-5px) rotate(55deg);opacity:1}43%,100%{transform:translate(-108px,-28px) rotate(95deg) scaleY(.75);opacity:0}}
+@keyframes shili-tail-right{0%,12%{transform:rotate(-10deg)}26%{transform:translate(18px,-5px) rotate(-45deg);opacity:1}43%,100%{transform:translate(108px,-28px) rotate(-90deg) scaleY(.75);opacity:0}}
+@keyframes shili-body-settle{0%,24%{transform:none}30%{transform:translateY(2px) rotate(-.8deg)}38%{transform:translateY(-1px) rotate(.5deg)}47%,100%{transform:none}}
+@keyframes shili-tissue-left-unfold{0%,40%{opacity:0;transform:translate(15px,18px) rotateX(78deg) rotate(8deg)}54%{opacity:.85;transform:translate(-4px,-9px) rotateX(30deg) rotate(-10deg)}76%,100%{opacity:1;transform:translate(-18px,-24px) rotateX(8deg) rotate(-24deg)}}
+@keyframes shili-tissue-right-unfold{0%,45%{opacity:0;transform:translate(-15px,18px) rotateX(78deg) rotate(-8deg)}59%{opacity:.85;transform:translate(4px,-9px) rotateX(30deg) rotate(10deg)}81%,100%{opacity:1;transform:translate(20px,-28px) rotateX(8deg) rotate(23deg)}}
+@keyframes shili-content-lift{0%,48%{opacity:0;transform:translate(-50%,65px) scale(.8) rotate(4deg)}66%{opacity:1;transform:translate(-50%,4px) scale(.92) rotate(-2deg)}83%{opacity:1;transform:translate(-50%,-51px) scale(1.025) rotate(-6deg)}100%{opacity:1;transform:translate(-50%,-45px) scale(1) rotate(-5deg)}}
+@keyframes shili-unbox-light{0%,34%{opacity:0;transform:scale(.55)}68%{opacity:.8;transform:scale(1.08)}100%{opacity:.6;transform:scale(1)}}
+@keyframes shili-unbox-paper{0%,57%{opacity:0;transform:translate(0,5px) rotate(0)}66%{opacity:.8}100%{opacity:0;transform:translate(var(--drift),-190px) rotate(var(--spin))}}
+.shili-mechanical.is-unwrapping .shili-lid-layer{animation:shili-lid-lift 3.8s cubic-bezier(.26,.67,.28,1) both}
+.shili-mechanical.is-unwrapping .shili-body-layer{animation:shili-body-settle 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-gift-bow .shili-stroke-1{animation:shili-loop-left 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-gift-bow .shili-stroke-2{animation:shili-loop-right 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-gift-bow .shili-stroke-3{animation:shili-knot-release 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-gift-bow .shili-stroke-4{animation:shili-tail-left 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-gift-bow .shili-stroke-5{animation:shili-tail-right 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-gift-bow .shili-stroke-6,.shili-mechanical.is-unwrapping .shili-gift-bow .shili-stroke-7{display:none}
+.shili-mechanical.is-unwrapping .shili-tissue-left{animation:shili-tissue-left-unfold 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-tissue-right{animation:shili-tissue-right-unfold 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-revealed-gift{animation:shili-content-lift 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-gift-glow{animation:shili-unbox-light 3.8s ease both}
+.shili-mechanical.is-unwrapping .shili-confetti{animation:shili-unbox-paper 3.8s ease-out both;animation-delay:calc(var(--piece)*10ms)}
+@media(max-width:360px){.shili-mechanical{height:350px;min-height:350px}.shili-body-layer,.shili-lid-layer{top:125px}.shili-gift-bow.shili-icon-ribbon{top:155px;transform:translateX(-50%) scale(.74) rotate(-5deg)}.shili-gift-shadow{top:275px}.shili-tissue{top:176px;height:95px}.shili-mechanical .shili-revealed-gift{top:176px;width:86px;height:99px}.shili-mechanical.is-open .shili-lid-layer{transform:translate3d(5px,-104px,-30px) rotate(-13deg) rotateX(-18deg) scale(.9)}}
+@media(prefers-reduced-motion:reduce){.shili-mechanical *{animation:none!important;transition:none!important}.shili-confetti{display:none}}
+:root.theme-dark #app .shili-page{background-color:#f7f5ee;color:#665e52;color-scheme:light}
+:root.theme-dark #app .shili-page :is(input,textarea,select){color-scheme:light}
+@media(max-width:360px){.shili-card,.shili-wrapping-card{transform:none}.shili-nav-item{min-width:44px}}
+@media(max-width:360px){.shili-page-heading::after{right:4px;width:50px;height:74px}.shili-page-heading::before{left:5px;width:60px;height:80px}}
+
+/* Reference calibration: long curling home ribbon, preserving the gift mechanics. */
+.shili-home-ribbon.shili-long-curl{width:51%;height:auto;max-height:95%;right:0;top:7px;object-fit:contain;object-position:top right;clip-path:none;transform:none;mix-blend-mode:normal;pointer-events:none;z-index:4;animation:none}
+.shili-home-stamp{left:6%;top:52%;width:26%;height:24%;transform:rotate(-14deg)}
+.shili-home-photo{left:34%;top:61%;width:43%;height:33%;object-fit:cover;transform:rotate(-10deg)}
+.shili-hero .shili-page-heading{max-width:85%;padding-top:24px;position:relative;z-index:2}
+.shili-hero .shili-script{font-size:clamp(54px,17vw,68px);max-width:90%;line-height:.95}
+.shili-hero .shili-subtitle{right:20%;top:43%;width:34%;z-index:2}
+.shili-home-sprig{display:none}
+.shili-hero h1{font-size:11px}
+.shili-page img{max-width:100%}
+.shili-page[data-view=settings] .shili-page-heading{background-image:linear-gradient(90deg,#e9c4d04d,transparent 28%,transparent 75%,#a6b38f22),url('../assets/shili/common/paper_background.png')}
+@media(max-width:360px){.shili-home-ribbon.shili-long-curl{width:51%;height:auto;top:7px;right:0;transform:none}.shili-home-photo{left:34%;top:61%;width:43%;height:33%}.shili-home-stamp{left:6%;top:52%;width:26%;height:24%}.shili-hero .shili-subtitle{top:43%;right:20%}}
+
+.shili-page{font-family:'Noto Serif SC','Songti SC','SimSun',serif}
+
+/* Independent clipped paper components, never page screenshots. */
+.shili-main{position:relative;isolation:isolate}
+.shili-collage{position:absolute;left:0;top:0;width:100%;height:710px;pointer-events:none;z-index:-1;overflow:hidden}
+.shili-collage-piece{position:absolute;display:block;pointer-events:none}
+.shili-piece-blue-tape{left:19%;top:-12px;width:12%;height:65px;background:url('../assets/shili/papers/blue-floral.png') center/cover;transform:rotate(-5deg);clip-path:polygon(3% 0,97% 0,100% 96%,85% 92%,65% 100%,46% 95%,25% 100%,0 93%)}
+.shili-piece-news{left:-8%;top:52px;width:30%;height:105px;background:url('../assets/shili/papers/newspaper.png') center/cover;transform:rotate(13deg);opacity:.5;clip-path:polygon(0 3%,95% 0,100% 95%,65% 100%,30% 96%,0 100%)}
+.shili-piece-green-check{left:-7%;top:180px;width:30%;height:240px;transform:rotate(-12deg);background:repeating-linear-gradient(90deg,#a6b38f88 0 9px,#fff8 9px 18px),repeating-linear-gradient(0deg,#a6b38f88 0 9px,#fff8 9px 18px);clip-path:polygon(0 2%,18% 0,38% 3%,60% 0,100% 3%,97% 97%,70% 100%,30% 98%,0 100%)}
+.shili-piece-blue-corner{right:-10%;top:440px;width:55%;height:125px;background:url('../assets/shili/papers/blue-floral.png') center/cover;transform:rotate(-12deg);clip-path:polygon(0 8%,20% 0,45% 5%,80% 0,100% 5%,100% 100%,0 100%)}
+.shili-piece-pink-paper{left:-5%;top:55px;width:29%;height:145px;background:url('../assets/shili/papers/pink-gingham.png') center/cover;transform:rotate(-8deg);clip-path:polygon(0 3%,30% 0,60% 3%,100% 0,98% 96%,70% 100%,30% 97%,0 100%)}
+.shili-piece-sage-paper{right:-7%;top:10px;width:33%;height:120px;background:#a6b38f66;transform:rotate(16deg);clip-path:polygon(0 5%,25% 0,50% 3%,100% 0,98% 97%,70% 100%,40% 96%,0 100%)}
+.shili-piece-lace{left:12%;top:528px;width:90%;height:30px;transform:rotate(-7deg);opacity:.85;background:radial-gradient(ellipse at center,transparent 30%,#e8e0cf 33% 39%,transparent 42%) 0 0/18px 20px,radial-gradient(circle,transparent 27%,#fdf9ef 30% 49%,transparent 52%) 8px 5px/20px 20px;border-top:2px dotted #fdf9ef;border-bottom:2px dotted #e2d8c4}
+.shili-piece-note{left:5%;top:435px;width:65px;height:48px;padding:10px;background:#eff0df;border:5px solid #f4ebda;transform:rotate(14deg);font:22px ShiliAllura;color:#78815d;z-index:2}
+.shili-piece-postmark{right:6%;top:470px;width:55px;height:55px;border:3px double #8e958777;border-radius:50%;font:8px/48px serif;text-align:center;transform:rotate(-20deg)}
+.shili-collage-create .shili-piece-lace{top:355px;left:8%;width:60%;transform:rotate(5deg)}
+.shili-collage-calendar .shili-piece-lace{top:20px;left:55%;width:50%;transform:rotate(-4deg)}
+.shili-collage-preview .shili-piece-green-check{top:125px;height:170px}.shili-collage-preview .shili-piece-pink-paper{top:300px;width:24%;height:125px}.shili-collage-preview .shili-piece-lace{top:480px}
+.shili-collage-wrapping .shili-piece-pink-paper{top:110px;height:230px}.shili-collage-wrapping .shili-piece-blue-corner{top:260px;opacity:.5}.shili-collage-wrapping .shili-piece-lace{top:310px}
+.shili-collage-opening .shili-piece-pink-paper{left:70%;top:200px;height:270px}.shili-collage-opening .shili-piece-blue-tape{top:150px;left:4%;height:110px;width:20%;transform:rotate(-20deg)}.shili-collage-opening .shili-piece-lace{top:480px}
+
+.shili-hero .shili-collage{z-index:0;height:100%}.shili-hero .shili-home-photo{z-index:2}.shili-hero .shili-home-stamp{z-index:3}.shili-collage-home .shili-piece-note{left:4%;top:81%;width:70px;height:51px;font-size:21px;padding:8px;box-sizing:border-box}.shili-collage-home .shili-piece-lace{top:93%;left:4%;width:95%}.shili-collage-home .shili-piece-postmark{top:87%;right:4%}.shili-collage-home .shili-piece-green-check{display:none}
+/* Readable text and bounded collage layers; decoration never competes with copy. */
+.shili-wrapping-card h2{font-family:ShiliGaramond,'Noto Serif SC',serif}
+.shili-main{flex:1 1 0%;height:0;box-sizing:border-box;max-width:100%;scroll-padding:20px 0 32px}
+.shili-nav{position:relative!important;inset:auto!important;flex:0 0 auto;z-index:20}
+.shili-page-heading{margin-left:0;margin-right:0}
+.shili-collage{contain:strict}
+.shili-collage-home .shili-piece-news{top:20px;left:-8%;width:19%;height:67px;opacity:.3}
+.shili-collage-calendar .shili-piece-news{top:0;left:-12%;width:19%;height:60px;opacity:.22}
+.shili-collage-calendar .shili-piece-lace{top:0;left:75%;width:25%;height:18px}
+.shili-collage-preview .shili-piece-pink-paper{top:230px;left:-10%;width:17%;height:100px}
+.shili-collage-opening .shili-piece-blue-corner{top:210px;height:120px;right:-23%;width:42%;opacity:.55}
+.shili-collage-opening .shili-piece-pink-paper{top:190px;left:91%;height:120px;width:20%;opacity:.6}
+.shili-collage-opening .shili-piece-lace{top:335px;height:18px;opacity:.45}
+.shili-collage-wrapping .shili-piece-blue-corner{top:155px;right:-20%;width:30%;height:100px;opacity:.3}
+.shili-collage-create .shili-piece-blue-tape,.shili-collage-cabinet .shili-piece-blue-tape{top:-24px;height:35px}
+.shili-collage-settings .shili-piece-sage-paper,.shili-collage-cabinet .shili-piece-sage-paper{top:-25px;right:-10%;width:18%;height:90px}
+.shili-collage-settings .shili-piece-pink-paper{top:20px;left:-12%;width:18%;height:110px}
+
+/* Satin bow uses five masked parts from the reference, keeping independent motion. */
+.shili-gift-bow.shili-icon-ribbon{width:157px;height:139px;top:174px;transform:translateX(-50%) scale(.72) rotate(-5deg)}
+.shili-gift-bow.shili-icon-ribbon .shili-stroke{display:none;border:0;border-radius:0;box-shadow:none;opacity:1}
+.shili-gift-bow.shili-icon-ribbon .shili-stroke:nth-child(-n+5){display:block;left:0;right:auto;top:0;width:157px;height:139px;background:url('../assets/shili/ribbons/gift-satin-source.png') 0 0/157px 139px no-repeat;transform:none;transform-origin:50% 25%}
+.shili-gift-bow.shili-icon-ribbon .shili-stroke-1{clip-path:polygon(0 0,49% 0,49% 34%,0 34%)}
+.shili-gift-bow.shili-icon-ribbon .shili-stroke-2{clip-path:polygon(58% 0,100% 0,100% 34%,58% 34%)}
+.shili-gift-bow.shili-icon-ribbon .shili-stroke-3{clip-path:polygon(49% 13%,58% 13%,58% 34%,49% 34%);z-index:4}
+.shili-gift-bow.shili-icon-ribbon .shili-stroke-4{clip-path:polygon(0 34%,49% 34%,49% 54%,32% 95%,0 95%)}
+.shili-gift-bow.shili-icon-ribbon .shili-stroke-5{clip-path:polygon(58% 34%,100% 34%,100% 95%,72% 95%,58% 54%)}
+.shili-page:not([data-view=home]) .shili-page-heading{padding:25px 24px 20px;margin-top:0;margin-bottom:10px;min-height:150px;box-sizing:border-box}
+.shili-page[data-view=settings] .shili-page-heading{min-height:150px;padding-top:30px;padding-bottom:20px}
+.shili-page[data-view=preview] .shili-page-heading,.shili-page[data-view=wrapping] .shili-page-heading,.shili-page[data-view=opening] .shili-page-heading{min-height:105px;padding:18px 22px 12px}
+.shili-page[data-view=home] .shili-hero .shili-page-heading{width:95%;max-width:none}
+.shili-hero .shili-script{font-size:60px;max-width:100%;line-height:.94}
+.shili-hero h1{display:block;font-size:10px;margin:8px 0 0 20px;letter-spacing:.12em}
+.shili-page[data-view=cabinet] .shili-album-photo{aspect-ratio:1.1}
+.shili-page[data-view=cabinet] .shili-album-item{padding:7px 7px 9px}
+.shili-page[data-view=cabinet] .shili-album-item small{font-size:9px;margin-top:4px}
+.shili-search{margin-bottom:10px}.shili-filters{margin-bottom:10px}
+.shili-page[data-view=preview] .shili-preview{max-height:285px;width:85%;display:block;margin:10px auto 18px;object-fit:cover}
+@media(max-width:360px){.shili-hero .shili-script{font-size:52px}.shili-gift-bow.shili-icon-ribbon{top:155px;transform:translateX(-50%) scale(.65) rotate(-5deg)}}
+
+/* Keep the reference satin pieces aligned on the first unwrapping frame. */
+@keyframes shili-loop-left{0%,9%{transform:none}22%{transform:translate(-8px,2px) rotate(-8deg)}43%,100%{transform:translate(-65px,14px) rotate(-28deg) scaleX(1.2) scaleY(.2);opacity:0}}
+@keyframes shili-loop-right{0%,9%{transform:none}22%{transform:translate(8px,2px) rotate(8deg)}43%,100%{transform:translate(65px,14px) rotate(28deg) scaleX(1.2) scaleY(.2);opacity:0}}
+@keyframes shili-knot-release{0%,11%{transform:none}22%{transform:scale(.7);opacity:1}37%,100%{transform:translateY(-18px) rotate(25deg) scale(.2);opacity:0}}
+@keyframes shili-tail-left{0%,12%{transform:none}26%{transform:translate(-18px,-5px) rotate(25deg);opacity:1}43%,100%{transform:translate(-108px,-28px) rotate(75deg) scaleY(.75);opacity:0}}
+@keyframes shili-tail-right{0%,12%{transform:none}26%{transform:translate(18px,-5px) rotate(-25deg);opacity:1}43%,100%{transform:translate(108px,-28px) rotate(-75deg) scaleY(.75);opacity:0}}
+.shili-page[data-view=preview] .shili-preview{object-fit:contain;transform:rotate(-5deg);animation:none;background:#f6efdf}
+.shili-page[data-view=preview] .shili-card{font-family:'Noto Serif SC',serif;font-size:13px;line-height:1.9}
+.shili-revealed-letter{font-family:'Noto Serif SC','Songti SC',serif}
+/* Restored image assets replace approximated stamp/paper/lace geometry. */
+.shili-hero{height:560px;min-height:0;box-sizing:border-box;padding:64px 30px 0;background:transparent}
+.shili-hero::before{inset:24px 24px 12px 23px;background:url('../assets/shili/restored/cream-letter-paper.png') center/100% 100% no-repeat;clip-path:none;box-shadow:none;transform:rotate(-6deg)}
+.shili-home-photo{left:34%;top:55%;width:44%;height:36%;border:6px solid #f5f0e4;object-fit:cover}
+.shili-home-stamp{left:5%;top:49%;width:27%;height:23%;transform:rotate(-16deg)}
+.shili-hero .shili-script{font-size:66px;line-height:.89;max-width:100%;text-wrap:balance}
+.shili-hero .shili-page-heading{width:94%;padding-top:0;transform:rotate(-10deg)}
+.shili-hero .shili-subtitle{top:42%;right:19%;font-size:14px}
+.shili-home-ribbon.shili-long-curl{width:50%;top:5px;right:0;max-height:91%}
+.shili-hero h1{font-size:9px;color:#998a75;margin-top:12px}
+.shili-collage-home .shili-piece-note{top:78%;left:4%;transform:rotate(12deg)}
+.shili-collage-home .shili-piece-blue-corner{top:82%;width:76%;right:-8%;height:115px}
+.shili-collage-home .shili-piece-lace{top:91%;height:41px}
+.shili-collage-home .shili-piece-postmark{top:84%;right:3%}
+.shili-piece-lace{background:url('../assets/shili/restored/ivory-lace.png') center/100% 100% no-repeat;border:0;opacity:.85}
+.shili-atelier-scene::after{width:74px;height:114px;top:-69px;right:0;background:url('../assets/shili/restored/green-botanical-stamp.png') center/contain no-repeat;border:0;outline:0;box-shadow:none;transform:rotate(9deg)}
+.shili-page-heading{background-color:transparent;background-image:url('../assets/shili/restored/cream-letter-paper.png');background-size:100% 100%;clip-path:none}
+.shili-page[data-view=settings] .shili-page-heading{background-image:url('../assets/shili/restored/cream-letter-paper.png');background-size:100% 100%}
+.shili-page[data-view=calendar] .shili-page-heading::before{left:-10px;width:80px;height:135px;bottom:0}
+.shili-page[data-view=calendar] .shili-page-heading::after{width:77px;height:108px;top:30px;right:-6px;transform:rotate(12deg)}
+.shili-page[data-view=cabinet] .shili-page-heading{transform:rotate(-2deg)}
+.shili-page[data-view=cabinet] .shili-page-heading::after{width:63px;height:108px;right:-2px;transform:rotate(-15deg)}
+.shili-page[data-view=settings] .shili-page-heading::after{right:0;width:76px;height:112px;top:20px;transform:rotate(11deg)}
+.shili-page[data-view=preview] .shili-card{background:url('../assets/shili/restored/cream-letter-paper.png') center/100% 100% no-repeat;border:0;box-shadow:none;transform:rotate(-4deg);padding:30px 26px}
+.shili-wrapping-card{background-image:url('../assets/shili/restored/cream-letter-paper.png');border:0;box-shadow:none}
+.shili-collage-calendar .shili-piece-lace{width:47%;left:53%;top:0;height:36px}
+.shili-collage-create .shili-piece-lace{top:332px;width:72%;left:5%;height:36px}
+.shili-collage-cabinet .shili-piece-sage-paper{width:40%;top:-15px;right:-7%;height:110px}
+@media(max-width:360px){.shili-hero{height:485px;padding:55px 27px 0}.shili-hero .shili-script{font-size:56px}.shili-home-photo{left:34%;top:55%;width:44%;height:36%}.shili-home-stamp{left:5%;top:49%;width:27%;height:23%}.shili-hero .shili-subtitle{top:42%;font-size:12px}.shili-atelier-scene::after{width:64px;height:99px;top:-62px}}
+.shili-home-ribbon.shili-long-curl{width:72%;height:auto;max-height:94%;right:0;top:5px}
+.shili-page:not([data-view=home]) .shili-page-heading{background-size:100% auto;background-position:center 25%}
+.shili-page[data-view=settings] .shili-page-heading{background-size:100% auto;background-position:center 25%}
+@media(max-width:360px){.shili-home-ribbon.shili-long-curl{width:72%;top:5px;max-height:94%}}
+.shili-page{background-image:url('../assets/shili/restored/aged-paper-surface.png');background-size:100% 100%;background-repeat:no-repeat}
+.shili-page::before{background:none}
+.shili-header{background:transparent;border-bottom-color:#c6bda833}
+.shili-nav{background:#f8f4e9dc}
+.shili-page-heading::before,.shili-page-heading::after{opacity:.9}
+
+/* Composite static plates. Foreground controls/data remain native DOM. */
+.shili-page[data-view=home]{background-image:url('../assets/shili/backgrounds/home-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+.shili-page[data-view=create]{background-image:url('../assets/shili/backgrounds/create-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+.shili-page[data-view=calendar]{background-image:url('../assets/shili/backgrounds/calendar-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+.shili-page[data-view=cabinet]{background-image:url('../assets/shili/backgrounds/cabinet-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+.shili-page[data-view=settings]{background-image:url('../assets/shili/backgrounds/settings-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+.shili-page[data-view=preview]{background-image:url('../assets/shili/backgrounds/preview-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+.shili-page[data-view=wrapping]{background-image:url('../assets/shili/backgrounds/wrapping-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+.shili-page[data-view=opening]{background-image:url('../assets/shili/backgrounds/opening-collage-plate-v1.png');background-size:100% auto;background-position:top center;background-repeat:no-repeat}
+
+.shili-collage{display:none}
+.shili-hero::before,.shili-hero::after{background:none;box-shadow:none}
+.shili-home-photo,.shili-home-sprig{visibility:hidden}
+.shili-page-heading,.shili-page[data-view=settings] .shili-page-heading{background:none;clip-path:none}
+.shili-page-heading::before{display:none}
+.shili-page[data-view=preview] .shili-page-heading::after,.shili-page[data-view=wrapping] .shili-page-heading::after,.shili-page[data-view=opening] .shili-page-heading::after{display:none}
+.shili-atelier{visibility:hidden}
+.shili-page[data-view=cabinet] .shili-page-heading::after{background-image:url('../assets/shili/restored/album-award.png');width:46px;height:104px;top:7px;right:-4px;transform:rotate(-13deg)}
+.shili-page[data-view=opening] .shili-page-heading::before{display:block;background:url('../assets/shili/restored/opening-corner-bow.png') center/contain no-repeat;left:-14px;bottom:-50px;width:105px;height:95px;transform:rotate(-7deg);opacity:1}
+.shili-page[data-view=preview]{background-position:center 44px}
+.shili-page[data-view=preview] .shili-preview{border:0;box-shadow:none;background:transparent;width:74%;max-height:250px;transform:rotate(-7deg);margin:22px auto 24px}
+.shili-page[data-view=preview] .shili-card{background:transparent;border:0;box-shadow:none;padding:25px}
+
+.shili-page[data-view=preview] .shili-preview{width:68%;max-height:220px;margin:0 auto 18px}
+.shili-home-for-you{position:absolute;left:8%;top:78%;font:22px ShiliAllura,serif;color:#899075;transform:rotate(14deg);z-index:2;pointer-events:none}
+.shili-page[data-view=cabinet] .shili-page-heading{transform:none}
+.shili-page[data-view=calendar] .shili-page-heading::after{right:9px}
+.shili-page[data-view=cabinet] .shili-page-heading::after{right:9px}
+.shili-page[data-view=calendar] .shili-page-heading,.shili-page[data-view=cabinet] .shili-page-heading{overflow:clip}
+
+/* Final compositing: one full-page static plate plus explicit transparent overlays. */
+.shili-page[data-view]{background-size:100% 100%;background-position:center;background-repeat:no-repeat}
+.shili-page-heading::before,.shili-page-heading::after,.shili-atelier-scene::after{display:none!important}
+.shili-foreground{position:absolute;object-fit:contain;pointer-events:none;z-index:4;mix-blend-mode:normal}
+.shili-foreground-green-stamp{right:0;top:65px;width:75px;height:115px;transform:rotate(9deg)}
+.shili-foreground-floral-stamp{right:5px;top:24px;width:76px;height:106px;transform:rotate(12deg)}
+.shili-foreground-album-award{right:8px;top:5px;width:44px;height:109px;transform:rotate(-13deg)}
+.shili-foreground-corner-bow{left:-9px;top:66px;width:104px;height:92px;transform:rotate(-7deg)}
+.shili-page[data-view=calendar] .shili-page-heading,.shili-page[data-view=cabinet] .shili-page-heading{overflow:visible;contain:paint}
+.shili-page[data-view=opening] .shili-page-heading{overflow:visible}
+.shili-atelier{display:none}.shili-atelier-scene{height:220px;margin:7px 0 23px}
+@media(max-width:360px){.shili-foreground-green-stamp{width:64px;height:99px;top:65px}.shili-foreground-floral-stamp{width:62px;height:92px;right:2px}.shili-foreground-corner-bow{width:90px;height:80px}.shili-atelier-scene{height:205px}}
+
+.shili-home-postmark{position:absolute;right:3%;top:85%;width:65px;height:65px;object-fit:contain;transform:rotate(-16deg);pointer-events:none;z-index:3;opacity:.75}
+.shili-page[data-view=preview] .shili-preview{width:70%;height:280px;max-height:none;object-fit:cover;margin:20px auto 24px}
+@media(max-width:360px){.shili-home-postmark{width:55px;height:55px}.shili-page[data-view=preview] .shili-preview{height:235px;margin-top:12px}}
+
+/* Measured plate coordinates v2. The sheet owns both the plate and its DOM content.
+   sx = content width / 390; sy = usable page height / 782 (navigation excluded).
+   This prevents the old independent header offset / viewport-height mismatch. */
+.shili-page{--shili-sx:1;--shili-sy:1;background:#f7f5ee;font-family:'Noto Serif SC','Songti SC',serif}
+.shili-page[data-view]{background-image:none}
+.shili-page .shili-header{position:absolute;left:0;top:calc(21px * var(--shili-sy));min-height:0;height:38px;z-index:30;border:0;padding:0 8px;width:44px}
+.shili-head-title{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.shili-main{padding:0;scrollbar-width:none;scroll-padding:16px 0 28px;background:#f7f5ee}
+.shili-sheet{position:relative;box-sizing:border-box;min-height:100%;padding:0 calc(18px * var(--shili-sx)) calc(28px * var(--shili-sx));background-image:var(--shili-plate),url('../assets/shili/common/paper_background.png');background-size:100% calc(782px * var(--shili-sy)),390px auto;background-repeat:no-repeat,repeat;background-position:top center}
+.shili-page[data-view=home]{--shili-plate:url('../assets/shili/backgrounds/home-collage-plate-v1.png')}
+.shili-page[data-view=create]{--shili-plate:url('../assets/shili/backgrounds/create-collage-plate-v1.png')}
+.shili-page[data-view=calendar]{--shili-plate:url('../assets/shili/backgrounds/calendar-collage-plate-v1.png')}
+.shili-page[data-view=cabinet]{--shili-plate:url('../assets/shili/backgrounds/cabinet-collage-plate-v1.png')}
+.shili-page[data-view=settings]{--shili-plate:url('../assets/shili/backgrounds/settings-collage-plate-v1.png')}
+.shili-page[data-view=preview]{--shili-plate:url('../assets/shili/backgrounds/preview-collage-plate-v1.png')}
+.shili-page[data-view=wrapping]{--shili-plate:url('../assets/shili/backgrounds/wrapping-collage-plate-v1.png')}
+.shili-page[data-view=opening]{--shili-plate:url('../assets/shili/backgrounds/opening-collage-plate-v1.png')}
+.shili-nav{box-sizing:border-box;height:calc(62px * var(--shili-sx));min-height:56px;padding:4px 5px max(5px,env(safe-area-inset-bottom));background:#f7f4ebf2;border-color:#d4cabb;gap:0}
+.shili-nav-item{min-height:44px;min-width:44px;gap:3px;font-size:calc(11px * var(--shili-sx));justify-content:center;font-family:'Noto Serif SC',serif}
+.shili-nav-icon{transform:none;width:30px;height:30px}.shili-nav-item.active::after{display:none}
+.shili-page .shili-page-heading{box-sizing:border-box;position:relative;height:calc(230px * var(--shili-sy));min-height:0;margin:0;padding:0;background:none;overflow:visible;contain:none;transform:none}
+.shili-page .shili-page-heading .shili-script{position:absolute;left:0;top:calc(93px * var(--shili-sy));width:100%;max-width:none;margin:0;font-family:ShiliAllura,serif;font-style:normal;font-weight:400;font-size:calc(52px * var(--shili-sx));line-height:.85;letter-spacing:-.025em;text-align:center;text-wrap:initial}
+.shili-title-line{display:block;white-space:nowrap}
+.shili-page .shili-page-heading h1{position:absolute;left:0;top:calc(164px * var(--shili-sy));width:100%;margin:0;font-size:calc(14px * var(--shili-sx));letter-spacing:.17em;color:#746e5e;text-align:center;line-height:1.6}
+.shili-page[data-view=home] .shili-hero{height:calc(602px * var(--shili-sy));min-height:0;margin:0 calc(-18px * var(--shili-sx));padding:0;overflow:visible;background:none}
+.shili-page[data-view=home] .shili-hero .shili-page-heading{position:absolute;left:calc(54px * var(--shili-sx));top:calc(126px * var(--shili-sy));width:calc(276px * var(--shili-sx));height:calc(165px * var(--shili-sx));max-width:none;padding:0;transform:rotate(-13deg)}
+.shili-page[data-view=home] .shili-hero .shili-script{position:static;width:100%;max-width:none;font-size:calc(70px * var(--shili-sx));line-height:.88;text-align:center;color:#b67887}
+.shili-page[data-view=home] .shili-hero h1{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.shili-page[data-view=home] .shili-hero .shili-subtitle{top:calc(288px * var(--shili-sy));right:calc(68px * var(--shili-sx));width:calc(137px * var(--shili-sx));margin:0;font:italic calc(14px * var(--shili-sx))/1.65 ShiliGaramond,serif;white-space:pre-line;text-align:right;transform:rotate(-8deg)}
+.shili-page[data-view=home] .shili-home-ribbon.shili-long-curl{top:calc(39px * var(--shili-sy));right:0;width:72%;height:auto;max-height:88%;object-fit:contain;transform:none;clip-path:none;mix-blend-mode:normal}
+.shili-page[data-view=home] .shili-home-stamp{left:calc(25px * var(--shili-sx));top:calc(330px * var(--shili-sy));width:calc(90px * var(--shili-sx));height:calc(132px * var(--shili-sy));transform:rotate(-16deg);mix-blend-mode:normal}
+.shili-page[data-view=home] .shili-home-for-you{left:calc(35px * var(--shili-sx));top:calc(510px * var(--shili-sy));font-size:calc(21px * var(--shili-sx));transform:rotate(12deg)}
+.shili-page[data-view=home] .shili-home-postmark{top:calc(538px * var(--shili-sy));right:calc(27px * var(--shili-sx));width:calc(61px * var(--shili-sx));height:calc(61px * var(--shili-sx));opacity:.65}
+.shili-shortcuts{gap:calc(11px * var(--shili-sx));margin:0 0 24px}.shili-shortcut{box-sizing:border-box;height:calc(110px * var(--shili-sx));min-height:90px;padding:10px 2px;gap:12px;border-radius:7px;background:#f8f3e7ed}
+.shili-shortcut .shili-icon{width:32px;height:32px;transform:scale(1.2);margin-bottom:2px}.shili-shortcut span{font-size:calc(13px * var(--shili-sx))}
+.shili-page[data-view=create] .shili-page-heading{height:calc(184px * var(--shili-sy))}
+.shili-page[data-view=create] .shili-page-heading .shili-script{top:calc(94px * var(--shili-sy));font-size:calc(50px * var(--shili-sx))}
+.shili-page[data-view=create] .shili-page-heading h1{top:calc(145px * var(--shili-sy));color:#b67887}
+.shili-foreground-green-stamp{right:calc(9px * var(--shili-sx));top:calc(155px * var(--shili-sy));width:calc(63px * var(--shili-sx));height:calc(92px * var(--shili-sx));transform:rotate(9deg)}
+.shili-atelier-scene{height:calc(256px * var(--shili-sy));margin:0 0 calc(25px * var(--shili-sy))}
+.shili-method{min-height:calc(83px * var(--shili-sy));padding:13px 14px;gap:14px;background:#faf7ee9c}.shili-method strong{font-size:14px;font-weight:500}.shili-method small{font-size:11px;margin-top:5px}
+.shili-page[data-view=calendar] .shili-page-heading{height:calc(232px * var(--shili-sy))}
+.shili-page[data-view=calendar] .shili-page-heading .shili-script{left:18%;top:calc(96px * var(--shili-sy));width:65%;font-size:calc(49px * var(--shili-sx));line-height:.87}
+.shili-page[data-view=calendar] .shili-page-heading h1{top:calc(191px * var(--shili-sy))}
+.shili-page[data-view=calendar] .shili-foreground-floral-stamp{right:calc(3px * var(--shili-sx));top:calc(118px * var(--shili-sy));width:calc(60px * var(--shili-sx));height:calc(85px * var(--shili-sx));transform:rotate(12deg)}
+.shili-filters{gap:7px;margin:0 0 12px}.shili-filter{min-height:35px;padding:5px 3px;border-radius:6px;font-size:12px}
+.shili-event-list{border:1px solid #ddd2c2;border-radius:7px;overflow:hidden;background:#faf7edba}.shili-event-list .shili-gift{border:0;border-radius:0;border-bottom:1px solid #dfd5c5;margin:0;padding:10px;min-height:70px;background:transparent;box-sizing:border-box;gap:12px}.shili-event-list .shili-gift:last-child{border-bottom:0}.shili-gift-content{gap:5px}.shili-gift-content strong{font-size:14px;font-weight:500}.shili-gift-content small{font-size:11px}.shili-date-badge{box-sizing:border-box;width:47px;height:48px;padding:7px 0}.shili-date-badge strong{font-size:21px}.shili-date-badge small{font-size:9px;margin-top:2px}
+.shili-page[data-view=calendar] .shili-fold{margin:12px 0}.shili-calendar-month>summary{min-height:40px;padding:10px 0}.shili-today-note{font-size:12px}
+.shili-page[data-view=cabinet] .shili-page-heading{height:calc(240px * var(--shili-sy))}
+.shili-page[data-view=cabinet] .shili-page-heading .shili-script{top:calc(100px * var(--shili-sy));font-size:calc(48px * var(--shili-sx));line-height:.9;left:7%;width:84%}
+.shili-page[data-view=cabinet] .shili-page-heading h1{top:calc(197px * var(--shili-sy))}
+.shili-foreground-album-award{right:calc(4px * var(--shili-sx));top:calc(93px * var(--shili-sy));width:calc(34px * var(--shili-sx));height:calc(92px * var(--shili-sx));transform:rotate(-13deg)}
+.shili-album-tools{display:flex;align-items:center;gap:6px;margin-bottom:12px}.shili-album-tools .shili-filters{flex:1;margin:0}.shili-album-tools .shili-search{width:32px;flex:none;min-height:35px;height:35px;padding:5px;border-radius:50%;margin:0;font-size:11px;background:#faf7edc9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='13' cy='13' r='6' fill='none' stroke='%239b8c79' stroke-width='1.3'/%3E%3Cpath d='M18 18l6 6' stroke='%239b8c79' stroke-width='1.3'/%3E%3C/svg%3E") center/28px no-repeat;color:transparent;cursor:pointer}.shili-search::placeholder{color:transparent}.shili-album-tools:focus-within{flex-wrap:wrap}.shili-album-tools .shili-search:focus,.shili-album-tools .shili-search:not(:placeholder-shown){width:100%;border-radius:5px;color:var(--ink);background:#faf7ed;padding:7px 10px}.shili-search:focus::placeholder{color:#9c907d}
+.shili-album{gap:12px}.shili-page[data-view=cabinet] .shili-album-item{padding:8px;background:#faf7eacc}.shili-page[data-view=cabinet] .shili-album-photo{aspect-ratio:1.06;margin-bottom:7px}.shili-album-item strong{font-size:14px;font-weight:500}.shili-album-item small{font-size:9px}.shili-album-item time{font-size:10px;margin-top:3px}
+.shili-page[data-view=settings] .shili-page-heading{height:calc(239px * var(--shili-sy));margin:0;padding:0}
+.shili-page[data-view=settings] .shili-page-heading .shili-script{top:calc(108px * var(--shili-sy));left:15%;width:70%;font-size:calc(52px * var(--shili-sx))}
+.shili-page[data-view=settings] .shili-page-heading h1{top:calc(162px * var(--shili-sy))}
+.shili-page[data-view=settings] .shili-foreground-floral-stamp{right:calc(2px * var(--shili-sx));top:calc(92px * var(--shili-sy));width:calc(67px * var(--shili-sx));height:calc(94px * var(--shili-sx));transform:rotate(12deg)}
+.shili-page[data-view=settings] .shili-settings-row,.shili-page[data-view=settings] .shili-settings-group{margin:7px 0;background:#faf7eeae}.shili-page[data-view=settings] .shili-settings-row,.shili-page[data-view=settings] .shili-settings-group>summary{min-height:47px;font-size:14px;box-sizing:border-box}.shili-settings-group>summary .shili-icon,.shili-settings-row .shili-icon{transform:scale(.8)}
+.shili-page[data-view=preview] .shili-page-heading{height:calc(113px * var(--shili-sy));padding:0;margin:0}
+.shili-page[data-view=preview] .shili-page-heading .shili-script{top:calc(36px * var(--shili-sy));font-size:calc(46px * var(--shili-sx))}
+.shili-page[data-view=preview] .shili-page-heading h1{top:calc(83px * var(--shili-sy));font-size:13px;color:#b67887}
+.shili-page[data-view=preview] .shili-preview{box-sizing:border-box;display:block;width:74%;height:calc(299px * var(--shili-sy));max-height:none;object-fit:cover;object-position:center;margin:calc(14px * var(--shili-sy)) auto calc(39px * var(--shili-sy));border:0;background:transparent;box-shadow:none;transform:rotate(-7deg);animation:none}
+.shili-page[data-view=preview] .shili-section{margin:0 32px 8px;font-size:14px;font-weight:500;line-height:1.7}.shili-page[data-view=preview] .shili-description{margin:0 32px 10px;font-size:12px;line-height:1.8;min-height:22px}.shili-page[data-view=preview] .shili-card{box-sizing:border-box;background:none;transform:none;margin:0 32px 6px;padding:8px 0;font-size:13px;line-height:1.8;min-height:50px}.shili-page[data-view=preview] .shili-meta{margin:6px 32px;font-size:10px}.shili-preview-actions{display:flex;gap:8px;justify-content:center;margin-top:calc(21px * var(--shili-sy))}.shili-preview-actions .shili-btn{min-width:0;flex:1;padding:10px 5px;font-size:12px}.shili-page[data-view=preview] .shili-link{display:block;margin:12px auto;font-size:11px}
+.shili-page[data-view=wrapping] .shili-page-heading{height:calc(123px * var(--shili-sy));padding:0;margin:0}
+.shili-page[data-view=wrapping] .shili-page-heading .shili-script{top:calc(33px * var(--shili-sy));font-size:calc(45px * var(--shili-sx))}.shili-page[data-view=wrapping] .shili-page-heading h1{top:calc(79px * var(--shili-sy));font-size:13px;color:#b67887}
+.shili-page[data-view=wrapping] .shili-wrapped-art{display:block;box-sizing:border-box;width:94%;height:calc(219px * var(--shili-sy));margin:0 auto 15px;object-fit:contain;transform:rotate(-2deg)}
+.shili-swatches{gap:9px;margin:0 8px 15px}.shili-swatch{box-sizing:border-box;min-height:67px;height:calc(67px * var(--shili-sy));padding:42px 2px 7px;font-size:10px;line-height:1.2}
+.shili-card-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:0 8px 14px}.shili-card-choice{height:calc(94px * var(--shili-sy));min-height:70px;position:relative;border:1px solid #d5c6b3;border-radius:4px;background:#fbf4e6 url('../assets/shili/restored/cream-letter-paper.png') center/100% 100%;color:#ae7f89;font:12px 'Noto Serif SC',serif;cursor:pointer;padding:8px}.shili-card-choice-floral{background-image:url('../assets/shili/reference/botanical-transparent.png');background-size:auto 90%;background-repeat:no-repeat;background-position:left center}.shili-card-choice-rose{background-image:url('../assets/shili/reference/floral-stamp-transparent.png');background-size:auto 80%;background-repeat:no-repeat}.shili-card-choice-script span{font:36px/1 ShiliAllura,serif}.shili-card-choice-floral span,.shili-card-choice-rose span{background:#faf5e8c9;padding:3px;font-size:11px}.shili-card-choice[aria-pressed=true]{outline:2px solid #ba8593;outline-offset:-3px}
+.shili-wrapping-card{box-sizing:border-box;min-height:104px;padding:15px 22px;margin:0 8px 12px;background:none;transform:rotate(-2deg)}.shili-wrapping-card h2{font:18px/1.5 'Noto Serif SC',serif;margin:0 0 8px}.shili-wrapping-card p{font-size:12px;line-height:1.9;margin:0}.shili-wrapping-card[data-style=script] h2{font-style:italic}.shili-page[data-view=wrapping] .shili-fold{margin:6px 8px 12px}.shili-page[data-view=wrapping] .shili-sheet>.shili-btn{display:block;width:94%;margin:0 auto;font-size:13px}
+.shili-page[data-view=opening] .shili-page-heading{height:calc(142px * var(--shili-sy));padding:0;margin:0}.shili-page[data-view=opening] .shili-page-heading .shili-script{top:calc(40px * var(--shili-sy));font-size:calc(46px * var(--shili-sx))}.shili-page[data-view=opening] .shili-page-heading h1{top:calc(87px * var(--shili-sy));font-size:13px;color:#b67887}
+.shili-foreground-corner-bow{left:calc(-15px * var(--shili-sx));top:calc(136px * var(--shili-sy));width:calc(105px * var(--shili-sx));height:calc(94px * var(--shili-sx));transform:rotate(-7deg)}
+.shili-page[data-view=opening] .shili-mechanical{height:calc(414px * var(--shili-sy));min-height:0;margin:0 0 8px}.shili-page[data-view=opening] .shili-body-layer,.shili-page[data-view=opening] .shili-lid-layer{top:calc(136px * var(--shili-sy))}
+.shili-page[data-view=opening] .shili-gift-shadow{top:calc(321px * var(--shili-sy))}
+.shili-page[data-view=opening] .shili-gift-bow.shili-icon-ribbon{left:7%;top:calc(113px * var(--shili-sy));width:83%;height:auto;aspect-ratio:1710/920;transform:none;transform-origin:57% 36%;z-index:10}
+.shili-page[data-view=opening] .shili-gift-bow.shili-icon-ribbon .shili-stroke:nth-child(-n+5){width:100%;height:100%;left:0;top:0;background:url('../assets/shili/ribbons/gift-satin-extracted-v2.png') center/100% 100% no-repeat;border:0;transform:none}
+.shili-page[data-view=opening] .shili-gift-bow .shili-stroke-1{clip-path:polygon(0 0,54% 0,54% 43%,0 43%);transform-origin:55% 36%}.shili-page[data-view=opening] .shili-gift-bow .shili-stroke-2{clip-path:polygon(54% 0,100% 0,100% 43%,54% 43%);transform-origin:55% 36%}.shili-page[data-view=opening] .shili-gift-bow .shili-stroke-3{clip-path:polygon(49% 28%,61% 28%,61% 45%,49% 45%)}.shili-page[data-view=opening] .shili-gift-bow .shili-stroke-4{clip-path:polygon(0 43%,54% 43%,54% 100%,0 100%);transform-origin:55% 43%}.shili-page[data-view=opening] .shili-gift-bow .shili-stroke-5{clip-path:polygon(54% 43%,100% 43%,100% 100%,54% 100%);transform-origin:55% 43%}
+.shili-page[data-view=opening] .shili-mechanical strong{font-size:15px;padding:0 16px;position:absolute;bottom:9px;width:85%;line-height:1.7}
+.shili-unwrapping-status{font-size:12px;line-height:1.8;text-align:center;margin:8px 20px 20px}.shili-page[data-view=opening] .shili-sheet>.shili-btn{margin:16px auto;min-width:190px;font-size:14px}
+@media(max-height:600px) and (min-width:600px){.shili-page{--shili-sx:1!important;--shili-sy:1!important}.shili-sheet{max-width:460px;margin:0 auto}.shili-page .shili-nav{height:60px}.shili-page .shili-page-heading .shili-script{font-size:48px}}
+@font-face{font-family:ShiliGreatVibes;src:url('../assets/shili/fonts/GreatVibes-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+.shili-page .shili-page-heading .shili-script{font-family:ShiliGreatVibes,ShiliAllura,serif}
+.shili-page[data-view=home] .shili-hero{overflow:hidden}
+.shili-page[data-view=home] .shili-hero .shili-page-heading{left:calc(63px * var(--shili-sx));top:calc(105px * var(--shili-sy));width:calc(273px * var(--shili-sx));transform:rotate(-14deg)}
+.shili-page[data-view=home] .shili-hero .shili-script{font-size:calc(72px * var(--shili-sx));line-height:.91}
+.shili-page[data-view=home] .shili-title-line:first-child{transform:translateX(calc(-15px * var(--shili-sx)))}
+.shili-page[data-view=home] .shili-title-line:last-child{transform:translateX(calc(14px * var(--shili-sx)))}
+.shili-page[data-view=create] .shili-page-heading .shili-script{font-size:calc(43px * var(--shili-sx));left:12%;width:77%;top:calc(100px * var(--shili-sy))}
+.shili-page[data-view=calendar] .shili-page-heading .shili-script{font-family:ShiliGaramond,serif;font-style:italic;font-size:calc(46px * var(--shili-sx));line-height:.9;top:calc(92px * var(--shili-sy))}
+.shili-page[data-view=cabinet] .shili-page-heading .shili-script{font-size:calc(43px * var(--shili-sx));line-height:1.02;top:calc(102px * var(--shili-sy))}
+.shili-page[data-view=settings] .shili-page-heading .shili-script{font-size:calc(47px * var(--shili-sx))}
+.shili-page[data-view=wrapping] .shili-page-heading{height:calc(110px * var(--shili-sy))}
+.shili-page[data-view=wrapping] .shili-wrapped-art{height:calc(185px * var(--shili-sy));margin-bottom:8px}
+.shili-page[data-view=wrapping] .shili-swatches{margin-bottom:12px}.shili-page[data-view=wrapping] .shili-swatch{height:calc(60px * var(--shili-sy));min-height:52px;padding-top:35px}
+.shili-page[data-view=wrapping] .shili-card-choices{margin-bottom:10px}.shili-page[data-view=wrapping] .shili-card-choice{height:calc(80px * var(--shili-sy));min-height:64px}
+.shili-page[data-view=wrapping] .shili-wrapping-card{min-height:76px;padding:10px 22px;margin-bottom:6px}.shili-page[data-view=wrapping] .shili-wrapping-card h2{font-size:16px;margin-bottom:5px}.shili-page[data-view=wrapping] .shili-fold>summary{min-height:40px;padding:10px 0}
+/* Optical clearance: the lower title line clears the ribbon and upper capitals. */
+.shili-page[data-view=home] .shili-hero .shili-page-heading{left:calc(58px * var(--shili-sx));top:calc(110px * var(--shili-sy));width:calc(266px * var(--shili-sx))}
+.shili-page[data-view=home] .shili-hero .shili-script{font-size:calc(66px * var(--shili-sx));line-height:1.04}
+/* Reference-scale controls and optical text weight. */
+.shili-page{--ink:#625e54}
+.shili-nav{height:calc(84px * var(--shili-sx));min-height:64px;padding-top:8px;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.shili-nav-item{font-size:calc(12px * var(--shili-sx));font-weight:600;color:#65665a;gap:6px}.shili-nav-icon{--icon-ink:#b97989;filter:drop-shadow(0 .25px 0 #b97989)!important}
+.shili-page .shili-page-heading h1{font-size:calc(17px * var(--shili-sx));font-weight:600}
+.shili-page[data-view=home] .shili-sheet{background-size:100% calc(844px * var(--shili-sy)),390px auto}
+.shili-page[data-view=home] .shili-hero{height:calc(638px * var(--shili-sy))}
+.shili-page[data-view=home] .shili-summary{margin-top:34px}
+.shili-shortcut span{font-size:calc(15px * var(--shili-sx));font-weight:500}
+.shili-page[data-view=create] .shili-page-heading .shili-script{top:calc(86px * var(--shili-sy));font-size:calc(45px * var(--shili-sx))}
+.shili-page[data-view=create] .shili-page-heading h1{top:calc(136px * var(--shili-sy))}
+.shili-atelier-note{position:absolute;top:calc(57px * var(--shili-sy));right:calc(15px * var(--shili-sx));width:calc(105px * var(--shili-sx));margin:0;font:italic calc(18px * var(--shili-sx))/1.5 ShiliGaramond,serif;color:#897c68;text-align:center;white-space:pre-line;transform:rotate(9deg);z-index:2}
+.shili-method{min-height:calc(94px * var(--shili-sy))}.shili-method strong{font-size:15px;font-weight:600}.shili-method small{font-size:12px;color:#827b70}.shili-page[data-view=create] .shili-fold:not([open]){display:none}
+.shili-page[data-view=calendar] .shili-page-heading{height:calc(224px * var(--shili-sy))}
+.shili-page[data-view=calendar] .shili-event-list .shili-gift{min-height:calc(87px * var(--shili-sy))}.shili-gift-content strong{font-size:15px;font-weight:600}.shili-gift-content small{font-size:12px;color:#81786a}.shili-date-badge{width:52px;height:58px;padding:10px 0}.shili-date-badge strong{font-size:24px}.shili-date-badge small{font-size:10px}
+.shili-page[data-view=calendar] .shili-fold:not(.shili-calendar-month):not([open]){position:sticky;bottom:9px;width:max-content;margin-left:auto;border:0;border-radius:24px;background:#bf8795;color:#fff}.shili-page[data-view=calendar] .shili-fold:not(.shili-calendar-month):not([open])>summary{color:#fff;list-style:none;padding:10px 8px;min-height:40px}
+.shili-foreground-album-award{right:calc(-6px * var(--shili-sx));top:calc(84px * var(--shili-sy));width:calc(48px * var(--shili-sx));height:calc(126px * var(--shili-sx))}
+.shili-filter{font-weight:500}.shili-album-item strong{font-size:15px;font-weight:600}.shili-album-item time{color:#81786c}
+.shili-page[data-view=settings] .shili-settings-row,.shili-page[data-view=settings] .shili-settings-group>summary{min-height:54px;font-size:15px;font-weight:500}.shili-page[data-view=settings] .shili-settings-row,.shili-page[data-view=settings] .shili-settings-group{margin:6px 0}.shili-page[data-view=settings] .shili-page-heading h1{top:calc(172px * var(--shili-sy))}
+.shili-page[data-view=preview] .shili-section{font-size:15px}.shili-page[data-view=preview] .shili-description,.shili-page[data-view=preview] .shili-card{font-size:14px;color:#756b5d}.shili-page[data-view=preview] .shili-section{border:0}
+/* Reference stamp silhouettes include their alpha bounds, not just IMG rectangles. */
+.shili-page[data-view=home] .shili-home-ribbon.shili-long-curl{width:80%;max-height:92%}
+.shili-page[data-view=home] .shili-home-stamp{left:calc(26px * var(--shili-sx));top:calc(325px * var(--shili-sy));width:calc(108px * var(--shili-sx));height:calc(156px * var(--shili-sy))}
+.shili-foreground-green-stamp{right:calc(-1px * var(--shili-sx));top:calc(112px * var(--shili-sy));width:calc(72px * var(--shili-sx));height:calc(115px * var(--shili-sx))}
+.shili-page[data-view=calendar] .shili-foreground-floral-stamp{right:calc(-4px * var(--shili-sx));top:calc(111px * var(--shili-sy));width:calc(76px * var(--shili-sx));height:calc(108px * var(--shili-sx))}
+.shili-page[data-view=settings] .shili-foreground-floral-stamp{right:calc(-2px * var(--shili-sx));top:calc(88px * var(--shili-sy));width:calc(82px * var(--shili-sx));height:calc(118px * var(--shili-sx))}
+.shili-event-cover{box-sizing:border-box;width:58px;height:64px;flex:none;object-fit:cover;border:1px solid #d4caba;border-radius:3px;background:#eee5d8}.shili-countdown{font-style:normal;color:#ba7586;font-weight:600}.shili-gift-content small{display:flex;flex-wrap:wrap;column-gap:3px;align-items:baseline}
+/* Last side-by-side pass: title hierarchy and control geometry. */
+.shili-filter{min-height:44px}
+.shili-page[data-view=calendar] .shili-page-heading{height:calc(232px * var(--shili-sy))}
+.shili-page[data-view=calendar] .shili-page-heading .shili-script{top:calc(84px * var(--shili-sy))}
+.shili-page[data-view=calendar] .shili-title-line:first-child{font-size:1.22em;line-height:.79;margin-bottom:3px}
+.shili-page[data-view=calendar] .shili-page-heading h1{top:calc(178px * var(--shili-sy))}
+.shili-page[data-view=cabinet] .shili-page-heading .shili-script{font-size:calc(48px * var(--shili-sx));top:calc(91px * var(--shili-sy));line-height:.98}
+.shili-page[data-view=cabinet] .shili-page-heading h1{top:calc(181px * var(--shili-sy));left:46%;width:38%;color:#b67887}
+.shili-album-item small{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;margin:0!important}
+.shili-card-choice{overflow:hidden}.shili-card-choice-script span{display:block;font-size:30px;line-height:1;white-space:nowrap}
+.shili-page[data-view=opening] .shili-page-heading h1{top:calc(104px * var(--shili-sy))}
+@media(max-height:740px){
+ .shili-page[data-view=preview] .shili-preview{height:calc(280px * var(--shili-sy));margin-bottom:calc(28px * var(--shili-sy))}
+ .shili-page[data-view=preview] .shili-card{min-height:36px;padding-top:5px;padding-bottom:5px}
+ .shili-page[data-view=preview] .shili-preview-actions{margin-top:6px}
+ .shili-page[data-view=wrapping] .shili-page-heading{height:calc(102px * var(--shili-sy))}
+ .shili-page[data-view=wrapping] .shili-wrapped-art{height:calc(175px * var(--shili-sy))}
+ .shili-page[data-view=wrapping] .shili-wrapping-card{min-height:56px;padding:6px 16px;margin-bottom:3px}
+ .shili-page[data-view=wrapping] .shili-wrapping-card h2{font-size:14px;margin-bottom:3px}
+ .shili-page[data-view=wrapping] .shili-wrapping-card p{font-size:11px}
+ .shili-page[data-view=wrapping] .shili-fold{margin-top:3px;margin-bottom:6px}
+ .shili-page[data-view=preview] .shili-page-heading .shili-script,.shili-page[data-view=wrapping] .shili-page-heading .shili-script,.shili-page[data-view=opening] .shili-page-heading .shili-script{font-size:calc(36px * var(--shili-sx))}
+ .shili-page[data-view=wrapping] .shili-page-heading h1{top:calc(94px * var(--shili-sy));font-size:14px}
+}
+
+/* v3: photographs and greeting copy form two explicit, bounded components. */
+.shili-page[data-view=preview] .shili-page-heading{height:calc(120px * var(--shili-sy))}
+.shili-page[data-view=preview] .shili-preview-artwork{height:calc(352px * var(--shili-sy));position:relative;display:grid;place-items:start center;margin:0;padding:0}
+.shili-page[data-view=preview] .shili-preview-photo{box-sizing:border-box;width:74%;aspect-ratio:1;position:relative;margin:calc(22px * var(--shili-sy)) 0 0;padding:calc(8px * var(--shili-sx));background:#f8f2e6;border:1px solid #dfd4bd;box-shadow:1px 3px 5px #5b4e3424;transform:rotate(-7deg);overflow:hidden}
+.shili-page[data-view=preview] .shili-preview-photo .shili-preview-image{display:block;box-sizing:border-box;width:100%;height:100%;max-height:none;margin:0;padding:0;border:0;transform:none;animation:none;object-fit:contain;object-position:center;background:#ece2cf;box-shadow:none}
+.shili-preview-text-gift{display:grid;place-items:center;width:100%;height:100%;text-align:center;font:16px/1.8 'Noto Serif SC',serif;color:#a27981;background:#f8f1e1}
+.shili-page[data-view=preview] .shili-preview-note{box-sizing:border-box;display:flex;flex-direction:column;position:relative;width:84%;height:calc(205px * var(--shili-sy));min-height:154px;margin:0 auto;padding:calc(17px * var(--shili-sx)) calc(20px * var(--shili-sx)) calc(13px * var(--shili-sx));transform:rotate(-5deg);color:#675e51;isolation:isolate}
+.shili-note-content{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overflow-wrap:anywhere;scrollbar-width:thin;scrollbar-color:#ceb9ab transparent}
+.shili-note-title{position:static;font-size:15px;font-weight:600;line-height:1.7;letter-spacing:.02em;margin:0 0 7px;border:0;color:#6e6251;overflow-wrap:anywhere}
+.shili-note-description{font-size:13px;line-height:1.8;margin:0 0 7px;color:#766c5b;white-space:pre-wrap;overflow-wrap:anywhere}
+.shili-note-message{display:block;font-size:14px;line-height:1.85;margin:0;padding:0;border:0;background:none;white-space:pre-wrap;overflow-wrap:anywhere;color:#675b4c}
+.shili-note-date{display:block;flex:none;align-self:flex-end;font:italic 13px/1.4 ShiliGaramond,serif;letter-spacing:.035em;margin-top:8px;color:#7c715f}
+.shili-page[data-view=preview] .shili-preview-actions{margin:calc(16px * var(--shili-sy)) 0 0;gap:8px}
+.shili-page[data-view=preview] .shili-preview-details{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 0}
+.shili-page[data-view=preview] .shili-preview-details .shili-meta{margin:0;font-size:10px}
+.shili-page[data-view=preview] .shili-preview-details .shili-link{margin:0;min-height:32px;font-size:11px}
+/* One title group, centered inside the cabinet's cream paper safe zone. */
+.shili-page[data-view=cabinet] .shili-page-heading{height:calc(244px * var(--shili-sy));display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(76px * var(--shili-sy)) calc(32px * var(--shili-sx)) calc(12px * var(--shili-sy));gap:8px}
+.shili-page[data-view=cabinet] .shili-page-heading .shili-script{position:static;inset:auto;width:100%;max-width:calc(264px * var(--shili-sx));margin:0;font-size:calc(44px * var(--shili-sx));line-height:1.03;text-align:center;transform:none}
+.shili-page[data-view=cabinet] .shili-page-heading h1{position:static;inset:auto;width:auto;margin:0;font-size:calc(15px * var(--shili-sx));line-height:1.5;letter-spacing:.15em;text-align:center;color:#b67887}
+/* Card templates use a fixed thumbnail slot and a separate caption baseline. */
+.shili-page[data-view=wrapping] .shili-card-choice{display:grid;grid-template-rows:minmax(0,1fr) 15px;justify-items:center;gap:3px;background:#f8f2e6;border:1px solid #d5c6b3;padding:5px 7px;overflow:hidden}
+.shili-card-sample{display:grid;place-items:center;min-height:0;height:100%;width:60%;box-sizing:border-box;background:#fbf6e8;border:1px solid #d8c9b3;overflow:hidden;transform:none}
+.shili-card-sample-floral{background-image:url('../assets/shili/reference/botanical-transparent.png');background-repeat:no-repeat;background-position:center;background-size:contain}
+.shili-card-sample-rose{background-image:url('../assets/shili/reference/floral-stamp-transparent.png');background-repeat:no-repeat;background-position:center;background-size:auto 90%}
+.shili-card-choice .shili-card-caption{display:block;align-self:end;white-space:nowrap;font:10px/15px 'Noto Serif SC',serif;padding:0;background:none;color:#8e6d70;text-align:center;transform:none}
+.shili-page[data-view=wrapping] .shili-card-choice-script .shili-card-sample span{font:23px/.82 ShiliAllura,serif;white-space:pre-line;text-align:center;background:none;display:block}
+.shili-page[data-view=wrapping] .shili-wrapping-card{box-sizing:border-box;height:calc(92px * var(--shili-sy));min-height:78px;padding:12px 17px;margin:0 8px 10px;transform:none;background:#fbf6e8 url('../assets/shili/restored/cream-letter-paper.png') center/100% 100% no-repeat;border:1px solid #ded2bd;border-radius:3px;box-shadow:0 1px 3px #7a6b4e15;overflow:hidden}
+.shili-wrapping-copy{height:100%;overflow-y:auto;overflow-x:hidden;overflow-wrap:anywhere;scrollbar-width:thin}
+.shili-page[data-view=wrapping] .shili-wrapping-card h2{font:500 14px/1.65 'Noto Serif SC',serif;position:static;margin:0 0 4px;color:#9a7378;overflow-wrap:anywhere}
+.shili-page[data-view=wrapping] .shili-wrapping-card p{font:12px/1.8 'Noto Serif SC',serif;position:static;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-height:740px){
+ .shili-page[data-view=preview] .shili-page-heading{height:calc(123px * var(--shili-sy))}
+ .shili-page[data-view=preview] .shili-preview-artwork{height:calc(328px * var(--shili-sy))}
+ .shili-page[data-view=preview] .shili-preview-photo{width:65%;margin-top:calc(11px * var(--shili-sy))}
+ .shili-page[data-view=preview] .shili-preview-note{height:calc(207px * var(--shili-sy));min-height:148px;padding:10px 16px}
+ .shili-note-title{font-size:14px;line-height:1.5;margin-bottom:4px}.shili-note-description{font-size:12px;line-height:1.6;margin-bottom:4px}.shili-note-message{font-size:12px;line-height:1.7}.shili-note-date{font-size:12px;margin-top:5px}
+ .shili-page[data-view=preview] .shili-preview-actions{margin-top:10px}
+ .shili-page[data-view=wrapping] .shili-wrapping-card{height:72px;min-height:72px;padding:8px 15px;margin-bottom:6px}
+ .shili-page[data-view=wrapping] .shili-card-choice-script .shili-card-sample span{font-size:19px}
+}
+.shili-page[data-view=wrapping] .shili-card-choice .shili-card-sample-floral{background:#fbf6e8 url('../assets/shili/reference/botanical-transparent.png') center/contain no-repeat}
+.shili-page[data-view=wrapping] .shili-card-choice .shili-card-sample-rose{background:#fbf6e8 url('../assets/shili/reference/floral-stamp-transparent.png') center/auto 90% no-repeat}
+
+/* v4: the full greeting follows the measured paper edge; address precedes gift name. */
+@font-face{font-family:ShiliHandwritten;src:url('../assets/shili/fonts/MaShanZheng-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
+.shili-page[data-view=preview] .shili-preview-note{transform:rotate(var(--shili-note-angle,-7.6deg));padding:11px calc(21px * var(--shili-sx)) 12px}
+.shili-note-salutation{display:flex;align-items:baseline;gap:7px;position:static;min-width:0;margin:0 0 4px;line-height:1.12;color:#a66e80;transform:none;overflow-wrap:anywhere}
+.shili-to-prefix{flex:none;font:36px/1.08 ShiliGreatVibes,ShiliAllura,cursive;letter-spacing:.01em}
+.shili-to-name{font:28px/1.18 ShiliHandwritten,'Noto Serif SC',serif;font-weight:400;letter-spacing:.045em;min-width:0;overflow-wrap:anywhere}
+.shili-note-title{font-size:12px;font-weight:500;line-height:1.6;margin:0 0 4px;letter-spacing:.02em;color:#8e7467}
+.shili-note-description{font-size:12.5px;line-height:1.65;margin:0 0 5px}
+.shili-note-message{font-size:12.5px;line-height:1.75}
+.shili-note-date{margin-top:6px}
+.shili-address-editor{margin:10px 0 0}.shili-address-editor>summary{font-size:12px}
+.shili-page[data-view=wrapping] .shili-wrapping-card{height:calc(115px * var(--shili-sy));min-height:100px;padding-top:9px;padding-bottom:9px}
+.shili-page[data-view=wrapping] .shili-wrap-salutation{margin:0 0 3px}
+.shili-wrap-salutation .shili-to-prefix{font-size:27px}.shili-wrap-salutation .shili-to-name{font-size:23px}
+.shili-page[data-view=wrapping] .shili-wrapping-card h2{font-size:11.5px;line-height:1.6;margin-bottom:3px;font-weight:400}
+.shili-page[data-view=wrapping] .shili-wrapping-card p{font-size:11.5px;line-height:1.7}
+@media(max-height:740px){
+ .shili-to-prefix{font-size:31px}.shili-to-name{font-size:25px}
+ .shili-note-title{font-size:11.5px;line-height:1.5}.shili-note-description,.shili-note-message{font-size:11.5px;line-height:1.65}
+ .shili-page[data-view=preview] .shili-preview-note{padding:9px 16px}
+ .shili-page[data-view=wrapping] .shili-wrapping-card{height:96px;min-height:96px;padding-top:7px;padding-bottom:7px}
+ .shili-wrap-salutation .shili-to-prefix{font-size:24px}.shili-wrap-salutation .shili-to-name{font-size:21px}
+}
+/* Visible month entry beside the anniversary filters, preserving the reference list layout. */
+.shili-calendar-toolbar{display:flex;align-items:stretch;gap:6px;margin-bottom:12px}
+.shili-calendar-toolbar .shili-filters{flex:1;margin:0;gap:5px}
+.shili-calendar-mode{flex:none;min-width:64px;min-height:44px;border:1px solid #c895a2;border-radius:6px;background:#faf6ed;color:#ad7786;padding:5px 7px;font:12px 'Noto Serif SC',serif;cursor:pointer}
+.shili-calendar-toolbar:has(.shili-filters[hidden]){justify-content:flex-end}
+.shili-calendar-month{padding:12px;margin:0 0 12px;background:#faf7ede6}
+.shili-calendar-month .shili-input{font-size:13px;min-height:44px;margin-bottom:8px}
+.shili-month-nav{min-height:44px;margin-bottom:8px}.shili-month-nav strong{font-size:16px;color:#7f886b}
+.shili-month-grid{gap:5px}.shili-month-grid .shili-day{border-radius:6px;min-height:37px;background:#fffaf369;font-size:14px}
+.shili-month-grid .shili-day.has-event{background:#e6c0cc70;position:relative;color:#9a6576}.shili-day.has-event::after{content:'';position:absolute;width:4px;height:4px;background:#b27888;border-radius:50%;bottom:3px}
+.shili-month-grid .shili-day.today{outline:1px solid #b27888;outline-offset:-1px;box-shadow:none}
+.shili-month-grid{gap:4px}.shili-month-grid .shili-day{min-height:34px}.shili-month-grid .shili-weekday{min-height:27px}
+
+/* v6: touchable calendar days and explicit selected-day content. */
+.shili-page .shili-day{font:inherit;color:inherit;padding:0;min-width:0;min-height:34px;border:1px solid transparent;background:transparent;cursor:pointer;border-radius:5px}
+.shili-page .shili-day.today{border-color:#bd7c91}
+.shili-page .shili-day[aria-pressed=true]{background:#f0dce1;color:#a65f78;box-shadow:inset 0 0 0 1px #c88b9c}
+.shili-page .shili-day:focus-visible{outline:2px solid #a2657d;outline-offset:1px}
+.shili-day-detail{margin:12px 2px 0;padding:11px 10px;border-top:1px solid #d9caba;color:#766b5d;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.shili-day-detail>strong{font-weight:500;color:#9b6f7d}.shili-day-detail p{margin:5px 0 0}.shili-day-event{display:flex;flex-wrap:wrap;gap:5px 12px;justify-content:space-between}.shili-day-event small{color:#998e7c}
+.shili-page .shili-today-note{margin:0 0 10px;padding:10px 12px;text-align:left;font-size:12px;color:#9f687a;background:#f4e4e6d9;border:1px solid #dfbdc5;border-radius:6px;line-height:1.7}
+.shili-page[data-view=calendar] .shili-calendar-month:not([hidden])~.shili-fold:not([open]){position:static;bottom:auto;margin-top:10px}
+.shili-mechanical.is-open .shili-tissue-right{transform:translate(12px,-28px) rotateX(8deg) rotate(21deg)}
+
+/* v7: fixed top/bottom paper caps, a flexible center and scrollable UI above. */
+.shili-page{--shili-cap-top:280;--shili-cap-bottom:220;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px;--shili-plate:url('../assets/shili/backgrounds/detail-collage-plate-v1.png')}
+.shili-backdrop{position:absolute;inset:0 0 var(--shili-nav-height,62px);z-index:0;pointer-events:none;border:0 solid transparent;border-image-source:var(--shili-plate);border-image-slice:var(--shili-cap-top) 0 var(--shili-cap-bottom) 0 fill;border-image-width:calc(var(--shili-cap-top-height) * var(--shili-sx)) 0 calc(var(--shili-cap-bottom-height) * var(--shili-sx)) 0;border-image-repeat:stretch;background:#f7f5ee url('../assets/shili/common/paper_background.png') center/390px auto repeat}
+.shili-page .shili-main{z-index:1;background:transparent;margin-bottom:calc(24px * var(--shili-sx));scroll-padding-bottom:24px}
+.shili-page .shili-sheet{background:none}
+.shili-page .shili-nav{position:relative;z-index:2}
+.shili-month-grid .shili-day{display:grid;place-items:center;position:relative;padding-bottom:3px}
+.shili-month-grid .shili-day.has-event::after{left:50%;right:auto;bottom:3px;transform:translateX(-50%);width:4px;height:4px}
+.shili-page[data-view=detail]{--shili-plate:url('../assets/shili/backgrounds/detail-collage-plate-v1.png')}
+.shili-page[data-view=detail] .shili-page-heading{height:calc(200px * var(--shili-sy))}
+.shili-page[data-view=detail] .shili-page-heading .shili-script{top:calc(79px * var(--shili-sy));font-size:calc(45px * var(--shili-sx));left:5%;width:90%;letter-spacing:0}
+.shili-page[data-view=detail] .shili-page-heading h1{top:calc(151px * var(--shili-sy));left:10%;width:80%;font-size:16px}
+.shili-detail-photo{box-sizing:border-box;width:78%;max-width:320px;height:calc(272px * var(--shili-sy));margin:0 auto 22px;padding:8px;background:#fcf5e7;box-shadow:0 3px 7px #88765629;border:1px solid #ddceba;transform:rotate(-3deg)}
+.shili-page[data-view=detail] .shili-detail-photo .shili-preview{display:block;width:100%;height:100%;max-height:none;object-fit:contain;object-position:center;background:transparent;margin:0;padding:0;transform:none;animation:none;box-shadow:none;border:0}
+.shili-page[data-view=detail] .shili-description{width:76%;margin:12px auto;font-size:12px;line-height:1.8;text-align:center;color:#8e7d6c}
+.shili-page[data-view=detail] .shili-card{box-sizing:border-box;width:82%;margin:14px auto;padding:18px 16px;min-height:66px;max-height:160px;overflow:auto;background:#fff8edc9;border:1px solid #d9c9b2;transform:rotate(-1deg);font-size:13px;line-height:1.9;box-shadow:0 1px 4px #8e795017}
+.shili-page[data-view=detail] .shili-meta{width:82%;margin:10px auto;font-size:11px;line-height:1.8;color:#8c7d6d}
+.shili-page[data-view=detail] .shili-sheet>.shili-btn{display:block;width:78%;margin:12px auto}
+.shili-page[data-view=detail] .shili-sheet>.shili-link{margin:0 auto;display:block}
+.shili-detail-letter{width:72%;height:220px;margin:0 auto 20px;background:#faf1dfb8;border:1px solid #d9cbb5;transform:rotate(-3deg)}
+.shili-page[data-view=home]{--shili-cap-top:326;--shili-cap-bottom:254;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=create]{--shili-cap-top:288;--shili-cap-bottom:224;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=calendar]{--shili-cap-top:301;--shili-cap-bottom:234;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=cabinet]{--shili-cap-top:301;--shili-cap-bottom:234;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=settings]{--shili-cap-top:321;--shili-cap-bottom:250;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=preview]{--shili-cap-top:283;--shili-cap-bottom:220;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=wrapping]{--shili-cap-top:301;--shili-cap-bottom:234;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=opening]{--shili-cap-top:301;--shili-cap-bottom:234;--shili-cap-top-height:140.76px;--shili-cap-bottom-height:109.48px}
+.shili-page[data-view=detail]{--shili-cap-top:302;--shili-cap-bottom:248;--shili-cap-top-height:132.94px;--shili-cap-bottom-height:109.48px}
+.shili-page .shili-fold[open],.shili-page .shili-settings-group[open]{background:#fbf7edf5}
+.shili-detail-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;width:82%;margin:12px auto 18px}
+.shili-detail-actions>.shili-btn,.shili-detail-actions>.shili-link{box-sizing:border-box;flex:1 1 120px;min-height:44px;margin:0;text-align:center;font-size:12px}
+.shili-style-guide{margin:10px 0;border:1px solid #ded1c0;border-radius:5px;background:#fcf7ed}
+.shili-style-guide>summary{padding:11px 10px;min-height:44px;box-sizing:border-box;color:#a16f80;font-size:12px;cursor:pointer}
+.shili-style-guide ul{margin:0;padding:0 16px 12px 28px;font-size:12px;line-height:1.85;color:#796c5d}
+.shili-style-guide li+li{margin-top:8px}.shili-style-guide strong{color:#a16f80;font-weight:500}
+
+/* Gift layers are decorative; protruding 3D layers must not intercept opening controls. */
+.shili-mechanical,.shili-mechanical *{pointer-events:none}
+/* Photos are display-only; rotated visual bounds cannot block preview actions. */
+.shili-preview-artwork,.shili-preview-artwork *{pointer-events:none}
+.shili-preview-actions{position:relative;z-index:5}
+/* Keep the established phone composition centered on larger screens. */
+@media(min-width:500px){#shili-page{left:calc(50% - 215px);right:auto;width:430px}}

@@ -1357,11 +1357,11 @@ function confirmDeleteChar(charId, listPage, editPage) {
   const sheet = createSheet(`
     <div class="sheet-title" style="text-align:center">删除角色</div>
     <div style="padding:0 20px 16px;font-size:13px;color:var(--c-sub);line-height:1.7;text-align:center">
-      删除后，此角色的聊天、想见你记录、朋友圈/论坛内容、关系、记忆和其他可定位数据都会被清除。此操作不可恢复。
+      删除角色前，请选择如何处理拾礼中的纪念。聊天及角色数据仍将删除。
     </div>
     <div class="sheet-actions">
       <button class="btn-ghost btn-pill" id="char-delete-cancel" type="button" style="flex:1">取消</button>
-      <button class="btn-pill" id="char-delete-confirm" type="button" style="flex:1;background:var(--c-red);color:#fff">删除</button>
+      <button class="btn-ghost btn-pill" id="char-delete-preserve" type="button" style="flex:1">保留匿名纪念</button><button class="btn-pill" id="char-delete-confirm" type="button" style="flex:1;background:var(--c-red);color:#fff">连同礼物删除</button>
     </div>
   `)
   document.getElementById('app').appendChild(overlay)
@@ -1374,11 +1374,11 @@ function confirmDeleteChar(charId, listPage, editPage) {
   }
   overlay.addEventListener('click', close)
   sheet.querySelector('#char-delete-cancel').addEventListener('click', close)
-  sheet.querySelector('#char-delete-confirm').addEventListener('click', async () => {
-    const btn = sheet.querySelector('#char-delete-confirm')
+  async function performDeletion(mode, btn) {
     btn.disabled = true
     btn.textContent = '删除中...'
     try {
+      if (window.ShiliRepository && window._wechatUid) await window.ShiliRepository.handleCharacterDeletion(db, window._wechatUid, charId, mode)
       await deleteCharacterEverywhere(charId)
       window.toast('角色已删除')
       delete window._charCache[charId]
@@ -1392,10 +1392,12 @@ function confirmDeleteChar(charId, listPage, editPage) {
     } catch (err) {
       console.error('[character] 删除角色失败:', err)
       btn.disabled = false
-      btn.textContent = '删除'
+      btn.textContent = mode === 'preserve' ? '保留匿名纪念' : '连同礼物删除'
       window.toast('删除失败：' + (err.message || '未知错误'))
     }
-  })
+  }
+  sheet.querySelector('#char-delete-preserve').addEventListener('click', function(e){performDeletion('preserve',e.currentTarget)})
+  sheet.querySelector('#char-delete-confirm').addEventListener('click', function(e){performDeletion('delete',e.currentTarget)})
 }
 
 function sameCharId(a, b) {

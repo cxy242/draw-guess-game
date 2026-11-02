@@ -190,93 +190,50 @@ function getXAvatarHTML(char) {
 }
 
 // ===== Data Layer (IndexedDB + Memory Cache) =====
-var _xPostsCache = null;
+var _xPostsCache = [];
 var _xCommentsCache = {};
 var _xCacheLoaded = false;
-
-// Load from IndexedDB into memory cache (once)
-async function _xInitCache() {
-  if (_xCacheLoaded) return;
-  _xCacheLoaded = true;
-  try {
-    // Migrate old localStorage posts
-    var oldPosts = localStorage.getItem(X_POSTS_KEY);
-    if (oldPosts) {
-      var arr = JSON.parse(oldPosts);
-      if (arr && arr.length) {
-        for (var i = 0; i < arr.length; i++) {
-          try { await db.xPosts.put(arr[i]); } catch(_) {}
-        }
-        console.log('[X] Migrated ' + arr.length + ' posts to IndexedDB');
-      }
-      localStorage.removeItem(X_POSTS_KEY);
-    }
-    // Migrate old localStorage comments
-    var keysToRemove = [];
-    for (var j = 0; j < localStorage.length; j++) {
-      var k = localStorage.key(j);
-      if (k && k.indexOf(X_COMMENTS_PREFIX) === 0) keysToRemove.push(k);
-    }
-    for (var ki = 0; ki < keysToRemove.length; ki++) {
-      var pk = keysToRemove[ki];
-      var postId = pk.replace(X_COMMENTS_PREFIX, '');
-      try {
-        var cmts = JSON.parse(localStorage.getItem(pk));
-        if (cmts && cmts.length) {
-          for (var ci = 0; ci < cmts.length; ci++) {
-            cmts[ci].postId = postId;
-            try { await db.xComments.put(cmts[ci]); } catch(_) {}
-          }
-        }
-      } catch(_) {}
-      localStorage.removeItem(pk);
-    }
-    // Load all into memory
-    _xPostsCache = await db.xPosts.toArray();
-    _xPostsCache.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
-    var allComments = await db.xComments.toArray();
-    _xCommentsCache = {};
-    allComments.forEach(function(c) {
-      if (!c.postId) return;
-      if (!_xCommentsCache[c.postId]) _xCommentsCache[c.postId] = [];
-      _xCommentsCache[c.postId].push(c);
+var _xInitPromise = null;
+var _xPageSize = 20;
+var _xSaveError = null;
+async function _xInitCache(force) {
+  if (_xInitPromise) { if(force){await _xInitPromise;return _xInitCache(true);} return _xInitPromise; }
+  if (_xCacheLoaded && !force) return;
+  _xInitPromise = (async function() {
+    await WanWanRuntime.ready();
+    var old = localStorage.getItem(X_POSTS_KEY);
+    var commentKeys = [];
+    for (var j=0;j<localStorage.length;j++) { var k=localStorage.key(j); if(k.indexOf(X_COMMENTS_PREFIX)===0)commentKeys.push(k); }
+    // Delete a legacy source only after the entire migration commits.
+    await db.transaction('rw',db.xPosts,db.xComments,async function(){
+      if(old){var rows=JSON.parse(old);if(!Array.isArray(rows))throw new Error('旧帖子格式错误，原数据已保留');await db.xPosts.bulkPut(rows);}
+      for(var key of commentKeys){var cs=JSON.parse(localStorage.getItem(key)||'[]');for(var c of cs)c.postId=key.slice(X_COMMENTS_PREFIX.length);await db.xComments.bulkPut(cs);}
     });
-    console.log('[X] Cache loaded: ' + _xPostsCache.length + ' posts');
-  } catch(e) { console.warn('[X] Cache init error:', e); _xPostsCache = []; }
+    if(old)localStorage.removeItem(X_POSTS_KEY);commentKeys.forEach(function(k){localStorage.removeItem(k)});
+    _xPostsCache=await db.xPosts.orderBy('createdAt').reverse().limit(_xPageSize).toArray();
+    _xCommentsCache={};
+    for(var post of _xPostsCache){_xCommentsCache[post.id]=await db.xComments.where('postId').equals(post.id).limit(100).toArray();}
+    _xCacheLoaded=true;_xSaveError=null;
+  })().catch(function(e){_xCacheLoaded=false;_xSaveError=e;window.toast&&toast('X数据未能读取，原记录保留。请重试');throw e}).finally(function(){_xInitPromise=null});
+  return _xInitPromise;
 }
-
-// Initialize on load
-_xInitCache();
-
-function xLoadPosts() {
-  return _xPostsCache || [];
+function xLoadPosts(){return _xPostsCache;}
+async function xSavePost(post){
+  await WanWanRuntime.ready();
+  try{await db.xPosts.put(post);}catch(e){_xSaveError=e;window.toast&&toast('帖子保存失败，请重试');throw e;}
+  var index=_xPostsCache.findIndex(function(p){return p.id===post.id});
+  if(index>=0)_xPostsCache[index]=post;else _xPostsCache.unshift(post);
+  _xPostsCache.sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt)});
+  if(_xPostsCache.length>_xPageSize)_xPostsCache.length=_xPageSize;
+  return post;
 }
-
-function xSavePost(post) {
-  if (!_xPostsCache) _xPostsCache = [];
-  var idx = _xPostsCache.findIndex(function(p) { return p.id === post.id; });
-  if (idx >= 0) _xPostsCache[idx] = post; else _xPostsCache.unshift(post);
-  try { db.xPosts.put(post).catch(function() {}); } catch(_) {}
+async function xSavePosts(posts){
+  await WanWanRuntime.ready();await db.xPosts.bulkPut(posts);
+  await _xInitCache(true);
 }
+async function xDeletePost(postId){await WanWanRuntime.ready();try{await db.xPosts.delete(postId);await db.xComments.where('postId').equals(postId).delete();}catch(e){window.toast&&toast('删除失败，请重试');throw e;}if(_xPostsCache)_xPostsCache=_xPostsCache.filter(function(p){return p.id!==postId});delete _xCommentsCache[postId];return true;}
+async function xLoadMore(page,user){_xPageSize+=20;await _xInitCache(true);renderXHomeTab(page,user);}
 
-function xSavePosts(posts) {
-  if (!_xPostsCache) _xPostsCache = [];
-  for (var i = 0; i < posts.length; i++) {
-    var idx = _xPostsCache.findIndex(function(p) { return p.id === posts[i].id; });
-    if (idx >= 0) _xPostsCache[idx] = posts[i]; else _xPostsCache.push(posts[i]);
-    try { db.xPosts.put(posts[i]).catch(function() {}); } catch(_) {}
-  }
-  _xPostsCache.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
-}
-
-function xDeletePost(postId) {
-  if (_xPostsCache) {
-    _xPostsCache = _xPostsCache.filter(function(p) { return p.id !== postId; });
-  }
-  delete _xCommentsCache[postId];
-  try { db.xPosts.delete(postId).catch(function() {}); } catch(_) {}
-  try { db.xComments.where('postId').equals(postId).delete().catch(function() {}); } catch(_) {}
-}
 
 function xSaveImage(key, dataUrl) {
   try { localStorage.setItem('wanwan_x_img_' + key, dataUrl); } catch(e) {}
@@ -286,40 +243,26 @@ function xLoadImage(key) {
   try { return localStorage.getItem('wanwan_x_img_' + key) || null; } catch(e) { return null; }
 }
 
-function xPickImage(callback, maxSize) {
-  try {
-    maxSize = maxSize || 400;
-    var input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = function() {
-      try {
-        var file = input.files[0];
-        if (!file) return;
-        var reader = new FileReader();
-        reader.onload = function() {
-          try {
-            var img = new Image();
-            img.onload = function() {
-              try {
-                var canvas = document.createElement('canvas');
-                var ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
-                canvas.width = Math.round(img.width * ratio);
-                canvas.height = Math.round(img.height * ratio);
-                var ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                callback(canvas.toDataURL('image/jpeg', 0.8));
-              } catch(e) { try { window.toast && window.toast('图片处理失败'); } catch(_) {} }
-            };
-            img.onerror = function() { try { window.toast && window.toast('图片加载失败'); } catch(_) {} };
-            img.src = reader.result;
-          } catch(e) {}
-        };
-        reader.readAsDataURL(file);
-      } catch(e) {}
-    };
-    input.click();
-  } catch(e) { try { window.toast && window.toast('无法选择图片'); } catch(_) {} }
+function xPickImage(callback,maxSize){
+  maxSize=maxSize||400;
+  var input=document.createElement('input');input.type='file';input.accept='image/*';
+  input.onchange=async function(){
+    var file=input.files&&input.files[0];if(!file)return;
+    var source,url,canvas;
+    try{
+      if(file.size>32*1024*1024)throw new Error('请选择32MB以内的图片');
+      if(window.createImageBitmap)source=await createImageBitmap(file,{resizeWidth:maxSize,resizeQuality:'high'});
+      else {url=URL.createObjectURL(file);source=await new Promise(function(resolve,reject){var img=new Image();img.onload=function(){resolve(img)};img.onerror=reject;img.src=url;});}
+      canvas=document.createElement('canvas');var ratio=Math.min(1,maxSize/source.width,maxSize/source.height);
+      canvas.width=Math.max(1,Math.round(source.width*ratio));canvas.height=Math.max(1,Math.round(source.height*ratio));
+      canvas.getContext('2d').drawImage(source,0,0,canvas.width,canvas.height);
+      var blob=await new Promise(function(resolve){canvas.toBlob(resolve,'image/jpeg',0.8)});if(!blob)throw new Error('图片转换失败');
+      var data=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(reader.result)};reader.onerror=reject;reader.readAsDataURL(blob)});
+      callback(data);
+    }catch(e){window.toast&&toast('图片处理失败：'+(e.message||'无法读取图片'));}
+    finally{if(source&&source.close)source.close();if(url)URL.revokeObjectURL(url);if(canvas){canvas.width=0;canvas.height=0}input.value='';}
+  };
+  input.click();
 }
 
 function xLoadComments(postId) {
@@ -328,31 +271,18 @@ function xLoadComments(postId) {
   });
 }
 
-function xSaveComment(comment) {
-  if (!comment.postId) return;
-  if (!_xCommentsCache[comment.postId]) _xCommentsCache[comment.postId] = [];
-  var arr = _xCommentsCache[comment.postId];
-  var idx = arr.findIndex(function(c) { return c.id === comment.id; });
-  if (idx >= 0) arr[idx] = comment; else arr.push(comment);
-  try { db.xComments.put(comment).catch(function() {}); } catch(_) {}
+async function xSaveComment(comment) {
+  if(!comment.postId)return;await db.xComments.put(comment);
+  var arr=_xCommentsCache[comment.postId]||[];var i=arr.findIndex(function(c){return c.id===comment.id});
+  if(i>=0)arr[i]=comment;else arr.push(comment);_xCommentsCache[comment.postId]=arr;
+}
+async function xSaveComments(postId,comments){
+  for(var c of comments)c.postId=postId;
+  await db.xComments.bulkPut(comments); // History is append/update only; never erase omitted replies.
+  _xCommentsCache[postId]=await db.xComments.where('postId').equals(postId).toArray();
 }
 
-function xSaveComments(postId, comments) {
-  // Replace entire cache for this post (not merge)
-  _xCommentsCache[postId] = [];
-  for (var i = 0; i < comments.length; i++) {
-    comments[i].postId = postId;
-    _xCommentsCache[postId].push(comments[i]);
-    try { db.xComments.put(comments[i]).catch(function() {}); } catch(_) {}
-  }
-  // Remove old comments from IndexedDB that are no longer in the list
-  try {
-    var ids = comments.map(function(c) { return c.id; });
-    db.xComments.where('postId').equals(postId).each(function(c) {
-      if (ids.indexOf(c.id) === -1) db.xComments.delete(c.id).catch(function() {});
-    }).catch(function() {});
-  } catch(_) {}
-}
+
 
 function xLoadNotifications() {
   try { return JSON.parse(localStorage.getItem(X_NOTIFY_KEY)) || []; } catch(e) { return []; }
@@ -427,10 +357,11 @@ function xGenNpcCommenter() {
 // ===== Batch Memory System =====
 window.addToBatchMemory = function(source, charId, entry) {
   try {
-    var key = source + 'PendingMemories_' + charId;
+    var uid = window._wechatUid; if (!uid) return;
+    var key = source + 'PendingMemories_' + uid + '_' + charId;
     var buffer = [];
     try { buffer = JSON.parse(localStorage.getItem(key)) || []; } catch(e) {}
-    buffer.push(Object.assign({ _ts: Date.now() }, entry));
+    buffer.push(Object.assign({ _ts: Date.now(), _batchId: xGenId() }, entry));
     try { localStorage.setItem(key, JSON.stringify(buffer)); } catch(e) {}
     console.log('[BatchMemory] ' + source + ' +' + (entry.title || '') + ' (total ' + buffer.length + ')');
   } catch(e) { console.warn('[BatchMemory] addToBatchMemory error:', e); }
@@ -438,9 +369,13 @@ window.addToBatchMemory = function(source, charId, entry) {
 
 window.checkAndFlushBatchMemory = async function(source, charId) {
   try {
-    var key = source + 'PendingMemories_' + charId;
+    var user = await WanWanIdentity.currentUser();
+    var key = source + 'PendingMemories_' + user.id + '_' + charId;
     var buffer = [];
     try { buffer = JSON.parse(localStorage.getItem(key)) || []; } catch(e) {}
+    var oldKey=source + 'PendingMemories_' + charId;
+    var owners=await db.characters.where('type').equals('user').count();
+    if (owners===1) try { buffer=JSON.parse(localStorage.getItem(oldKey)||'[]').concat(buffer); } catch(e) {}
     if (buffer.length < 10) return;
 
     console.log('[BatchMemory] ' + source + ' reached 10, flushing...');
@@ -469,11 +404,7 @@ window.checkAndFlushBatchMemory = async function(source, charId) {
     var parsed = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
 
     if (parsed && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
-      var ownerUid = null;
-      try {
-        var users = await db.characters.where('type').equals('user').toArray();
-        if (users.length) ownerUid = String(users[0].id);
-      } catch(_) {}
+      var ownerUid = user.id;
 
       var rows = [];
       parsed.memories.forEach(function(m) {
@@ -504,7 +435,13 @@ window.checkAndFlushBatchMemory = async function(source, charId) {
         await db.memories.bulkAdd(rows);
         console.log('[BatchMemory] ' + source + ' flushed ' + rows.length + ' memories');
       }
-      try { localStorage.removeItem(key); } catch(_) {}
+      if (rows.length) {
+        var current=[];try { current=JSON.parse(localStorage.getItem(key)||'[]'); } catch(_) {}
+        var processed=new Set(buffer.map(function(x){return x._batchId}).filter(Boolean));
+        var remaining=current.filter(function(x){return !processed.has(x._batchId)});
+        if(remaining.length)localStorage.setItem(key,JSON.stringify(remaining));else localStorage.removeItem(key);
+        if(owners===1)localStorage.removeItem(oldKey);
+      }
     }
   } catch(e) {
     console.warn('[BatchMemory] flush failed:', e);
@@ -792,16 +729,21 @@ function renderXHomeTab(page, user) {
     var posts = xLoadPosts();
     posts.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
 
+    if (_xSaveError) { panel.innerHTML='<button id="x-retry-load">读取失败，点此重试</button>';panel.querySelector('button').onclick=function(){_xInitCache(true).then(function(){renderXHomeTab(page,user)}).catch(function(){})};return; }
     if (!posts.length) {
       panel.innerHTML = '<div class="x-loading"><i class="fa fa-spinner fa-spin"></i></div>';
       generateInitialPosts(user).then(function() {
         renderXHomeTab(page, user);
-      }).catch(function(e) { console.error('[X] generateInitialPosts error:', e); });
+      }).catch(function(e) {
+        console.error('[X] generateInitialPosts error:', e);
+        panel.innerHTML = '<div class="x-empty-state" style="padding:40px 20px;text-align:center;color:var(--x-text-muted,#888)">还没有帖子。发布第一条，或开启角色自动发帖。</div>';
+      });
       return;
     }
 
-    var _html = posts.slice(0, 20).map(function(post) { return buildXPostCard(post); }).join('');
-    panel.innerHTML = _html;
+    var _html = posts.slice(0, _xPageSize).map(function(post) { return buildXPostCard(post); }).join('');
+    panel.innerHTML = _html + '<button class="btn-ghost" id="x-load-more">加载更早的帖子</button>';
+    panel.querySelector('#x-load-more').onclick = function(){xLoadMore(page,user).catch(function(e){toast(e.message)})};
     bindPostCardEvents(panel, user);
   } catch(e) { console.error('[X] renderXHomeTab error:', e); }
 }
@@ -826,13 +768,13 @@ async function generateInitialPosts(user) {
       createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - 3600000).toISOString()
     };
     posts.push(xxPost);
-    xSavePosts(posts);
+    await xSavePosts(posts);
 
     var npc1 = { id: xGenId(), authorId: 'npc1', authorName: '吃瓜群众', authorHandle: '@chigua', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[6], content: '哈哈哈哈哈这什么黑暗料理，但是好甜啊', stats: generateCommentStats(), createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - 3500000).toISOString(), replies: [] };
     var npc2 = { id: xGenId(), authorId: 'npc2', authorName: '毒舌达人', authorHandle: '@dushe', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[5], content: '盐和糖都分不清？你确定这不是在养女儿？', stats: generateCommentStats(), createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - 3400000).toISOString(), replies: [] };
     var npc3 = { id: xGenId(), authorId: 'npc3', authorName: '温柔姐姐', authorHandle: '@wenrou', authorAvatar: null, isNpc: true, npcType: X_NPC_TYPES[7], content: '愿意吃完就是最大的浪漫了，祝福你们', stats: generateCommentStats(), createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - 3300000).toISOString(), replies: [] };
     var xxReply = { id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name, authorHandle: '@' + X_XX_CHARACTER.handle, authorAvatar: null, isSystem: true, content: '你管得着吗？我老婆做的就是最好吃的，你肯定是嫉妒我有老婆', stats: generateCommentStats(), createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now()) - 3200000).toISOString(), replies: [], isReply: true, replyTo: npc2.id, replyToName: npc2.authorName };
-    xSaveComments(xxPost.id, [npc1, npc2, npc3, xxReply]);
+    await xSaveComments(xxPost.id, [npc1, npc2, npc3, xxReply]);
   } catch(e) { console.error('[X] generateInitialPosts error:', e); }
 }
 
@@ -940,10 +882,6 @@ function bindPostCardEvents(container, user) {
     container.querySelectorAll('.x-post').forEach(function(postEl) {
       var postId = postEl.dataset.postId;
       if (!postId) return;
-      var posts = xLoadPosts();
-      var post = posts.find(function(p) { return p.id === postId; });
-      
-
       postEl.addEventListener('touchstart', function(e) {
         _longPressTimer = setTimeout(function() {
           try {
@@ -969,8 +907,8 @@ function bindPostCardEvents(container, user) {
               setTimeout(function() { overlay.remove(); }, 200);
             }
             box.querySelector('#x-del-cancel').onclick = closePopup;
-            box.querySelector('#x-del-confirm').onclick = function() {
-              xDeletePost(postId);
+            box.querySelector('#x-del-confirm').onclick = async function() {
+              try { await xDeletePost(postId); } catch(err) { return; }
               closePopup();
               window.toast && window.toast('已删除');
               var _xp = document.getElementById('x-page');
@@ -1011,7 +949,7 @@ function bindPostCardEvents(container, user) {
 }
 
 // Reveal anonymous
-function revealAnonymous(postId, user) {
+async function revealAnonymous(postId, user) {
   try {
     var posts = xLoadPosts();
     var post = posts.find(function(p) { return p.id === postId; });
@@ -1022,14 +960,12 @@ function revealAnonymous(postId, user) {
       return;
     }
 
-    post.isAnonymous = false;
-    if (post.realAuthorId) {
-      post.authorId = post.realAuthorId;
-      post.authorName = post.realAuthorName || '微信用户';
-      post.authorHandle = post.realAuthorHandle || '';
-      post.authorAvatar = post.realAuthorAvatar || null;
-    }
-    xSavePosts(posts);
+    if (!post.realAuthorId) { window.toast&&toast('这条旧匿名帖缺少真实作者信息，已保留原帖'); return; }
+    var person=await db.characters.get(Number(post.realAuthorId)||post.realAuthorId);
+    if(!person){window.toast&&toast('真实角色档案不存在，无法解除匿名');return;}
+    post.isAnonymous=false;post.authorId=String(person.id);post.authorName=person.nick||person.name;
+    post.authorAvatar=person.avatar||null;post.authorHandle='@'+((person.identity&&person.identity.account)||person.name);
+    await xSavePost(post);
 
     var page = document.getElementById('x-page');
     if (page) renderXHomeTab(page, user);
@@ -1037,7 +973,8 @@ function revealAnonymous(postId, user) {
 }
 
 // ===== Post Detail =====
-function showXPostDetail(postId, user) {
+async function showXPostDetail(postId, user) {
+  _xCommentsCache[postId] = await db.xComments.where('postId').equals(postId).toArray();
   try {
     var posts = xLoadPosts();
     var post = posts.find(function(p) { return p.id === postId; });
@@ -1212,7 +1149,7 @@ function bindCommentEvents(page, postId, user, input, sendBtn) {
             page.appendChild(menu);
 
             menu.querySelectorAll('.x-comment-menu-item').forEach(function(item) {
-              item.onclick = function(e2) {
+              item.onclick = async function(e2) {
                 try {
                   e2.stopPropagation();
                   var action = item.dataset.action;
@@ -1221,6 +1158,7 @@ function bindCommentEvents(page, postId, user, input, sendBtn) {
                   if (action === 'delete') {
                     var comments = xLoadComments(postId);
                     comments = comments.filter(function(c) { return c.id !== commentId; });
+                    try { await db.xComments.delete(commentId); } catch(delErr) { console.warn('[X] 评论数据库删除失败', delErr); }
                     xSaveComments(postId, comments);
                     page.querySelector('#x-comments-list').innerHTML = buildXCommentsList(comments);
                     bindCommentEvents(page, postId, user, input, sendBtn);
@@ -1348,7 +1286,7 @@ function buildXCommentItem(comment, isNested) {
 }
 
 // Add comment
-function addXComment(postId, user, text, quoteContent, quoteName) {
+async function addXComment(postId, user, text, quoteContent, quoteName) {
   try {
     var comments = xLoadComments(postId);
     var replyToId = null;
@@ -1380,7 +1318,7 @@ function addXComment(postId, user, text, quoteContent, quoteName) {
       obj.quoteName = quoteName || '';
     }
     comments.push(obj);
-    xSaveComments(postId, comments);
+    await xSaveComments(postId, comments);
 
     // Notification
     var posts = xLoadPosts();
@@ -1513,9 +1451,7 @@ async function publishXPost(user, content, isAnonymous) {
       realCreatedAt: Date.now(),
     };
 
-    var posts = xLoadPosts();
-    posts.unshift(post);
-    xSavePosts(posts);
+    await xSavePost(post);
 
     var page = document.getElementById('x-page');
     if (page) renderXHomeTab(page, user);
@@ -1543,207 +1479,17 @@ async function publishXPost(user, content, isAnonymous) {
 }
 
 // AI generate comments
-async function generateAIComments(post, user) {
-  try {
-    if (!window.callAI) return;
-
-    var charList = '';
-    try {
-      var chars = await db.characters.where('type').equals('char').toArray();
-      charList = chars.slice(0, 5).map(function(c) { return c.name + '（' + (c.description || (c.identity && c.identity.bio) || c.signature || '') + '）'; }).join('、');
-    } catch(e) {}
-
-    var npcSample = X_NPC_TYPES.slice(0, 5).map(function(n) { return n.id + '.' + n.name + '(' + n.style + ')'; }).join('\n');
-    var isAnon = post.isAnonymous || (post.authorId && post.authorId.indexOf('anon_') === 0);
-    // [v6.5.6 身份防火墙] 用户自己的帖子：AI绝不代用户回复；所有发言绝不能冒充用户
-    var isUserPost = !!(user && post.authorId && String(post.authorId) === String(user.id));
-    var _xUserName = ((user && (user.nick || user.name)) || '用户').trim();
-
-    var relCtx = '';
-    if (window.getRelationshipContext && post.authorId) {
-      try { relCtx = await window.getRelationshipContext(parseInt(post.authorId)); } catch(_) {}
-    }
-
-    var prompt = '你是一个社交媒体评论生成器。根据以下帖子内容，生成评论互动。\n\n' +
-      '帖子内容："' + post.content.slice(0, 200) + '"\n\n' +
-      '可用NPC人设：\n' + npcSample + '\n\n' +
-      '可用自建AI角色：' + (charList || '无') + '\n\n' +
-      '要求：\n' +
-      '1. 先生成5条一级评论，每条来自不同NPC人设\n' +
-      ((isAnon || isUserPost) ? '' : '2. 发帖人（' + (post.authorName || '楼主') + '）选择性回复其中2-3条评论\n') +
-      '3. 被回复的NPC可以再回复发帖人\n' +
-      '4. NPC之间可以互评\n' +
-      '5. 形成3层对话链\n' +
-      '6. 评论真实自然\n' +
-      '7.【身份铁律】绝对禁止生成「' + _xUserName + '」（用户本人）的任何评论或发言，用户不参与评论区；所有评论只能来自NPC或角色档案里的人物，且口吻必须是评论者本人的，发帖人回复必须是发帖人的口吻，都绝不能像用户的口吻\n\n' +
-      '返回JSON：\n' +
-      '{"comments":[{"name":"NPC名","content":"评论内容","npcType":5,"isNpc":true}]' +
-      ((isAnon || isUserPost) ? '' : ',"replies":[{"replyToIndex":0,"name":"' + (post.authorName || '楼主') + '","content":"发帖人回复"}]') +
-      ',"replies2":[{"replyToCommentIndex":0,"replyToReplyIndex":-1,"name":"NPC名","content":"NPC回复"}]}';
-
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true });
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
-
-    // [v6.5.6 身份防火墙] 硬过滤：剔除任何冒充用户本人的评论/回复
-    if (data) {
-      var _dropUserName = function(list) {
-        return (list || []).filter(function(c) {
-          var nm = ((c && (c.name || c.from)) || '').trim();
-          return nm !== _xUserName;
-        });
-      };
-      if (data.comments) data.comments = _dropUserName(data.comments);
-      if (data.replies) data.replies = _dropUserName(data.replies);
-      if (data.replies2) data.replies2 = _dropUserName(data.replies2);
-    }
-
-    var comments = xLoadComments(post.id);
-
-    // XX comment
-    try {
-      var xxPrompt = '你是XX，人设：' + X_XX_CHARACTER.bio + '\n\n帖子内容："' + post.content.slice(0, 200) + '"\n\n请以XX的身份评论。直接返回文字。';
-      var xxContent = await window.callAI([{ role: 'user', content: xxPrompt }], { charAntiDrift: true });
-      var xxText = typeof xxContent === 'string' ? xxContent.trim().replace(/^["'"「]|["'"」]$/g, '') : '';
-      comments.push({
-        id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name,
-        authorHandle: '@xx_love', authorAvatar: null, isSystem: true,
-        content: xxText || '我老婆说得对！',
-        stats: generateCommentStats(), createdAt: new Date((window.TimeWorld ? window.TimeWorld.getNow() : Date.now())).toISOString(), replies: [],
-        realCreatedAt: Date.now(),
-      });
-    } catch(e) {
-      comments.push({
-        id: xGenId(), authorId: X_XX_CHARACTER.id, authorName: X_XX_CHARACTER.name,
-        authorHandle: '@xx_love', authorAvatar: null, isSystem: true,
-        content: '我老婆说得对！',
-        stats: generateCommentStats(), createdAt: new Date().toISOString(), replies: []
-      });
-    }
-
-    // Add comments — [v6.5.8 身份铁律] 评论者身份一律走档案，绝不让AI捏假人
-    if (data.comments) {
-      // 先取人物档案名单（用户+AI角色），供评论者对号入座
-      var _cRoster = [];
-      try { if (window.db && db.characters) _cRoster = await db.characters.toArray(); } catch(e) {}
-      data.comments.forEach(function(c) {
-        var npcType = X_NPC_TYPES.find(function(n) { return n.id === c.npcType; }) || randomPick(X_NPC_TYPES);
-        // 精确匹配档案（含用户本人——但用户名字的评论已被硬过滤剔除，这里只对AI角色）
-        var cname = (c.name || '').trim().toLowerCase();
-        var match = cname ? _cRoster.find(function(x) {
-          return ((x.name || '').trim().toLowerCase() === cname || ((x.nick || '') && x.nick.trim().toLowerCase() === cname)) && String(x.id) !== String(user && user.id);
-        }) : null;
-        var aId, aName, aAvatar;
-        if (match) {
-          // 已有AI角色：原档案ID、名称、头像，绝不用AI生成的版本
-          aId = match.id; aName = match.name; aAvatar = match.avatar || null;
-        } else {
-          // 确认是档案外的全新真人物：才允许立独立NPC
-          aId = 'npc_' + xGenId(); aName = c.name || randomPick(X_NPC_NAMES); aAvatar = null;
-        }
-        comments.push({
-          id: xGenId(),
-          authorId: aId,
-          authorName: aName,
-          authorHandle: '@user-' + String(c.id || '').slice(-4),
-          authorAvatar: aAvatar,
-          isNpc: !!c.isNpc,
-          npcType: npcType,
-          content: c.content,
-          stats: generateCommentStats(),
-          createdAt: new Date().toISOString(),
-          isReply: false
-        });
-      });
-    }
-
-    // Add author replies (level 2)
-    if (!isAnon && !isUserPost && data.replies) {
-      data.replies.forEach(function(r) {
-        var targetComment = data.comments[r.replyToIndex];
-        if (!targetComment) return;
-        var targetInStore = comments.find(function(c) { return c.content === targetComment.content && !c.isReply; });
-        comments.push({
-          id: xGenId(),
-          authorId: post.authorId,
-          authorName: post.authorName,
-          authorHandle: post.authorHandle,
-          authorAvatar: post.authorAvatar,
-          content: r.content,
-          stats: generateCommentStats(),
-          createdAt: new Date(Date.now() + 60000).toISOString(),
-          isReply: true,
-          replyTo: targetInStore ? targetInStore.id : null,
-          replyToName: targetComment.name
-        });
-      });
-    }
-
-    // Level 3 replies
-    if (data.replies2) {
-      data.replies2.forEach(function(r2) {
-        comments.push({
-          id: xGenId(),
-          authorId: 'npc_' + xGenId(),
-          authorName: r2.name || randomPick(X_NPC_NAMES),
-          authorHandle: '@' + (r2.name || 'user').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10),
-          authorAvatar: null,
-          isNpc: true,
-          npcType: randomPick(X_NPC_TYPES),
-          content: r2.content,
-          stats: generateCommentStats(),
-          createdAt: new Date(Date.now() + 120000).toISOString(),
-          isReply: true,
-          replyToName: post.authorName
-        });
-      });
-    }
-
-    xSaveComments(post.id, comments);
-
-    // Memory: AI comments on user post
-    comments.forEach(function(c) {
-      if (c.authorId && !c.isReply) {
-        var postAuthor = post.authorName || '用户';
-        var postPreview = (post.content || '').slice(0, 25);
-        addToBatchMemory('x', c.authorId, {
-          title: '我在X上评论了帖子',
-          content: postAuthor + '发了一条帖子"' + postPreview + '"，我评论说："' + c.content.slice(0, 40) + '"',
-          keywords: ['X评论', '互动']
-        });
-        checkAndFlushBatchMemory('x', c.authorId);
-      }
-    });
-
-    // Notifications
-    var notifs = xLoadNotifications();
-    comments.forEach(function(c) {
-      if (!c.isReply) {
-        notifs.unshift({
-          id: xGenId(),
-          type: 'comment',
-          userName: c.authorName,
-          postId: post.id,
-          postPreview: c.content.slice(0, 30),
-          createdAt: new Date().toISOString()
-        });
-      }
-    });
-    xSaveNotifications(notifs);
-    showNotifyDot();
-
-    // Refresh feed
-    var page = document.getElementById('x-page');
-    if (page) renderXHomeTab(page, user);
-
-  } catch(e) { console.error('[X] AI评论生成失败:', e); }
+async function generateAIComments(post,user){
+  try{
+    var pool=await db.characters.toArray();
+    var raw=await callAI([{role:'user',content:'为帖子生成自然评论，包含熟人和真正路人NPC。严禁代任何type=user的人发言，楼主是用户时不得生成楼主回复。人物池：'+JSON.stringify(pool.map(function(c){return{id:c.id,name:c.name,type:c.type}}))+'\n帖子：'+post.content+'\n返回JSON：{"comments":[{"charId":null,"from":"路人名字","text":"评论","to":null}]}'}],{responseFormat:'json_object'});
+    var data=typeof raw==='string'?JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g,'')):raw;
+    var rows=await WanWanSocial.comments(data.comments||[],{id:post.realAuthorId||post.authorId,name:post.realAuthorName||post.authorName},post.id+'_'+Date.now(),WanWanRuntime.now());
+    await xSaveComments(post.id,rows);return rows;
+  }catch(e){console.error('[X] 评论失败',e);window.toast&&toast('评论生成失败，帖子已保留');return [];}
 }
 
-function showNotifyDot() {
-  try {
-    var dot = document.getElementById('x-notify-dot');
-    if (dot) dot.classList.add('show');
-  } catch(e) {}
-}
+
 
 // ===== Search Tab =====
 function renderXSearchTab(page, user) {
@@ -1769,10 +1515,12 @@ function renderXSearchTab(page, user) {
   } catch(e) {}
 }
 
-function doXSearch(query, resultsEl, user) {
+async function doXSearch(query, resultsEl, user) {
   try {
     if (!query) { resultsEl.innerHTML = ''; return; }
-    var posts = xLoadPosts();
+    var version=(resultsEl._searchVersion||0)+1;resultsEl._searchVersion=version;
+    var posts = await db.xPosts.filter(function(p){return (p.content||'').toLowerCase().includes(query.toLowerCase())||(p.authorName||'').toLowerCase().includes(query.toLowerCase())}).limit(100).toArray();
+    if(resultsEl._searchVersion!==version||!resultsEl.isConnected)return;
     var q = query.toLowerCase();
     var matched = posts.filter(function(p) {
       return (p.content && p.content.toLowerCase().indexOf(q) !== -1) ||
@@ -1818,7 +1566,7 @@ function renderXNotifyTab(page, user) {
 }
 
 // ===== Profile Tab =====
-function renderXProfileTab(page, user) {
+async function renderXProfileTab(page, user) {
   try {
     var panel = page.querySelector('#x-tab-profile');
     if (!panel) return;
@@ -1880,10 +1628,10 @@ function buildXProfileHTML(opts) {
   } catch(e) { return ''; }
 }
 
-function renderXProfileContent(container, user, isOwnProfile) {
+async function renderXProfileContent(container, user, isOwnProfile) {
   try {
     var follows = xLoadFollows(user.id);
-    var posts = xLoadPosts().filter(function(p) { return String(p.authorId) === String(user.id); });
+    var posts = await db.xPosts.where('authorId').anyOf([user.id,String(user.id)]).reverse().limit(100).toArray();
     var comments = [];
     xLoadPosts().forEach(function(p) {
       var pc = xLoadComments(p.id);
@@ -2060,12 +1808,12 @@ function showXCharacterProfile(charId, user) {
   } catch(e) { console.error('[X] showXCharacterProfile error:', e); }
 }
 
-function renderXCharProfilePage(char, user) {
+async function renderXCharProfilePage(char, user) {
   try {
     var existing = document.getElementById('x-char-profile');
     if (existing) existing.remove();
 
-    var posts = xLoadPosts().filter(function(p) { return String(p.authorId) === String(char.id); });
+    var posts = await db.xPosts.where('authorId').anyOf([char.id,String(char.id)]).reverse().limit(100).toArray();
     var isFollowing = xIsFollowing(user.id, char.id);
     var isSelf = String(char.id) === String(user.id);
     var savedAvatar = xLoadImage('avatar_' + char.id);
@@ -2312,83 +2060,12 @@ function showXXProfile(user) {
 }
 
 // Generate 5 posts for character
-async function generate5PostsForChar(char) {
-  try {
-    if (!window.callAI) return;
-
-    var prompt = '你是' + char.name + '。' + (char.description || ((char.identity && char.identity.bio) || char.signature || '普通用户')) + '\n\n' +
-      '你要在社交媒体上发帖，像真人一样分享日常、心情、想法。\n\n' +
-      '帖子分类：\n' +
-      X_CATEGORIES.map(function(c) { return c.id + '.' + c.name; }).join('\n') + '\n\n' +
-      '要求：\n' +
-      '1. 生成5条帖子，每条30-80字，完全以你自己的口吻和性格写（你是' + char.name + '本人，绝不模仿用户的口吻、绝不代替用户发言）\n' +
-      '2. 内容要符合你的人设，展现你的性格特点\n' +
-      '3. 每条帖子5条评论，评论者从你认识的人中取名字（如果没有就用普通网友）\n' +
-      '4. 你回复2-3条评论，像真人互动\n' +
-      '5. 形成3层对话链\n\n' +
-      '返回JSON：\n' +
-      '{"posts":[{"content":"帖子","tags":["标签"],"category":1,"comments":[{"name":"评论者","content":"评论","replyToIndex":-1},{"name":"' + char.name + '","content":"回复","replyToIndex":0,"isAuthorReply":true}]}]}';
-
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true });
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
-
-    var allPosts = xLoadPosts();
-    var savedCount = 0;
-    if (data.posts) {
-      data.posts.forEach(function(p, i) {
-        if (!p || !p.content) return;
-        var postId = xGenId();
-        allPosts.push({
-          id: postId,
-          authorId: String(char.id),
-          authorName: char.nick || char.name,
-          authorHandle: '@' + ((char.identity && char.identity.account) || char.name),
-          authorAvatar: char.avatar || null,
-          content: p.content,
-          tags: p.tags || [],
-          category: p.category || randomPick(X_CATEGORIES).id,
-          isAnonymous: false,
-          engagement: generateEngagement(),
-          createdAt: new Date(Date.now() - i * 3600000).toISOString()
-        });
-        savedCount++;
-
-        if (p.comments && p.comments.length) {
-          var comments = [];
-          p.comments.forEach(function(c, ci) {
-            var isAuthorReply = c.isAuthorReply || false;
-            var npcType = randomPick(X_NPC_TYPES);
-            var commentObj = {
-              id: xGenId(),
-              authorId: isAuthorReply ? String(char.id) : ('npc_' + xGenId()),
-              authorName: isAuthorReply ? (char.nick || char.name) : (c.name || npcType.name),
-              authorHandle: isAuthorReply ? ('@' + ((char.identity && char.identity.account) || char.name)) : ('@user-' + String(ci).slice(-4)),
-              authorAvatar: isAuthorReply ? (char.avatar || null) : null,
-              isNpc: !isAuthorReply,
-              npcType: isAuthorReply ? null : npcType,
-              content: c.content,
-              stats: generateCommentStats(),
-              createdAt: new Date(Date.now() - i * 3600000 + ci * 60000).toISOString(),
-              isReply: false
-            };
-            if (c.replyToIndex >= 0 && c.replyToIndex < comments.length) {
-              commentObj.replyTo = comments[c.replyToIndex].id;
-              commentObj.replyToName = comments[c.replyToIndex].authorName;
-              commentObj.isReply = true;
-            }
-            comments.push(commentObj);
-          });
-          xSaveComments(postId, comments);
-        }
-      });
-      xSavePosts(allPosts);
-    }
-    showToastLong('已生成 ' + savedCount + ' 条帖子', 3000);
-  } catch(e) {
-    console.error('[X] generate5PostsForChar error:', e);
-    showToastLong('生成失败：' + (e.message || '未知错误'), 3000);
-  }
+async function generate5PostsForChar(char){
+  var user=await WanWanIdentity.currentUser();
+  for(var i=0;i<5;i++)await generateOneXPost(char,WanWanRuntime.now(),'自然日常，每条避免与前帖重复',user.id);
+  showToastLong('5条帖子已保存',3000);
 }
+
 
 // ===== Settings Page =====
 function showXSettingsPage(user) {
@@ -2725,292 +2402,56 @@ async function showXGenPostsDialog(user, genBtn, page) {
   } catch(e) { console.error('[X] showXGenPostsDialog error:', e); }
 }
 
-async function generatePostsForChar(chars, preference) {
-  try {
-    if (!window.callAI) throw new Error('AI服务未配置');
-    if (!Array.isArray(chars)) chars = [chars];
-
-    // Build character info
-    var charInfos = chars.map(function(char) {
-      var desc = (char.description || (char.identity && char.identity.bio) || char.signature || '').slice(0, 100);
-      var rels = (char.relations || []).map(function(r) { return r.desc || r.type || ''; }).filter(Boolean).join('、');
-      var personaPeople = [];
-      try {
-        var m = (char.description || '').match(/(?:闺蜜|朋友|同学|同事|室友|兄弟|姐妹|哥哥|姐姐|弟弟|妹妹|妈妈|爸爸|老师|师傅|老板|上司|邻居|青梅竹马|男朋友|女朋友|老公|老婆|前任|暗恋对象|死党|好友)[叫是名为]?\s*([\u4e00-\u9fa5]{2,4})/g);
-        if (m) m.forEach(function(s) { var n = s.replace(/^[^\u4e00-\u9fa5]+/, '').trim(); if (n && n.length >= 2 && personaPeople.indexOf(n) === -1) personaPeople.push(n); });
-      } catch(_) {}
-      return { id: char.id, name: char.name, nick: char.nick, desc: desc, rels: rels, people: personaPeople, avatar: char.avatar, identity: char.identity };
-    });
-
-    var charListStr = charInfos.map(function(c, i) {
-      return (i+1) + '. ' + c.name + (c.desc ? '（' + c.desc + '）' : '') + (c.rels ? ' 关系：' + c.rels : '') + (c.people.length ? ' 人设中人物：' + c.people.join('、') : '');
-    }).join('\n');
-
-    // Inject relationship context for all selected characters
-    var relCtxStr = '';
-    if (window.getRelationshipContext) {
-      try {
-        for (var ri = 0; ri < charInfos.length; ri++) {
-          var rc = await window.getRelationshipContext(charInfos[ri].id);
-          if (rc) relCtxStr += '\n' + charInfos[ri].name + '的关系网：' + rc;
-        }
-      } catch(_) {}
-    }
-
-    var prompt = '你是社交媒体内容生成器。请生成5条帖子，每条来自不同的角色，每条都要有完整评论互动。\n\n' +
-      '发帖角色列表：\n' + charListStr + '\n\n' +
-      (relCtxStr ? '角色关系网：' + relCtxStr + '\n\n' : '') +
-      (preference ? '风格倾向：' + preference + '\n\n' : '') +
-      '要求：\n' +
-      '1. 每条帖子30-80字，体现该角色的性格特点（必须是该发帖人本人的口吻，绝不模仿用户口吻、绝不代替用户发言）\n' +
-      '2. 每条帖子5条评论，评论人优先从该角色人设中提到的真实人物中选\n' +
-      '3. 每条帖子的发帖人必须回复其中2-3条评论（from字段必须是发帖人名字）\n' +
-      '4. 被回复的评论人可以再回复，形成2层对话\n' +
-      '5. 如果角色人设中没有提到人物，可以用NPC类型评论\n' +
-      '6. 其中1条可以是匿名帖子（isAnonymous:true）\n\n' +
-      '返回JSON：\n' +
-      '{"posts":[{"authorIndex":0,"content":"帖子","tags":["标签"],"isAnonymous":false,"comments":[{"from":"人名","to":null,"text":"评论"},{"from":"发帖人名","to":"人名","text":"回复"}]}]}';
-
-    var raw = await window.callAI([{role:'user',content:prompt}], {responseFormat:'json_object', charAntiDrift:true});
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g,'').replace(/```/g,'').trim()) : raw;
-
-    if (!data.posts || !data.posts.length) throw new Error('AI未返回帖子');
-
-    var savedCount = 0;
-    data.posts.forEach(function(p) {
-      if (!p || !p.content) return;
-      var ci = (typeof p.authorIndex === 'number' && p.authorIndex >= 0 && p.authorIndex < charInfos.length) ? p.authorIndex : 0;
-      var cInfo = charInfos[ci];
-      var postId = xGenId();
-      var isAnon = !!p.isAnonymous;
-
-      var newPost = {
-        id: postId,
-        authorId: isAnon ? ('anon_' + xGenId()) : String(cInfo.id),
-        authorName: isAnon ? '匿名用户' : (cInfo.nick || cInfo.name),
-        authorHandle: isAnon ? '' : ('@' + ((cInfo.identity && cInfo.identity.account) || cInfo.name)),
-        authorAvatar: isAnon ? null : (cInfo.avatar || null),
-        content: p.content || '',
-        tags: p.tags || [],
-        category: p.category || randomPick(X_CATEGORIES).id,
-        isAnonymous: isAnon,
-        engagement: generateEngagement(),
-        createdAt: new Date().toISOString()
-      };
-      xSavePost(newPost);
-      savedCount++;
-
-      if (p.comments && p.comments.length) {
-        var comments = [];
-        p.comments.forEach(function(c, ci2) {
-          var isAuthorReply = !isAnon && c.from === cInfo.name;
-          var commentObj = {
-            id: xGenId(),
-            authorId: isAuthorReply ? String(cInfo.id) : ('npc_' + xGenId()),
-            authorName: c.from || '路人',
-            authorHandle: isAuthorReply ? ('@' + ((cInfo.identity && cInfo.identity.account) || cInfo.name)) : ('@user-' + String(ci2).slice(-4)),
-            authorAvatar: isAuthorReply ? (cInfo.avatar || null) : null,
-            isNpc: !isAuthorReply,
-            npcType: isAuthorReply ? null : randomPick(X_NPC_TYPES),
-            content: c.text || c.content || '',
-            stats: generateCommentStats(),
-            createdAt: new Date(Date.now() + ci2 * 60000).toISOString(),
-            isReply: false
-          };
-          if (c.to && comments.length > 0) {
-            var parent = comments.find(function(pc) { return pc.authorName === c.to; });
-            if (parent) {
-              commentObj.replyTo = parent.id;
-              commentObj.replyToName = parent.authorName;
-              commentObj.isReply = true;
-            }
-          }
-          comments.push(commentObj);
-        });
-        xSaveComments(postId, comments);
-      }
-    });
-
-    console.log('[X] Generated ' + savedCount + ' posts, total in cache:', xLoadPosts().length);
-  } catch(e) { console.error('[X] generatePostsForChar error:', e); throw e; }
+async function generateOneXPost(char,slot,preference,ownerUid,jobId){
+  var id=jobId||xGenId();if(await db.xPosts.get(id))return id;
+  var data=await WanWanSocial.generate(char,slot,preference,ownerUid);
+  var anon=!!data.isAnonymous;
+  var post={id:id,ownerUid:ownerUid,authorId:anon?'anon_'+id:String(char.id),authorName:anon?'匿名用户':char.nick||char.name,
+    authorAvatar:anon?null:char.avatar||null,authorHandle:anon?'':'@'+char.name,
+    realAuthorId:String(char.id),realAuthorName:char.nick||char.name,realAuthorAvatar:char.avatar||null,
+    realAuthorHandle:'@'+char.name,content:data.content,tags:data.tags||[],isAnonymous:anon,
+    engagement:generateEngagement(),createdAt:new Date(slot).toISOString(),realCreatedAt:Date.now()};
+  var comments=await WanWanSocial.comments(data.comments||[],char,id,slot);
+  await db.transaction('rw',db.xPosts,db.xComments,db.memories,async function(){
+    await db.xPosts.put(post);if(comments.length)await db.xComments.bulkPut(comments);
+    var participants=new Set([char.id]);comments.filter(function(c){return !c.isNpc}).forEach(function(c){participants.add(Number(c.authorId)||c.authorId)});
+    for(var cid of participants)await db.memories.add({ownerUid:ownerUid,charId:cid,chatId:'x_'+id,title:char.name+'的X帖子',content:data.content,sourceType:'x',sourceAt:slot,createdAt:slot,updatedAt:slot,realCreatedAt:Date.now(),status:'active',decayPercent:80,importance:4,arousal:0.2,injectionLayer:2,keywords:['X帖子'],participants:Array.from(participants)});
+  });
+  await _xInitCache(true);return id;
 }
+async function generatePostsForChar(chars,preference){
+  chars=Array.isArray(chars)?chars:[chars];if(!chars.length)throw new Error('请选择角色');
+  var user=await WanWanIdentity.currentUser();
+  for(var i=0;i<5;i++)await generateOneXPost(chars[i%chars.length],WanWanRuntime.now(),preference,user.id);
+}
+
+
 
 // ===== Auto-Post Scheduler =====
-var xAutoPostTimer = null;
-
-function startXAutoPostScheduler(user) {
-  try {
-    if (xAutoPostTimer) clearInterval(xAutoPostTimer);
-    var settings = xLoadSettings();
-    if (!settings.autoPost) return;
-
-    var intervalMin = settings.autoPostInterval || 240;
-    var intervalMs = intervalMin * 60 * 1000;
-
-    // Catch-up logic
-    var lastPost = parseInt(localStorage.getItem(X_LAST_AUTOPOST_KEY)) || 0;
-    var now = Date.now();
-    if (lastPost > 0) {
-      var elapsed = now - lastPost;
-      var missed = Math.floor(elapsed / intervalMs);
-      if (missed > 0) {
-        missed = Math.min(missed, 10);
-        if (document.getElementById('x-page')) {
-        xAutoPostCatchUp(user, missed, lastPost, intervalMs);
-      }
-      }
+var xAutoPostTimer=null;
+function startXAutoPostScheduler(user){
+  if(xAutoPostTimer)clearInterval(xAutoPostTimer);
+  if(!xLoadSettings().autoPost)return;
+  xAutoPostCatchUp(user).catch(function(e){console.warn('[X] 补回待重试',e)});
+  xAutoPostTimer=setInterval(function(){xAutoPostCatchUp(user).catch(function(e){console.warn('[X] 补回待重试',e)})},60000);
+}
+async function xAutoPostCatchUp(user){
+  user=await WanWanIdentity.currentUser(user);
+  return WanWanRuntime.withLock('x-schedule:'+user.id,async function(){
+    var settings=xLoadSettings();if(!settings.autoPost)return 0;
+    var interval=Math.max(1,Number(settings.autoPostInterval)||240)*60000;
+    var key='schedule:x:'+user.id;var state=await WanWanRuntime.config(key,null);var now=WanWanRuntime.now();
+    if(!state){var legacy=Number(localStorage.getItem(X_LAST_AUTOPOST_KEY));state={lastPlan:legacy?legacy+(now-Date.now()):now};await WanWanRuntime.put(key,state);}
+    var all=await db.characters.where('type').equals('char').toArray();
+    var chars=(settings.enabledChars||[]).length?all.filter(function(c){return settings.enabledChars.map(String).includes(String(c.id))}):all;
+    if(!chars.length)return 0;var count=0;
+    while(state.lastPlan+interval<=now&&count<10){
+      var slot=state.lastPlan+interval;var char=chars[Math.floor(slot/interval)%chars.length];
+      await generateOneXPost(char,slot,'按该计划时刻的真实作息与日常生成',user.id,'xjob_'+user.id+'_'+slot);
+      state={lastPlan:slot};await WanWanRuntime.put(key,state);count++;
     }
-
-    if (!lastPost) localStorage.setItem(X_LAST_AUTOPOST_KEY, String(now));
-
-    xAutoPostTimer = setInterval(function() { autoPostTick(user); }, intervalMs);
-  } catch(e) { console.error('[X] startXAutoPostScheduler error:', e); }
+    var page=document.getElementById('x-page');if(page)renderXHomeTab(page,user);
+    return count;
+  });
 }
-
-async function xAutoPostCatchUp(user, count, baseTime, intervalMs) {
-  try {
-    if (!window.callAI) return;
-    showToastLong('正在补回 ' + count + ' 条帖子...', 4000);
-    var settings = xLoadSettings();
-    var enabledChars = settings.enabledChars || [];
-    var chars = [];
-    try {
-      var all = await db.characters.where('type').equals('char').toArray();
-      chars = enabledChars.length ? all.filter(function(c) { return enabledChars.indexOf(String(c.id)) !== -1; }) : all;
-    } catch(e) { showToastLong('补回失败：无法加载角色', 3000); return; }
-    if (!chars.length) { showToastLong('补回失败：没有可用角色', 3000); return; }
-
-    var pickedChars = [];
-    for (var i = 0; i < count; i++) pickedChars.push(randomPick(chars));
-
-    var charDescs = pickedChars.map(function(c, i) { return (i+1) + '. ' + c.name + '（' + (c.description || ((c.identity && c.identity.bio) || c.signature || '普通用户')) + '）'; }).join('\n');
-    var categories = X_CATEGORIES.map(function(c) { return c.id + '.' + c.name; }).join('\n');
-
-    var prompt = '以下是几位角色，请以他们各自的口吻和性格发帖。\n\n' +
-      '发帖人：\n' + charDescs + '\n\n' +
-      '帖子分类：\n' + categories + '\n\n' +
-      '要求：\n' +
-      '1. 每条帖子30-80字，完全以该角色的口吻写，展现其人设特点（绝不模仿用户口吻、绝不代替用户发言）\n' +
-      '2. 每条帖子5条评论，评论者从角色认识的人中取名字\n' +
-      '3. 发帖人回复1条评论\n' +
-      '4. 生成2条评论互动\n' +
-      '5. replyToIndex标记回复关系\n\n' +
-      '返回JSON：\n' +
-      '{"posts":[{"content":"帖子","tags":["标签"],"category":1,"comments":[{"name":"NPC","content":"评论","replyToIndex":-1},{"name":"发帖人","content":"回复","replyToIndex":0,"isAuthorReply":true}]}]}';
-
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true });
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
-    if (!data.posts) { showToastLong('补回失败：AI未返回内容', 3000); return; }
-
-    var allPosts = xLoadPosts();
-    var newPosts = [];
-    data.posts.forEach(function(p, i) {
-      if (!p || !p.content) return;
-      var char = pickedChars[i] || pickedChars[0];
-      var postId = xGenId();
-      var post = {
-        id: postId,
-        authorId: String(char.id),
-        authorName: char.nick || char.name,
-        authorHandle: '@' + ((char.identity && char.identity.account) || char.name),
-        authorAvatar: char.avatar || null,
-        content: p.content,
-        tags: p.tags || [],
-        category: p.category || randomPick(X_CATEGORIES).id,
-        isAnonymous: false,
-        engagement: generateEngagement(),
-        createdAt: new Date(baseTime + (i + 1) * intervalMs).toISOString()
-      };
-      allPosts.unshift(post);
-      newPosts.push(post);
-
-      if (p.comments && p.comments.length) {
-        var comments = [];
-        p.comments.forEach(function(c, ci) {
-          var isAuthorReply = c.isAuthorReply || false;
-          var npcType = randomPick(X_NPC_TYPES);
-          var commentObj = {
-            id: xGenId(),
-            authorId: isAuthorReply ? String(char.id) : ('npc_' + xGenId()),
-            authorName: isAuthorReply ? (char.nick || char.name) : (c.name || npcType.name),
-            authorHandle: isAuthorReply ? ('@' + ((char.identity && char.identity.account) || char.name)) : ('@user-' + String(ci).slice(-4)),
-            authorAvatar: isAuthorReply ? (char.avatar || null) : null,
-            isNpc: !isAuthorReply,
-            npcType: isAuthorReply ? null : npcType,
-            content: c.content,
-            stats: generateCommentStats(),
-            createdAt: new Date(baseTime + (i + 1) * intervalMs + ci * 60000).toISOString(),
-            isReply: false
-          };
-          if (c.replyToIndex >= 0 && c.replyToIndex < comments.length) {
-            commentObj.replyTo = comments[c.replyToIndex].id;
-            commentObj.replyToName = comments[c.replyToIndex].authorName;
-            commentObj.isReply = true;
-          }
-          comments.push(commentObj);
-        });
-        xSaveComments(postId, comments);
-      }
-    });
-    xSavePosts(allPosts);
-    localStorage.setItem(X_LAST_AUTOPOST_KEY, String(Date.now()));
-
-    showToastLong('补回成功 ' + newPosts.length + ' 条帖子', 3000);
-
-    var page = document.getElementById('x-page');
-    if (page) renderXHomeTab(page, user);
-  } catch(e) {
-    showToastLong('补回失败：' + (e.message || 'API调用出错'), 4000);
-    console.error('[X] xAutoPostCatchUp error:', e);
-  }
-}
-
-async function autoPostTick(user) {
-  try {
-    if (!window.callAI) return;
-    var settings = xLoadSettings();
-    if (!settings.autoPost) return;
-
-    var enabledChars = settings.enabledChars || [];
-    var chars = [];
-    try {
-      var all = await db.characters.where('type').equals('char').toArray();
-      chars = enabledChars.length ? all.filter(function(c) { return enabledChars.indexOf(String(c.id)) !== -1; }) : all;
-    } catch(e) { return; }
-    if (!chars.length) return;
-
-    var char = randomPick(chars);
-    var category = randomPick(X_CATEGORIES);
-
-    var prompt = '你是' + char.name + '。' + (char.description || ((char.identity && char.identity.bio) || char.signature || '')) + '\n\n' +
-      '请以你的身份发一条社交媒体帖子（用你自己的口吻，绝不模仿用户口吻、绝不代替用户发言），分类：' + category.name + '\n' +
-      '要求：30-80字，真实自然。\n' +
-      '返回JSON：{"content":"帖子内容"}';
-
-    var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charAntiDrift: true });
-    var data = typeof raw === 'string' ? JSON.parse(raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim()) : raw;
-
-    var post = {
-      id: xGenId(),
-      authorId: String(char.id),
-      authorName: char.nick || char.name,
-      authorHandle: '@' + ((char.identity && char.identity.account) || char.name),
-      authorAvatar: char.avatar || null,
-      content: data.content,
-      category: category.id,
-      isAnonymous: false,
-      engagement: generateEngagement(),
-      createdAt: new Date().toISOString()
-    };
-
-    var posts = xLoadPosts();
-    posts.unshift(post);
-    xSavePosts(posts);
-    localStorage.setItem(X_LAST_AUTOPOST_KEY, String(Date.now()));
-
-    generateAIComments(post, user);
-
-    var page = document.getElementById('x-page');
-    if (page) renderXHomeTab(page, user);
-  } catch(e) { console.error('[X] autoPostTick error:', e); }
-}
+async function autoPostTick(user){return xAutoPostCatchUp(user);}

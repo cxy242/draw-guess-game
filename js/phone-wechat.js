@@ -541,6 +541,7 @@ async function generatePhoneWechatSnapshot(ownerUid, charId) {
   const userPrompt = await buildPhoneSnapshotUserPrompt(char, user, npcs, loreCtx, recentBlock.text, existingData)
   const raw = await window.callAI([{ role: 'user', content: userPrompt }], {
     system,
+    charId:charId,shiliOwnerUid:ownerUid,
     responseFormat: 'json_object',
     temperature: await getPhoneSnapshotTemperature()
   })

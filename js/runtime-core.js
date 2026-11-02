@@ -91,7 +91,7 @@
       '熟人使用下列真实ID与名字，真正路人才使用NPC；不得为已有角色另造身份。\n人物池：' + JSON.stringify(pool) + '\n' +
       '风格：' + (preference || '自然生活化') + '\n返回JSON：{"speakerId":' + JSON.stringify(char.id) + ',"content":"帖子正文","tags":[],"comments":[{"charId":角色ID或null,"from":"名字","text":"评论","to":null}]}';
     for (var attempt = 0; attempt < 2; attempt++) {
-      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charId: char.id, noTimeDiary: true });
+      var raw = await window.callAI([{ role: 'user', content: prompt }], { responseFormat: 'json_object', charId: char.id, shiliOwnerUid: user.id, shiliAtTime: slot, shiliAllowBackground: true, noTimeDiary: true });
       var data = typeof raw === 'string' ? JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()) : raw;
       if (data && sid(data.speakerId) === sid(char.id) && String(data.content || '').trim()) return data;
       prompt += '\n上次发帖身份或正文无效，请严格返回指定speakerId和非空正文。';

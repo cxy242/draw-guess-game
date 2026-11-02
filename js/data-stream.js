@@ -5,7 +5,8 @@
   var TABLES = ['config', 'characters', 'chats', 'messages', 'groupChats', 'groupMessages',
     'moments', 'finance', 'offlineChats', 'stickers', 'stickerCategories', 'memories',
     'memoryRuns', 'callRecords', 'smsConversations', 'smsMessages', 'imageBlobs',
-    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces']
+    'doorModules', 'doorResults', 'avgSaves', 'avgConfigs', 'mcpServers', 'mcpToolTraces',
+    'shiliAnniversaries', 'gifts', 'giftEvents', 'giftGenerationJobs']
   var PROTECTED = ['wanwan_online_device_id']
   var PROTECTED_PREFIXES = ['wanwan_mcp_oauth_', 'wanwan_mcp_secret_']
 

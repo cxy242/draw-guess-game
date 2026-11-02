@@ -1,0 +1,74 @@
+[
+  {
+    "file": "green-botanical-stamp.png",
+    "size": [
+      986,
+      1595
+    ],
+    "corners": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "transparent": 669371,
+    "semiTransparent": 903177,
+    "opaque": 122,
+    "alpha_bbox": [
+      47,
+      9,
+      982,
+      1595
+    ],
+    "sha256": "cf0a012aab82cfc871504bfcc89afab284feea19315b6fb43941adc9abd7a9c8",
+    "method": "built-in image editing referenced to 31634.png; restoration, not lossless original extraction"
+  },
+  {
+    "file": "cream-letter-paper.png",
+    "size": [
+      1036,
+      1518
+    ],
+    "corners": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "transparent": 164657,
+    "semiTransparent": 1407531,
+    "opaque": 460,
+    "alpha_bbox": [
+      0,
+      0,
+      1035,
+      1518
+    ],
+    "sha256": "7efdf570218741b6bb290590b8fd03f3c284554968a329db47e029c362713c67",
+    "method": "built-in image editing referenced to 31634.png; restoration, not lossless original extraction"
+  },
+  {
+    "file": "ivory-lace.png",
+    "size": [
+      1991,
+      790
+    ],
+    "corners": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "transparent": 890256,
+    "semiTransparent": 682528,
+    "opaque": 106,
+    "alpha_bbox": [
+      25,
+      0,
+      1963,
+      790
+    ],
+    "sha256": "afd0dd4d3d9ee2230102cb11a27d1c78c7a1230478378ee407d292ca6f795c43",
+    "method": "built-in image editing referenced to 31634.png; restoration, not lossless original extraction"
+  }
+]
