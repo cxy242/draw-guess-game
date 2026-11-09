@@ -31,6 +31,27 @@
   --og-bg: #f2eef1;
 }
 
+.og-gate-close {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  color: var(--og-text-2);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--og-line);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: transform 160ms ease-out;
+}
+
+.og-gate-close:active {
+  transform: scale(0.97);
+}
+
 .og-gate-shell {
   width: min(100%, 380px);
   padding: 34px 26px 28px;

@@ -266,6 +266,7 @@ window.OrigGames = {
     var page = document.createElement('div');
     page.className = 'og-gate-page og-' + kind;
     page.innerHTML =
+      '<button class="og-gate-close" type="button" data-og-close>返回</button>' +
       '<div class="og-gate-shell">' +
         '<div class="og-gate-mark"><span class="og-gate-lock" aria-hidden="true"></span></div>' +
         '<h1 class="og-gate-title">登录微信</h1>' +
@@ -274,33 +275,36 @@ window.OrigGames = {
         '<div class="og-gate-accounts" data-og-accounts hidden></div>' +
       '</div>';
     document.body.appendChild(page);
+    page.querySelector('[data-og-close]').addEventListener('click', function () {
+      page.remove();
+    });
     page.querySelector('[data-og-login]').addEventListener('click', async function () {
       var box = page.querySelector('[data-og-accounts]');
       if (window._wechatUid) {
         next();
         return;
       }
-      if (window.showWechatLoginModal) {
-        window.showWechatLoginModal();
-        var wait = window.setInterval(function () {
-          if (window._wechatUid) {
-            window.clearInterval(wait);
-            next();
-          }
-        }, 800);
+      box.hidden = false;
+      box.innerHTML = '<p class="og-gate-empty">正在读取账号……</p>';
+      var users = [];
+      try {
+        users = await self.getUserAccounts();
+      } catch (e) {
+        users = [];
+      }
+      if (!users.length) {
+        box.innerHTML = '<p class="og-gate-empty">暂无账号，请先在角色档案里创建 USER 类型角色</p>';
         return;
       }
-      var users = await self.getUserAccounts();
-      box.hidden = false;
-      box.innerHTML = users.length
-        ? users.map(function (u) {
-            return '<button class="og-gate-account" type="button" data-og-user="' + self.esc(u.id) + '">' +
-              self.avatarHtml(u, 'og-gate-avatar') + '<span>' + self.esc(u.name || '我') + '</span></button>';
-          }).join('')
-        : '<p class="og-gate-empty">还没有微信账号，先去微信登录一下</p>';
+      box.innerHTML = users.map(function (u) {
+        return '<button class="og-gate-account" type="button" data-og-user="' + self.esc(u.id) + '">' +
+          self.avatarHtml(u, 'og-gate-avatar') + '<span>' + self.esc(u.name || '我') + '</span></button>';
+      }).join('');
       box.querySelectorAll('[data-og-user]').forEach(function (b) {
         b.addEventListener('click', function () {
-          window._wechatUid = b.getAttribute('data-og-user');
+          try {
+            window._wechatUid = b.getAttribute('data-og-user');
+          } catch (e) {}
           next();
         });
       });
@@ -313,9 +317,15 @@ window.OrigGames = {
     if (old) old.remove();
     var page = document.createElement('div');
     page.className = 'og-gate-page og-' + kind;
+    page.innerHTML =
+      '<button class="og-gate-close" type="button" data-og-close>返回</button>';
+    page.querySelector('[data-og-close]').addEventListener('click', function () {
+      page.remove();
+    });
     document.body.appendChild(page);
     this.getBuddies().then(function (buddies) {
-      page.innerHTML =
+      var shell = document.createElement('div');
+      shell.innerHTML =
         '<div class="og-gate-shell og-gate-wide">' +
           '<h1 class="og-gate-title">选一位玩伴</h1>' +
           '<p class="og-gate-subtitle">' + (kind === 'bar' ? '今晚谁陪你喝酒' : '谁来跟你开糖罐') + '</p>' +
@@ -326,6 +336,7 @@ window.OrigGames = {
                   '<span class="og-buddy-name">' + self.esc(ch.name || '？') + '</span></button>';
               }).join('') + '</div>'
             : '<p class="og-gate-empty">还没有聊天角色，先去微信聊几句再回来</p>');
+      while (shell.firstChild) page.appendChild(shell.firstChild);
       page.querySelectorAll('[data-og-buddy]').forEach(function (b) {
         b.addEventListener('click', function () {
           var id = b.getAttribute('data-og-buddy');
@@ -379,11 +390,12 @@ window.OrigGames = {
     });
   },
 
-  open: async function (kind) {
+  open: async function (kind, opts) {
     var self = this;
-    if (!window._wechatUid) {
+    opts = opts || {};
+    if (!window._wechatUid && !opts.loggedIn) {
       self.renderLogin(kind, function () {
-        self.open(kind);
+        self.open(kind, { loggedIn: true });
       });
       return;
     }
