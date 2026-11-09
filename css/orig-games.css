@@ -1,13 +1,47 @@
-.og-gate-page {
+/* orig-games.css - 月月机双游戏（微醺酒吧 & 因果律软糖罐）薄接入层样式 v6.8.3 */
+
+.og-gate-page,
+.og-game-page {
   --og-bg: #eceef1;
   --og-surface: #ffffff;
-  --og-line: rgba(0, 0, 0, 0.06);
+  --og-surface-soft: #f7f8fa;
+  --og-line: rgba(0, 0, 0, 0.08);
   --og-text: #2d2b2e;
   --og-text-2: #6b7d8d;
   --og-accent: #6b7d8d;
+  --og-accent-soft: rgba(107, 125, 141, 0.12);
   --og-shadow: rgba(107, 125, 141, 0.16);
-  --og-green: #3f9d6c;
-  position: absolute;
+  --og-green: #07c160;
+  --og-wx-bubble-user: #95ec69;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+.og-gate-page *,
+.og-game-page * {
+  box-sizing: border-box;
+}
+
+.og-gate-page.og-bar,
+.og-game-page.og-bar {
+  --og-accent: #b08453;
+  --og-accent-soft: rgba(176, 132, 83, 0.14);
+  --og-shadow: rgba(176, 132, 83, 0.18);
+  --og-bg: #f4f1ee;
+}
+
+.og-gate-page.og-candy,
+.og-game-page.og-candy {
+  --og-accent: #b76e7e;
+  --og-accent-soft: rgba(183, 110, 126, 0.14);
+  --og-shadow: rgba(183, 110, 126, 0.16);
+  --og-bg: #f9f3f5;
+}
+
+/* ==================== 1. 登录门与选玩伴门（z-index: 410） ==================== */
+
+.og-gate-page {
+  position: fixed;
   inset: 0;
   z-index: 410;
   display: grid;
@@ -16,378 +50,1134 @@
   place-items: center;
   overflow-y: auto;
   background: var(--og-bg);
-  animation: og-fade-in 280ms ease-out both;
-}
-
-.og-gate-page.og-bar {
-  --og-accent: #b08453;
-  --og-shadow: rgba(176, 132, 83, 0.18);
-  --og-bg: #f4f1ee;
-}
-
-.og-gate-page.og-candy {
-  --og-accent: #b76e7e;
-  --og-shadow: rgba(183, 110, 126, 0.16);
-  --og-bg: #f2eef1;
+  animation: og-fade-in 240ms ease-out both;
 }
 
 .og-gate-close {
   position: absolute;
-  top: 14px;
+  top: calc(14px + env(safe-area-inset-top, 0px));
   left: 14px;
   z-index: 2;
-  min-width: 44px;
+  min-width: 64px;
   min-height: 44px;
-  padding: 10px 14px;
-  color: var(--og-text-2);
-  background: rgba(255, 255, 255, 0.85);
+  padding: 0 16px;
+  border-radius: 22px;
   border: 1px solid var(--og-line);
-  border-radius: 8px;
-  cursor: pointer;
+  background: var(--og-surface);
+  color: var(--og-text);
   font-size: 14px;
-  transition: transform 160ms ease-out;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px var(--og-shadow);
+  transition: transform 150ms ease, background-color 150ms ease;
 }
 
 .og-gate-close:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 .og-gate-shell {
-  width: min(100%, 380px);
-  padding: 34px 26px 28px;
-  text-align: center;
+  width: 100%;
+  max-width: 360px;
+  padding: 28px 22px;
+  border-radius: 24px;
   background: var(--og-surface);
   border: 1px solid var(--og-line);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px var(--og-shadow);
-  animation: og-card-in 300ms ease-out 40ms both;
+  box-shadow: 0 14px 36px var(--og-shadow);
+  text-align: center;
 }
 
-.og-gate-wide {
-  width: min(100%, 460px);
+.og-gate-shell.og-gate-wide {
+  max-width: 440px;
 }
 
 .og-gate-mark {
-  display: grid;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
-  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
   border-radius: 18px;
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(107, 125, 141, 0.12));
-  border: 1px solid var(--og-line);
+  background: var(--og-accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* 纯 CSS 锁图标（无 emoji） */
 .og-gate-lock {
   position: relative;
-  width: 26px;
-  height: 22px;
-  border-radius: 6px;
+  width: 18px;
+  height: 14px;
+  border-radius: 4px;
   background: var(--og-accent);
+  display: inline-block;
+  margin-top: 6px;
 }
 
 .og-gate-lock::before {
+  content: "";
   position: absolute;
-  top: -11px;
-  left: 50%;
-  width: 15px;
-  height: 13px;
-  border: 3px solid var(--og-accent);
-  border-bottom: 0;
+  left: 3px;
+  top: -8px;
+  width: 12px;
+  height: 10px;
+  border: 2.5px solid var(--og-accent);
+  border-bottom: none;
   border-radius: 8px 8px 0 0;
-  content: "";
-  transform: translateX(-50%);
-}
-
-.og-gate-lock::after {
-  position: absolute;
-  top: 7px;
-  left: 50%;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--og-surface);
-  content: "";
-  transform: translateX(-50%);
 }
 
 .og-gate-title {
-  margin: 0;
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--og-text);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.3;
 }
 
 .og-gate-subtitle {
-  margin: 8px 0 20px;
-  color: var(--og-text-2);
+  margin: 0 0 20px;
   font-size: 13px;
+  line-height: 1.5;
+  color: var(--og-text-2);
 }
 
 .og-gate-wechat {
-  width: min(100%, 280px);
+  width: 100%;
   min-height: 46px;
-  padding: 10px 18px;
-  color: #ffffff;
+  padding: 0 18px;
+  border: none;
+  border-radius: 14px;
   background: var(--og-green);
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
+  color: #ffffff;
   font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  transition: transform 160ms ease-out, box-shadow 160ms ease-out;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(7, 193, 96, 0.25);
+  transition: transform 150ms ease, opacity 150ms ease;
 }
 
 .og-gate-wechat:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .og-gate-accounts {
-  display: grid;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  margin-top: 18px;
+  text-align: left;
 }
 
 .og-gate-account {
-  display: flex;
+  width: 100%;
   min-height: 48px;
-  padding: 8px 12px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  display: flex;
   align-items: center;
   gap: 10px;
-  text-align: left;
-  background: #fafafa;
-  border: 1px solid var(--og-line);
-  border-radius: 8px;
-  cursor: pointer;
   font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.og-gate-avatar,
+.og-buddy-avatar,
+.og-who-avatar,
+.og-status-ava,
+.og-chat-head-ava,
+.og-chat-ava {
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--og-accent-soft);
+  color: var(--og-accent);
+  font-weight: 700;
 }
 
 .og-gate-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.og-gate-avatar-empty {
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  background: var(--og-accent);
+  width: 34px;
+  height: 34px;
   font-size: 14px;
 }
 
 .og-gate-empty {
-  margin: 16px 0 0;
-  color: var(--og-text-2);
+  padding: 18px 12px;
   font-size: 13px;
+  color: var(--og-text-2);
+  text-align: center;
 }
 
 .og-buddy-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 10px;
-  margin-top: 6px;
+  max-height: 56dvh;
+  overflow-y: auto;
+  padding: 4px 2px;
 }
 
 .og-buddy-card {
-  display: grid;
-  padding: 14px 8px 12px;
-  place-items: center;
+  min-height: 96px;
+  padding: 12px 8px;
+  border-radius: 16px;
+  border: 1.5px solid var(--og-line);
+  background: var(--og-surface-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  background: #fafafa;
-  border: 1px solid var(--og-line);
-  border-radius: 10px;
   cursor: pointer;
-  transition: transform 180ms ease-out, border-color 180ms ease-out;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.og-buddy-card.is-current {
+  border-color: var(--og-accent);
+  background: var(--og-accent-soft);
+  box-shadow: 0 4px 12px var(--og-shadow);
 }
 
 .og-buddy-card:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 .og-buddy-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.og-buddy-avatar-empty {
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  background: var(--og-accent);
   font-size: 18px;
 }
 
 .og-buddy-name {
-  color: var(--og-text);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--og-text);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* ==================== 2. 游戏主页面与顶栏（z-index: 410） ==================== */
+
 .og-game-page {
-  --og-bar-bg: #f4f1ee;
-  --og-bar-surface: #ffffff;
-  --og-bar-line: rgba(0, 0, 0, 0.07);
-  --og-bar-text: #2d2b2e;
-  --og-bar-text-2: #8a7d72;
-  --og-bar-accent: #b08453;
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 410;
   display: flex;
-  min-height: 100dvh;
   flex-direction: column;
-  background: var(--og-bar-bg);
-  animation: og-fade-in 240ms ease-out both;
-}
-
-.og-game-page.og-candy {
-  --og-bar-bg: #f2eef1;
-  --og-bar-text-2: #8d7580;
-  --og-bar-accent: #b76e7e;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--og-bg);
 }
 
 .og-topbar {
   display: flex;
-  min-height: 50px;
-  padding: 6px 10px;
   align-items: center;
-  gap: 8px;
-  background: var(--og-bar-surface);
-  border-bottom: 1px solid var(--og-bar-line);
+  justify-content: space-between;
+  gap: 6px;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px 6px;
+  background: var(--og-surface);
+  border-bottom: 1px solid var(--og-line);
+  flex-shrink: 0;
+  z-index: 12;
 }
 
 .og-back {
-  min-width: 44px;
   min-height: 44px;
-  padding: 8px 10px;
-  color: var(--og-bar-text);
-  background: transparent;
-  border: 1px solid var(--og-bar-line);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.og-who {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
+  min-width: 58px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
   font-size: 13px;
   font-weight: 600;
-  color: var(--og-bar-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.og-icon-back {
+  width: 7px;
+  height: 7px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  display: inline-block;
+}
+
+/* 1.1 顶栏 .og-who 整体可点击换人按钮（触控目标 ≥44px） */
+.og-who {
+  min-height: 44px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 22px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  max-width: 150px;
+  flex-shrink: 1;
+  min-width: 0;
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+.og-who:active {
+  transform: scale(0.97);
 }
 
 .og-who-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
+  font-size: 12px;
 }
 
-.og-who-avatar-empty {
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  background: var(--og-bar-accent);
-  font-size: 12px;
+.og-who-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.og-who-switch {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: var(--og-accent-soft);
+  color: var(--og-accent);
+  flex-shrink: 0;
 }
 
 .og-actions {
   display: flex;
-  margin-left: auto;
-  gap: 6px;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.og-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .og-act {
   min-height: 44px;
-  padding: 8px 12px;
-  color: var(--og-bar-text);
-  background: var(--og-bar-surface);
-  border: 1px solid var(--og-bar-line);
-  border-radius: 8px;
+  min-width: 44px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
+  transition: transform 150ms ease, background-color 150ms ease;
 }
 
-.og-act-primary {
+.og-act:active {
+  transform: scale(0.96);
+}
+
+.og-act.og-act-primary {
+  background: var(--og-accent);
+  border-color: var(--og-accent);
   color: #ffffff;
-  background: var(--og-bar-accent);
-  border-color: var(--og-bar-accent);
+}
+
+.og-act.og-act-accent {
+  background: var(--og-accent-soft);
+  border-color: rgba(176, 132, 83, 0.28);
+  color: var(--og-accent);
+}
+
+.og-act.og-act-chat {
+  background: rgba(7, 193, 96, 0.12);
+  border-color: rgba(7, 193, 96, 0.28);
+  color: #069e4d;
+}
+
+/* ==================== 3. 紧凑 1 行就绪条（1.4 绝不挤占 iframe 高度） ==================== */
+
+.og-status-strip {
+  position: relative;
+  z-index: 11;
+  background: var(--og-surface);
+  border-bottom: 1px solid var(--og-line);
+  padding: 2px 10px;
+  flex-shrink: 0;
 }
 
 .og-bubble {
   display: flex;
-  min-height: 46px;
-  padding: 8px 12px;
   align-items: center;
-  gap: 9px;
-  background: var(--og-bar-surface);
-  border-bottom: 1px solid var(--og-bar-line);
+  gap: 8px;
+  min-height: 34px;
+}
+
+.og-status-ava {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+.og-bubble-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--og-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.og-status-strip.is-expanded .og-bubble-text {
+  white-space: normal;
+  padding: 4px 0;
 }
 
 .og-bubble-pending {
-  color: var(--og-bar-text-2);
-  font-size: 13px;
+  color: var(--og-text-2);
 }
 
-.og-bubble-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex: 0 0 auto;
+.og-bubble-say {
+  color: var(--og-text);
+  font-weight: 500;
 }
 
-.og-bubble-avatar-empty {
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  background: var(--og-bar-accent);
-  font-size: 12px;
+.og-strip-toggle {
+  min-width: 44px;
+  min-height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--og-text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
-.og-bubble-copy {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
+.og-chevron {
+  width: 7px;
+  height: 7px;
+  border-right: 1.8px solid currentColor;
+  border-bottom: 1.8px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
 }
 
-.og-bubble-copy strong {
-  color: var(--og-bar-accent);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.og-bubble-copy span {
-  color: var(--og-bar-text);
-  font-size: 13px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.og-frame {
-  width: 100%;
-  flex: 1 1 auto;
-  border: 0;
-  background: #ffffff;
+.og-status-strip.is-expanded .og-chevron {
+  transform: rotate(-135deg);
 }
 
 .og-note {
-  padding: 7px 12px;
-  color: var(--og-bar-text-2);
-  background: var(--og-bar-surface);
-  border-top: 1px solid var(--og-bar-line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0 5px;
+  font-size: 12px;
+  color: var(--og-text-2);
+  border-top: 1px dashed var(--og-line);
+}
+
+.og-note[hidden] {
+  display: none !important;
+}
+
+.og-note-badge {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--og-accent-soft);
+  color: var(--og-accent);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.og-note-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.og-status-strip.is-expanded .og-note-text {
+  white-space: normal;
+}
+
+/* ==================== 4. 原版游戏 Iframe 容器 ==================== */
+
+.og-frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: none;
+  background: transparent;
+  display: block;
+}
+
+/* ==================== 5. 底部弹层与遮罩（z-index: 500 / 520） ==================== */
+
+.og-sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(18, 18, 24, 0.42);
+  backdrop-filter: blur(3px);
+  animation: og-fade-in 180ms ease-out both;
+}
+
+.og-sheet-mask[hidden],
+.og-sheet[hidden] {
+  display: none !important;
+}
+
+.og-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 520;
+  max-height: 82dvh;
+  border-radius: 22px 22px 0 0;
+  background: var(--og-surface);
+  box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: og-slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.og-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--og-line);
+  background: var(--og-surface);
+  flex-shrink: 0;
+}
+
+.og-sheet-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.og-sheet-handle {
+  width: 6px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--og-accent);
+  display: inline-block;
+}
+
+.og-sheet-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--og-text);
+}
+
+.og-sheet-close {
+  min-height: 44px;
+  min-width: 56px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.og-sheet-body {
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ==================== 6. 「玩一局」面板控件样式 ==================== */
+
+.og-subtabs {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--og-surface-soft);
+}
+
+.og-subtab {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--og-text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.og-subtab.is-active {
+  background: var(--og-surface);
+  color: var(--og-accent);
+  box-shadow: 0 2px 8px var(--og-shadow);
+}
+
+.og-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.og-form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--og-text);
+}
+
+.og-form-hint {
+  font-size: 12px;
+  color: var(--og-text-2);
+  line-height: 1.5;
+}
+
+.og-seg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.og-seg-btn {
+  flex: 1;
+  min-width: 76px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.og-seg-btn.is-active {
+  border-color: var(--og-accent);
+  background: var(--og-accent-soft);
+  color: var(--og-accent);
+}
+
+.og-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.og-chip-btn {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.og-chip-btn.is-active {
+  border-color: var(--og-accent);
+  background: var(--og-accent-soft);
+  color: var(--og-accent);
+}
+
+.og-drink-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.og-drink-chip {
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.og-drink-chip.is-active {
+  border-color: var(--og-accent);
+  background: var(--og-accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.og-cup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.og-cup-btn {
+  min-height: 60px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1.5px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.og-cup-btn.is-active {
+  border-color: var(--og-accent);
+  background: var(--og-accent-soft);
+  color: var(--og-accent);
+}
+
+.og-cup-num {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.og-cup-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.og-text-field,
+.og-textarea-field {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  font-size: 14px;
+  outline: none;
+}
+
+.og-text-field {
+  min-height: 44px;
+}
+
+.og-textarea-field {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.og-text-field:focus,
+.og-textarea-field:focus {
+  border-color: var(--og-accent);
+  background: var(--og-surface);
+}
+
+.og-sheet-foot {
+  padding-top: 4px;
+}
+
+.og-submit-btn {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 14px;
+  border: none;
+  background: var(--og-accent);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px var(--og-shadow);
+}
+
+/* ==================== 7. 对话抽屉：微信线上模式 & 想见你线下模式 ==================== */
+
+.og-chat-sheet {
+  height: 76dvh;
+  max-height: 84dvh;
+}
+
+.og-chat-head {
+  padding: 10px 14px;
+}
+
+.og-chat-partner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.og-chat-head-ava {
+  width: 38px;
+  height: 38px;
+  font-size: 15px;
+}
+
+.og-chat-partner-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.og-chat-partner-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--og-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.og-chat-partner-sub {
+  font-size: 11px;
+  color: var(--og-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.og-chat-head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 线上微信 / 线下想见你 切换胶囊按钮 */
+.og-mode-switch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--og-surface-soft);
+  border: 1px solid var(--og-line);
+}
+
+.og-mode-btn {
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--og-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.og-mode-btn.is-active[data-og-chat-mode="online"] {
+  background: var(--og-green);
+  color: #ffffff;
+}
+
+.og-mode-btn.is-active[data-og-chat-mode="offline"] {
+  background: var(--og-accent);
+  color: #ffffff;
+}
+
+.og-chat-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.og-chat-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.og-chat-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 线上模式背景（微信经典浅灰底色） */
+.og-chat-sheet[data-chat-mode="online"] .og-chat-log {
+  background: #ededed;
+}
+
+/* 线下模式背景（想见你温暖羊皮纸叙事底色） */
+.og-chat-sheet[data-chat-mode="offline"] .og-chat-log {
+  background: linear-gradient(180deg, #faf6f0 0%, #f3ece2 100%);
+}
+
+.og-chat-empty {
+  margin: auto;
+  max-width: 280px;
+  padding: 22px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--og-line);
+  text-align: center;
+}
+
+.og-empty-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--og-accent-soft);
+  color: var(--og-accent);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.og-empty-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--og-text);
+  margin-bottom: 6px;
+}
+
+.og-empty-desc {
   font-size: 12px;
   line-height: 1.5;
-  overflow-wrap: anywhere;
+  color: var(--og-text-2);
+}
+
+/* 线上微信气泡行样式 */
+.og-wx-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.og-wx-row.is-user {
+  flex-direction: row-reverse;
+}
+
+.og-chat-ava {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.og-wx-main {
+  max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.og-wx-row.is-user .og-wx-main {
+  align-items: flex-end;
+}
+
+.og-wx-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #888888;
+}
+
+.og-wx-bubble {
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #191919;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.og-wx-row.is-user .og-wx-bubble {
+  background: var(--og-wx-bubble-user);
+  color: #111111;
+}
+
+/* 线下「想见你」模式卡片样式（兼容 miss-entry 系列类名） */
+.og-chat-sheet .miss-entry {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(176, 132, 83, 0.18);
+  box-shadow: 0 4px 14px rgba(88, 66, 44, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.og-chat-sheet .miss-entry.is-user {
+  background: rgba(255, 251, 245, 0.96);
+  border-color: rgba(176, 132, 83, 0.32);
+}
+
+.og-chat-sheet .miss-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.og-chat-sheet .miss-entry-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.og-chat-sheet .miss-entry-nameblock {
+  display: flex;
+  flex-direction: column;
+}
+
+.og-chat-sheet .miss-msg-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3a2e25;
+}
+
+.og-chat-sheet .miss-entry-subtitle {
+  font-size: 11px;
+  color: #8c7a6b;
+}
+
+.og-chat-sheet .miss-entry-floor {
+  font-size: 11px;
+  font-weight: 600;
+  color: #b08453;
+}
+
+.og-chat-sheet .miss-msg-text p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.72;
+  color: #2f2620;
+}
+
+.og-chat-sheet .miss-quote-highlight {
+  color: #8f582a;
+  font-weight: 600;
+}
+
+.og-offline-stage {
+  color: #7c6f64;
+  font-style: italic;
+}
+
+/* 1.5 输入区铁律：严格使用 .miss-compose / .miss-input / .miss-send */
+.og-chat-sheet .miss-compose {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--og-surface);
+  border-top: 1px solid var(--og-line);
+  flex-shrink: 0;
+}
+
+.og-chat-sheet .miss-input {
+  flex: 1;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 22px;
+  border: 1px solid var(--og-line);
+  background: var(--og-surface-soft);
+  color: var(--og-text);
+  font-size: 14px;
+  outline: none;
+}
+
+.og-chat-sheet .miss-input:focus {
+  border-color: var(--og-accent);
+  background: var(--og-surface);
+}
+
+.og-chat-sheet .miss-send {
+  min-width: 64px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  border: none;
+  background: var(--og-green);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.og-chat-sheet[data-chat-mode="offline"] .miss-send {
+  background: var(--og-accent);
+}
+
+/* ==================== 8. 媒体查询：Hover 与 Reduced Motion 铁律 ==================== */
+
+@media (hover: hover) and (pointer: fine) {
+  .og-gate-close:hover,
+  .og-back:hover,
+  .og-who:hover,
+  .og-act:hover,
+  .og-buddy-card:hover,
+  .og-seg-btn:hover,
+  .og-drink-chip:hover,
+  .og-cup-btn:hover,
+  .og-sheet-close:hover {
+    filter: brightness(0.97);
+  }
+
+  .og-gate-wechat:hover,
+  .og-submit-btn:hover,
+  .og-chat-sheet .miss-send:hover {
+    opacity: 0.92;
+  }
 }
 
 @keyframes og-fade-in {
@@ -399,56 +1189,81 @@
   }
 }
 
-@keyframes og-card-in {
+@keyframes og-slide-up {
   from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(100%);
   }
   to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .og-buddy-card:hover {
-    border-color: var(--og-accent);
-  }
-
-  .og-gate-wechat:hover,
-  .og-act-primary:hover {
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
-  }
-}
-
-@media (max-width: 560px) {
-  .og-actions {
-    gap: 4px;
-  }
-
-  .og-act {
-    padding: 8px 9px;
-    font-size: 12px;
-  }
-
-  .og-who span {
-    max-width: 72px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    transform: translateY(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .og-gate-page,
-  .og-gate-shell,
-  .og-game-page,
-  .og-gate-wechat,
-  .og-gate-account,
+  .og-sheet-mask,
+  .og-sheet,
+  .og-gate-close,
+  .og-who,
+  .og-act,
   .og-buddy-card,
-  .og-back,
-  .og-act {
-    animation-duration: 1ms !important;
-    transition-duration: 1ms !important;
+  .og-chevron {
+    animation: none !important;
+    transition: none !important;
   }
+}
+
+/* ==================== 补充：v6.8.3 缺失修饰类修缮（2026-11-09） ==================== */
+/* 风格严格跟随既有 --og- 变量体系；仅补 JS 已用到的缺样式类 */
+
+/* 微信气泡名字/时间：.og-wx-meta 里做轻量文字层级 */
+.og-wx-name {
+  font-weight: 600;
+  color: #666666;
+}
+
+.og-wx-time {
+  font-size: 10px;
+  color: #aaaaaa;
+}
+
+/* 「正在输入」气泡：紧凑居中，三个点复用全局 .miss-typing-dots 动画 */
+.og-wx-bubble.og-wx-typing {
+  min-width: 56px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 就绪条头像包裹：细微光环，突出这是玩伴的状态 */
+.og-bubble-ava-wrap {
+  display: inline-flex;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--og-surface), 0 0 0 3px var(--og-accent-soft);
+}
+
+/* 「刷新」紧凑按钮（触控目标仍保持 44px） */
+.og-act.og-act-icon {
+  min-width: 44px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--og-text-2);
+}
+
+/* 选人列表"我"占位头像：虚线空心样式 */
+.og-gate-avatar.og-gate-avatar-empty {
+  background: var(--og-surface-soft);
+  border: 1px dashed rgba(107, 125, 141, 0.45);
+  color: var(--og-text-2);
+  font-size: 12px;
+}
+
+/* 玩一局面板：表单控件多，比通用底部抽屉更舒展 */
+.og-sheet.og-play-sheet {
+  max-height: 88dvh;
+}
+
+/* 对话抽屉输入区：贴底安全区 + 与消息区的轻分隔 */
+.og-chat-sheet .miss-compose.og-miss-compose {
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
 }
