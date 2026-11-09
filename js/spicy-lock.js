@@ -30,6 +30,7 @@ window.SpicyLock = {
     var page = document.createElement('div');
     page.className = 'spicy-lock-page';
     page.innerHTML =
+      '<button class="spicy-lock-back" type="button" data-lock-back>返回</button>' +
       '<div class="spicy-lock-stars" aria-hidden="true"></div>' +
       '<div class="spicy-lock-card">' +
         '<div class="spicy-lock-art" aria-hidden="true">' +
@@ -54,6 +55,10 @@ window.SpicyLock = {
     var input = page.querySelector('.spicy-lock-input');
     var sendBtn = page.querySelector('.spicy-lock-send');
     var errorEl = page.querySelector('[data-lock-error]');
+
+    page.querySelector('[data-lock-back]').addEventListener('click', function () {
+      page.remove();
+    });
 
     function tryPass() {
       if (window.SpicyLock.checkPassword(input.value)) {

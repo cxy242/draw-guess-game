@@ -1,0 +1,433 @@
+.og-gate-page {
+  --og-bg: #eceef1;
+  --og-surface: #ffffff;
+  --og-line: rgba(0, 0, 0, 0.06);
+  --og-text: #2d2b2e;
+  --og-text-2: #6b7d8d;
+  --og-accent: #6b7d8d;
+  --og-shadow: rgba(107, 125, 141, 0.16);
+  --og-green: #3f9d6c;
+  position: absolute;
+  inset: 0;
+  z-index: 410;
+  display: grid;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  place-items: center;
+  overflow-y: auto;
+  background: var(--og-bg);
+  animation: og-fade-in 280ms ease-out both;
+}
+
+.og-gate-page.og-bar {
+  --og-accent: #b08453;
+  --og-shadow: rgba(176, 132, 83, 0.18);
+  --og-bg: #f4f1ee;
+}
+
+.og-gate-page.og-candy {
+  --og-accent: #b76e7e;
+  --og-shadow: rgba(183, 110, 126, 0.16);
+  --og-bg: #f2eef1;
+}
+
+.og-gate-shell {
+  width: min(100%, 380px);
+  padding: 34px 26px 28px;
+  text-align: center;
+  background: var(--og-surface);
+  border: 1px solid var(--og-line);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px var(--og-shadow);
+  animation: og-card-in 300ms ease-out 40ms both;
+}
+
+.og-gate-wide {
+  width: min(100%, 460px);
+}
+
+.og-gate-mark {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  place-items: center;
+  border-radius: 18px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(107, 125, 141, 0.12));
+  border: 1px solid var(--og-line);
+}
+
+.og-gate-lock {
+  position: relative;
+  width: 26px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--og-accent);
+}
+
+.og-gate-lock::before {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 15px;
+  height: 13px;
+  border: 3px solid var(--og-accent);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.og-gate-lock::after {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--og-surface);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.og-gate-title {
+  margin: 0;
+  color: var(--og-text);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.og-gate-subtitle {
+  margin: 8px 0 20px;
+  color: var(--og-text-2);
+  font-size: 13px;
+}
+
+.og-gate-wechat {
+  width: min(100%, 280px);
+  min-height: 46px;
+  padding: 10px 18px;
+  color: #ffffff;
+  background: var(--og-green);
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: transform 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+.og-gate-wechat:active {
+  transform: scale(0.97);
+}
+
+.og-gate-accounts {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.og-gate-account {
+  display: flex;
+  min-height: 48px;
+  padding: 8px 12px;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: #fafafa;
+  border: 1px solid var(--og-line);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.og-gate-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.og-gate-avatar-empty {
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: var(--og-accent);
+  font-size: 14px;
+}
+
+.og-gate-empty {
+  margin: 16px 0 0;
+  color: var(--og-text-2);
+  font-size: 13px;
+}
+
+.og-buddy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.og-buddy-card {
+  display: grid;
+  padding: 14px 8px 12px;
+  place-items: center;
+  gap: 8px;
+  background: #fafafa;
+  border: 1px solid var(--og-line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 180ms ease-out, border-color 180ms ease-out;
+}
+
+.og-buddy-card:active {
+  transform: scale(0.97);
+}
+
+.og-buddy-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.og-buddy-avatar-empty {
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: var(--og-accent);
+  font-size: 18px;
+}
+
+.og-buddy-name {
+  color: var(--og-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.og-game-page {
+  --og-bar-bg: #f4f1ee;
+  --og-bar-surface: #ffffff;
+  --og-bar-line: rgba(0, 0, 0, 0.07);
+  --og-bar-text: #2d2b2e;
+  --og-bar-text-2: #8a7d72;
+  --og-bar-accent: #b08453;
+  position: absolute;
+  inset: 0;
+  z-index: 410;
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  background: var(--og-bar-bg);
+  animation: og-fade-in 240ms ease-out both;
+}
+
+.og-game-page.og-candy {
+  --og-bar-bg: #f2eef1;
+  --og-bar-text-2: #8d7580;
+  --og-bar-accent: #b76e7e;
+}
+
+.og-topbar {
+  display: flex;
+  min-height: 50px;
+  padding: 6px 10px;
+  align-items: center;
+  gap: 8px;
+  background: var(--og-bar-surface);
+  border-bottom: 1px solid var(--og-bar-line);
+}
+
+.og-back {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 10px;
+  color: var(--og-bar-text);
+  background: transparent;
+  border: 1px solid var(--og-bar-line);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.og-who {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--og-bar-text);
+}
+
+.og-who-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.og-who-avatar-empty {
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: var(--og-bar-accent);
+  font-size: 12px;
+}
+
+.og-actions {
+  display: flex;
+  margin-left: auto;
+  gap: 6px;
+}
+
+.og-act {
+  min-height: 44px;
+  padding: 8px 12px;
+  color: var(--og-bar-text);
+  background: var(--og-bar-surface);
+  border: 1px solid var(--og-bar-line);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.og-act-primary {
+  color: #ffffff;
+  background: var(--og-bar-accent);
+  border-color: var(--og-bar-accent);
+}
+
+.og-bubble {
+  display: flex;
+  min-height: 46px;
+  padding: 8px 12px;
+  align-items: center;
+  gap: 9px;
+  background: var(--og-bar-surface);
+  border-bottom: 1px solid var(--og-bar-line);
+}
+
+.og-bubble-pending {
+  color: var(--og-bar-text-2);
+  font-size: 13px;
+}
+
+.og-bubble-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.og-bubble-avatar-empty {
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: var(--og-bar-accent);
+  font-size: 12px;
+}
+
+.og-bubble-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.og-bubble-copy strong {
+  color: var(--og-bar-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.og-bubble-copy span {
+  color: var(--og-bar-text);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.og-frame {
+  width: 100%;
+  flex: 1 1 auto;
+  border: 0;
+  background: #ffffff;
+}
+
+.og-note {
+  padding: 7px 12px;
+  color: var(--og-bar-text-2);
+  background: var(--og-bar-surface);
+  border-top: 1px solid var(--og-bar-line);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@keyframes og-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes og-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .og-buddy-card:hover {
+    border-color: var(--og-accent);
+  }
+
+  .og-gate-wechat:hover,
+  .og-act-primary:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  }
+}
+
+@media (max-width: 560px) {
+  .og-actions {
+    gap: 4px;
+  }
+
+  .og-act {
+    padding: 8px 9px;
+    font-size: 12px;
+  }
+
+  .og-who span {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .og-gate-page,
+  .og-gate-shell,
+  .og-game-page,
+  .og-gate-wechat,
+  .og-gate-account,
+  .og-buddy-card,
+  .og-back,
+  .og-act {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

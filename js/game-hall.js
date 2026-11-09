@@ -333,12 +333,12 @@
           window.showTarotPage()
           return
         }
-        if (card.getAttribute('data-game') === 'bar-game' && window.showBarPage) {
-          window.showBarPage()
+        if (card.getAttribute('data-game') === 'bar-game' && (window.showBarOrigPage || window.showBarPage)) {
+          if (window.showBarOrigPage) window.showBarOrigPage(); else window.showBarPage();
           return
         }
-        if (card.getAttribute('data-game') === 'candy-jar' && window.showCandyPage) {
-          window.showCandyPage()
+        if (card.getAttribute('data-game') === 'candy-jar' && (window.showCandyOrigPage || window.showCandyPage)) {
+          if (window.showCandyOrigPage) window.showCandyOrigPage(); else window.showCandyPage();
           return
         }
         if (window.toast) window.toast('暂未开放')

@@ -35,6 +35,27 @@
   background-repeat: no-repeat;
 }
 
+.spicy-lock-back {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  color: var(--lock-text-2);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--lock-line);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: transform 160ms ease-out;
+}
+
+.spicy-lock-back:active {
+  transform: scale(0.97);
+}
+
 .spicy-lock-card {
   position: relative;
   width: min(100%, 380px);
@@ -256,6 +277,8 @@
 @media (prefers-reduced-motion: reduce) {
   .spicy-lock-page,
   .spicy-lock-card,
+  .spicy-lock-back,
+  .spicy-lock-send,
   .spicy-lock-art-shackle {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
