@@ -3664,6 +3664,9 @@ function showApiTestModal(title, ok, message, detail) {
 window.callAI = async function(messages, opts) {
   opts = opts || {}
   if (window.ShiliIntegration && window.db) opts = await window.ShiliIntegration.enrichOptions(window.db, opts)
+  if (!opts.noApollo && window._APOLLO_PROTOCOL && String(opts.system || '').indexOf('APOLLO PROTOCOL') === -1) {
+    opts.system = (opts.system || '') + '\n\n' + window._APOLLO_PROTOCOL
+  }
   // Char角色防八股世界书注入
   if (opts.charAntiDrift && typeof _BUILTIN_ANTI_DRIFT_LORE !== 'undefined') {
     opts = Object.assign({}, opts)
@@ -3691,7 +3694,7 @@ window.callMemoryAI = async function(messages, opts) {
   if (cfg.complete) {
     return await fetchAI(cfg, messages, Object.assign({}, opts, { apiConsoleType: '记忆专属 API' }))
   }
-  return await window.callAI(messages, opts)
+  return await window.callAI(messages, Object.assign({}, opts, { noApollo: true }))
 }
 
 // ===== MCP 跑腿助理 AI 调用 =====
@@ -3710,6 +3713,9 @@ window.callMcpAI = async function(messages, opts) {
 window.callGameAI = async function(messages, opts) {
   opts = opts || {}
   if (window.ShiliIntegration && window.db) opts = await window.ShiliIntegration.enrichOptions(window.db, opts)
+  if (!opts.noApollo && window._APOLLO_PROTOCOL && String(opts.system || '').indexOf('APOLLO PROTOCOL') === -1) {
+    opts.system = (opts.system || '') + '\n\n' + window._APOLLO_PROTOCOL
+  }
   var gameCfg = await loadGameApiConfig()
   if (gameCfg.url && gameCfg.key && gameCfg.model) {
     return await fetchAI(gameCfg, messages, Object.assign({}, opts, { apiConsoleType: '游戏专属 API' }))

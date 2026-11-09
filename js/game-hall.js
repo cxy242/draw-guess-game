@@ -43,6 +43,20 @@
       meta: '解读 · 陪伴',
       icon: 'fa-solid fa-wand-magic-sparkles',
       tone: 'tarot'
+    },
+    {
+      id: 'bar-game',
+      title: '和小机喝一杯',
+      meta: '酒吧·骰子·盲品',
+      icon: 'fa-solid fa-martini-glass-citrus',
+      tone: 'bar'
+    },
+    {
+      id: 'candy-jar',
+      title: '因果律软糖罐',
+      meta: '整蛊·药效·图鉴',
+      icon: 'fa-solid fa-candy-cane',
+      tone: 'candy'
     }
   ]
 
@@ -53,16 +67,43 @@
     })
   }
 
+  function buildGameCardArt(game) {
+    if (game.id === 'bar-game') {
+      return '<div class="bar-card-art-cocktail" aria-hidden="true">' +
+        '<span class="bar-card-art-cocktail-glow"></span>' +
+        '<span class="bar-card-art-cocktail-glass"></span>' +
+        '<span class="bar-card-art-cocktail-liquid"></span>' +
+        '<span class="bar-card-art-cocktail-highlight"></span>' +
+        '<span class="bar-card-art-cocktail-rim"></span>' +
+        '<span class="bar-card-art-cocktail-garnish"></span>' +
+        '<span class="bar-card-art-cocktail-stem"></span>' +
+        '<span class="bar-card-art-cocktail-foot"></span>' +
+      '</div>'
+    }
+    if (game.id === 'candy-jar') {
+      return '<div class="candy-card-art-jar" aria-hidden="true">' +
+        '<span class="candy-card-art-jar-glow"></span>' +
+        '<span class="candy-card-art-jar-candy candy-card-art-jar-candy-one"></span>' +
+        '<span class="candy-card-art-jar-candy candy-card-art-jar-candy-two"></span>' +
+        '<span class="candy-card-art-jar-candy candy-card-art-jar-candy-three"></span>' +
+        '<span class="candy-card-art-jar-glass"></span>' +
+        '<span class="candy-card-art-jar-lid"></span>' +
+        '<span class="candy-card-art-jar-label"></span>' +
+      '</div>'
+    }
+    return '<i class="' + esc(game.icon) + '"></i>'
+  }
+
   function buildGameCards() {
     return GAMES.map(function(game) {
       return '' +
         '<button class="game-card game-card-' + esc(game.tone) + '" type="button" data-game="' + esc(game.id) + '">' +
-          '<span class="game-card-icon" aria-hidden="true"><i class="' + esc(game.icon) + '"></i></span>' +
+          '<span class="game-card-icon" aria-hidden="true">' + buildGameCardArt(game) + '</span>' +
           '<span class="game-card-copy">' +
             '<span class="game-card-title">' + esc(game.title) + '</span>' +
             '<span class="game-card-meta">' + esc(game.meta) + '</span>' +
           '</span>' +
-      '<span class="game-card-status">' + (game.id === 'werewolf' || game.id === 'spicy-monopoly' || game.id === 'tarot' ? '立即进入' : '暂未开放') + '</span>' +
+      '<span class="game-card-status">' + (game.id === 'werewolf' || game.id === 'spicy-monopoly' || game.id === 'tarot' || game.id === 'bar-game' || game.id === 'candy-jar' ? '立即进入' : '暂未开放') + '</span>' +
         '</button>'
     }).join('')
   }
@@ -278,7 +319,7 @@
       })
     }
 
-    page.querySelectorAll('.game-card').forEach(function(card) {
+    page.querySelectorAll('.game-card, .game-card-candy').forEach(function(card) {
       card.addEventListener('click', function() {
         if (card.getAttribute('data-game') === 'werewolf' && window.showWerewolfGame) {
           window.showWerewolfGame()
@@ -290,6 +331,14 @@
         }
         if (card.getAttribute('data-game') === 'tarot' && window.showTarotPage) {
           window.showTarotPage()
+          return
+        }
+        if (card.getAttribute('data-game') === 'bar-game' && window.showBarPage) {
+          window.showBarPage()
+          return
+        }
+        if (card.getAttribute('data-game') === 'candy-jar' && window.showCandyPage) {
+          window.showCandyPage()
           return
         }
         if (window.toast) window.toast('暂未开放')
