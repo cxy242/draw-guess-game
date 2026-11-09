@@ -13,7 +13,7 @@ async function ingest(db,source,row,id,ownerUid,charId){
  }
  if(source==='wechat-offline'){
   var offline=await db.offlineChats?.get(id);if(!offline)return {action:'skip'};
-  if(String(offline.ownerUid)!==String(ownerUid)||String(offline.charId)!==String(charId))throw Error('线下剧情归属不匹配');
+  if(String(offline.ownerUid)!==String(ownerUid)||(offline.mode==='ensemble'?!(offline.participantIds||[]).some(function(id){return String(id)===String(charId);}):String(offline.charId)!==String(charId)))throw Error('线下剧情归属不匹配');
   row=offline;if(row.role==='user')return {action:'skip'};
  }
  if(source==='wechat-private'){
@@ -22,19 +22,26 @@ async function ingest(db,source,row,id,ownerUid,charId){
   if(!chat||String(chat.ownerUid)!==String(ownerUid)||String(chat.charId)!==String(charId))throw Error('消息归属不匹配');
   row=persisted;if(row.role==='user')return {action:'skip'};
  }
- var p=source==='wechat-offline'?root.ShiliCore.parseMessage('__NARRATIVE__'+textOf(row.content)):parse(row);if(!p)return {action:'skip'};
- var completed=p.kind==='narrative'&&root.ShiliCore.completedGift?.(p.text);
+ var card=parse(row);
+ if(card?.kind==='legacy-gift'&&card.data.giftId){var linked=await db.gifts.get(Number(card.data.giftId)||card.data.giftId);if(linked&&String(linked.ownerUid)===String(ownerUid)&&String(linked.charId)===String(charId)&&linked.wechatMessageId===id&&linked.wechatClientMessageId===row.clientMessageId)return {gift:linked,created:false};}
+ var p=source==='wechat-offline'?root.ShiliCore.parseMessage('__NARRATIVE__'+textOf(row.content)):parse(row);if(!p)return {action:'skip'};if(p.kind==='text')p={kind:'narrative',text:p.text};
+ var character=db.characters&&await db.characters.get(Number(charId)||charId);
+ if(!character||character.deleted||character.isDeleted||['user','online_friend'].includes(character.type)||(character.ownerUid!=null&&String(character.ownerUid)!==String(ownerUid)))return {action:'skip'};
+ var completedRows=p.kind==='narrative'?root.ShiliCore.completedGifts(p.text,[character?.name,character?.nick],{explicitOnly:row.mode==='ensemble'}):[];
+ var completed=completedRows[0];
  var name='',description='',message='',type='';
  if(p.kind==='legacy-gift'){
    if(p.data.action&&p.data.action!=='send')return {action:'skip'};
    if(source==='wechat-group'&&String(p.data.recipientUid)!==String(ownerUid))return {action:'skip'};
    if(p.data.recipientUid!=null&&String(p.data.recipientUid)!==String(ownerUid))return {action:'skip'};
    name=textOf(p.data.itemName||'礼物');description=textOf(p.data.reason||'');message=description;type='legacy-gift';
- }else if(p.kind==='narrative'&&root.ShiliCore.classifyNarrative(p.text).kind==='gift-candidate'){
+ }else if(p.kind==='narrative'&&completedRows.length){
    name=completed?completed.name:'剧情中的礼物';description=p.text;type='narrative';
  }else{return {action:'skip'};}
  var virtual=Number.isFinite(row.virtualTimestamp)?row.virtualTimestamp:(Number.isFinite(row.realCreatedAt)&&Number.isFinite(row.createdAt)?row.createdAt:null);
- var saved=await root.ShiliRepository.saveCandidate(db,{ownerUid:String(ownerUid),charId:String(charId),sourceType:source,sourceId:String(row.shiliGiftBatchId||id),name,description,message,virtualTimestamp:virtual,worldId:row.worldId||null,timeMode:row.timeMode||(virtual===null?'real':'virtual'),realTimestamp:Number.isFinite(row.realCreatedAt)?row.realCreatedAt:(Number.isFinite(row.createdAt)?row.createdAt:Date.now())});
+ var entries=completedRows.length?completedRows:[{name:name,description:description,message:message}],results=[];
+ for(var entryIndex=0;entryIndex<entries.length;entryIndex++){var entry=entries[entryIndex];
+ var saved=await root.ShiliRepository.saveCandidate(db,{ownerUid:String(ownerUid),charId:String(charId),sourceType:source,sourceId:String(row.shiliGiftBatchId||id),sourceChatId:row.groupId??row.chatId,eventIndex:entryIndex,name:entry.name,description:entry.description,message:entry.message||message,virtualTimestamp:virtual,worldId:row.worldId||null,timeMode:row.timeMode||(virtual===null?'real':'virtual'),realTimestamp:Number.isFinite(row.realCreatedAt)?row.realCreatedAt:(Number.isFinite(row.createdAt)?row.createdAt:Date.now())});
  var wasPending=saved.gift.status==='pending-review';
  if((p.kind==='legacy-gift'&&String(p.data.recipientUid)===String(ownerUid))||completed){
   if(p.kind==='legacy-gift'&&wasPending&&saved.gift.name==='剧情中的礼物')await db.gifts.update(saved.gift.id,{name:name,description:description,message:message});
@@ -42,7 +49,8 @@ async function ingest(db,source,row,id,ownerUid,charId){
   if(wasPending&&root.ShiliIntegration)root.ShiliIntegration.scheduleGiftImage(db,ownerUid,saved.gift.id).catch(function(){});
  }
  if(saved.created||wasPending&&saved.gift.status==='received')root.ShiliIntegration?.announce?.(ownerUid,saved.gift.id);
- return saved;
+ results.push(saved);
+ }return Object.assign({},results[0],{createdCount:results.filter(function(x){return x.created;}).length,gifts:results.map(function(x){return x.gift;})});
 }
 // 失败不回滚已保存的聊天消息：提供显式补扫，处理恢复/导入/异常。
 async function scanPrivate(db,ownerUid,limit,cursor){
@@ -71,8 +79,9 @@ async function sendToCharacter(db,ownerUid,giftId){
   if(!gift||String(gift.ownerUid)!==String(ownerUid)||gift.sourceType!=='shili-manual')throw Error('无权发送这份礼物');
   if(gift.deliveryStatus==='sent')return {gift:gift,created:false};
   if(gift.status!=='draft')throw Error('请先保存礼物草稿');
+  if(!gift.imageUrl||gift.imageStatus!=='ready')throw Error('请先生成礼物图片或从相册选择图片');
   var char=await db.characters.get(Number(gift.charId)||gift.charId);
-  if(!char||char.type==='user'||char.type==='online_friend')throw Error('该角色当前不支持本地礼物卡片');
+  if(!char||char.deleted||char.isDeleted||(char.ownerUid!=null&&String(char.ownerUid)!==String(ownerUid))||char.type==='user'||char.type==='online_friend')throw Error('该角色当前不支持本地礼物卡片');
   var chats=await db.chats.filter(function(c){return String(c.ownerUid)===String(ownerUid)}).toArray();
   var chat=chats.find(function(c){return String(c.charId)===String(gift.charId)&&String(c.ownerUid)===String(ownerUid)});
   if(!chat)throw Error('请先在微信中建立与这位角色的会话');
@@ -99,11 +108,37 @@ async function scanAll(db,ownerUid,limit,cursor){
 }
 async function giftForMessage(db,ownerUid,source,id,charId){
  var table=source==='wechat-group'?db.groupMessages:source==='wechat-offline'?db.offlineChats:db.messages;var message=table&&await table.get(id);
+ var card=message&&parse(message);if(card?.kind==='legacy-gift'&&card.data.giftId){var linked=await db.gifts.get(Number(card.data.giftId)||card.data.giftId);if(linked&&String(linked.ownerUid)===String(ownerUid)&&String(linked.charId)===String(charId)&&linked.wechatMessageId===id&&linked.wechatClientMessageId===message.clientMessageId)return linked;}
  var eventKey=root.ShiliRepository.eventKey({ownerUid,sourceType:source,sourceId:String(message?.shiliGiftBatchId||id),charId});
  var event=await db.giftEvents.get(eventKey);if(!event||String(event.ownerUid)!==String(ownerUid))return null;
  var gift=await db.gifts.get(event.giftId);return gift&&String(gift.ownerUid)===String(ownerUid)&&String(gift.charId)===String(charId)?gift:null;
 }
+var incrementalBusy=new Map();
+function scanKey(owner){return 'shili-scan:'+String(owner);}
+function failureKey(owner,source,id){return 'shili-scan-failure:'+JSON.stringify([String(owner),source,id]);}
+async function scanProgress(db,owner){return (await db.config.get(scanKey(owner)))?.value||{private:0,group:0,offline:0,scanned:0,created:0,updatedAt:null};}
+async function scanIncremental(db,owner,limit,options){
+ owner=String(owner);options=options||{};var lock=db.name+':'+owner;if(incrementalBusy.has(lock))return incrementalBusy.get(lock);
+ var work=(async function(){var state=await scanProgress(db,owner),result={scanned:0,created:0,errors:[],hasMore:false},cap=Math.min(500,Math.max(1,Number(limit)||100)),chats=new Map((await db.chats.filter(function(c){return String(c.ownerUid)===owner;}).toArray()).map(function(c){return [c.id,c];})),groups=new Map(db.groupChats?(await db.groupChats.filter(function(c){return String(c.ownerUid)===owner;}).toArray()).map(function(c){return [c.id,c];}):[]);
+ function stillOwner(){if(root.getShiliOwnerUid&&String(root.getShiliOwnerUid())!==owner)throw Error('账号已切换，补扫已暂停，进度已保留');}
+ async function process(source,row){
+  var charId=source==='private'?chats.get(row.chatId)?.charId:source==='group'?row.senderId:row.charId;
+  if(source==='private'&&!chats.has(row.chatId)||source==='group'&&!groups.has(row.groupId)||source==='offline'&&String(row.ownerUid)!==owner)return;
+  if(!charId)return;
+  var key=failureKey(owner,source,row.id);
+  try{var actors=source==='offline'&&row.mode==='ensemble'?(row.participantIds||[]):[charId];for(var actorId of actors){var x=await ingest(db,'wechat-'+(source==='private'?'private':source==='group'?'group':'offline'),row,row.id,owner,actorId);result.created+=x.createdCount||(x.created?1:0);}await db.config.delete(key);}
+  catch(e){var old=(await db.config.get(key))?.value;await db.config.put({key:key,value:{ownerUid:owner,source:source,id:row.id,error:String(e.message||e),attempts:(old?.attempts||0)+1,updatedAt:Date.now()}});result.errors.push({source:source,id:row.id,error:String(e.message||e)});}
+ }
+ if(options.retryFailures){var failures=(await db.config.where('key').startsWith('shili-scan-failure:').toArray()).filter(function(r){return r.key.startsWith('shili-scan-failure:')&&String(r.value?.ownerUid)===owner;});for(var f of failures.slice(0,cap)){stillOwner();var table=f.value.source==='private'?db.messages:f.value.source==='group'?db.groupMessages:db.offlineChats,row=table&&await table.get(f.value.id);if(row)await process(f.value.source,row);else await db.config.delete(f.key);}}
+ for(var source of ['private','group','offline']){var table=source==='private'?db.messages:source==='group'?db.groupMessages:db.offlineChats;if(!table)continue;if(result.scanned>=cap){result.hasMore=true;break;}
+  var rows=await table.where('id').above(Number(state[source])||0).limit(cap-result.scanned+1).toArray();
+  for(var row of rows){if(result.scanned>=cap){result.hasMore=true;break;}stillOwner();await process(source,row);result.scanned++;state[source]=row.id;state.scanned=(state.scanned||0)+1;state.created=(state.created||0)+result.created-(result._createdSaved||0);result._createdSaved=result.created;state.updatedAt=Date.now();await db.config.put({key:scanKey(owner),value:state});}
+ }
+ delete result._createdSaved;result.progress=state;return result;})();incrementalBusy.set(lock,work);try{return await work;}finally{incrementalBusy.delete(lock);}
+}
+async function markForRescan(db,owner,source,id){await db.config.put({key:failureKey(owner,source,id),value:{ownerUid:String(owner),source:source,id:id,error:'消息已更新，等待重新核对',attempts:0,updatedAt:Date.now()}});}
+async function resetScan(db,owner){if(root.getShiliOwnerUid&&String(root.getShiliOwnerUid())!==String(owner))throw Error('账号不匹配');await db.config.delete(scanKey(owner));}
 async function confirmGift(db,ownerUid,giftId){var before=await root.ShiliRepository.getGift(db,ownerUid,giftId),g=await root.ShiliRepository.confirmAndRemember(db,ownerUid,giftId,root.WanWanMemory);if(before?.status==='pending-review'&&g.status==='received')root.ShiliIntegration?.scheduleGiftImage(db,ownerUid,giftId).catch(function(){});root.ShiliIntegration?.announce?.(ownerUid,giftId);return g;}
 async function getCharacterGiftMemory(db,ownerUid,charId){return root.ShiliRepository.memoryContext(db,ownerUid,charId,12);}
-root.ShiliBridge={ingest:ingest,scanPrivate:scanPrivate,scanAll:scanAll,sendToCharacter:sendToCharacter,giftForMessage:giftForMessage,confirmGift:confirmGift,getCharacterGiftMemory:getCharacterGiftMemory};
+root.ShiliBridge={markForRescan:markForRescan,scanIncremental:scanIncremental,scanProgress:scanProgress,resetScan:resetScan,ingest:ingest,scanPrivate:scanPrivate,scanAll:scanAll,sendToCharacter:sendToCharacter,giftForMessage:giftForMessage,confirmGift:confirmGift,getCharacterGiftMemory:getCharacterGiftMemory};
 })(typeof window!=='undefined'?window:globalThis);

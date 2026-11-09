@@ -1,0 +1,114 @@
+/* ============================================================
+   xinge-selfwrite.css · 手写信页（2026-10-28 主人新增功能）
+   「给其他人写信 → 自己写 / 让 AI 写」选择页 + 素纸手写编辑页（2026-10-30 去横线）
+   风格锁：希腊复古 × 旧信札 · 低饱和单色系 · 动效只动 transform/opacity
+   ============================================================ */
+
+/* ============================================================
+   一、谁来写（选择页）
+   ============================================================ */
+.xg-selfwrite-wrap {
+  position: relative;
+  z-index: var(--xg-z-content);
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px 40px;
+}
+.xg-selfwrite-wrap::-webkit-scrollbar { width: 0; }
+.xg-selfwrite-to {
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay-pale);
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+
+/* ============================================================
+   二、手写编辑区（素纸 —— 2026-10-30 主人令去掉红横线）
+   ============================================================ */
+.xg-selfwrite-input {
+  position: relative;
+  z-index: 3;
+  display: block;
+  width: 100%;
+  min-height: 260px;
+  margin: 6px 0 0;
+  padding: 8px 28px 12px;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 14px;
+  line-height: 28px;          /* 2026-10-30 去横线：不再压格子 */
+  color: #2F2A24;
+  text-indent: 2em;
+  letter-spacing: 0.02em;
+  caret-color: #8A6A5A;
+}
+.xg-selfwrite-input::placeholder {
+  color: rgba(137, 109, 89, 0.38);
+  text-indent: 0;
+}
+/* 输入框与已渲染的正文叠在同一张纸上：
+   输入时 textarea 透明化，让下面的 .xg-w 显字层露出来 */
+.xg-selfwrite-input.is-typing {
+  color: transparent;
+  caret-color: #8A6A5A;
+}
+.xg-selfwrite-input.is-typing::selection {
+  background: rgba(199, 161, 155, 0.3);
+}
+
+/* 已写出的正文层（逐字显影） */
+.xg-selfwrite-wrap .xg-letter-body {
+  position: relative;
+  z-index: 2;
+  padding: 4px 28px 0;
+}
+.xg-selfwrite-wrap .xg-letter-para {
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 14px;
+  line-height: 28px;
+  color: #2F2A24;
+  text-indent: 2em;
+  margin: 0 0 2px;
+}
+
+/* ============================================================
+   三、底部操作条
+   ============================================================ */
+.xg-selfwrite-foot {
+  position: relative;
+  z-index: var(--xg-z-content);
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.xg-selfwrite-foot .xg-btn {
+  flex: 1;
+  justify-content: center;
+  font-family: 'XG-Kai', serif;
+  letter-spacing: 0.08em;
+}
+
+/* ============================================================
+   四、写信页笔的落位微调（笔尖压住墨迹行）
+   ============================================================ */
+.xg-c2-pen {
+  z-index: 6;
+}
+.xg-c2-inkpot {
+  z-index: 6;
+}
+
+/* ============================================================
+   五、低动效降级
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .xg-selfwrite-wrap .xg-w {
+    transition: none !important;
+  }
+}

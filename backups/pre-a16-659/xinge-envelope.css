@@ -1,0 +1,435 @@
+/* xinge-envelope.css · css3dlab 深度排序结构（MIT 原理）+ 信格配色花纹 */
+.xg-env4-stage {
+  --u: min(2.2vw, 9px);
+  position: relative;
+  /* 宽度按父容器百分比给（原来 calc(u*46) 是视口单位算出 414px > 屏宽 → 信封溢出两边）。
+     u 只用于内部比例（translateZ / padding），不再用于定宽。 */
+  width: 84%;
+  max-width: 360px;
+  margin: 4vh auto 0;
+  perspective: calc(var(--u) * 120);
+}
+.xg-env4 {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 46 / 31;
+  /* 2026-10-28：不再整层 preserve-3d。
+     实测：只要这一层是 preserve-3d，兄弟节点上的 clip-path（口袋/翻盖的三角形）
+     就会把 3D 上下文拍扁 → hinge 的 rotateX 被吃掉，transform 变成 identity，
+     翻盖压根不转（主人："倒三角翻过去直接消失"）。
+     现在改成：外层只做定位与深度排序（translateZ），
+     翻盖的旋转交给它自己的 transform（独立层，不受兄弟 clip-path 影响）。 */
+  transition: transform 0.6s cubic-bezier(0.42, 0, 0.58, 1);
+}
+/* ===== 信封本体（背板 / 袋口 / 翻盖 / 火漆）=====
+   —— 2026-10-30：单独包一层 .xg-env4-body。
+      三张信纸挂在 .xg-env4 里（要在袋口之后、背板之前），
+      拆信退场时如果直接淡出 .xg-env4，纸会被一起带走（实测：纸跟着信封一起没了）。
+      现在退场只作用在 body 上，纸自己飞出去。 */
+.xg-env4-body {
+  position: absolute;
+  inset: 0;
+}
+
+/* ===== 背板（衬里条纹，z=0） ===== */
+/* ===== 背板（衬里条纹，z=0） ===== */
+.xg-env4-back {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--u) * 0.6);
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(238, 232, 218, 0.9) 0 calc(var(--u) * 1.1),
+      rgba(199, 161, 155, 0.32) calc(var(--u) * 1.1) calc(var(--u) * 2.2)),
+    #EDE5D6;
+  z-index: 0;
+}
+/* ===== 信纸（z=2） ===== */
+/* 信纸容器：只做定位，不画纸本身（三张纸由子元素 .xg-env4-paper 画）
+   —— 此前容器自带羊皮纸底 + 阴影，与子元素叠成两层纸，且升出时整体跑出信封 */
+.xg-env4-letter {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 6%;
+  bottom: 6%;
+  z-index: 2;
+  transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1) 0.45s;
+}
+/* ===== 口袋（V 口袋 z=4 + 底折三角 ::before） ===== */
+/* ===== V 形口袋（信封正面下半，z=4）=====
+   —— 2026-10-28 修正：原来口袋的 clip-path 把信封上半整个挖空，
+      而翻盖（hinge）因 preserve-3d 被压平没渲染出来 →
+      主人看到的"倒三角"其实是那个空洞，翻盖翻过去就"消失"。
+      现在：口袋只保留**下半部**（不挖空上半），上半由翻盖（倒三角）占据。 */
+.xg-env4-pocket {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56%;
+  border-radius: 0 0 calc(var(--u) * 0.6) calc(var(--u) * 0.6);
+  background:
+    linear-gradient(172deg, #E8CDC7, #DFC0B9),
+    url('img/xinge/xg-paper.webp') repeat center / 240px auto;
+  clip-path: polygon(0 22%, 50% 0, 100% 22%, 100% 100%, 0 100%);
+  z-index: 4;
+}
+/* 底折三角（浅一档） */
+.xg-env4-pocket::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, #EED7D1, #E4C3BB);
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+/* 袋面花纹：四边单色卷草线描（内框） */
+.xg-env4-pocket::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--u) * 1.2);
+  border: 1px solid rgba(137, 109, 89, 0.5);
+  border-radius: calc(var(--u) * 0.4);
+}
+/* 袋面藤蔓花纹（单色线描，沿 V 口与底边） */
+.xg-env4-vine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.xg-env4-vine svg {
+  width: 100%;
+  height: 100%;
+}
+/* ===== 翻盖 = 信封正面的倒三角（封口）=====
+   —— z=8：高于口袋 4 / 信纸 2 / 座板 0 → 闭合时盖在最前
+   —— 2026-10-28 根治：hinge 只做定位；**旋转放在内层 .xg-env4-flap 上**。
+      因为 hinge 的兄弟节点（口袋/翻盖本身）带 clip-path，会把 3D 上下文拍扁，
+      放在 hinge 上的 rotateX 会被吃掉（实测 transform 变 identity，压根不转）。
+      内层 flap 是 hinge 的唯一子元素，不受兄弟 clip-path 影响，旋转稳定生效。
+   —— 翻盖高度 56%，绕**顶边**（信封上沿）转 -165° → 翻到信封背后，
+      这才是"打开信封"该有的样子（不是从中间断开）。 */
+.xg-env4-hinge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 56%;
+  z-index: 8;
+  transform-origin: 50% 0%;
+  perspective: calc(var(--u) * 150);
+  perspective-origin: 50% 0%;
+  /* 2026-10-30：翻盖是纯装饰，不该吃点击。
+     原来它盖在袋口热区上面（z8 > z6），手指按"信纸"按到的是翻盖 → 抽不出信。 */
+  pointer-events: none;
+}
+/* 翻盖本体：绕顶边旋转（这一层负责真正的 3D 动作） */
+.xg-env4-flap {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 0%;
+  transform: rotateX(0deg);
+  transition: transform 0.7s cubic-bezier(0.77, 0, 0.175, 1);
+  will-change: transform;
+}
+/* S2：翻盖往后倒 -165°（屏幕内移动 → ease-in-out） */
+.xg-env4-stage.is-p2-open .xg-env4-flap {
+  transform: rotateX(-165deg);
+}
+/* 外面：粉纸三角（闭合时看到的那一面） */
+.xg-env4-flap-out {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background:
+    linear-gradient(178deg, #E2C4BE, #CEACA5),
+    url('img/xinge/xg-paper.webp') repeat center / 240px auto;
+  opacity: 1;
+  transition: opacity 0.18s linear;
+}
+/* 内里：条纹衬里（翻开时看到的那一面）—— 同位置反向贴，不 rotateX(180deg)，
+   否则会与 hinge 的旋转叠加成反方向 */
+.xg-env4-flap-in {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(238,232,218,0.94) 0 calc(var(--u) * 1.1),
+      rgba(199,161,155,0.35) calc(var(--u) * 1.1) calc(var(--u) * 2.2)),
+    #EDE5D6;
+  opacity: 0;
+  transition: opacity 0.18s linear;
+}
+/* 翻开后：外面隐、内里显 */
+.xg-env4-stage.is-p2-open .xg-env4-flap-out { opacity: 0; }
+.xg-env4-stage.is-p2-open .xg-env4-flap-in  { opacity: 1; }
+/* 火漆章（尖端，随翻盖走） */
+.xg-env4-seal {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - var(--u) * 3.4);
+  width: calc(var(--u) * 7);
+  height: calc(var(--u) * 7);
+  margin-left: calc(var(--u) * -3.5);
+  /* 火漆恒最顶：seal-hinge 已是 z-index 9，这里不再压低 */
+  z-index: 9;
+}
+.xg-env4-seal .xg-seal-overflow {
+  position: absolute;
+  inset: -5px;
+  border-radius: 46% 54% 48% 52% / 52% 46% 54% 48%;
+  background: radial-gradient(circle at 38% 32%, #B9D2E2, #93B2C8);
+  opacity: 0.85;
+  transform: rotate(8deg);
+}
+.xg-env4-seal .xg-seal-overflow.b {
+  inset: -2px;
+  border-radius: 52% 48% 53% 47% / 48% 53% 47% 52%;
+  transform: rotate(-6deg);
+}
+.xg-env4-seal .xg-seal-wax {
+  position: absolute;
+  inset: 0;
+  border-radius: 49% 51% 50% 50% / 51% 49% 51% 49%;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255,255,255,0.8), rgba(255,255,255,0) 44%),
+    radial-gradient(circle at 68% 76%, rgba(70,95,120,0.45), rgba(70,95,120,0) 52%),
+    radial-gradient(circle at 50% 44%, #D8E7F0, #B9D2E2 52%, #93B2C8);
+  box-shadow: inset 0 2px 3px rgba(255,255,255,0.65), inset 0 -5px 9px rgba(70,95,120,0.5), 0 4px 11px rgba(47,53,39,0.34);
+}
+.xg-env4-seal .xg-seal-swan {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, rgba(255,255,255,0.18), rgba(70,95,120,0.12));
+  box-shadow: inset 0 2px 4px rgba(70,95,120,0.35), inset 0 -1px 2px rgba(255,255,255,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.xg-env4-seal .xg-seal-swan svg { width: 76%; height: 76%; }
+.xg-env4-seal .xg-seal-gloss {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: linear-gradient(118deg, rgba(255,255,255,0) 28%, rgba(255,255,255,0.42) 50%, rgba(255,255,255,0) 72%);
+  animation: xg-seal-gloss 3.2s ease-in-out infinite alternate;
+}
+@keyframes xg-seal-gloss { 0% { opacity: 0.35; } 100% { opacity: 0.9; } }
+
+/* ============================================================
+   拆信分镜 S0–S5（主人 2026-10-24 拍板）
+   S0 漂入 — 信封带轻微透视悬浮就位（微呼吸）
+   S1 压印 is-p1-press — 手指按压火漆：火漆微陷 + 印面高光扫过 + 视觉顿帧
+   S2 开启 is-p2-open — 翻盖绕 hinge 0°→-165°，翻盖阴影渐深，条纹衬里渐现；火漆随翻盖走
+   S3 升纸 is-p3-rising — 三张信纸从 V 口袋内错峰上浮，口袋口微微撑开；浮出后口袋前缘压在纸前
+   S4 扇形 is-p4-fanning — 三纸绕共同支点扇形放射 -9°/+1.5°/+12°，rotateX 28°
+   S5 退场 is-p5-away — 信封淡出下沉，焦点交给三张纸
+   约束：只动 transform / opacity
+   ============================================================ */
+
+/* ===== S0 漂入 ===== */
+.xg-env4-stage.is-arriving .xg-env4 {
+  animation: xg-env4-arrive 0.8s cubic-bezier(0.23,1,0.32,1) both;
+}
+@keyframes xg-env4-arrive {
+  0% { transform: translateY(-46px) rotateX(9deg) rotate(-2deg) scale(0.96); opacity: 0; }
+  55% { transform: translateY(6px) rotateX(-2deg) rotate(1deg) scale(1.01); opacity: 1; }
+  100% { transform: translateY(0) rotateX(0deg) rotate(0deg) scale(1); opacity: 1; }
+}
+/* 静置：微呼吸（轻微透视悬浮，不喧宾夺主） */
+.xg-env4-stage.is-waiting .xg-env4 {
+  animation: xg-env4-sway 6s ease-in-out infinite alternate;
+}
+@keyframes xg-env4-sway {
+  0% { transform: rotateX(0deg) rotate(-0.3deg) translateY(0); }
+  100% { transform: rotateX(1.2deg) rotate(0.3deg) translateY(-4px); }
+}
+
+/* ===== S1 压印：火漆下陷 + 高光扫过 + 顿帧 ===== */
+.xg-env4-stage.is-p1-press .xg-env4 {
+  animation: xg-env4-press 0.34s cubic-bezier(0.23,1,0.32,1);
+}
+@keyframes xg-env4-press {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.978); }
+  42% { transform: scale(0.978); }   /* 顿帧：火漆压到最低，停一拍 */
+  100% { transform: scale(1); }
+}
+/* 火漆随按压微陷（own transform，不动 3D 容器）
+   —— 2026-10-28：去掉 translateZ（3D 深度排序已改 z-index，translateZ 在扁平层里无效，
+      留着会让 transform 整体失效 → 火漆按压没反应） */
+.xg-env4-stage.is-p1-press .xg-env4-seal {
+  animation: xg-env4-seal-press 0.34s cubic-bezier(0.23, 1, 0.32, 1);
+}
+@keyframes xg-env4-seal-press {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(3px) scale(0.93); }
+  42% { transform: translateY(3px) scale(0.93); }
+  100% { transform: translateY(0) scale(1); }
+}
+/* 印面高光扫过 */
+.xg-env4-stage.is-p1-press .xg-seal-gloss {
+  animation: xg-env4-gloss-sweep 0.34s ease-out;
+}
+@keyframes xg-env4-gloss-sweep {
+  0% { opacity: 0.3; transform: translateX(-130%) rotate(0deg); }
+  100% { opacity: 0.9; transform: translateX(130%) rotate(0deg); }
+}
+
+/* ===== S2 开启：翻盖绕 hinge 0° → -165° ===== */
+/* 翻盖旋转时阴影渐深
+   —— 2026-10-28 修正：原来这里用 animation 改 opacity，
+      但 CSS animation 期间会**接管并重置 transform**（keyframes 里没写 transform），
+      → flap 的 rotateX 被完全吃掉（实测 transform 恒为 identity，翻盖压根不转）。
+      现在改成 transition 改 opacity，不与 transform 抢同一个属性。 */
+.xg-env4-flap {
+  opacity: 1;
+  transition: transform 0.7s cubic-bezier(0.77, 0, 0.175, 1),
+              opacity 0.35s ease-out;
+}
+.xg-env4-stage.is-p2-open .xg-env4-flap {
+  opacity: 0.88;
+}
+/* 翻盖时整体微沉（给"打开"一点重量感） */
+.xg-env4-stage.is-p2-open .xg-env4 {
+  animation: xg-env4-sink 0.7s cubic-bezier(0.77,0,0.175,1) forwards;
+}
+@keyframes xg-env4-sink {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(calc(var(--u) * 2)); }
+}
+
+/* ===== S3 升纸：三张纸从 V 口袋里错峰上浮 ===== */
+/* .xg-env4-letter 是纸张容器；内部 .xg-env4-paper 三张纸由 JS 注入 */
+.xg-env4-letter {
+  transform: translateZ(calc(var(--u) * 2));
+  transition: transform 0.76s cubic-bezier(0.23,1,0.32,1);
+}
+.xg-env4-stage.is-p3-rising .xg-env4-letter {
+  transform: translateZ(calc(var(--u) * 2)) translateY(-42%) scale(1.04);
+  transition-delay: 0s;
+  transition-duration: 0.76s;
+}
+/* 口袋口微微撑开 */
+.xg-env4-stage.is-p3-rising .xg-env4-pocket {
+  animation: xg-env4-pocket-open 0.76s cubic-bezier(0.23,1,0.32,1);
+}
+@keyframes xg-env4-pocket-open {
+  0% { transform: translateZ(calc(var(--u) * 4)); }
+  40% { transform: translateZ(calc(var(--u) * 4)) scaleY(1.03); }
+  100% { transform: translateZ(calc(var(--u) * 4)) scaleY(1); }
+}
+/* 三张纸：错峰上浮（domino delay）
+   —— 初始藏在口袋里（translateY 正值 = 往下躲在 V 口袋之下）
+   —— 升起后只露出约 1/3，纸仍在信封体内，不跑出画面 */
+.xg-env4-paper {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  top: 4%;
+  height: 96%;
+  border-radius: 2px;
+  background: url('img/xinge/09-paper-letter.webp') center / cover no-repeat;
+  box-shadow: 0 2px 8px rgba(47,53,39,0.18);
+  transform-origin: 50% 100%;
+  transform: translateY(46%);
+  opacity: 0;
+  transition: transform 0.7s cubic-bezier(0.23,1,0.32,1), opacity 0.4s ease-out;
+}
+.xg-env4-stage.is-p3-rising .xg-env4-paper {
+  opacity: 1;
+  transform: translateY(-16%);
+}
+.xg-env4-stage.is-p3-rising .xg-env4-paper:nth-child(1) { transition-delay: 0s; }
+.xg-env4-stage.is-p3-rising .xg-env4-paper:nth-child(2) { transition-delay: 0.1s; }
+.xg-env4-stage.is-p3-rising .xg-env4-paper:nth-child(3) { transition-delay: 0.2s; }
+
+/* ===== S4 扇形：绕共同支点放射 -9° / +1.5° / +12°，rotateX 28° ===== */
+.xg-env4-stage.is-p4-fanning .xg-env4-letter {
+  animation: xg-env4-fan 0.62s cubic-bezier(0.23,1,0.32,1) forwards;
+}
+@keyframes xg-env4-fan {
+  0% { transform: translateZ(calc(var(--u) * 2)) translateY(-42%) scale(1.04); opacity: 1; }
+  100% { transform: translateZ(calc(var(--u) * 8)) translateY(-58%) scale(1.14) rotate(2deg); opacity: 0; }
+}
+/* 三纸放射（各自独立 transform，绕底部支点；散开幅度控制在信封体内） */
+.xg-env4-stage.is-p4-fanning .xg-env4-paper {
+  transition-duration: 0.62s;
+  transition-timing-function: cubic-bezier(0.23,1,0.32,1);
+}
+.xg-env4-stage.is-p4-fanning .xg-env4-paper:nth-child(1) {
+  transform: translateY(-20%) rotateX(28deg) rotateZ(-9deg) translateX(-40px);
+}
+.xg-env4-stage.is-p4-fanning .xg-env4-paper:nth-child(2) {
+  transform: translateY(-16%) rotateX(28deg) rotateZ(1.5deg) translateX(0);
+}
+.xg-env4-stage.is-p4-fanning .xg-env4-paper:nth-child(3) {
+  transform: translateY(-12%) rotateX(28deg) rotateZ(12deg) translateX(40px);
+}
+
+/* ===== S5 退场：淡出下沉 =====
+   —— 2026-10-30：作用在 .xg-env4-body（信封本体）上，不是 .xg-env4。
+      三张纸挂在 .xg-env4 里，直接淡出 .xg-env4 会把纸一起带走（实测：纸跟着没了）。 */
+.xg-env4-stage.is-p5-away .xg-env4-body {
+  animation: xg-env4-away 0.3s ease-in forwards;
+}
+@keyframes xg-env4-away {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.92) translateY(10px); opacity: 0; }
+}
+/* 信封退场时三张纸接管画面（继续留在场中央） */
+.xg-env4-stage.is-p5-away .xg-env4-paper {
+  transition-duration: 0.4s;
+  opacity: 0;
+}
+
+
+.xg-env4-hint {
+  margin-top: calc(var(--u) * 3);
+  text-align: center;
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 21px;
+  color: #896D59;
+  /* 2026-10-30：提示字压在照片背景上，加一层浅影才看得清 */
+  text-shadow: 0 1px 5px rgba(255, 250, 238, 0.75), 0 0 12px rgba(255, 250, 238, 0.5);
+  animation: xg-hint-breathe 2.6s ease-in-out infinite;
+}
+@keyframes xg-hint-breathe { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .xg-env4-stage * { animation: none !important; transition: none !important; }
+}
+
+/* 精雕：玫瑰花环浮雕 + 蜡面气泡 */
+.xg-env4-seal .xg-seal-wreath {
+  position: absolute;
+  inset: 2px;
+  pointer-events: none;
+}
+.xg-env4-seal .xg-seal-wax::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  top: 62%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 22px -30px 0 1px rgba(255, 255, 255, 0.28), 34px 6px 0 0.5px rgba(70, 95, 120, 0.3);
+}
+
+.xg-env4-seal-hinge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 56%;
+  transform-origin: 50% 0%;
+  /* 火漆恒最顶（主人分镜：seal-hinge 独立层，恒最顶）。
+     2026-10-28：3D 深度排序改用 z-index 后，translateZ 在扁平层里无效 → 改 z-index 9。
+     火漆**不跟着翻盖转**：它封在 V 口尖端，跟着转 165° 会被甩出信封外
+     （实测甩到画面上方）。真实拆信时火漆是留在封口的。 */
+  z-index: 9;
+  pointer-events: none;
+}

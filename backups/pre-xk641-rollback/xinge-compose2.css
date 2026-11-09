@@ -1,0 +1,222 @@
+/* xinge-compose2.css · 写信生成动画（分镜：蘸墨→游走写字→墨晕→纸翻→火漆压印） */
+.xg-c2-stage {
+  position: relative;
+  width: min(88vw, 380px);
+  height: 300px;
+  margin: 0 auto;
+}
+/* 信纸 */
+.xg-c2-paper {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 12%;
+  bottom: 16%;
+  border: 1px solid rgba(137, 109, 89, 0.5);
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, rgba(238,232,218,0.97), rgba(238,232,218,0.97)),
+    url('img/xinge/xg-paper.webp') repeat center / 220px auto;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+/* 墨迹行（SVG 描边渐显=写字） */
+.xg-c2-ink {
+  position: absolute;
+  inset: 12% 10%;
+  width: 80%;
+  height: 76%;
+}
+.xg-c2-ink path {
+  fill: none;
+  stroke: rgba(47, 53, 39, 0.72);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: xg-c2-write 8s linear infinite;
+}
+.xg-c2-ink path:nth-child(1) { animation-delay: 0.9s; }
+.xg-c2-ink path:nth-child(2) { animation-delay: 1.9s; }
+.xg-c2-ink path:nth-child(3) { animation-delay: 2.9s; }
+@keyframes xg-c2-write {
+  0% { stroke-dashoffset: 300; }
+  32% { stroke-dashoffset: 0; }
+  82% { stroke-dashoffset: 0; opacity: 1; }
+  90% { opacity: 0; }
+  100% { stroke-dashoffset: 300; opacity: 0; }
+}
+/* 纸角轻翻（4.6-6s 段） */
+.xg-c2-paper::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(225deg, #EDE5D6 50%, rgba(47,53,39,0.22) 51%, rgba(255,255,255,0.6) 56%);
+  transform-origin: 100% 0;
+  animation: xg-c2-fold 8s ease-in-out infinite;
+}
+@keyframes xg-c2-fold {
+  0%, 55% { transform: rotate(0deg); }
+  62% { transform: rotate(-16deg); }
+  72% { transform: rotate(-4deg); }
+  80%, 100% { transform: rotate(0deg); }
+}
+/* 蘸墨点（瓶口墨晕） */
+.xg-c2-dip {
+  position: absolute;
+  right: 13%;
+  bottom: 12%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(47, 53, 39, 0.75);
+  animation: xg-c2-dip 8s ease-in-out infinite;
+}
+@keyframes xg-c2-dip {
+  0%, 4% { transform: scale(0); opacity: 0; }
+  8% { transform: scale(1.2); opacity: 1; }
+  14% { transform: scale(0.9); opacity: 0.8; }
+  22%, 100% { transform: scale(0.6); opacity: 0; }
+}
+/* 墨晕扩散（字迹写完后洇开） */
+.xg-c2-blot {
+  position: absolute;
+  left: 30%;
+  top: 42%;
+  width: 46px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(47,53,39,0.35), rgba(47,53,39,0) 70%);
+  transform: scale(0.2);
+  opacity: 0;
+  animation: xg-c2-blot 8s ease-out infinite;
+}
+@keyframes xg-c2-blot {
+  0%, 40% { transform: scale(0.2); opacity: 0; }
+  50% { transform: scale(1); opacity: 1; }
+  70% { transform: scale(1.15); opacity: 0.55; }
+  82%, 100% { transform: scale(1.2); opacity: 0; }
+}
+/* 羽毛笔（SVG 摆动游走） */
+.xg-c2-pen {
+  position: absolute;
+  right: 8%;
+  top: 6%;
+  width: 78px;
+  transform-origin: 82% 88%;
+  animation: xg-c2-pen 8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.xg-c2-pen svg { width: 100%; height: auto; display: block; }
+@keyframes xg-c2-pen {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  6% { transform: translate(-2px, 10px) rotate(2deg); }
+  12% { transform: translate(0, 0) rotate(0deg); }
+  18% { transform: translate(-72px, 26px) rotate(-16deg); }
+  30% { transform: translate(-118px, 44px) rotate(-12deg); }
+  42% { transform: translate(-160px, 62px) rotate(-16deg); }
+  54% { transform: translate(-118px, 84px) rotate(-12deg); }
+  66% { transform: translate(-64px, 100px) rotate(-16deg); }
+  74% { transform: translate(-20px, 74px) rotate(-8deg); }
+  82% { transform: translate(0, 30px) rotate(0deg); }
+  92%, 100% { transform: translate(0, 0) rotate(0deg); }
+}
+/* 墨水瓶 */
+.xg-c2-inkpot {
+  position: absolute;
+  right: 8%;
+  bottom: 6%;
+  width: 62px;
+}
+.xg-c2-inkpot svg { width: 100%; height: auto; display: block; }
+/* 火漆压印（收尾 6.2-7.2s） */
+.xg-c2-sealdrop {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 42px;
+  height: 42px;
+  margin-left: -21px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255,255,255,0.7), rgba(255,255,255,0) 48%),
+    radial-gradient(circle at 50% 50%, #D8E7F0, #B9D2E2 55%, #93B2C8);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  transform: scale(0) rotate(-18deg);
+  opacity: 0;
+  animation: xg-c2-seal 8s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+@keyframes xg-c2-seal {
+  0%, 72% { transform: scale(0) rotate(-18deg); opacity: 0; }
+  78% { transform: scale(1.25) rotate(-6deg); opacity: 1; }
+  84% { transform: scale(0.96) rotate(-6deg); }
+  88%, 96% { transform: scale(1) rotate(-6deg); opacity: 1; }
+  100% { transform: scale(0) rotate(-18deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xg-c2-stage * { animation: none !important; }
+}
+
+/* ===== 信纸装饰（双线框 + 四角花 + 纹样） ===== */
+.xg-c2-paper {
+  border: 1.5px solid rgba(137, 109, 89, 0.6);
+}
+.xg-c2-frame {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(137, 109, 89, 0.42);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.xg-c2-frame i {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1.2px solid rgba(137, 109, 89, 0.55);
+  border-radius: 3px;
+}
+.xg-c2-frame i.f-tl { left: 4px; top: 4px; border-right: 0; border-bottom: 0; border-top-left-radius: 9px; }
+.xg-c2-frame i.f-tr { right: 4px; top: 4px; border-left: 0; border-bottom: 0; border-top-right-radius: 9px; }
+.xg-c2-frame i.f-bl { left: 4px; bottom: 4px; border-right: 0; border-top: 0; border-bottom-left-radius: 9px; }
+.xg-c2-frame i.f-br { right: 4px; bottom: 4px; border-left: 0; border-top: 0; border-bottom-right-radius: 9px; }
+/* 顶部小月桂弧（信纸上缘花饰） */
+.xg-c2-orn {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.xg-c2-orn svg { width: 100%; height: 100%; }
+
+/* 墨迹行首花点 + 行尾小勾（书写装饰） */
+.xg-c2-ink .xg-c2-dot {
+  fill: rgba(199, 161, 155, 0.75);
+  stroke: none;
+  opacity: 0;
+  animation: xg-c2-dot-in 8s ease-out infinite;
+}
+.xg-c2-ink .xg-c2-dot:nth-of-type(4) { animation-delay: 0.9s; }
+.xg-c2-ink .xg-c2-dot:nth-of-type(5) { animation-delay: 1.9s; }
+.xg-c2-ink .xg-c2-dot:nth-of-type(6) { animation-delay: 2.9s; }
+@keyframes xg-c2-dot-in {
+  0%, 6% { opacity: 0; transform: scale(0); }
+  12% { opacity: 1; transform: scale(1); }
+  82% { opacity: 1; }
+  90%, 100% { opacity: 0; }
+}
+.xg-c2-ink .xg-c2-flourish {
+  fill: none;
+  stroke: rgba(137, 109, 89, 0.55);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  animation: xg-c2-flourish 8s linear infinite;
+}
+@keyframes xg-c2-flourish {
+  0%, 62% { stroke-dashoffset: 80; }
+  72% { stroke-dashoffset: 0; }
+  86% { stroke-dashoffset: 0; opacity: 1; }
+  92%, 100% { stroke-dashoffset: 80; opacity: 0; }
+}

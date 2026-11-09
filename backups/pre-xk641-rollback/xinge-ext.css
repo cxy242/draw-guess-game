@@ -1,0 +1,1047 @@
+/* ============================================================
+   xinge-ext.css · 深化卷（B7 组件全件 · 按 UI 方案 §1）
+   蜡丸开关 / 分段器 / 情绪滑杆 / 时间滚轮 / 浮操作卡 /
+   纹章选择格 / 提示气泡 / 扫光按钮 / 角花盒 / chip 全态 /
+   空态插画框 / 进度线 / 骨架深化 / 表单深化 / 关系横滑卡 /
+   年龄段卡 / 拱门大卡 / 头像行 / 筛选 tab
+   ============================================================ */
+
+/* ============================================================
+   C20. 蜡丸开关（主人点单的开关键：浅粉蜡丸滑动）
+   ============================================================ */
+.xg-wax-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 1px solid var(--xg-clay);
+  border-radius: 13px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  flex: none;
+  transition: background-color 0.2s var(--xg-ease-out), border-color 0.2s;
+}
+.xg-wax-switch::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #E4C4BE, #C99B94);
+  box-shadow: 0 1px 3px rgba(47, 53, 39, 0.28);
+  transition: transform 0.22s var(--xg-ease-out), background 0.22s;
+}
+.xg-wax-switch::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 7px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(137, 109, 89, 0.35);
+  opacity: 0.8;
+  transition: transform 0.22s var(--xg-ease-out), opacity 0.22s;
+  pointer-events: none;
+}
+.xg-wax-switch.is-on {
+  background: var(--xg-rose-pale);
+  border-color: var(--xg-rose);
+}
+.xg-wax-switch.is-on::before {
+  transform: translateX(18px);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #F2DDD8, #E4C4BE);
+}
+.xg-wax-switch.is-on::after {
+  transform: translateX(18px) rotate(45deg);
+  opacity: 1;
+  border-color: rgba(137, 109, 89, 0.5);
+}
+.xg-wax-switch:active::before { transform: scale(0.92); }
+.xg-wax-switch.is-on:active::before { transform: translateX(18px) scale(0.92); }
+
+.xg-wax-switch.xg-wax-lg { width: 52px; height: 30px; border-radius: 15px; }
+.xg-wax-switch.xg-wax-lg::before { width: 26px; height: 26px; top: 1px; }
+.xg-wax-switch.xg-wax-lg::after { left: 9px; top: 8px; width: 12px; height: 12px; }
+.xg-wax-switch.xg-wax-lg.is-on::before { transform: translateX(22px); }
+.xg-wax-switch.xg-wax-lg.is-on:active::before { transform: translateX(22px) scale(0.92); }
+.xg-wax-switch.xg-wax-lg.is-on::after { transform: translateX(22px) rotate(45deg); }
+
+.xg-wax-switch.xg-wax-xl { width: 60px; height: 34px; border-radius: 17px; }
+.xg-wax-switch.xg-wax-xl::before { width: 30px; height: 30px; top: 1px; }
+.xg-wax-switch.xg-wax-xl::after { left: 10px; top: 9px; width: 14px; height: 14px; }
+.xg-wax-switch.xg-wax-xl.is-on::before { transform: translateX(26px); }
+.xg-wax-switch.xg-wax-xl.is-on:active::before { transform: translateX(26px) scale(0.92); }
+.xg-wax-switch.xg-wax-xl.is-on::after { transform: translateX(26px) rotate(45deg); }
+
+.xg-switch-wrap { display: flex; align-items: center; gap: 10px; }
+.xg-switch-label {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+  user-select: none;
+}
+
+/* ============================================================
+   C21. 分段器（慢/标准/快 · 直接全文/重放动画 · 显示/隐藏）
+   ============================================================ */
+.xg-seg {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 8px;
+  background: var(--xg-ivory-deep);
+  gap: 2px;
+}
+.xg-seg-opt {
+  min-height: 30px;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+  cursor: pointer;
+  transition: background-color 0.18s, color 0.18s, transform 0.18s var(--xg-ease-out);
+}
+.xg-seg-opt:active { transform: scale(0.95); }
+.xg-seg-opt.is-active {
+  background: var(--xg-ivory);
+  color: var(--xg-rose);
+  box-shadow: 0 1px 2px rgba(47, 53, 39, 0.12);
+}
+.xg-seg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.xg-seg-hint { margin-top: 4px; font-size: 11px; color: var(--xg-clay-pale); }
+
+/* ============================================================
+   C22. 情绪浓度滑杆（3px 轨 clay→rose + 浅粉蜡丸滑块）
+   ============================================================ */
+.xg-mood { padding: 4px 0; }
+.xg-mood-ends {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+  margin-bottom: 8px;
+}
+.xg-mood-track-wrap {
+  position: relative;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  touch-action: none;
+}
+.xg-mood-track {
+  position: absolute;
+  left: 0; right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--xg-clay-pale), var(--xg-rose));
+}
+.xg-mood-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  border-radius: 50%;
+  border: 1px solid var(--xg-clay);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #E4C4BE, #C99B94);
+  box-shadow: 0 1px 4px rgba(47, 53, 39, 0.25);
+  cursor: grab;
+  transition: transform 0.15s var(--xg-ease-out);
+}
+.xg-mood-knob:active,
+.xg-mood-knob.is-drag { cursor: grabbing; transform: scale(1.12); }
+.xg-mood-val {
+  font-family: 'XG-Serif', serif;
+  font-size: 12px;
+  color: var(--xg-rose);
+  min-width: 2.5em;
+  text-align: right;
+}
+
+/* ============================================================
+   C23. 时间滚轮（时/分：细铜杆+蜡丸指针）
+   ============================================================ */
+.xg-wheel-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+.xg-wheel-colon { font-family: 'XG-Serif', serif; font-size: 22px; color: var(--xg-clay); }
+.xg-wheel {
+  position: relative;
+  width: 76px;
+  height: 132px;
+  overflow: hidden;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  touch-action: none;
+}
+.xg-wheel::before,
+.xg-wheel::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  height: 40px;
+  z-index: 2;
+  pointer-events: none;
+}
+.xg-wheel::before { top: 0; background: linear-gradient(180deg, var(--xg-ivory-deep), rgba(238, 232, 218, 0)); }
+.xg-wheel::after { bottom: 0; background: linear-gradient(0deg, var(--xg-ivory-deep), rgba(238, 232, 218, 0)); }
+.xg-wheel-band {
+  position: absolute;
+  left: 6px; right: 6px;
+  top: 50%;
+  height: 32px;
+  margin-top: -16px;
+  border-top: 1px solid var(--xg-clay);
+  border-bottom: 1px solid var(--xg-clay);
+  background: rgba(228, 196, 190, 0.18);
+  pointer-events: none;
+  z-index: 1;
+}
+.xg-wheel-list { padding: 50px 0; text-align: center; }
+.xg-wheel-item {
+  height: 32px;
+  line-height: 32px;
+  font-family: 'XG-Serif', serif;
+  font-size: 17px;
+  color: var(--xg-clay-pale);
+  transition: color 0.15s, transform 0.15s var(--xg-ease-out);
+}
+.xg-wheel-item.is-sel { color: var(--xg-rose); transform: scale(1.06); }
+.xg-wheel-pointer {
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #E4C4BE, #C99B94);
+  box-shadow: 0 1px 3px rgba(47, 53, 39, 0.25);
+  z-index: 3;
+}
+
+/* ============================================================
+   C24. 长按浮操作卡（收藏盖章 / 删除折纸）
+   ============================================================ */
+.xg-float-menu {
+  position: fixed;
+  z-index: 120;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory);
+  box-shadow: 0 12px 32px rgba(47, 53, 39, 0.22);
+  animation: xg-float-in 0.22s var(--xg-ease-out);
+}
+@keyframes xg-float-in {
+  0% { transform: scale(0.92) translateY(6px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.xg-float-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 15px;
+  color: var(--xg-olive);
+  cursor: pointer;
+  text-align: left;
+}
+.xg-float-item:hover,
+.xg-float-item:active { background: var(--xg-ivory-deep); }
+.xg-float-item.is-danger { color: var(--xg-clay); }
+.xg-float-ic { width: 20px; height: 20px; flex: none; }
+.xg-float-ic img { width: 100%; height: 100%; object-fit: contain; }
+.xg-float-sep { height: 1px; margin: 4px 10px; background: rgba(137, 109, 89, 0.25); }
+
+.xg-seal-stamp-anim {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin-top: -17px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #E4C4BE, #C99B94);
+  box-shadow: 0 2px 6px rgba(47, 53, 39, 0.25);
+  animation: xg-stamp-press 0.5s var(--xg-ease-out);
+  pointer-events: none;
+}
+.xg-seal-stamp-anim::after {
+  content: "藏";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: rgba(137, 109, 89, 0.8);
+}
+@keyframes xg-stamp-press {
+  0% { transform: scale(2.2) rotate(-18deg); opacity: 0; }
+  45% { transform: scale(0.9) rotate(-6deg); opacity: 1; }
+  70% { transform: scale(1.05) rotate(-6deg); }
+  100% { transform: scale(1) rotate(-6deg); opacity: 1; }
+}
+
+/* ============================================================
+   C25. 纹章选择格（S4 编辑弹窗）
+   ============================================================ */
+.xg-crest-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 6px 0;
+}
+.xg-crest-cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  transition: transform 0.18s var(--xg-ease-out), border-color 0.18s, background-color 0.18s;
+}
+.xg-crest-cell img { width: 62%; height: 62%; object-fit: contain; }
+.xg-crest-cell:active { transform: scale(0.94); }
+.xg-crest-cell.is-sel { border: 2px solid var(--xg-rose); background: var(--xg-rose-pale); }
+.xg-crest-cell.is-sel::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%),
+    var(--xg-rose);
+}
+.xg-crest-cell.xg-crest-upload {
+  border-style: dashed;
+  color: var(--xg-clay-pale);
+  font-family: 'XG-Serif', serif;
+  font-size: 12px;
+}
+
+/* ============================================================
+   C26. 提示气泡
+   ============================================================ */
+.xg-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 50%;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 11px;
+  color: var(--xg-clay);
+  cursor: pointer;
+}
+.xg-tip-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: 200px;
+  padding: 8px 10px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 8px;
+  background: var(--xg-ivory);
+  box-shadow: 0 6px 18px rgba(47, 53, 39, 0.16);
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--xg-olive);
+  transform: translateX(-50%) translateY(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s var(--xg-ease-out);
+  z-index: 60;
+}
+.xg-tip.is-open .xg-tip-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================================
+   C27. 扫光主按钮（P1 主按钮：火漆章+文字+高光扫过）
+   ============================================================ */
+.xg-btn-hero {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 240px;
+  height: 64px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--xg-olive-deep);
+  overflow: hidden;
+  cursor: pointer;
+}
+.xg-hero-seal { width: 36px; height: 36px; flex: none; }
+.xg-hero-seal img { width: 100%; height: 100%; object-fit: contain; }
+.xg-hero-label {
+  font-family: 'XG-Serif', serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--xg-ivory);
+}
+.xg-btn-hero::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -80%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 20%, rgba(255, 255, 255, 0.22) 50%, rgba(255, 255, 255, 0) 80%);
+  transform: skewX(-18deg);
+  transition: left 0.55s var(--xg-ease-out);
+  pointer-events: none;
+}
+.xg-btn-hero:hover::after,
+.xg-btn-hero:active::after { left: 125%; }
+.xg-btn-hero:active { transform: scale(0.98); }
+
+/* ============================================================
+   C28. 角花盒（四角细角花）
+   ============================================================ */
+.xg-corner-orn { position: relative; }
+.xg-corner-orn::before,
+.xg-corner-orn::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: var(--xg-clay);
+  border-style: solid;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.xg-corner-orn::before {
+  left: 6px; top: 6px;
+  border-width: 1px 0 0 1px;
+  border-top-left-radius: 8px;
+}
+.xg-corner-orn::after {
+  right: 6px; top: 6px;
+  border-width: 1px 1px 0 0;
+  border-top-right-radius: 8px;
+}
+.xg-corner-orn > .xg-corner-b {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: var(--xg-clay);
+  border-style: solid;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.xg-corner-orn > .xg-corner-b-l {
+  left: 6px; bottom: 6px;
+  border-width: 0 0 1px 1px;
+  border-bottom-left-radius: 8px;
+}
+.xg-corner-orn > .xg-corner-b-r {
+  right: 6px; bottom: 6px;
+  border-width: 0 1px 1px 0;
+  border-bottom-right-radius: 8px;
+}
+
+/* ============================================================
+   C29. chip 全态
+   ============================================================ */
+.xg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 13px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 16px;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 13px;
+  color: var(--xg-olive);
+  cursor: pointer;
+  transition: transform 0.16s var(--xg-ease-out), background-color 0.16s, color 0.16s, border-color 0.16s;
+  user-select: none;
+}
+.xg-chip:active { transform: scale(0.95); }
+.xg-chip.is-sel {
+  background: var(--xg-rose);
+  border-color: var(--xg-rose);
+  color: var(--xg-ivory);
+}
+.xg-chip.is-ghost { border-style: dashed; color: var(--xg-clay); }
+.xg-chip.xg-chip-sm { min-height: 26px; padding: 2px 10px; font-size: 12px; border-radius: 13px; }
+.xg-chip-x {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(238, 232, 218, 0.3);
+  color: var(--xg-ivory);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.xg-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.xg-chip-label {
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+  margin-right: 2px;
+  align-self: center;
+}
+
+/* ============================================================
+   C30. 空态插画框
+   ============================================================ */
+.xg-empty-art {
+  position: relative;
+  width: 72%;
+  max-width: 260px;
+  margin: 0 auto 14px;
+}
+.xg-empty-art img {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 18px rgba(47, 53, 39, 0.12));
+  animation: xg-empty-float 7s var(--xg-ease-in-out) infinite alternate;
+}
+@keyframes xg-empty-float {
+  0% { transform: translateY(0) rotate(-0.6deg); }
+  100% { transform: translateY(-6px) rotate(0.6deg); }
+}
+.xg-empty-text {
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: var(--xg-clay);
+  margin-bottom: 16px;
+}
+
+/* ============================================================
+   C31. 进度线（P5 底部 240px）
+   ============================================================ */
+.xg-progress {
+  width: 240px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(238, 232, 218, 0.2);
+  overflow: hidden;
+}
+.xg-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 1px;
+  background: var(--xg-rose);
+  transition: width 0.5s var(--xg-ease-out);
+}
+.xg-progress.is-indet .xg-progress-fill {
+  width: 34%;
+  animation: xg-progress-slide 1.6s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-progress-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(300%); }
+}
+
+/* ============================================================
+   C32. 骨架深化
+   ============================================================ */
+.xg-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--xg-ivory-deep) 25%, #E6DFD0 37%, var(--xg-ivory-deep) 63%);
+  background-size: 400% 100%;
+  animation: xg-shimmer 1.4s var(--xg-ease-in-out) infinite;
+}
+.xg-skeleton-line + .xg-skeleton-line { margin-top: 8px; }
+.xg-skeleton-line.xg-sk-w60 { width: 60%; }
+.xg-skeleton-line.xg-sk-w40 { width: 40%; }
+.xg-skeleton-title {
+  height: 22px;
+  width: 46%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--xg-ivory-deep) 25%, #E6DFD0 37%, var(--xg-ivory-deep) 63%);
+  background-size: 400% 100%;
+  animation: xg-shimmer 1.4s var(--xg-ease-in-out) infinite;
+  margin-bottom: 12px;
+}
+
+/* ============================================================
+   C33. 表单件深化
+   ============================================================ */
+.xg-field { margin-bottom: 16px; }
+.xg-field-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.xg-field-req {
+  color: var(--xg-rose);
+  font-family: 'XG-Serif', serif;
+  font-size: 13px;
+}
+.xg-field-count {
+  margin-left: auto;
+  font-family: 'XG-Serif', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+}
+.xg-input.xg-input-err {
+  border-color: var(--xg-clay);
+  box-shadow: 0 0 0 2px rgba(137, 109, 89, 0.18);
+}
+.xg-input-err-text {
+  margin-top: 5px;
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay);
+}
+.xg-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 6px;
+  background: var(--xg-ivory);
+  font-family: 'XG-Kai', serif;
+  font-size: max(16px, 1rem);
+  line-height: 1.8;
+  color: var(--xg-olive);
+  resize: none;
+}
+.xg-textarea:focus {
+  outline: none;
+  border-color: var(--xg-rose);
+  box-shadow: 0 0 0 3px rgba(199, 161, 155, 0.3);
+}
+
+/* ============================================================
+   C34. 关系横滑卡（P4：140×180）
+   ============================================================ */
+.xg-rel-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 4px 14px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.xg-rel-scroll::-webkit-scrollbar { height: 0; }
+.xg-rel-card {
+  position: relative;
+  flex: none;
+  width: 140px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 12px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.22s var(--xg-ease-out), border-color 0.22s, background-color 0.22s, box-shadow 0.22s;
+}
+.xg-rel-card:active { transform: scale(0.97); }
+.xg-rel-card.is-sel {
+  border: 2px solid var(--xg-rose);
+  background: var(--xg-rose-pale);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 26px rgba(47, 53, 39, 0.16);
+}
+.xg-rel-card.is-sel::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--xg-clay);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 50% 50%, #E4C4BE, #C99B94);
+  box-shadow: 0 2px 5px rgba(47, 53, 39, 0.2);
+}
+.xg-rel-crest { width: 36px; height: 36px; }
+.xg-rel-crest img { width: 100%; height: 100%; object-fit: contain; }
+.xg-rel-name {
+  font-family: 'XG-Serif', serif;
+  font-size: 17px;
+  color: var(--xg-olive);
+}
+.xg-rel-eg {
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--xg-clay);
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================================
+   C35. 年龄段插画卡（P3b：176 高拱框）
+   ============================================================ */
+.xg-age-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.xg-age-card {
+  position: relative;
+  height: 176px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px 12px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  transition: transform 0.22s var(--xg-ease-out), border-color 0.22s, background-color 0.22s, box-shadow 0.22s;
+  overflow: hidden;
+}
+.xg-age-card::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  width: 62%;
+  height: 26px;
+  transform: translateX(-50%);
+  border: 1px solid var(--xg-clay);
+  border-top: 0;
+  border-radius: 0 0 32px 32px;
+  background: var(--xg-ivory-deep);
+  transition: border-color 0.22s, background-color 0.22s;
+}
+.xg-age-card:active { transform: scale(0.97); }
+.xg-age-card.is-sel {
+  border: 2px solid var(--xg-rose);
+  background: var(--xg-rose-pale);
+  box-shadow: 0 12px 26px rgba(47, 53, 39, 0.14);
+}
+.xg-age-card.is-sel::before {
+  border-color: var(--xg-rose);
+  background: var(--xg-rose-pale);
+}
+.xg-age-art { width: 84px; height: 84px; margin-top: 8px; }
+.xg-age-art img { width: 100%; height: 100%; object-fit: contain; }
+.xg-age-name {
+  font-family: 'XG-Serif', serif;
+  font-size: 15px;
+  color: var(--xg-olive);
+}
+.xg-age-range {
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+}
+.xg-age-subchips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+/* ============================================================
+   C36. P2 拱门大卡
+   ============================================================ */
+.xg-arch-card {
+  position: relative;
+  height: 160px;
+  padding: 44px 20px 18px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 12px;
+  background: var(--xg-ivory-deep);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.22s var(--xg-ease-out), border-color 0.22s, background-color 0.22s, box-shadow 0.22s;
+}
+.xg-arch-card::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  width: 52%;
+  height: 30px;
+  transform: translateX(-50%);
+  border: 1px solid var(--xg-clay);
+  border-top: 0;
+  border-radius: 0 0 40px 40px;
+  background: var(--xg-ivory-deep);
+  transition: border-color 0.22s, background-color 0.22s;
+}
+.xg-arch-card:active { transform: scale(0.98); }
+.xg-arch-card.is-sel {
+  border: 2px solid var(--xg-rose);
+  background: var(--xg-rose-pale);
+  box-shadow: 0 16px 32px rgba(47, 53, 39, 0.16);
+}
+.xg-arch-card.is-sel::before {
+  border-color: var(--xg-rose);
+  background: var(--xg-rose-pale);
+}
+.xg-arch-ic { width: 48px; height: 48px; margin: 0 auto 8px; }
+.xg-arch-ic img { width: 100%; height: 100%; object-fit: contain; }
+.xg-arch-title {
+  text-align: center;
+  font-family: 'XG-Serif', serif;
+  font-size: 17px;
+  color: var(--xg-olive);
+}
+.xg-arch-sub {
+  text-align: center;
+  margin-top: 5px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   C37. 头像行（P3 联系人）
+   ============================================================ */
+.xg-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+  transition: transform 0.18s var(--xg-ease-out), background-color 0.18s, border-color 0.18s;
+}
+.xg-avatar-row:active { transform: scale(0.98); }
+.xg-avatar-row.is-sel {
+  border: 2px solid var(--xg-rose);
+  background: var(--xg-rose-pale);
+}
+.xg-avatar { position: relative; width: 40px; height: 40px; flex: none; }
+.xg-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid var(--xg-clay);
+  object-fit: cover;
+  background: var(--xg-ivory);
+}
+.xg-avatar-ring {
+  position: absolute;
+  inset: -4px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 50%;
+  border-bottom-color: transparent;
+  transform: rotate(-30deg);
+  pointer-events: none;
+}
+.xg-avatar-name {
+  font-family: 'XG-Serif', serif;
+  font-size: 16px;
+  color: var(--xg-olive);
+}
+.xg-avatar-tag {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border-radius: 9px;
+  background: var(--xg-ivory);
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay);
+}
+.xg-avatar-arrow {
+  margin-left: auto;
+  color: var(--xg-clay);
+  font-family: 'XG-Serif', serif;
+  font-size: 16px;
+}
+
+/* ============================================================
+   C38. 筛选 tab（三栏）
+   ============================================================ */
+.xg-subtab {
+  display: flex;
+  border-bottom: 1px solid rgba(137, 109, 89, 0.3);
+}
+.xg-subtab-item {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 14px;
+  color: var(--xg-clay);
+  cursor: pointer;
+  position: relative;
+}
+.xg-subtab-item.is-active { color: var(--xg-rose); }
+.xg-subtab-item.is-active::after {
+  content: "";
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--xg-rose);
+}
+
+/* ============================================================
+   C39. 邮戳盖章区（R1 顶部：咚盖+墨洇）
+   ============================================================ */
+.xg-postmark-zone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--xg-gap-page) 0;
+}
+.xg-postmark-stamp {
+  width: 56px;
+  height: 56px;
+  transform: rotate(-6deg);
+}
+.xg-postmark-stamp img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.xg-postmark-stamp.is-stamping {
+  animation: xg-stamp-down 0.36s var(--xg-ease-out);
+}
+@keyframes xg-stamp-down {
+  0% { transform: scale(1.3) rotate(-12deg); opacity: 0; }
+  60% { transform: scale(0.96) rotate(-5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-6deg); opacity: 1; }
+}
+.xg-postmark-ink {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 70px;
+  height: 70px;
+  margin: -35px 0 0 -35px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(137, 109, 89, 0.16), rgba(137, 109, 89, 0) 70%);
+  transform: scale(0.4);
+  opacity: 0;
+  pointer-events: none;
+}
+.xg-postmark-stamp.is-stamping .xg-postmark-ink {
+  animation: xg-ink-bleed 0.7s var(--xg-ease-out);
+}
+@keyframes xg-ink-bleed {
+  0% { transform: scale(0.4); opacity: 0.7; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+.xg-postmark-side {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   C40. 定时预告条（S3 底部）
+   ============================================================ */
+.xg-next-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+}
+.xg-next-strip .xg-next-mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.xg-next-strip .xg-next-mark img { width: 100%; height: 100%; object-fit: contain; }
+.xg-next-text {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+
+/* ===== P0 修：FAB 抬升+强投影分离背景 ===== */
+.xg-fab-seal {
+  bottom: 96px;
+  right: 22px;
+  box-shadow:
+    0 10px 28px rgba(47, 53, 39, 0.42),
+    0 2px 6px rgba(47, 53, 39, 0.3),
+    0 0 0 4px rgba(238, 232, 218, 0.35);
+}
+
+/* ===== 阅读页图标钮复古化（黑图标→陶土线描感） ===== */
+.xg-icon-btn img {
+  filter: sepia(0.5) saturate(0.55) brightness(0.85);
+  opacity: 0.8;
+}
+.xg-icon-btn {
+  background: rgba(238, 232, 218, 0.75);
+  border-color: rgba(137, 109, 89, 0.55);
+}
+.xg-icon-btn.is-on img {
+  filter: sepia(0.3) saturate(0.8) brightness(0.75);
+  opacity: 1;
+}
+
+/* ===== FAB 粉球内图标：黑→浅棕（clay） ===== */
+.xg-fab-seal img {
+  filter: none;
+}

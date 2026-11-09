@@ -1,0 +1,255 @@
+/* ============================================================
+   xinge-burst.css · 拆信 → 抽出 → 叠放（主人 2026-10-30 改稿）
+   主人原话："你打开那个信封，然后那个信封里面信纸性质是全部塞进去了，
+   然后你点击那个信纸，他们就会弹出来，然后之后一堆叠这个性质像两边分散展开。
+   就变成我之前跟你说的那个摆放方式，然后你就可以随意点那三张信纸之后，
+   那个规则就跟你讲过了。"
+
+   分镜（主人第二版，与第一版不同）：
+     S0 漂入      —— 信封就位，轻微呼吸
+     S1 压印      —— 火漆按压 + 高光扫过 + 顿帧
+     S2 开启      —— 翻盖绕顶边翻到背后（-165°）
+     S3 探出      —— **信纸只从袋口露出一条边**（全部塞在里面），
+                     到此为止就停下，**等主人点信纸**
+     S4 抽出      —— 点信纸 → 三张纸从袋口弹出 → 落进豆包定的叠放构图
+                     （底层=右侧信纸 / 中层=左侧信纸 / 顶层=中间信纸）
+     S5 退场      —— 信封淡出下沉；焦点交给三张纸
+     —— 落定后三张纸随意点，顺序锁（A9）与点开转场（A5）照旧
+
+   约束：只动 transform / opacity；屏幕内移动用 ease-in-out
+   ============================================================ */
+
+/* ============================================================
+   一、页面骨架：信封靠上，叠放落在下半屏
+   ============================================================ */
+.xg-env-wrap.xg-env-wrap-burst {
+  justify-content: flex-start;
+  padding-top: 2.5vh;
+  min-height: 100%;
+}
+
+/* ============================================================
+   二、袋口改成经典 V 形
+   —— 原来的 Λ 形（中间高两边低）把信纸从两边切出两个角，
+      看着像"从帐篷里冒出来"，不是信封该有的样子。
+      改成 V（中间低两边高）后：信纸从中间探出来，下缘是 V 形豁口，
+      就是老信封里插着一张信的那个样子。
+   —— 翻盖（倒三角）不动：闭合时它压住 V 口，缝线还是经典的 V。
+   ============================================================ */
+.xg-env4-pocket {
+  clip-path: polygon(0 0, 50% 20%, 100% 0, 100% 100%, 0 100%);
+}
+/* 袋面底折三角跟着改（原来朝上，现在袋口是 V，底折也该是 V 的补） */
+.xg-env4-pocket::before {
+  clip-path: polygon(0 100%, 50% 22%, 100% 100%);
+}
+/* 袋口的藤蔓纹样：V 口两侧各一枝（原来只有底部两枝） */
+.xg-env4-vine svg {
+  transform: scaleY(-1);
+  transform-origin: 50% 100%;
+}
+
+/* ============================================================
+   三、探出的那条纸边（装饰层）
+   —— 三张真纸住在页面层（挂进 .xg-env4 里会被信封的层整个盖住，实测一个像素都看不见），
+      探出的这条边是独立装饰元素：在袋口（z=4）之下 → 被 V 口切出豁口，
+      正是老信封里插着一张信、只露出一条的样子。
+   ============================================================ */
+.xg-env4-mouth {
+  position: absolute;
+  left: 21%;
+  right: 21%;
+  bottom: 43%;          /* 袋口 V 尖之下一点 → V 豁口切得出来 */
+  height: 17%;
+  z-index: 2;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.3s ease-out, transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: none;
+}
+.xg-env4-stage.is-p3-mouth .xg-env4-mouth {
+  opacity: 1;
+  transform: none;
+}
+.xg-env4-mouth-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #FDFAF2 0%, #F4EDDD 60%, #EBE1CD 100%);
+  box-shadow: 0 -2px 7px rgba(47, 53, 39, 0.16);
+}
+/* 信纸整体淡出（抽出时，那条边让位给真纸） */
+.xg-env4-stage.is-p5-away .xg-env4-mouth {
+  opacity: 0;
+  transition: opacity 0.22s ease-out;
+}
+
+/* ============================================================
+   四、探出信纸的点击热区（信封页专用）
+   —— 主人要点的是"信纸"，不是信封；但信纸露出来的那条很窄，
+      给它一个不显形的大热区，手指按得住。
+   ============================================================ */
+.xg-env4-mouth-hit {
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: 40%;
+  height: 24%;
+  z-index: 10;              /* 压在翻盖（8）与火漆（9）之上 —— 点信纸就是点它 */
+  display: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.xg-env4-stage.is-p3-mouth .xg-env4-mouth-hit {
+  display: block;
+  animation: xg-mouth-breathe 2.4s ease-in-out infinite;
+}
+/* 热区呼吸（不动纸本身，只让热区微微亮一下 —— 提示"这儿能点"） */
+@keyframes xg-mouth-breathe {
+  0%, 100% { background: rgba(255, 252, 242, 0); }
+  50% { background: rgba(255, 252, 242, 0.1); }
+}
+
+/* ============================================================
+   五、叠放舞台（信封页上的那一版）
+   —— 舞台住在**页面层**（信封之外）：挂进 .xg-env4 里会被信封的层整个盖住
+      （实测：纸在那儿、能点到，但一个像素都不画）。
+   —— 舞台铺满页面宽 → 叠放位与叠放页（xinge-fan2）完全一致。
+   ============================================================ */
+.xg-fan2-stage.xg-fan2-stage-env {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 520px;
+  z-index: 6;              /* 压在信封之上：抽出时纸从信封前面飞出来 */
+  perspective: 1100px;
+  perspective-origin: 50% 42%;
+  pointer-events: none;
+}
+.xg-fan2-stage.xg-fan2-stage-env.is-fanned {
+  pointer-events: auto;
+}
+/* 纸的静止锚点 = 叠放位（页面中下部）。
+   —— 选择器带 .xg-fan2-stage 一起写：权重压过 xinge-fan2.css 的
+      .xg-fan2-stage.is-fanned .xg-fan2-paper（都是 0,3,0，源序在后者赢）。 */
+.xg-fan2-stage.xg-fan2-stage-env .xg-fan2-paper,
+.xg-fan2-stage.xg-fan2-stage-env.is-fanned .xg-fan2-paper {
+  top: 250px;
+  bottom: auto;
+  opacity: 0;
+  transition:
+    transform 0.62s cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 0.34s ease-out,
+    filter 0.42s cubic-bezier(0.23, 1, 0.32, 1);
+  /* 2026-10-30：不要 will-change: transform。
+     它会把纸提成合成层，合成层上的过渡由合成器时钟驱动，
+     在无头虚拟时钟下不推进 → 动画冻在第一帧（纸永远停在袋口）。
+     页面里只有三张纸，不提层也够快。 */
+}
+/* 露出（探出 / 弹出途中） */
+.xg-fan2-stage.xg-fan2-stage-env .xg-fan2-paper.is-show { opacity: 1; }
+/* ===== 抽出：keyframes 驱动（不用 transition）=====
+   —— 为什么不用 transition：把 inline transform 清空来"触发过渡"，
+      过渡的起点值容易吃到旧值；keyframes 的 from/to 是写死的，落点准。
+   —— from = 探出位置（JS 量出来的 --bx/--by + 缩放 0.44）
+      to   = 叠放位（--xg-fan-* 三个变量，角色一换就换落点）
+   —— 错峰靠 --xg-burst-i（0/1/2 → 0/110/220ms） */
+@keyframes xg-burst-fly {
+  from {
+    transform: translate(var(--bx, 0px), var(--by, 0px)) scale(var(--bs, 0.44));
+  }
+  to {
+    transform:
+      translateX(var(--xg-fan-x, 0px))
+      translateY(var(--xg-fan-y, 0px))
+      rotateX(28deg)
+      rotateZ(var(--xg-fan-rot, 0deg));
+  }
+}
+.xg-fan2-stage.xg-fan2-stage-env .xg-fan2-paper.is-flying {
+  animation: xg-burst-fly 0.62s cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(var(--xg-burst-i, 0) * 110ms);
+}
+/* 顺序锁的明暗压过 is-show —— 源序在后才生效 */
+.xg-fan2-stage.xg-fan2-stage-env .xg-fan2-paper.is-next { opacity: 1; }
+.xg-fan2-stage.xg-fan2-stage-env .xg-fan2-paper.is-locked { opacity: 0.5; }
+.xg-fan2-stage.xg-fan2-stage-env .xg-fan2-paper.is-read { opacity: 0.66; }
+/* 正在被点开的那张：压过锁定态 */
+.xg-fan2-stage.xg-fan2-stage-env .xg-fan2-paper.is-open { opacity: 1; }
+
+/* ============================================================
+   五、抽出瞬间的三个动作
+   —— ① 纸从袋口飞出（transform 交还给叠放位）
+   —— ② 信封下沉淡出
+   —— ③ 落定后三张纸可点，锁定态生效
+   ============================================================ */
+/* 退场只作用在信封本体（.xg-env4-body）上 —— 不动 .xg-env4，
+   否则挂在里面的三张纸会跟着信封一起淡出（实测踩过）。 */
+.xg-env4-stage.is-p5-away .xg-env4-body {
+  animation: xg-env4-away 0.34s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+.xg-env4-stage.is-p5-away .xg-env4-pocket,
+.xg-env4-stage.is-p5-away .xg-env4-hinge,
+.xg-env4-stage.is-p5-away .xg-env4-seal-hinge {
+  opacity: 0;
+  transition: opacity 0.28s ease-out;
+}
+.xg-env4-stage.is-p5-away .xg-env4-back {
+  opacity: 0;
+  transition: opacity 0.28s ease-out;
+}
+/* 退场后彻底让位：不挡纸的点击 */
+.xg-env4-stage.is-gone {
+  pointer-events: none;
+}
+.xg-env4-stage.is-gone .xg-env4-hint {
+  opacity: 0;
+}
+
+/* 底部的提示条（叠放落定后用） */
+.xg-env-burst-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 26px;
+  z-index: var(--xg-z-content, 20);
+  padding: 10px 0 0;
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  color: rgba(238, 232, 218, 0.82);
+  text-shadow: 0 1px 6px rgba(47, 53, 39, 0.45);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s ease-out, transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: none;
+}
+.xg-env-burst-foot.is-on {
+  opacity: 1;
+  transform: none;
+}
+/* 读完三封后的收尾卡（与叠放页同一套按钮） */
+.xg-env-finale {
+  display: none;
+  gap: 10px;
+  padding: 0 18px 30px;
+}
+.xg-env-finale.is-on { display: flex; }
+.xg-env-finale .xg-btn { flex: 1; justify-content: center; }
+
+/* ============================================================
+   六、低动效降级：瞬切，不做位移
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .xg-fan2-stage-env .xg-fan2-paper,
+  .xg-env4-mouth-hit,
+  .xg-env-burst-foot {
+    transition: none !important;
+    animation: none !important;
+  }
+}

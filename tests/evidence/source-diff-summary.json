@@ -1,0 +1,24 @@
+{
+  "baseCommit": "64e69781c0d9f380b85ac78a5dda5d1e12689b36",
+  "unchangedOriginalFiles": 848,
+  "modified": [
+    "server.js",
+    "index.html",
+    "css/shili.css",
+    "js/shili-bridge.js",
+    "js/shili-integration.js",
+    "js/shili-persona.js",
+    "js/shili-page.js",
+    "js/shili-portable.js",
+    "js/shili-image.js",
+    "js/shili-repository.js",
+    "js/shili-core.js",
+    "js/shili-planner.js",
+    "js/settings.js",
+    "js/wechat.js",
+    "js/ensemble.js"
+  ],
+  "removedSupersededFiles": [
+    "shili-app.html"
+  ]
+}

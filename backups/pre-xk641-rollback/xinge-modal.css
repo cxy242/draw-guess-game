@@ -1,0 +1,339 @@
+/* ============================================================
+   xinge-modal.css · 深化卷（弹窗/浮层全件）
+   确认弹窗 / 纹章编辑弹窗 / 预设编辑器 / 删除确认（折纸）/
+   时间选择弹窗 / 联系人选择弹窗 / 导出确认
+   ============================================================ */
+
+/* ============================================================
+   V1. 弹窗骨架（遮罩 + 居中卡 + 底部抽屉变体）
+   ============================================================ */
+.xg-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(47, 53, 39, 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.xg-modal {
+  width: 100%;
+  max-width: 330px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--xg-clay);
+  border-radius: 14px;
+  background: var(--xg-ivory);
+  box-shadow: 0 24px 64px rgba(47, 53, 39, 0.32);
+  overflow: hidden;
+}
+.xg-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px 10px;
+}
+.xg-modal-head .xg-modal-ic {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.xg-modal-head .xg-modal-ic img { width: 100%; height: 100%; object-fit: contain; }
+.xg-modal-title {
+  font-family: 'XG-Serif', serif;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--xg-olive);
+}
+.xg-modal-title.xg-modal-script {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--xg-clay);
+}
+.xg-modal-body {
+  padding: 6px 18px 14px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.xg-modal-body::-webkit-scrollbar { width: 0; }
+.xg-modal-desc {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--xg-clay);
+}
+.xg-modal-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px 18px;
+}
+.xg-modal-foot .xg-btn {
+  flex: 1;
+  min-height: 44px;
+}
+.xg-modal-close {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 17px;
+  color: var(--xg-clay);
+  cursor: pointer;
+}
+.xg-modal-close:active { background: var(--xg-ivory-deep); }
+
+/* 底部抽屉变体 */
+.xg-modal.xg-modal-drawer {
+  max-width: none;
+  margin-top: auto;
+  border-radius: 16px 16px 0 0;
+}
+.xg-modal-drawer .xg-drawer-grab {
+  width: 42px;
+  height: 4px;
+  margin: 10px auto 2px;
+  border-radius: 2px;
+  background: rgba(137, 109, 89, 0.4);
+}
+
+/* ============================================================
+   V2. 确认弹窗（通用二选一）
+   ============================================================ */
+.xg-confirm-icon {
+  width: 52px;
+  height: 52px;
+  margin: 4px auto 10px;
+}
+.xg-confirm-icon img { width: 100%; height: 100%; object-fit: contain; }
+.xg-confirm-text {
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--xg-olive);
+}
+.xg-btn-danger {
+  border: 1px solid var(--xg-clay);
+  background: transparent;
+  color: var(--xg-clay);
+}
+.xg-btn-danger:active {
+  background: rgba(137, 109, 89, 0.12);
+}
+
+/* ============================================================
+   V3. 删除确认：折纸飞机小动画
+   ============================================================ */
+.xg-plane-confirm-art {
+  width: 92px;
+  height: 72px;
+  margin: 6px auto 12px;
+  position: relative;
+}
+.xg-plane-confirm-art .xg-plane-body {
+  position: absolute;
+  left: 12px;
+  top: 16px;
+  width: 68px;
+  height: 44px;
+  background:
+    linear-gradient(118deg, var(--xg-ivory-deep) 48%, rgba(137, 109, 89, 0.28) 49%, rgba(137, 109, 89, 0.28) 51%, var(--xg-ivory) 52%);
+  border: 1px solid var(--xg-clay);
+  clip-path: polygon(0 22%, 100% 0, 72% 100%, 42% 62%);
+}
+.xg-plane-confirm-art.is-flying .xg-plane-body {
+  animation: xg-plane-confirm 0.9s var(--xg-ease-in) forwards;
+}
+@keyframes xg-plane-confirm {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(64px, -34px) rotate(18deg); opacity: 0; }
+}
+
+/* ============================================================
+   V4. 预设编辑器弹窗（纹章格 + 表单 + 底钮）
+   ============================================================ */
+.xg-preset-modal .xg-modal-body {
+  padding-bottom: 6px;
+}
+.xg-preset-seal-preview {
+  width: 56px;
+  height: 56px;
+  margin: 2px auto 10px;
+}
+.xg-preset-seal-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.xg-preset-form .xg-field:last-child {
+  margin-bottom: 6px;
+}
+
+/* ============================================================
+   V5. 时间选择弹窗（滚轮盘）
+   ============================================================ */
+.xg-time-modal .xg-wheel-row {
+  padding: 6px 0 2px;
+}
+.xg-time-preview {
+  text-align: center;
+  padding: 8px 0 2px;
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 22px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   V6. 联系人选择弹窗（快速选收信人）
+   ============================================================ */
+.xg-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+.xg-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1px solid rgba(137, 109, 89, 0.5);
+  border-radius: 10px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+}
+.xg-pick-row:active { transform: scale(0.985); }
+.xg-pick-row.is-sel {
+  border: 2px solid var(--xg-rose);
+  background: var(--xg-rose-pale);
+}
+.xg-pick-check {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 50%;
+  flex: none;
+}
+.xg-pick-row.is-sel .xg-pick-check {
+  background:
+    radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 60%),
+    var(--xg-rose);
+  border-color: var(--xg-rose);
+}
+
+/* ============================================================
+   V7. 搜索框（P0 信箱搜索）
+   ============================================================ */
+.xg-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 20px;
+  background: var(--xg-ivory-deep);
+}
+.xg-search-wrap .xg-search-ic {
+  width: 16px;
+  height: 16px;
+  opacity: 0.65;
+  flex: none;
+}
+.xg-search-wrap input {
+  flex: 1;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  font-family: 'XG-Kai', serif;
+  font-size: max(16px, 1rem);
+  color: var(--xg-olive);
+}
+.xg-search-wrap input:focus { outline: none; }
+.xg-search-clear {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(137, 109, 89, 0.18);
+  color: var(--xg-clay);
+  font-size: 12px;
+  cursor: pointer;
+  flex: none;
+}
+
+/* ============================================================
+   V8. 危险区样式（S7：清空信箱警示）
+   ============================================================ */
+.xg-danger-zone {
+  margin-top: 22px;
+  padding: 14px;
+  border: 1px dashed var(--xg-clay);
+  border-radius: 10px;
+  background: rgba(137, 109, 89, 0.06);
+}
+.xg-danger-zone .xg-danger-title {
+  font-family: 'XG-Serif', serif;
+  font-size: 14px;
+  color: var(--xg-clay);
+}
+.xg-danger-zone .xg-danger-desc {
+  margin-top: 5px;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--xg-clay-pale);
+}
+.xg-danger-btn {
+  margin-top: 12px;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 8px;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 14px;
+  color: var(--xg-clay);
+  cursor: pointer;
+}
+.xg-danger-btn:active {
+  background: rgba(137, 109, 89, 0.14);
+}
+
+/* ============================================================
+   V9. 存储占用条（S7）
+   ============================================================ */
+.xg-storage-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--xg-ivory-deep);
+  border: 1px solid rgba(137, 109, 89, 0.4);
+  overflow: hidden;
+}
+.xg-storage-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--xg-rose), var(--xg-clay));
+  transition: width 0.4s var(--xg-ease-out);
+}
+.xg-storage-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: 'XG-Serif', serif;
+  font-size: 11px;
+  color: var(--xg-clay-pale);
+}

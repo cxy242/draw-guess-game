@@ -458,7 +458,7 @@ async function doAIGenerate(page) {
     var hist = (_state.history || []).slice(-20);
     msgs = msgs.concat(hist);
     msgs.push({ role: 'user', content: '\u7ee7\u7eed\u5267\u60c5\uff0c\u8ba9\u89d2\u8272\u4eec\u81ea\u7136\u4e92\u52a8\u3002' });
-    var reply = await window.callAI(msgs, { charAntiDrift: true });
+    var reply = await window.callAI(msgs, { charAntiDrift:true,shiliOwnerUid:_state.uid,shiliActorIds:(_state.current||[]).map(function(c){return c.char.id;}),shiliPublicOnly:(_state.current||[]).length>1 });
     _state.history = (_state.history || []).concat([
       { role: 'user', content: '\u7ee7\u7eed\u5267\u60c5' },
       { role: 'assistant', content: reply }
@@ -495,7 +495,7 @@ async function doSend(page) {
     msgs = msgs.concat(hist);
     msgs.push({ role: 'user', content: text });
 
-    var reply = await window.callAI(msgs, { charAntiDrift: true });
+    var reply = await window.callAI(msgs, { charAntiDrift:true,shiliOwnerUid:_state.uid,shiliActorIds:(_state.current||[]).map(function(c){return c.char.id;}),shiliPublicOnly:(_state.current||[]).length>1 });
     _state.history = (_state.history || []).concat([
       { role: 'user', content: text },
       { role: 'assistant', content: reply }
@@ -1206,6 +1206,7 @@ function saveChatMsg(role,text){
   task.catch(function(e){_state.saveError=e;window.toast&&toast('群像记录保存失败，请重试后再结束');});
   return task;
 }
+async function persistOfflineEdit(id,patch){var result=await db.offlineChats.update(id,patch);var row=await db.offlineChats.get(id);if(row&&window.ShiliBridge)try{await window.ShiliBridge.markForRescan(db,row.ownerUid,'offline',id);}catch(e){console.warn('[拾礼] 线下消息已保存，礼物待补扫',e.message||e);}return result;}
 async function saveChatMsgInternal(role, text) {
   try {
     if (!_state.uid || !db.offlineChats || _state._loading) return null;
@@ -1223,6 +1224,7 @@ async function saveChatMsgInternal(role, text) {
       createdAt: (window.TimeWorld ? window.TimeWorld.getNow() : Date.now()),
       realCreatedAt: Date.now(),
     });
+    if(window.ShiliBridge)try{await window.ShiliBridge.markForRescan(db,_state.uid,'offline',id);}catch(e){console.warn('[拾礼] 线下记录待补扫',e.message||e);}
     return id;
   } catch(e) { console.error('[ensemble] save:', e); throw e; }
 }
@@ -1410,10 +1412,10 @@ function bindMsgActions(page) {
           // Update in db
           try {
             var mid = rowIdOf(btn);
-            if (mid) { db.offlineChats.update(mid, { content: newText }); }
+            if (mid) { persistOfflineEdit(mid, { content: newText }); }
             else {
               queryMsgRows().then(function(rows) {
-                if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: newText });
+                if (rows[idx]) persistOfflineEdit(rows[idx].id, { content: newText });
               });
             }
           } catch(e) {}
@@ -1433,7 +1435,7 @@ function bindMsgActions(page) {
           var hist = (_state.history || []).slice(-20);
           msgs = msgs.concat(hist);
           msgs.push({ role: 'user', content: '\u91cd\u65b0\u751f\u6210\u4e0a\u4e00\u6761\u56de\u590d\u3002' });
-          var reply = await window.callAI(msgs, { charAntiDrift: true });
+          var reply = await window.callAI(msgs, { charAntiDrift:true,shiliOwnerUid:_state.uid,shiliActorIds:(_state.current||[]).map(function(c){return c.char.id;}),shiliPublicOnly:(_state.current||[]).length>1 });
           _state.history.pop(); // Remove old AI reply
           _state.history.push({ role: 'assistant', content: reply });
           hideTyping(page);
@@ -1451,10 +1453,10 @@ function bindMsgActions(page) {
           // Update in db
           try {
             var mid = rowIdOf(btn);
-            if (mid) { db.offlineChats.update(mid, { content: reply }); }
+            if (mid) { persistOfflineEdit(mid, { content: reply }); }
             else {
               queryMsgRows().then(function(rows) {
-                if (rows[idx]) db.offlineChats.update(rows[idx].id, { content: reply });
+                if (rows[idx]) persistOfflineEdit(rows[idx].id, { content: reply });
               });
             }
           } catch(e) {}

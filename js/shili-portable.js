@@ -3,8 +3,10 @@
 var TABLES=['gifts','giftEvents','giftGenerationJobs','shiliAnniversaries'];
 function fail(s){throw Error(s);}
 function eventKey(g){return JSON.stringify([String(g.ownerUid),String(g.sourceType),String(g.sourceId),String(g.charId),Number.isInteger(g.eventIndex)?g.eventIndex:0]);}
+function ownedSetting(row,owner){return row&&((row.key==='shili-auto:'+String(owner))||(row.key==='shili-scan:'+String(owner))||((row.key.startsWith('shili-last-open:')||row.key.startsWith('shili-request:')||row.key.startsWith('shili-scan-failure:'))&&String(row.value?.ownerUid)===String(owner)));}
 function validate(data,ownerUid){
  if(!ownerUid||!data||data.format!=='shili-owner-backup'||data.version!==1||String(data.ownerUid)!==String(ownerUid)||!data.tables)fail('备份格式或账号不匹配');
+ if(data.settings!=null&&(!Array.isArray(data.settings)||data.settings.some(function(r){return !ownedSetting(r,ownerUid);})))fail('备份设置包含不属于当前账号的数据');
  for(var name of TABLES){
   var rows=data.tables[name];if(!Array.isArray(rows))fail('缺少备份表 '+name);
   var seen=new Set();for(var row of rows){if(!row||String(row.ownerUid)!==String(ownerUid))fail('跨账号数据被拒绝');var id=name==='giftEvents'?row.eventKey:row.id;if(id==null||seen.has(id))fail('缺少或重复主键 '+name);seen.add(id);}
@@ -26,9 +28,9 @@ function validate(data,ownerUid){
 }
 async function exportOwner(db,ownerUid){
  if(!ownerUid)fail('缺少账号');
- return db.transaction('r',TABLES.map(function(n){return db[n]}),async function(){
+ return db.transaction('r',TABLES.map(function(n){return db[n]}).concat(db.config?[db.config]:[]),async function(){
   var tables={};for(var name of TABLES)tables[name]=await db[name].where('ownerUid').equals(String(ownerUid)).toArray();
-  var data={format:'shili-owner-backup',version:1,ownerUid:String(ownerUid),exportedAt:new Date().toISOString(),tables:tables};validate(data,ownerUid);return data;
+  var data={format:'shili-owner-backup',version:1,ownerUid:String(ownerUid),exportedAt:new Date().toISOString(),tables:tables,settings:db.config?(await db.config.toArray()).filter(function(r){return ownedSetting(r,ownerUid);}):[]};validate(data,ownerUid);return data;
  });
 }
 async function importOwner(db,ownerUid,data,opts){
@@ -36,10 +38,10 @@ async function importOwner(db,ownerUid,data,opts){
  // Freeze caller data before asynchronous work; never accept caller-supplied primary keys.
  data=JSON.parse(JSON.stringify(data));
  var tables=TABLES.map(function(n){if(!db||!db[n])fail('缺少数据表 '+n);return db[n]});
- if(db.messages)tables.push(db.messages);if(db.chats)tables.push(db.chats);
+ if(db.messages)tables.push(db.messages);if(db.chats)tables.push(db.chats);if(db.config)tables.push(db.config);
  return db.transaction('rw',tables,async function(){
   var ids=new Map(),annIds=new Map(),added=0,skipped=0;
-  var annKey=function(a){return JSON.stringify([a.title,a.date,a.timeMode,String(a.charId||''),!!a.recurring,a.enabled!==false]);};
+  var annKey=function(a){return JSON.stringify([a.title,a.date,a.timeMode,String(a.charId||''),!!a.recurring,a.enabled!==false,a.eventType||'custom',a.countMode||'countdown',a.includeStartDay===true,a.birthdayOf||'user',a.aiNote||'',a.timeZone||'']);};
   var existingAnn=new Map((await db.shiliAnniversaries.where('ownerUid').equals(String(ownerUid)).toArray()).map(function(a){return [annKey(a),a.id]}));
   var eventsByKey=new Map(data.tables.giftEvents.map(function(e){return [e.eventKey,e]}));
   var jobsByGift=new Map();for(var job of data.tables.giftGenerationJobs){if(!jobsByGift.has(job.giftId))jobsByGift.set(job.giftId,[]);jobsByGift.get(job.giftId).push(job);}
@@ -63,6 +65,8 @@ async function importOwner(db,ownerUid,data,opts){
     var jobId=await db.giftGenerationJobs.add(job);if(g.generatorJobId===j.id)await db.gifts.update(id,{generatorJobId:jobId});
    }
   }
+  if(db.messages&&db.chats){for(var original of data.tables.gifts){var mapped=ids.get(original.id);if(mapped===original.id||original.wechatMessageId==null)continue;var msg=await db.messages.get(original.wechatMessageId),chat=msg&&await db.chats.get(msg.chatId);if(!msg||!chat||String(chat.ownerUid)!==String(ownerUid)||String(chat.charId)!==String(original.charId)||msg.clientMessageId!==original.wechatClientMessageId||!String(msg.content||'').startsWith('__GIFT__'))continue;var payload;try{payload=JSON.parse(msg.content.slice(8));}catch(e){continue;}if(String(payload.giftId)===String(original.id)){payload.giftId=mapped;await db.messages.update(msg.id,{content:'__GIFT__'+JSON.stringify(payload)});}}}
+  if(db.config){for(var setting of data.settings||[]){if(setting.key==='shili-scan:'+String(ownerUid)||setting.key.startsWith('shili-scan-failure:'))continue;if(await db.config.get(setting.key))continue;var value=JSON.parse(JSON.stringify(setting.value));if(value.giftId!=null)value.giftId=ids.get(value.giftId);if(Array.isArray(value.giftIds))value.giftIds=value.giftIds.map(function(id){return ids.get(id);}).filter(function(id){return id!=null;});if(value.status==='running'){value.status='failed';value.error='恢复后请手动继续，避免重复计费';}await db.config.put({key:setting.key,value:value});}await db.config.delete('shili-scan:'+String(ownerUid));}
   return {added:added,skipped:skipped,idMap:Object.fromEntries(ids),anniversaryIdMap:Object.fromEntries(annIds)};
  });
 }

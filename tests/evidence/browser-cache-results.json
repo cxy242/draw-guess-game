@@ -1,0 +1,129 @@
+{
+  "cold": [
+    {
+      "name": "/assets/shili/optimized/backgrounds/home-collage-plate-v1.ee64eca71218.webp",
+      "bytes": 317900,
+      "transfer": 318200,
+      "ms": 65.60000000009313
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-curl-ribbon.be8da768ec37.webp",
+      "bytes": 105132,
+      "transfer": 105432,
+      "ms": 63.1999999997206
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-flower-rose-stamp-v2.561b7e5c7801.webp",
+      "bytes": 75814,
+      "transfer": 76114,
+      "ms": 63.59999999962747
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-postmark.ed0519428872.webp",
+      "bytes": 27366,
+      "transfer": 27666,
+      "ms": 60.89999999990687
+    },
+    {
+      "name": "/assets/shili/optimized/common/paper_background.974ffe7cca87.webp",
+      "bytes": 3240,
+      "transfer": 3540,
+      "ms": 57.89999999990687
+    },
+    {
+      "name": "/assets/shili/optimized/reference/blue-floral.f7d498c887b7.webp",
+      "bytes": 1760,
+      "transfer": 2060,
+      "ms": 58.5
+    }
+  ],
+  "warm": [
+    {
+      "name": "/assets/shili/optimized/backgrounds/home-collage-plate-v1.ee64eca71218.webp",
+      "bytes": 317900,
+      "transfer": 0,
+      "ms": 0
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-curl-ribbon.be8da768ec37.webp",
+      "bytes": 105132,
+      "transfer": 0,
+      "ms": 0
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-flower-rose-stamp-v2.561b7e5c7801.webp",
+      "bytes": 75814,
+      "transfer": 0,
+      "ms": 0
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-postmark.ed0519428872.webp",
+      "bytes": 27366,
+      "transfer": 0,
+      "ms": 0
+    },
+    {
+      "name": "/assets/shili/optimized/common/paper_background.974ffe7cca87.webp",
+      "bytes": 3240,
+      "transfer": 0,
+      "ms": 0
+    },
+    {
+      "name": "/assets/shili/optimized/reference/blue-floral.f7d498c887b7.webp",
+      "bytes": 1760,
+      "transfer": 0,
+      "ms": 0
+    }
+  ],
+  "headers": "public, max-age=31536000, immutable",
+  "cacheEvents": [
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/backgrounds/home-collage-plate-v1.ee64eca71218.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/restored/home-curl-ribbon.be8da768ec37.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/restored/home-flower-rose-stamp-v2.561b7e5c7801.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/restored/home-postmark.ed0519428872.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/common/paper_background.974ffe7cca87.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/reference/blue-floral.f7d498c887b7.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/backgrounds/home-collage-plate-v1.ee64eca71218.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/restored/home-curl-ribbon.be8da768ec37.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/restored/home-flower-rose-stamp-v2.561b7e5c7801.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/restored/home-postmark.ed0519428872.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/common/paper_background.974ffe7cca87.webp",
+      "cache": false
+    },
+    {
+      "url": "http://127.0.0.1:3217/assets/shili/optimized/reference/blue-floral.f7d498c887b7.webp",
+      "cache": false
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+PASS 真实生产文本适配器→本地HTTP→两份方案
+PASS 真实生产图片适配器→本地HTTP→每份独立调用
+PASS 两份礼物均有可保存图片并送达
+PASS 两张聊天卡片和两条角色记忆
+PASS 聊天卡片打开同一giftId
+PASS 同一已完成任务不重复生图、记忆、消息
+PASS 图片503保留任务和方案，不发空卡片
+PASS 重试只续原图，不重新调用文本AI或重复创建
+PASS 仅格式参数被明确拒绝才去参重试
+PASS 远程图像URL下载转永久base64
+PASS 账号和角色归属拒绝跨账号请求
+PASS 用户送出→真实文本适配器回应→重试不重复
+PASS 已经送花不被后半句以后误判
+PASS 同一段两件礼物
+PASS 第三人赠送不记成当前角色
+PASS 梦境承诺拒绝与用户送出不算收到
+PASS 增量第二次无新记录不重复扫描或建礼物
+PASS 后加线下剧情继续增量且多件礼物保存
+PASS 虚拟暂停时未达到下轮
+PASS 虚拟三天后到期
+PASS 自动总共生成2件，回退不再送
+PASS 新增礼物可导出且引用验证通过
+PASS 备份恢复重新映射任务礼物ID
+PASS 恢复后聊天卡片仍打开同一份礼物
+PASS 拒绝非整数礼物件数
+PASS 补扫失败保留检查点和待重试记录
+PASS 下次仅重试失败项，不从头补扫
+PASS 群像按明确赠送者分别登记，不全算第一个角色
+PASS 拒绝伪装成base64的非图片响应
+PASS 累计跨周年不清零
+PASS 起始日0或1天
+PASS 年度倒数、未来首次与闰日
+RESULT 32 passed; local HTTP fixtures + in-memory tables, NOT browser Dexie or external providers.
+
+附加检查：12份修改脚本语法通过；首页本地资源路径齐全；桌面仅一个拾礼入口。
+浏览器视觉、真实IndexedDB、外部AI服务商未通过本轮验证。

@@ -3031,7 +3031,9 @@ async function generateImageWithConfig(cfg, prompt, opts) {
   try {
     return await doGenerate()
   } catch (e) {
-    if (!injectedResponseFormat) throw e
+    var formatRejected = opts.allowFormatFallback === true && [400,422].includes(Number(e.status)) && /response[_ -]?format/i.test(String(e.detail || e.message || ''))
+    if (!injectedResponseFormat && !formatRejected) throw e
+    if (opts.allowFormatFallback === true && !formatRejected) throw e
     delete body.response_format
     return await doGenerate()
   }

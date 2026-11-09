@@ -45,17 +45,30 @@ async function recoverExpired(db,ownerUid){
   return count;
  });
 }
+async function decodedImage(data){if(typeof root.Image==='function'){var img=new root.Image();img.src=data;try{await img.decode();if(!img.naturalWidth||!img.naturalHeight)throw Error('empty');}catch(e){throw Error('图片文件无法解码，尚未把损坏图片当作成功保存');}}return data;}
+async function durableImage(image,signal){
+ if(typeof image!=='string')throw Error('图片接口未返回图像');
+ if(/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(image)){
+  var b64=image.slice(image.indexOf(',')+1),head;try{head=atob(b64.slice(0,64));}catch(e){throw Error('图片接口返回的base64无效');}if(b64.length>28*1024*1024)throw Error('图片超过20 MB，无法保存');
+  var type=head.startsWith('\x89PNG\r\n\x1a\n')?'png':head.startsWith('\xff\xd8\xff')?'jpeg':/^GIF8[79]a/.test(head)?'gif':head.startsWith('RIFF')&&head.slice(8,12)==='WEBP'?'webp':'';if(!type)throw Error('图片接口没有返回有效的PNG、JPEG、WebP或GIF图像');return decodedImage('data:image/'+type+';base64,'+b64);
+ }
+
+ if(!/^(https?:|blob:)/i.test(image))throw Error('图片接口返回了不支持的图像格式');
+ var response=await fetch(image,{signal:signal});if(!response.ok)throw Error('图片已生成，但下载失败（'+response.status+'），请重试保存');
+ var declared=Number(response.headers?.get?.('content-length'));if(declared>20*1024*1024)throw Error('图片超过20 MB，无法保存');var blob=await response.blob();if(blob.size>20*1024*1024)throw Error('图片超过20 MB，无法保存');
+ var data=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(reader.result);};reader.onerror=function(){reject(Error('图片转换保存失败'));};reader.readAsDataURL(blob);});return durableImage('data:image/png;base64,'+String(data).slice(String(data).indexOf(',')+1),signal);
+}
 async function generate(db,ownerUid,giftId,options){
  if(!root.ShiliRepository||typeof root.loadImageGenConfig!=='function'||typeof root.generateImage!=='function')throw Error('原图片 API 尚未就绪');
  var gift=await db.gifts.get(giftId);
  if(!gift||String(gift.ownerUid)!==String(ownerUid)||!['received','draft','sent'].includes(gift.status))throw Error('礼物未确认或无权访问');
- if(gift.imageStatus==='ready')return {gift:gift,created:false};
+ if(gift.imageStatus==='ready'&&gift.imageUrl)return {gift:gift,created:false};
  var cfg=await root.loadImageGenConfig();
- if(!cfg||!cfg.url||!cfg.key||!cfg.model)throw Error('请先在原设置中配置 IMAGE 图像 API');
+ var previous=gift.generatorJobId&&await db.giftGenerationJobs.get(gift.generatorJobId),canSave=previous?.outputSource&&!options?.forceRegenerate;if(!canSave&&(!cfg||!cfg.url||!cfg.key||!cfg.model))throw Error('请先在原设置中配置 IMAGE 图像 API');
  var timeoutMs=Number(options&&options.timeoutMs);
  if(!Number.isFinite(timeoutMs)||timeoutMs<1)timeoutMs=DEFAULT_TIMEOUT_MS;
  await recoverExpired(db,ownerUid);
- var queued=await root.ShiliRepository.queueImage(db,ownerUid,giftId);
+ var queued=await root.ShiliRepository.queueImage(db,ownerUid,giftId,options);
  var job=queued.job;
  if(!job)return {gift:await root.ShiliRepository.getGift(db,ownerUid,giftId),created:false};
  var requestToken=root.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2);
@@ -64,7 +77,7 @@ async function generate(db,ownerUid,giftId,options){
   if(!current||!row||String(row.ownerUid)!==String(ownerUid))throw Error('图片任务归属不匹配');
   if(current.status!=='pending')return false;
   await db.giftGenerationJobs.update(job.id,{status:'running',requestToken:requestToken,deadlineAt:Date.now()+timeoutMs,attempts:(current.attempts||0)+1,updatedAt:Date.now()});
-  await db.gifts.update(giftId,{imageStatus:'running',updatedAt:Date.now()});return true;
+  await db.gifts.update(giftId,{imageStatus:'running',imageStage:job.outputSource?'saving':'generating',generatorJobId:job.id,imageError:'',updatedAt:Date.now()});return true;
  });
  if(!started)return {gift:await db.gifts.get(giftId),created:false,busy:true};
  try{
@@ -74,7 +87,7 @@ async function generate(db,ownerUid,giftId,options){
   var timer;
   var timeout=new Promise(function(_,reject){timer=setTimeout(function(){reject(Error('图片生成超时，请稍后重试'));if(controller)controller.abort();},timeoutMs)});
   var image;
-  try{image=await Promise.race([root.generateImage(prompt,{responseFormat:'b64_json',n:1,signal:controller&&controller.signal}),timeout]);}
+  try{image=await Promise.race([(async function(){var output=job.outputSource;if(!output){output=await root.generateImage(prompt,{responseFormat:'b64_json',allowFormatFallback:true,n:1,signal:controller&&controller.signal});if(typeof output!=='string'||!/^https?:|^data:image\//i.test(output))throw Error('图片接口未返回可保存的图像');await db.transaction('rw',db.giftGenerationJobs,db.gifts,async function(){var live=await db.giftGenerationJobs.get(job.id);if(!live||live.status!=='running'||live.requestToken!==requestToken)throw Error('原图片任务已结束');await db.giftGenerationJobs.update(job.id,{outputSource:output,updatedAt:Date.now()});await db.gifts.update(giftId,{imageStage:'saving',updatedAt:Date.now()});});job.outputSource=output;}try{return await durableImage(output,controller&&controller.signal);}catch(error){throw Error('图片接口已返回图像，但下载/保存未完成：'+(error.message||error)+'。重试会先保存原图，不重新生图。');}})(),timeout]);}
   finally{clearTimeout(timer)}
   if(typeof image!=='string'||!/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(image))throw Error('图片 API 未返回可持久保存的图像，请检查模型配置');
   await db.transaction('rw',db.gifts,db.giftGenerationJobs,async function(){
@@ -82,8 +95,8 @@ async function generate(db,ownerUid,giftId,options){
    if(!task||task.status!=='running'||task.requestToken!==requestToken)throw Error('图片任务已结束，请查看最新结果');
    var current=await db.gifts.get(giftId);
    if(!current||String(current.ownerUid)!==String(ownerUid)||current.eventKey!==gift.eventKey)throw Error('图片任务归属变化');
-   await db.gifts.update(giftId,{imageUrl:image,imageStatus:'ready',updatedAt:Date.now()});
-   await db.giftGenerationJobs.update(job.id,{status:'ready',updatedAt:Date.now(),error:null});
+   await db.gifts.update(giftId,{imageUrl:image,imageStatus:'ready',imageStage:'ready',imageError:'',updatedAt:Date.now()});
+   await db.giftGenerationJobs.update(job.id,{status:'ready',outputSource:null,updatedAt:Date.now(),error:null});
   });
   root.ShiliIntegration?.announce?.(ownerUid,giftId);
   return {gift:await db.gifts.get(giftId),created:true};
@@ -92,12 +105,12 @@ async function generate(db,ownerUid,giftId,options){
    var task=await db.giftGenerationJobs.get(job.id);
    if(!task||task.status!=='running'||task.requestToken!==requestToken)return;
    var row=await db.gifts.get(giftId);
-   if(row&&String(row.ownerUid)===String(ownerUid))await db.gifts.update(giftId,{imageStatus:'failed',updatedAt:Date.now()});
+   if(row&&String(row.ownerUid)===String(ownerUid))await db.gifts.update(giftId,{imageStatus:'failed',imageStage:task.outputSource?'failed-save':'failed-generation',imageError:String(e.message||e).slice(0,500),updatedAt:Date.now()});
    await db.giftGenerationJobs.update(job.id,{status:'failed',error:String(e.message||e).slice(0,300),updatedAt:Date.now()});
   });
   root.ShiliIntegration?.announce?.(ownerUid,giftId);
   throw e;
  }
 }
-root.ShiliImage={generate:generate,isConfigured:isConfigured,recoverExpired:recoverExpired,buildPrompt:buildPrompt,STYLE_PRESET:STYLE_PRESET,NEGATIVE_PROMPT:NEGATIVE_PROMPT,NEGATIVE_GROUPS:NEGATIVE_GROUPS,DEFAULT_TIMEOUT_MS:DEFAULT_TIMEOUT_MS};
+root.ShiliImage={durableImage:durableImage,generate:generate,isConfigured:isConfigured,recoverExpired:recoverExpired,buildPrompt:buildPrompt,STYLE_PRESET:STYLE_PRESET,NEGATIVE_PROMPT:NEGATIVE_PROMPT,NEGATIVE_GROUPS:NEGATIVE_GROUPS,DEFAULT_TIMEOUT_MS:DEFAULT_TIMEOUT_MS};
 })(typeof window!=='undefined'?window:globalThis);

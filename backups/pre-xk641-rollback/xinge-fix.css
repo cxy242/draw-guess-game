@@ -1,0 +1,59 @@
+/* xinge-fix.css · 终审卷（最后加载，覆盖一切）——主人验收修复专用 */
+@import url('https://fonts.loli.net/css2?family=Ma+Shan+Zheng&display=swap');
+@import url('https://fonts.font.im/css2?family=Ma+Shan+Zheng&display=swap');
+
+/* ① 署名中文书法体 */
+.xg-letter-sign-name.xg-sign-script {
+  font-family: 'Ma Shan Zheng', 'XG-Kai', cursive !important;
+  font-size: 27px !important;
+}
+/* ② 信纸行宽收紧（离边近一点，一行字多） */
+.xg-letter-body {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+.xg-letter-card {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+.xg-letter-para {
+  margin-bottom: 0.85em !important;
+}
+/* ③ 抬头空两行 */
+.xg-letter-salute {
+  margin-bottom: 2em !important;
+}
+/* ④ 阅读页底部两钮：同行、贴近、留缝、尺寸不一 */
+.xg-read-foot {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+}
+.xg-read-foot .xg-read-next {
+  min-height: 50px !important;
+  min-width: 132px !important;
+}
+.xg-read-foot .xg-icon-btn {
+  width: 50px !important;
+  height: 50px !important;
+  flex: none !important;
+}
+/* ⑤ 按钮触摸尺寸 */
+.xg-chip {
+  min-height: 44px !important;
+  min-width: 64px !important;
+}
+.xg-btn {
+  min-height: 48px !important;
+}
+/* ⑥ 行内划掉 */
+.xg-strike.is-unsure {
+  cursor: pointer;
+}

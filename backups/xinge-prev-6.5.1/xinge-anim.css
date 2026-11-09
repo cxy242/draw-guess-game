@@ -1,0 +1,701 @@
+/* ============================================================
+   信格 xinge-anim.css — 动画卷 B4a
+   拆信仪式 A0–A9（分拍驱动：JS 挂 .xg-anim-run / 拍类）
+   背景动效 12 景（一景一动，极慢低幅，可关可降级）
+   铁律：只动 transform/opacity(+filter)；禁弹跳；一次一主角
+   ============================================================ */
+
+/* ============================================================
+   一、拆信仪式 A0–A9
+   舞台：#xg-page-envelope → #xg-page-fan → #xg-page-reading
+   分拍类：.xg-p0-press .xg-p1-unseal .xg-p2-pull .xg-p3-exit
+           .xg-p4-fan .xg-p5-settle .xg-p6-reveal .xg-p7-strike
+           .xg-p8-back .xg-p9-lock
+   ============================================================ */
+
+/* A0 按压确认（140ms） */
+.xg-env-stage.xg-p0-press {
+  animation: xg-press 0.16s var(--xg-ease-out);
+}
+@keyframes xg-press {
+  0% { transform: scale(1); }
+  55% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+/* 火漆微亮 */
+.xg-env-flap.xg-p0-press .xg-seal-glow {
+  animation: xg-glow 0.24s ease;
+}
+@keyframes xg-glow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.85; }
+}
+
+/* A1' 优雅启封：翻盖绕顶边翻起（620ms 抽屉曲线）
+   火漆完整贴盖随翻——永不碎裂 */
+.xg-env-flap.xg-p1-unseal {
+  animation: xg-flap-open 0.62s var(--xg-ease-drawer) forwards;
+}
+@keyframes xg-flap-open {
+  0%   { transform: rotateX(0deg); }
+  100% { transform: rotateX(-150deg); }
+}
+/* 翻起运动虚影（1px 尾迹 150ms） */
+.xg-env-flap.xg-p1-unseal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  filter: blur(1px);
+  opacity: 0;
+  animation: xg-flap-trail 0.62s ease;
+}
+@keyframes xg-flap-trail {
+  0% { opacity: 0.28; transform: rotate(1.2deg); }
+  100% { opacity: 0; transform: rotate(0deg); }
+}
+/* 火漆印面高光斜扫（翻起展示一瞬，300ms） */
+.xg-seal-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+}
+.xg-seal-shine::after {
+  content: '';
+  position: absolute;
+  top: -30%; left: -80%;
+  width: 55%; height: 160%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-18deg) translateX(0);
+  opacity: 0;
+}
+.xg-p1-unseal .xg-seal-shine::after {
+  animation: xg-shine-sweep 0.3s ease 0.34s;
+}
+@keyframes xg-shine-sweep {
+  0% { transform: skewX(-18deg) translateX(0); opacity: 0; }
+  35% { opacity: 0.85; }
+  100% { transform: skewX(-18deg) translateX(340%); opacity: 0; }
+}
+/* 信封微沉（被捏住的反力，2px） */
+.xg-env-body.xg-p1-unseal {
+  animation: xg-env-dip 0.62s var(--xg-ease-out);
+}
+@keyframes xg-env-dip {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(2px); }
+}
+
+/* A2' 抽信：纸叠自信封口缓缓升起（850ms 抽屉曲线）
+   rotateX 平躺→立起 8°；边缘 S 形微弯；信封配重下沉 3px 微仰 */
+.xg-letters-pull {
+  position: absolute;
+  left: 50%; top: 8%;
+  width: 72%;
+  transform: translateX(-50%);
+  z-index: 6;
+}
+.xg-letters-pull.xg-p2-pull {
+  animation: xg-letters-rise 0.85s var(--xg-ease-drawer) forwards;
+}
+@keyframes xg-letters-rise {
+  0%   { transform: translateX(-50%) translateY(38%) rotateX(0deg); opacity: 0.9; }
+  60%  { opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-6%) rotateX(8deg); opacity: 1; }
+}
+.xg-letters-pull.xg-p2-pull .xg-paper-bundle {
+  animation: xg-paper-sway 0.85s ease;
+}
+@keyframes xg-paper-sway {
+  0%, 100% { transform: skewY(0deg); }
+  35% { transform: skewY(1deg); }
+  70% { transform: skewY(-1deg); }
+}
+.xg-env-body.xg-p2-pull {
+  animation: xg-env-sink 0.85s var(--xg-ease-out);
+}
+@keyframes xg-env-sink {
+  0%, 100% { transform: translateY(0) rotateX(0deg); }
+  55% { transform: translateY(3px) rotateX(-1.5deg); }
+}
+
+/* A3' 信封退场（含完整火漆随退，450ms） */
+.xg-env-stage.xg-p3-exit {
+  animation: xg-env-exit 0.45s var(--xg-ease-out) forwards;
+}
+@keyframes xg-env-exit {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(18%) scale(0.92); opacity: 0; }
+}
+
+/* A4' 扇形展开：三张依次转出（420ms/张，错峰 150ms）
+   落位微过冲 bounce 0.12；落位瞬间 scale 呼吸+高光斜扫 */
+.xg-fan-paper.xg-p4-fan {
+  animation: xg-fan-open 0.42s var(--xg-ease-out) forwards;
+}
+.xg-fan-paper.xg-p4-fan:nth-child(1) { animation-delay: 0ms; }
+.xg-fan-paper.xg-p4-fan:nth-child(2) { animation-delay: 150ms; }
+.xg-fan-paper.xg-p4-fan:nth-child(3) { animation-delay: 300ms; }
+@keyframes xg-fan-open {
+  0%   {
+    transform: rotateX(28deg) rotateZ(0deg) translateX(0) translateY(26px) scale(0.97);
+    opacity: 0.85;
+  }
+  72%  {
+    transform: rotateX(28deg) rotateZ(calc(var(--xg-fan-z) * 1.04)) translateX(var(--xg-fan-x)) translateY(var(--xg-fan-y)) scale(1.005);
+    opacity: 1;
+  }
+  100% {
+    transform: rotateX(28deg) rotateZ(var(--xg-fan-z)) translateX(var(--xg-fan-x)) translateY(var(--xg-fan-y)) scale(1);
+    opacity: 1;
+  }
+}
+/* 抖开气流：落位 scale 呼吸 */
+.xg-fan-paper.xg-p4-fan::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.xg-fan-paper.xg-p4-settle-pop {
+  animation: xg-settle-pop 0.12s var(--xg-ease-out);
+}
+@keyframes xg-settle-pop {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.008; }
+}
+/* 纸面高光斜扫（200ms linear） */
+.xg-paper-glint {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.xg-paper-glint::after {
+  content: '';
+  position: absolute;
+  top: -40%; left: -70%;
+  width: 45%; height: 180%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+  transform: skewX(-16deg);
+  opacity: 0;
+}
+.xg-p4-settle-pop .xg-paper-glint::after {
+  animation: xg-glint 0.2s linear;
+}
+@keyframes xg-glint {
+  0% { transform: skewX(-16deg) translateX(0); opacity: 0; }
+  30% { opacity: 0.9; }
+  100% { transform: skewX(-16deg) translateX(320%); opacity: 0; }
+}
+
+/* A5' 落定呼吸（质数周期错相，幅度极淡） */
+.xg-fan-paper.xg-p5-settle:nth-child(1) {
+  animation: xg-fan-breathe-1 4.2s var(--xg-ease-in-out) infinite;
+}
+.xg-fan-paper.xg-p5-settle:nth-child(2) {
+  animation: xg-fan-breathe-2 5.1s var(--xg-ease-in-out) infinite;
+}
+.xg-fan-paper.xg-p5-settle:nth-child(3) {
+  animation: xg-fan-breathe-3 6s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-fan-breathe-1 {
+  0%, 100% { transform: rotateX(28deg) rotateZ(-9deg) translateX(-62px) translateY(-6px); }
+  50%      { transform: rotateX(28deg) rotateZ(-8.7deg) translateX(-62px) translateY(-3px); }
+}
+@keyframes xg-fan-breathe-2 {
+  0%, 100% { transform: rotateX(28deg) rotateZ(1.5deg) translateX(0) translateY(0); }
+  50%      { transform: rotateX(28deg) rotateZ(1.3deg) translateX(0) translateY(3px); }
+}
+@keyframes xg-fan-breathe-3 {
+  0%, 100% { transform: rotateX(28deg) rotateZ(12deg) translateX(62px) translateY(3px); }
+  50%      { transform: rotateX(28deg) rotateZ(11.8deg) translateX(62px) translateY(6px); }
+}
+/* 当前张呼吸描边（阴影强度交替，状态提示） */
+.xg-fan-paper.is-current::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 5px;
+  border: 2px solid var(--xg-rose);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: xg-ring-breathe 2.6s ease-in-out infinite;
+}
+@keyframes xg-ring-breathe {
+  0%, 100% { opacity: 0.32; }
+  50% { opacity: 0.72; }
+}
+
+/* A6 显字（逐段：xg-letter-p.is-shown，pages 基态）
+   首字落笔顿点 */
+.xg-letter-p.is-shown .xg-dropcap {
+  display: inline-block;
+  animation: xg-dropcap 0.32s var(--xg-ease-out);
+}
+@keyframes xg-dropcap {
+  0% { transform: scale(1.06); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* A7 划线一笔（280ms linear 匀速=手划感）
+   伪元素线替代静态 text-decoration（可动画） */
+.xg-strike .xg-strike-line {
+  position: relative;
+  text-decoration: none;
+}
+.xg-strike .xg-strike-line::after {
+  content: '';
+  position: absolute;
+  left: -1px; right: -1px;
+  top: 52%;
+  height: 1px;
+  background: rgba(74, 66, 56, 0.45);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.xg-strike.is-swept .xg-strike-line::after {
+  transform: scaleX(1);
+  transition: transform 0.28s linear;
+}
+/* 点击横线消失（从中间向两端收掉 200ms） */
+.xg-strike.is-undone .xg-strike-line::after {
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.2s var(--xg-ease-out);
+}
+.xg-strike.is-undone .xg-strike-line {
+  color: var(--xg-olive-ink);
+  font-style: normal;
+}
+/* 全局切换多米诺（JS 逐段挂 is-undone 30ms 错峰） */
+.xg-strike.is-domino {
+  transition-delay: var(--xg-domino-delay, 0ms);
+}
+
+/* A8 返回：P8→P7 缩回扇位（300ms ease-in-out） */
+.xg-letter.xg-p8-back {
+  animation: xg-paper-back 0.3s var(--xg-ease-in-out) forwards;
+}
+@keyframes xg-paper-back {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.86) translateY(12px); opacity: 0; }
+}
+
+/* 火漆微亮（p0 按压时，覆盖翻盖火漆位） */
+.xg-seal-glow {
+  position: absolute;
+  left: 50%; bottom: -6px;
+  width: 54px; height: 54px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 70%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* 收尾卡浮出（250ms 抽屉曲线） */
+.xg-fan-finale.is-on {
+  animation: xg-finale-in 0.25s var(--xg-ease-drawer);
+}
+@keyframes xg-finale-in {
+  0% { transform: translateX(-50%) translateY(14px); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+/* 拆信总降级：简化档直落终态 */
+.xg-motion-low .xg-env-flap.xg-p1-unseal,
+.xg-motion-low .xg-letters-pull.xg-p2-pull,
+.xg-motion-low .xg-env-stage.xg-p3-exit,
+.xg-motion-low .xg-fan-paper.xg-p4-fan {
+  animation-duration: 0.12s !important;
+  animation-delay: 0ms !important;
+}
+
+/* ============================================================
+   二、背景动效 12 景（一景一动；10–30s 周期；≤6px/≤1.5°）
+   驱动：给活动件挂 .xg-drift-* 类
+   ============================================================ */
+
+/* P0：橄榄枝轻摆（±1.2° 14s 质数错相）+ 远处信封缓移（30s 往返） */
+.xg-drift-sway-a {
+  transform-origin: top center;
+  animation: xg-sway-a 14s var(--xg-ease-in-out) infinite;
+}
+.xg-drift-sway-b {
+  transform-origin: top center;
+  animation: xg-sway-b 17s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-sway-a {
+  0%, 100% { transform: rotate(-1.2deg); }
+  50% { transform: rotate(1.2deg); }
+}
+@keyframes xg-sway-b {
+  0%, 100% { transform: rotate(0.9deg); }
+  50% { transform: rotate(-1.1deg); }
+}
+.xg-drift-envelope {
+  animation: xg-env-drift 30s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-env-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(22px, -8px); }
+}
+
+/* P1：光柱尘埃（6–10 粒，20s 交错）+ 月桂叶飘落 */
+.xg-mote {
+  position: absolute;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: rgba(238, 232, 218, 0.75);
+  animation: xg-mote-float 20s linear infinite;
+  opacity: 0;
+}
+.xg-mote:nth-child(2n) { animation-duration: 26s; animation-delay: -6s; }
+.xg-mote:nth-child(3n) { animation-delay: -12s; }
+@keyframes xg-mote-float {
+  0% { transform: translateY(12px); opacity: 0; }
+  18% { opacity: 0.7; }
+  82% { opacity: 0.5; }
+  100% { transform: translateY(-28px); opacity: 0; }
+}
+.xg-leaf-fall {
+  animation: xg-leaf-fall 9s linear infinite;
+  opacity: 0;
+}
+@keyframes xg-leaf-fall {
+  0% { transform: translateY(-24px) rotate(0deg); opacity: 0; }
+  12% { opacity: 0.8; }
+  88% { opacity: 0.6; }
+  100% { transform: translateY(72px) rotate(32deg); opacity: 0; }
+}
+
+/* P2：白鸽掠过（25s 一次横穿，淡入淡出）+ 玫瑰丛轻摇 */
+.xg-dove-fly {
+  animation: xg-dove 25s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-dove {
+  0% { transform: translateX(-46vw) translateY(6px); opacity: 0; }
+  12% { opacity: 0.95; }
+  82% { opacity: 0.9; }
+  100% { transform: translateX(46vw) translateY(-10px); opacity: 0; }
+}
+
+/* P3：藤蔓轻摆 + 窗格光影缓移（40s） */
+.xg-drift-vine {
+  transform-origin: top center;
+  animation: xg-sway-b 16s var(--xg-ease-in-out) infinite;
+}
+.xg-light-shift {
+  animation: xg-light-shift 40s var(--xg-ease-in-out) infinite alternate;
+}
+@keyframes xg-light-shift {
+  0% { transform: translateX(-8px); opacity: 0.5; }
+  100% { transform: translateX(10px); opacity: 0.72; }
+}
+
+/* P3b：四时光影极慢轮转（60s 亮度/暖度渐变，五色系内） */
+.xg-dusk-cycle {
+  animation: xg-dusk 60s linear infinite alternate;
+}
+@keyframes xg-dusk {
+  0%   { filter: brightness(0.96) saturate(0.92) sepia(0.06); }
+  50%  { filter: brightness(1.02) saturate(1) sepia(0); }
+  100% { filter: brightness(0.92) saturate(0.98) sepia(0.12); }
+}
+
+/* P3c：书桌光影斜移（45s）+ 干花微颤 */
+.xg-flower-tremble {
+  transform-origin: bottom center;
+  animation: xg-tremble 3.4s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-tremble {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(0.5deg); }
+  65% { transform: rotate(-0.4deg); }
+}
+
+/* P4：飘带轻扬（skew ±1° 12s） */
+.xg-ribbon-wave {
+  transform-origin: left center;
+  animation: xg-ribbon 12s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-ribbon {
+  0%, 100% { transform: skewX(0.8deg) translateY(0); }
+  50% { transform: skewX(-1deg) translateY(-3px); }
+}
+
+/* P5：光雾呼吸（8s）+ 立柱影微移 */
+.xg-haze-breathe {
+  animation: xg-haze 8s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-haze {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.78; }
+}
+
+/* P6/P7：斜光扫移（30s）+ 花瓣偶落（两条错峰循环近似随机） */
+.xg-light-sweep {
+  animation: xg-sweep 30s var(--xg-ease-in-out) infinite alternate;
+}
+@keyframes xg-sweep {
+  0% { transform: translateX(-12px) rotate(-2deg); opacity: 0.55; }
+  100% { transform: translateX(14px) rotate(2deg); opacity: 0.75; }
+}
+.xg-petal-fall {
+  opacity: 0;
+  animation: xg-petal 19s linear infinite;
+}
+.xg-petal-fall:nth-child(2n) { animation-duration: 27s; animation-delay: -9s; }
+@keyframes xg-petal {
+  0% { transform: translateY(-16px) translateX(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.85; }
+  80% { opacity: 0.6; }
+  100% { transform: translateY(88px) translateX(26px) rotate(38deg); opacity: 0; }
+}
+
+/* P8：毛玻璃后光斑游移（35s） */
+.xg-bokeh {
+  animation: xg-bokeh 35s var(--xg-ease-in-out) infinite alternate;
+}
+@keyframes xg-bokeh {
+  0% { transform: translate(-10px, -6px) scale(1); opacity: 0.32; }
+  100% { transform: translate(12px, 8px) scale(1.06); opacity: 0.5; }
+}
+
+/* 背景动效总降级 */
+.xg-motion-low .xg-drift-sway-a,
+.xg-motion-low .xg-drift-sway-b,
+.xg-motion-low .xg-drift-envelope,
+.xg-motion-low .xg-mote,
+.xg-motion-low .xg-leaf-fall,
+.xg-motion-low .xg-dove-fly,
+.xg-motion-low .xg-drift-vine,
+.xg-motion-low .xg-light-shift,
+.xg-motion-low .xg-dusk-cycle,
+.xg-motion-low .xg-flower-tremble,
+.xg-motion-low .xg-ribbon-wave,
+.xg-motion-low .xg-haze-breathe,
+.xg-motion-low .xg-light-sweep,
+.xg-motion-low .xg-petal-fall,
+.xg-motion-low .xg-bokeh {
+  animation: none !important;
+}
+
+/* ============================================================
+   三、微交互层（B4b）
+   ============================================================ */
+
+/* 1. 页面渐入（每次进页一次性） */
+.xg-page.is-entering .xg-bg {
+  animation: xg-bg-in 0.5s var(--xg-ease-out);
+}
+@keyframes xg-bg-in {
+  0% { opacity: 0; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.xg-page.is-entering .xg-content-fade {
+  animation: xg-content-in 0.42s var(--xg-ease-out) 0.08s backwards;
+}
+@keyframes xg-content-in {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* 2. 花体题字入场（逐级延迟） */
+.xg-headline.is-entering .xg-headline-en {
+  animation: xg-title-in 0.5s var(--xg-ease-out);
+}
+.xg-headline.is-entering .xg-headline-zh {
+  animation: xg-title-in 0.5s var(--xg-ease-out) 0.12s backwards;
+}
+@keyframes xg-title-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* 3. 列表 stagger 入场（首屏一次性，50ms 错峰） */
+.xg-stagger-item {
+  animation: xg-content-in 0.36s var(--xg-ease-out) backwards;
+}
+.xg-stagger-item:nth-child(1) { animation-delay: 0ms; }
+.xg-stagger-item:nth-child(2) { animation-delay: 50ms; }
+.xg-stagger-item:nth-child(3) { animation-delay: 100ms; }
+.xg-stagger-item:nth-child(4) { animation-delay: 150ms; }
+.xg-stagger-item:nth-child(5) { animation-delay: 200ms; }
+.xg-stagger-item:nth-child(n+6) { animation-delay: 250ms; }
+
+/* 4. 新信飘入（P0 列表顶） */
+.xg-en-card.is-arriving {
+  animation: xg-en-arrive 0.42s var(--xg-ease-drawer) forwards;
+}
+@keyframes xg-en-arrive {
+  0% { opacity: 0; transform: translateY(-18px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* 5. 未读火漆点呼吸 */
+.xg-fire-dot.is-live {
+  animation: xg-fire-breathe 2.4s ease-in-out infinite;
+}
+@keyframes xg-fire-breathe {
+  0%, 100% { box-shadow: var(--xg-shadow-1); transform: scale(1); }
+  50% { box-shadow: 0 0 6px rgba(180, 121, 111, 0.5); transform: scale(1.08); }
+}
+
+/* 6. 空态插画一次性入场（漂入停驻，不做无限循环） */
+.xg-empty.is-entering .xg-empty-art {
+  animation: xg-empty-in 0.8s var(--xg-ease-out);
+}
+@keyframes xg-empty-in {
+  0% { opacity: 0; transform: translateY(-14px) rotate(-2deg); }
+  100% { opacity: 0.92; transform: translateY(0) rotate(0deg); }
+}
+
+/* 7. chip 选中弹（160ms） */
+.xg-chip.is-selected {
+  animation: xg-chip-pop 0.16s var(--xg-ease-out);
+}
+@keyframes xg-chip-pop {
+  0% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+
+/* 8. 滑杆蜡丸 hover 浮起（精细指针） */
+@media (hover: hover) and (pointer: fine) {
+  .xg-slider input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.08);
+    transition: transform 0.16s var(--xg-ease-out);
+  }
+  /* 票/戳 hover 微抬 */
+  .xg-env-stamp:hover, .xg-postmark-stamp:hover {
+    transform: translateY(-2px) rotate(-4deg);
+    transition: transform 0.2s var(--xg-ease-out);
+  }
+}
+
+/* 9. 按钮高光扫过（hero 按钮按下） */
+.xg-btn-hero:active .xg-btn-shine::after {
+  content: '';
+  position: absolute;
+  top: -30%; left: -70%;
+  width: 45%; height: 160%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: skewX(-18deg);
+  animation: xg-btn-shine 0.34s linear;
+}
+@keyframes xg-btn-shine {
+  0% { transform: skewX(-18deg) translateX(0); }
+  100% { transform: skewX(-18deg) translateX(340%); }
+}
+.xg-btn-hero { position: relative; overflow: hidden; }
+
+/* 10. 删除折纸飞机（信箱卡删除） */
+.xg-en-card.is-flying {
+  animation: xg-card-fly 0.42s var(--xg-ease-in-out) forwards;
+  pointer-events: none;
+}
+@keyframes xg-card-fly {
+  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  45% { transform: translateX(36px) rotate(-6deg); opacity: 0.85; }
+  100% { transform: translateX(90vw) rotate(-14deg) translateY(-24px); opacity: 0; }
+}
+
+/* 11. 收藏盖章（小火漆"藏"章咚下） */
+.xg-seal-down {
+  animation: xg-seal-stamp 0.24s var(--xg-ease-out);
+}
+@keyframes xg-seal-stamp {
+  0% { transform: scale(1.35); opacity: 0; }
+  55% { transform: scale(0.94); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 12. 打字机光标（生成页文案） */
+.xg-typing::after {
+  content: '▍';
+  margin-left: 2px;
+  color: var(--xg-rose-wax);
+  animation: xg-caret 0.9s steps(1) infinite;
+}
+@keyframes xg-caret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* 13. 进度光带（生成进度线上流光） */
+.xg-compose-progress.is-glowing .xg-compose-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: xg-progress-glow 1.4s linear infinite;
+}
+.xg-compose-progress-fill { position: relative; overflow: hidden; }
+@keyframes xg-progress-glow {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 14. 显字加速档（点空白立即全文：0.12s） */
+.xg-letter-p.is-shown-fast {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+  transition: opacity 0.12s ease, transform 0.12s ease, filter 0.12s ease;
+}
+
+/* 15. 顺序锁解锁（当前张微抬） */
+.xg-fan-paper.is-unlocking {
+  animation: xg-unlock 0.3s var(--xg-ease-out);
+}
+@keyframes xg-unlock {
+  0% { transform: rotateX(28deg) rotateZ(var(--xg-fan-z)) translateY(0); }
+  60% { transform: rotateX(28deg) rotateZ(var(--xg-fan-z)) translateY(-8px); }
+  100% { transform: rotateX(28deg) rotateZ(var(--xg-fan-z)) translateY(var(--xg-fan-y, 0px)); }
+}
+
+/* 16. 收尾卡按钮组 stagger */
+.xg-fan-finale.is-on .xg-btn:nth-child(1) { animation: xg-content-in 0.22s var(--xg-ease-out) 0ms backwards; }
+.xg-fan-finale.is-on .xg-btn:nth-child(2) { animation: xg-content-in 0.22s var(--xg-ease-out) 60ms backwards; }
+.xg-fan-finale.is-on .xg-btn:nth-child(3) { animation: xg-content-in 0.22s var(--xg-ease-out) 120ms backwards; }
+
+/* 17. 邮票上角微翘（信封台可点暗示） */
+.xg-env-stamp {
+  animation: xg-stamp-corner 7s var(--xg-ease-in-out) infinite;
+}
+@keyframes xg-stamp-corner {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1deg) translateY(-1px); }
+}
+
+/* 18. 错误抖动（校验不过） */
+.xg-shake {
+  animation: xg-shake 0.3s var(--xg-ease-out);
+}
+@keyframes xg-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* 微交互降级 */
+.xg-motion-low .xg-stagger-item,
+.xg-motion-low .xg-en-card.is-arriving,
+.xg-motion-low .xg-fire-dot.is-live,
+.xg-motion-low .xg-chip.is-selected,
+.xg-motion-low .xg-btn-hero:active .xg-btn-shine::after,
+.xg-motion-low .xg-en-card.is-flying,
+.xg-motion-low .xg-seal-down,
+.xg-motion-low .xg-typing::after,
+.xg-motion-low .xg-compose-progress.is-glowing .xg-compose-progress-fill::after,
+.xg-motion-low .xg-fan-paper.is-unlocking,
+.xg-motion-low .xg-env-stamp,
+.xg-motion-low .xg-shake {
+  animation: none !important;
+}
+.xg-motion-low .xg-en-card.is-flying { display: none; }

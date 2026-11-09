@@ -1,0 +1,551 @@
+/* ============================================================
+   信格 xinge-components.css — 组件卷（B1）
+   按钮/蜡丸开关/输入/chip/滑杆/分段器/卡片/列表/弹层/toast/徽章/空态
+   状态类契约：is-on is-off is-selected is-disabled is-loading is-error is-unread is-locked
+   全态收型：默认/按下/选中/禁用/加载/错误 · 触摸≥44px · 输入≥16px
+   ============================================================ */
+
+/* ===== 1. 按钮 ===== */
+.xg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 20px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: var(--xg-fs-h3);
+  font-weight: 500;
+  letter-spacing: 1px;
+  border: 1px solid transparent;
+  border-radius: var(--xg-r-btn);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--xg-dur-press) var(--xg-ease-out),
+              box-shadow var(--xg-dur-ui) var(--xg-ease-out),
+              background-color var(--xg-dur-ui) ease,
+              border-color var(--xg-dur-ui) ease;
+}
+.xg-btn:active { transform: scale(0.97); }
+.xg-btn.is-loading { opacity: 0.7; }
+.xg-btn.is-loading::after {
+  content: '';
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: xg-spin 0.8s linear infinite;
+}
+@keyframes xg-spin { to { transform: rotate(360deg); } }
+
+/* 主按钮：深橄榄底 象牙字 */
+.xg-btn-primary {
+  background: var(--xg-olive-deep);
+  color: var(--xg-ivory);
+  box-shadow: var(--xg-shadow-2);
+}
+.xg-btn-primary:active { box-shadow: var(--xg-shadow-1); }
+.xg-btn-primary.is-disabled { background: var(--xg-sage); color: var(--xg-ivory-deep); }
+
+/* ghost：陶土描边 */
+.xg-btn-ghost {
+  background: transparent;
+  color: var(--xg-clay);
+  border-color: var(--xg-clay);
+}
+.xg-btn-ghost:active { background: rgba(137, 109, 89, 0.08); }
+
+/* 警示 ghost（清空类） */
+.xg-btn-danger {
+  background: transparent;
+  color: var(--xg-rose-deep);
+  border-color: var(--xg-rose-deep);
+}
+
+/* 全宽 */
+.xg-btn-full { width: 100%; min-height: 52px; }
+
+/* 火漆 FAB（56px 浅粉蜡章钮） */
+.xg-fab {
+  position: absolute;
+  right: 18px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--xg-z-fab);
+  width: 56px; height: 56px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 32% 28%, var(--xg-rose-wax-hi) 0%, var(--xg-rose-wax) 42%, var(--xg-rose-wax-lo) 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    inset 0 -3px 6px rgba(120, 80, 74, 0.28),
+    var(--xg-shadow-3);
+  transition: transform var(--xg-dur-press) var(--xg-ease-out), box-shadow var(--xg-dur-ui) var(--xg-ease-out);
+}
+.xg-fab:active { transform: scale(0.94); box-shadow: var(--xg-shadow-2); }
+
+/* 主页大按钮（240×64 火漆+题字） */
+.xg-btn-hero {
+  width: 240px;
+  min-height: 64px;
+  border-radius: 12px;
+  font-size: var(--xg-fs-h2);
+}
+.xg-btn-hero .xg-btn-seal {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* ===== 2. 蜡丸开关 ===== */
+.xg-switch {
+  position: relative;
+  width: 44px; height: 26px;
+  flex: none;
+  border: none;
+  border-radius: var(--xg-r-pill);
+  background: var(--xg-sage-pale);
+  cursor: pointer;
+  transition: background-color var(--xg-dur-ui) ease;
+}
+.xg-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, var(--xg-rose-wax-hi) 0%, var(--xg-rose-wax) 45%, var(--xg-rose-wax-lo) 100%);
+  box-shadow: var(--xg-shadow-1);
+  transition: transform var(--xg-dur-ui) var(--xg-ease-out);
+}
+.xg-switch.is-on { background: var(--xg-sage); }
+.xg-switch.is-on::after { transform: translateX(18px); }
+.xg-switch:active::after { transform: scale(0.92); }
+.xg-switch.is-on:active::after { transform: translateX(18px) scale(0.92); }
+.xg-switch-lg { width: 52px; height: 30px; }
+.xg-switch-lg::after { width: 24px; height: 24px; }
+.xg-switch-lg.is-on::after { transform: translateX(22px); }
+
+/* ===== 3. 输入 ===== */
+.xg-input, .xg-textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: max(16px, 1rem);
+  line-height: 1.6;
+  color: var(--xg-olive-ink);
+  background: var(--xg-ivory-hi);
+  border: 1px solid rgba(137, 109, 89, 0.35);
+  border-radius: var(--xg-r-btn);
+  outline: none;
+  transition: border-color var(--xg-dur-ui) ease, box-shadow var(--xg-dur-ui) ease;
+}
+.xg-textarea { min-height: 120px; resize: none; }
+.xg-input:focus, .xg-textarea:focus {
+  border-color: var(--xg-rose);
+  box-shadow: 0 0 0 3px rgba(199, 161, 155, 0.22);
+}
+.xg-input::placeholder, .xg-textarea::placeholder { color: var(--xg-clay-pale); }
+.xg-input.is-error, .xg-textarea.is-error {
+  border-color: var(--xg-rose-deep);
+}
+.xg-input-hint {
+  font-size: var(--xg-fs-xs);
+  color: var(--xg-clay);
+}
+.xg-input-hint.is-error { color: var(--xg-rose-deep); }
+
+/* ===== 4. chip ===== */
+.xg-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 14px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay);
+  background: transparent;
+  border: 1px solid var(--xg-clay-pale);
+  border-radius: var(--xg-r-pill);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--xg-dur-ui) ease, color var(--xg-dur-ui) ease,
+              border-color var(--xg-dur-ui) ease, transform var(--xg-dur-press) var(--xg-ease-out);
+}
+.xg-chip:active { transform: scale(0.96); }
+.xg-chip.is-selected {
+  background: var(--xg-rose);
+  border-color: var(--xg-rose);
+  color: var(--xg-ivory-hi);
+}
+
+/* ===== 5. 滑杆（情绪浓度：陶土→玫瑰轨+蜡丸钮） ===== */
+.xg-slider {
+  position: relative;
+  height: 44px;
+  display: flex;
+  align-items: center;
+}
+.xg-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--xg-clay-pale), var(--xg-rose));
+  outline: none;
+}
+.xg-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px; height: 24px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 32% 28%, var(--xg-rose-wax-hi) 0%, var(--xg-rose-wax) 45%, var(--xg-rose-wax-lo) 100%);
+  box-shadow: var(--xg-shadow-2);
+}
+.xg-slider-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--xg-fs-xs);
+  color: var(--xg-clay);
+}
+
+/* ===== 6. 分段器 ===== */
+.xg-segment {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--xg-r-pill);
+  background: rgba(137, 109, 89, 0.10);
+}
+.xg-segment-item {
+  min-height: 34px;
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--xg-r-pill);
+  background: transparent;
+  font-family: 'Noto Serif SC', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay);
+  cursor: pointer;
+  transition: background-color var(--xg-dur-ui) ease, color var(--xg-dur-ui) ease;
+}
+.xg-segment-item.is-selected {
+  background: var(--xg-ivory-hi);
+  color: var(--xg-rose-deep);
+  box-shadow: var(--xg-shadow-1);
+}
+
+/* ===== 7. 卡片 ===== */
+.xg-card {
+  position: relative;
+  padding: var(--xg-pad-card);
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.88);
+  border: 1px solid rgba(137, 109, 89, 0.16);
+  box-shadow: var(--xg-shadow-1);
+  transition: transform var(--xg-dur-press) var(--xg-ease-out), box-shadow var(--xg-dur-ui) var(--xg-ease-out);
+}
+.xg-card.is-clickable { cursor: pointer; user-select: none; }
+.xg-card.is-clickable:active { transform: scale(0.985); box-shadow: var(--xg-shadow-1); }
+.xg-card.is-selected {
+  border-color: var(--xg-rose);
+  box-shadow: var(--xg-shadow-2), 0 0 0 1px var(--xg-rose);
+}
+
+/* 信封卡（信箱列表） */
+.xg-en-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 96px;
+  padding: 14px 16px;
+  border-radius: var(--xg-r-card);
+  background: rgba(245, 241, 230, 0.92);
+  border: 1px solid rgba(137, 109, 89, 0.18);
+  box-shadow: var(--xg-shadow-1);
+  cursor: pointer;
+  transition: transform var(--xg-dur-press) var(--xg-ease-out), box-shadow var(--xg-dur-ui) var(--xg-ease-out);
+}
+.xg-en-card:active { transform: scale(0.98); }
+.xg-en-card .xg-en-stamp {
+  width: 40px; height: 52px;
+  flex: none;
+  border-radius: 2px;
+  background: url('../img/xinge/asset-stamp.webp') center / cover no-repeat;
+}
+.xg-en-card .xg-en-main { flex: 1; min-width: 0; }
+.xg-en-card .xg-en-to {
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: var(--xg-olive-ink);
+}
+.xg-en-card .xg-en-summary {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--xg-clay);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xg-en-card .xg-en-time {
+  flex: none;
+  font-size: var(--xg-fs-xs);
+  color: var(--xg-clay-pale);
+  align-self: flex-end;
+}
+.xg-en-card.is-unread { border-left: 3px solid var(--xg-rose); }
+.xg-en-card.is-unread::before {
+  content: '';
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, var(--xg-rose-wax-hi), var(--xg-rose-wax) 55%, var(--xg-rose-wax-lo));
+  box-shadow: var(--xg-shadow-1);
+}
+.xg-en-card { position: relative; }
+
+/* 列表行（设置） */
+.xg-row-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px var(--xg-pad-card);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--xg-dur-ui) ease;
+}
+.xg-row-item:active { background: rgba(137, 109, 89, 0.06); }
+.xg-row-item .xg-row-icon {
+  width: 24px; height: 24px;
+  flex: none;
+  opacity: 0.85;
+}
+.xg-row-item .xg-row-title {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+.xg-row-item .xg-row-extra {
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay);
+}
+.xg-row-item .xg-row-arrow {
+  width: 24px; height: 24px;
+  flex: none;
+  opacity: 0.5;
+}
+
+/* ===== 8. 弹层 ===== */
+.xg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--xg-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(47, 53, 39, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--xg-dur-ui) var(--xg-ease-out);
+}
+.xg-modal-overlay.is-on { opacity: 1; pointer-events: auto; }
+.xg-modal {
+  width: 100%;
+  max-width: 340px;
+  max-height: 82dvh;
+  overflow-y: auto;
+  padding: 22px;
+  border-radius: 14px;
+  background: var(--xg-ivory-hi);
+  border: 1px solid rgba(137, 109, 89, 0.2);
+  box-shadow: var(--xg-shadow-lift);
+  transform: scale(0.95);
+  transition: transform var(--xg-dur-ui) var(--xg-ease-out);
+}
+.xg-modal-overlay.is-on .xg-modal { transform: scale(1); }
+.xg-modal-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: var(--xg-fs-h2);
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+/* 长按操作卡（底部浮出） */
+.xg-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--xg-z-modal);
+  width: min(320px, calc(100vw - 40px));
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--xg-ivory-hi);
+  box-shadow: var(--xg-shadow-lift);
+  transform: translate(-50%, 12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform var(--xg-dur-panel) var(--xg-ease-drawer), opacity var(--xg-dur-ui) ease;
+}
+.xg-sheet.is-on { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.xg-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px;
+  color: var(--xg-olive-ink);
+  cursor: pointer;
+}
+.xg-sheet-item:active { background: rgba(137, 109, 89, 0.07); }
+.xg-sheet-item.is-danger { color: var(--xg-rose-deep); }
+.xg-sheet-divider { height: 1px; background: rgba(137, 109, 89, 0.14); }
+
+/* ===== 9. toast ===== */
+.xg-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--xg-z-toast);
+  max-width: 260px;
+  padding: 11px 18px;
+  border-radius: var(--xg-r-pill);
+  background: rgba(47, 53, 39, 0.92);
+  color: var(--xg-ivory);
+  font-size: var(--xg-fs-sm);
+  text-align: center;
+  transform: translate(-50%, 10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform var(--xg-dur-ui) var(--xg-ease-out), opacity var(--xg-dur-ui) ease;
+}
+.xg-toast.is-on { transform: translate(-50%, 0); opacity: 1; }
+
+/* ===== 10. 徽章 / 火漆点 / 分割线 ===== */
+.xg-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--xg-r-pill);
+  background: var(--xg-rose-deep);
+  color: var(--xg-ivory-hi);
+  font-size: var(--xg-fs-xs);
+}
+.xg-tag {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(137, 109, 89, 0.12);
+  color: var(--xg-clay);
+  font-size: var(--xg-fs-xs);
+}
+.xg-fire-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, var(--xg-rose-wax-hi), var(--xg-rose-wax) 55%, var(--xg-rose-wax-lo));
+  box-shadow: var(--xg-shadow-1);
+}
+.xg-divider {
+  height: 1px;
+  margin: 12px 0;
+  border: none;
+  background: rgba(137, 109, 89, 0.14);
+}
+
+/* ===== 11. 纹章框头像 ===== */
+.xg-crest-frame {
+  position: relative;
+  width: 40px; height: 40px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--xg-ivory-deep);
+  border: 1px solid var(--xg-clay-pale);
+  box-shadow: var(--xg-shadow-1);
+}
+.xg-crest-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.xg-crest-frame::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid rgba(137, 109, 89, 0.35);
+  pointer-events: none;
+}
+
+/* ===== 12. 空态 ===== */
+.xg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px 32px;
+  text-align: center;
+}
+.xg-empty-art {
+  width: 180px;
+  height: auto;
+  opacity: 0.92;
+}
+.xg-empty-text {
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: var(--xg-clay);
+}
+
+/* ===== 13. 邮戳 ===== */
+.xg-postmark-stamp {
+  width: 72px; height: 72px;
+  opacity: 0.62;
+  background: url('../img/xinge/xg-postmark.svg') center / contain no-repeat;
+  transform: rotate(-6deg);
+}
+
+/* ===== 14. 标题组（花体大字+中文小字） ===== */
+.xg-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 18px 0 10px;
+  text-align: center;
+}
+.xg-headline-en {
+  font-family: 'Great Vibes', cursive;
+  font-size: var(--xg-fs-script);
+  color: var(--xg-clay);
+  line-height: 1.3;
+}
+.xg-headline-zh {
+  font-family: 'XG-Kai', serif;
+  font-size: var(--xg-fs-sm);
+  color: var(--xg-clay-pale);
+}

@@ -1,0 +1,129 @@
+{
+  "passed": [
+    "真实浏览器 IndexedDB：角色选礼→真实适配器HTTP→两次生图→送达",
+    "未拆不泄露，点击拆封后显示真实图片和原聊天入口",
+    "拆封后回原会话，点击聊天卡片可再打开同一份礼物",
+    "珍藏柜区分已拆/待拆，待拆照片不提前曝光",
+    "未拆礼物返回键正常退出，不困在拆封页",
+    "纪念日头像选择、类型、累计天数和单张卡片保存",
+    "滚动表单时装饰位置不动，邮票支持点击动画",
+    "用户制作生图→预览送礼→角色通过真实HTTP适配器回应",
+    "浏览器内503保留任务，重试不重新挑礼物、不重复扣文本请求",
+    "320/390/430手机宽度主页面无横向溢出",
+    "当前场景使用优化图，不下载隐藏PNG原图",
+    "同一会话再次打开拾礼不重复传输已缓存贴图"
+  ],
+  "hits": {
+    "text": 6,
+    "image": 9
+  },
+  "assets": [
+    {
+      "name": "/assets/shili/optimized/backgrounds/home-collage-plate-v1.ee64eca71218.webp",
+      "transfer": 318200,
+      "encoded": 317900
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-curl-ribbon.be8da768ec37.webp",
+      "transfer": 105432,
+      "encoded": 105132
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-flower-rose-stamp-v2.561b7e5c7801.webp",
+      "transfer": 76114,
+      "encoded": 75814
+    },
+    {
+      "name": "/assets/shili/optimized/restored/home-postmark.ed0519428872.webp",
+      "transfer": 27666,
+      "encoded": 27366
+    },
+    {
+      "name": "/assets/shili/optimized/common/paper_background.974ffe7cca87.webp",
+      "transfer": 3540,
+      "encoded": 3240
+    },
+    {
+      "name": "/assets/shili/optimized/reference/blue-floral.f7d498c887b7.webp",
+      "transfer": 2060,
+      "encoded": 1760
+    },
+    {
+      "name": "/assets/shili/optimized/backgrounds/detail-collage-plate-v1.5ed34d0c19e4.webp",
+      "transfer": 264082,
+      "encoded": 263782
+    },
+    {
+      "name": "/assets/shili/optimized/backgrounds/opening-collage-plate-v1.25a6c0d2032e.webp",
+      "transfer": 358122,
+      "encoded": 357822
+    },
+    {
+      "name": "/assets/shili/optimized/restored/opening-corner-bow.9b7f17cb87c7.webp",
+      "transfer": 22780,
+      "encoded": 22480
+    },
+    {
+      "name": "/assets/shili/optimized/reference/gift-layer-body.b3abb7e68c91.webp",
+      "transfer": 127114,
+      "encoded": 126814
+    },
+    {
+      "name": "/assets/shili/optimized/reference/gift-layer-lid.d4bbb5d7a20a.webp",
+      "transfer": 128126,
+      "encoded": 127826
+    },
+    {
+      "name": "/assets/shili/optimized/ribbons/gift-satin-extracted-v2.cb4676bbaa76.webp",
+      "transfer": 312988,
+      "encoded": 312688
+    },
+    {
+      "name": "/assets/shili/optimized/ribbons/gift-satin-source.872049ed66a2.webp",
+      "transfer": 5628,
+      "encoded": 5328
+    },
+    {
+      "name": "/assets/shili/optimized/backgrounds/cabinet-collage-plate-v1.f926d0fae9a0.webp",
+      "transfer": 214592,
+      "encoded": 214292
+    },
+    {
+      "name": "/assets/shili/optimized/restored/album-award.65763ceef978.webp",
+      "transfer": 20840,
+      "encoded": 20540
+    },
+    {
+      "name": "/assets/shili/optimized/backgrounds/calendar-collage-plate-v1.2508f8a00754.webp",
+      "transfer": 159578,
+      "encoded": 159278
+    },
+    {
+      "name": "/assets/shili/optimized/reference/floral-stamp-transparent.a332be2aa0b7.webp",
+      "transfer": 45914,
+      "encoded": 45614
+    },
+    {
+      "name": "/assets/shili/optimized/backgrounds/create-collage-plate-v1.ff834c2f9efb.webp",
+      "transfer": 244278,
+      "encoded": 243978
+    },
+    {
+      "name": "/assets/shili/optimized/restored/green-botanical-stamp.252f828bbe45.webp",
+      "transfer": 30822,
+      "encoded": 30522
+    },
+    {
+      "name": "/assets/shili/optimized/backgrounds/preview-collage-plate-v1.2eff29675e87.webp",
+      "transfer": 258734,
+      "encoded": 258434
+    },
+    {
+      "name": "/assets/shili/optimized/backgrounds/settings-collage-plate-v1.8cab88ee92b0.webp",
+      "transfer": 146512,
+      "encoded": 146212
+    }
+  ],
+  "fixture": true,
+  "realProvider": false
+}

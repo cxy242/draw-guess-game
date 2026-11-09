@@ -47,7 +47,8 @@ async function resolve(db,ownerUid,giftId,options){
  var direct=local(ctx);var configured=false;
  if(db.config&&typeof root.callAI==='function'){var rows=await db.config.bulkGet(['apiBaseUrl','apiKey','apiModel']);configured=rows.every(function(x){return !!(x&&x.value);});}
  // Explicit labels can be read without a model. Free-form personas use semantic extraction when configured.
- if(direct&&direct.source==='relationship')return direct;
+ if(direct)return direct;
+ if(!options.force&&options.allowAI!==true)return {name:'',source:'persona-unset',reason:'explicit-ai-action-required'};
  if(!configured)return direct||{name:'',source:'persona-unset',reason:'no-api-or-explicit-address'};
  if(!pending.has(key)){
   var work=(async function(){

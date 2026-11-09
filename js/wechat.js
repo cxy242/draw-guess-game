@@ -6088,9 +6088,9 @@ addPrivateMessageIdempotently = async function(message) {
 
 async function updatePrivateMessageIdempotently(messageId, changes) {
   const update = () => db.messages.update(messageId, changes)
-  return window.runWanWanDBIdempotentWrite
-    ? await window.runWanWanDBIdempotentWrite(update)
-    : await update()
+  const result=window.runWanWanDBIdempotentWrite?await window.runWanWanDBIdempotentWrite(update):await update()
+  if(changes.content!=null&&window.ShiliBridge)try{const row=await db.messages.get(messageId),chat=row&&await db.chats.get(row.chatId);if(chat)await window.ShiliBridge.markForRescan(db,chat.ownerUid,'private',messageId)}catch(error){console.warn('[拾礼] 消息已保存，待重新核对礼物',error.message||error)}
+  return result
 }
 
 async function addUserMsg(chatPage, content, createdAt, extra = null) {
@@ -16515,10 +16515,11 @@ function renderGiftCard(data, msg) {
     <button type="button" class="msg-card gift-card" data-shili-message-id="${Number(msg?.id)||0}" data-shili-group="${msg?.groupId != null ? 1 : 0}" onclick="window.openWechatShiliGift(this)">
       <div class="gift-icon"><i class="fa-solid fa-gift"></i></div>
       <div class="gift-info">
-        <div class="gift-name">${wcEscHtml(data?.itemName || '礼物')}</div>
+        <div class="gift-name">${wcEscHtml(data?.giftId && msg?.role !== 'user' && !data?.opened ? '一份送给你的礼物' : data?.itemName || '礼物')}</div>
         ${price}
         ${recipients ? `<div class="gift-to">送给 ${wcEscHtml(recipients)}</div>` : ''}
-        ${data?.reason ? `<div class="gift-reason">${wcEscHtml(data.reason)}</div>` : ''}
+        ${data?.giftId && msg?.role !== 'user' && !data?.opened ? '<div class="gift-reason">轻触拆开，看看这份心意</div>' : data?.reason ? `<div class="gift-reason">${wcEscHtml(data.reason)}</div>` : ''}
+        ${data?.giftId ? `<div class="gift-state">${msg?.role === 'user' ? '已送出' : data.opened ? '已拆封' : '待拆封'}</div>` : ''}
       </div>
     </button>`
 }
@@ -22272,3 +22273,20 @@ window._wechatCallHelpers = {
 
 
 
+
+// Shili writes use their own idempotent IDs, then refresh existing chat surfaces.
+window.addEventListener('shili:chat-delivered',async function(e){
+ const info=e.detail||{};if(String(_wechatUid)!==String(info.ownerUid))return;
+ try{const chatPage=_getVisibleChatWindow('chat',info.chatId);if(chatPage)await refreshChat(chatPage,{scrollToBottom:true});await refreshVisibleWechatChatList({force:true});}catch(error){console.warn('[拾礼] 消息已保存，聊天列表刷新未完成',error.message||error);}
+});
+
+window.openShiliGiftConversation=async function(ownerUid,charId,giftId){
+ if(String(_wechatUid)!==String(ownerUid))throw Error('账号已切换，请重新打开礼物');
+ const gift=await window.ShiliRepository.getGift(db,ownerUid,giftId);if(!gift||String(gift.charId)!==String(charId)||gift.characterDeleted)throw Error('当前角色或礼物已不可用');
+ const chat=gift.sourceType==='wechat-group'&&gift.sourceChatId?await db.groupChats.get(Number(gift.sourceChatId)||gift.sourceChatId):null;
+ if(chat&&String(chat.ownerUid)!==String(ownerUid))throw Error('不能打开其他账号的群聊');
+ if(typeof window.closePage==='function')window.closePage('shili-page');await window.showWechatPage();
+ if(String(_wechatUid)!==String(ownerUid))throw Error('账号已切换');
+ const page=document.getElementById('wechat-page');if(!page)throw Error('聊天页面尚未准备好');
+ if(chat)await openGroupChat(page,chat.id);else{const owned=await window.ShiliService.ensureChat(db,ownerUid,charId);await openPrivateChat(page,Number(charId)||charId,owned.id);}
+};

@@ -172,7 +172,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, {
       'Content-Type': mime,
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': noCache ? 'no-cache, no-store, must-revalidate' : 'public, max-age=86400'
+      'Cache-Control': /^assets[\\/]shili[\\/]optimized[\\/].+\.[a-f0-9]{12}\.webp$/.test(relative) ? 'public, max-age=31536000, immutable' : noCache ? 'no-cache, no-store, must-revalidate' : 'public, max-age=86400'
     });
     res.end(data);
   } catch (e) {

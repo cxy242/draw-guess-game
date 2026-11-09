@@ -1,0 +1,513 @@
+/* ============================================================
+   xinge-states.css · B12 逐页状态补遗卷
+   19 页 × 四态（骨架/空/错误/边界）+ 表单校验态 + toast 变体
+   + S 组设置交互视觉 + 生成禁用态 + 顶部空态变体
+   ============================================================ */
+
+/* ============================================================
+   W1. 通用四态容器（一页一态的骨架模式）
+   ============================================================ */
+.xg-state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 24px;
+  text-align: center;
+}
+.xg-state-box .xg-state-art {
+  width: 58%;
+  max-width: 210px;
+  margin-bottom: 16px;
+}
+.xg-state-box .xg-state-art img {
+  width: 100%;
+  height: auto;
+}
+.xg-state-box .xg-state-title {
+  font-family: 'XG-Serif', serif;
+  font-size: 17px;
+  color: var(--xg-olive);
+  margin-bottom: 6px;
+}
+.xg-state-box .xg-state-desc {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--xg-clay);
+  max-width: 250px;
+  margin-bottom: 18px;
+}
+.xg-state-box .xg-state-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 230px;
+}
+
+/* 空态变体：小（卡内） */
+.xg-state-mini {
+  padding: 24px 16px;
+  text-align: center;
+}
+.xg-state-mini .xg-state-mini-art {
+  width: 110px;
+  margin: 0 auto 10px;
+  opacity: 0.9;
+}
+.xg-state-mini .xg-state-mini-art img { width: 100%; height: auto; }
+.xg-state-mini .xg-state-mini-text {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+
+/* 错误态（红棕警示但仍优雅） */
+.xg-state-box.is-error .xg-state-title {
+  color: var(--xg-clay);
+}
+.xg-err-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 3px 12px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 14px;
+  font-family: 'XG-Serif', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+}
+.xg-err-detail {
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(137, 109, 89, 0.08);
+  font-family: 'XG-Serif', serif;
+  font-size: 11px;
+  color: var(--xg-clay);
+  word-break: break-all;
+  max-width: 260px;
+}
+
+/* ============================================================
+   W2. 逐页骨架（读取中的优雅占位）
+   ============================================================ */
+.xg-skel-envelope {
+  height: 96px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--xg-ivory-deep) 25%, #E6DFD0 37%, var(--xg-ivory-deep) 63%);
+  background-size: 400% 100%;
+  animation: xg-shimmer 1.4s var(--xg-ease-in-out) infinite;
+}
+.xg-skel-envelope + .xg-skel-envelope { margin-top: 12px; }
+.xg-skel-card160 {
+  height: 160px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--xg-ivory-deep) 25%, #E6DFD0 37%, var(--xg-ivory-deep) 63%);
+  background-size: 400% 100%;
+  animation: xg-shimmer 1.4s var(--xg-ease-in-out) infinite;
+}
+.xg-skel-card160 + .xg-skel-card160 { margin-top: 14px; }
+.xg-skel-row {
+  height: 56px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--xg-ivory-deep) 25%, #E6DFD0 37%, var(--xg-ivory-deep) 63%);
+  background-size: 400% 100%;
+  animation: xg-shimmer 1.4s var(--xg-ease-in-out) infinite;
+}
+.xg-skel-row + .xg-skel-row { margin-top: 10px; }
+.xg-skel-paper {
+  height: 300px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--xg-ivory-deep) 25%, #E6DFD0 37%, var(--xg-ivory-deep) 63%);
+  background-size: 400% 100%;
+  animation: xg-shimmer 1.4s var(--xg-ease-in-out) infinite;
+}
+
+/* ============================================================
+   W3. 表单校验态（逐字段 + 汇总条）
+   ============================================================ */
+.xg-form-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 8px;
+  background: rgba(137, 109, 89, 0.1);
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+}
+.xg-input.xg-input-ok {
+  border-color: rgba(158, 169, 141, 0.8);
+}
+.xg-field.is-invalid .xg-field-req::after {
+  content: " · 需填写";
+  color: var(--xg-clay);
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+}
+
+/* 生成中禁用态 */
+.xg-btn.is-busy {
+  opacity: 0.65;
+  pointer-events: none;
+}
+.xg-btn.is-busy::after {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: xg-btn-spin 0.8s linear infinite;
+}
+@keyframes xg-btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   W4. toast 变体（成功/警告/错误/信息）
+   ============================================================ */
+.xg-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  z-index: 130;
+  max-width: 78vw;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 10px;
+  background: var(--xg-ivory);
+  box-shadow: 0 12px 32px rgba(47, 53, 39, 0.22);
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-olive);
+}
+.xg-toast.t-ok { border-color: var(--xg-sage); }
+.xg-toast.t-warn { border-color: var(--xg-clay); }
+.xg-toast.t-err { border-color: var(--xg-clay); background: rgba(137, 109, 89, 0.12); }
+.xg-toast .xg-toast-ic {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.xg-toast .xg-toast-ic img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ============================================================
+   W5. S 组设置交互视觉
+   ============================================================ */
+
+/* 频率签行内组（S2 行尾：常来/偶尔/很少） */
+.xg-freq-inline {
+  display: inline-flex;
+  gap: 5px;
+  margin-left: 8px;
+}
+.xg-freq-tag {
+  min-height: 26px;
+  padding: 2px 9px;
+  border: 1px solid rgba(137, 109, 89, 0.55);
+  border-radius: 12px;
+  background: transparent;
+  font-family: 'XG-Kai', serif;
+  font-size: 11px;
+  color: var(--xg-clay);
+  cursor: pointer;
+}
+.xg-freq-tag.is-sel {
+  background: var(--xg-rose);
+  border-color: var(--xg-rose);
+  color: var(--xg-ivory);
+}
+
+/* S3 频率卡展开区（每周→星期七签 / 每月→日期签） */
+.xg-freq-expand {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(137, 109, 89, 0.45);
+  border-radius: 10px;
+  background: var(--xg-ivory);
+}
+.xg-week-row {
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+}
+.xg-week-dot {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(137, 109, 89, 0.55);
+  border-radius: 50%;
+  background: transparent;
+  font-family: 'XG-Kai', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+  cursor: pointer;
+  transition: transform 0.15s var(--xg-ease-out), background-color 0.15s;
+}
+.xg-week-dot:active { transform: scale(0.92); }
+.xg-week-dot.is-sel {
+  background: var(--xg-rose);
+  border-color: var(--xg-rose);
+  color: var(--xg-ivory);
+}
+.xg-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+.xg-date-cell {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(137, 109, 89, 0.45);
+  border-radius: 6px;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 12px;
+  color: var(--xg-clay);
+  cursor: pointer;
+}
+.xg-date-cell.is-sel {
+  background: var(--xg-rose);
+  border-color: var(--xg-rose);
+  color: var(--xg-ivory);
+}
+
+/* S3 写信人三选签 */
+.xg-radio-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.xg-radio-pill {
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 17px;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 13px;
+  color: var(--xg-olive);
+  cursor: pointer;
+}
+.xg-radio-pill.is-sel {
+  background: var(--xg-rose-pale);
+  border-color: var(--xg-rose);
+  color: var(--xg-rose);
+}
+
+/* S6 静默时段行 */
+.xg-quiet-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'XG-Serif', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+.xg-quiet-range .xg-time-chip {
+  min-height: 30px;
+  padding: 3px 12px;
+  border: 1px solid var(--xg-clay);
+  border-radius: 8px;
+  background: var(--xg-ivory-deep);
+  cursor: pointer;
+}
+
+/* ============================================================
+   W6. 顶部空态变体（无未读/无收藏时筛选条下）
+   ============================================================ */
+.xg-filter-empty {
+  padding: 30px 16px;
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay-pale);
+}
+
+/* ============================================================
+   W7. 生成失败态（P5：墨瓶倾倒+重试）
+   ============================================================ */
+.xg-p5-fail {
+  text-align: center;
+  padding: 20px;
+}
+.xg-p5-fail .xg-p5-fail-text {
+  margin: 12px 0 18px;
+  font-family: 'XG-Kai', serif;
+  font-size: 14px;
+  color: rgba(238, 232, 218, 0.8);
+}
+.xg-p5-fail .xg-btn-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.xg-btn-on-dark {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid rgba(238, 232, 218, 0.6);
+  border-radius: 8px;
+  background: transparent;
+  font-family: 'XG-Serif', serif;
+  font-size: 14px;
+  color: var(--xg-ivory);
+  cursor: pointer;
+}
+.xg-btn-on-dark.is-solid {
+  background: var(--xg-ivory);
+  color: var(--xg-olive-deep);
+  border-color: var(--xg-ivory);
+}
+
+/* ============================================================
+   W8. P2/P3 空态引导（无联系人）
+   ============================================================ */
+.xg-guide-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--xg-clay);
+  border-radius: 10px;
+  background: rgba(137, 109, 89, 0.06);
+  cursor: pointer;
+}
+.xg-guide-bar:active { transform: scale(0.99); }
+.xg-guide-bar .xg-guide-text {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+.xg-guide-bar .xg-guide-arrow {
+  margin-left: auto;
+  color: var(--xg-clay);
+  font-family: 'XG-Serif', serif;
+}
+
+/* ============================================================
+   W9. 阅读页边界态（正文过短/超长/纯划掉段）
+   ============================================================ */
+.xg-letter-short {
+  padding: 40px 24px;
+  text-align: center;
+  font-family: 'XG-Kai', serif;
+  font-size: 15px;
+  color: var(--xg-clay);
+}
+.xg-letter-loading-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(238, 232, 218, 0.72);
+  z-index: 5;
+}
+.xg-letter-loading-veil .xg-type-dots {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 22px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   W10. 收藏星标 / 未读计数徽标
+   ============================================================ */
+.xg-fav-mark {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  width: 18px;
+  height: 18px;
+}
+.xg-fav-mark img { width: 100%; height: 100%; object-fit: contain; }
+.xg-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--xg-rose);
+  font-family: 'XG-Serif', serif;
+  font-size: 11px;
+  color: var(--xg-ivory);
+}
+
+/* ============================================================
+   W12. S2 全选行
+   ============================================================ */
+.xg-selectall-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 2px 12px;
+}
+.xg-selectall-label {
+  font-family: 'XG-Kai', serif;
+  font-size: 13px;
+  color: var(--xg-clay);
+}
+
+/* ============================================================
+   W11. 桌面 tab 条占位（全屏 App 内底部三 tab 装饰）
+   ============================================================ */
+.xg-tabbar {
+  display: flex;
+  border-top: 1px solid rgba(137, 109, 89, 0.35);
+  background: var(--xg-ivory);
+}
+.xg-tabbar-item {
+  position: relative;
+  flex: 1;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.xg-tabbar-item .xg-tab-ic {
+  width: 22px;
+  height: 22px;
+}
+.xg-tabbar-item .xg-tab-ic img { width: 100%; height: 100%; object-fit: contain; }
+.xg-tabbar-item .xg-tab-label {
+  font-family: 'XG-Kai', serif;
+  font-size: 10px;
+  color: var(--xg-clay);
+}
+.xg-tabbar-item.is-active .xg-tab-label {
+  color: var(--xg-rose);
+}
+.xg-tabbar-item.is-active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 32%;
+  right: 32%;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--xg-rose);
+}

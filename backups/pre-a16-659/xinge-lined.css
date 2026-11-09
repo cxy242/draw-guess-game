@@ -1,0 +1,302 @@
+/* ============================================================
+   xinge-lined.css · 信纸卷（2026-10-28 按主人格式参考重做 · 2026-10-30 去横线）
+   参考：桌面\信格背景图-横版9张\信-致最要好的朋友的一封信.jpg
+   —— 米白纸 + **不画横线**（主人 2026-10-30："我也没说要红色的横线呀？
+      红色横线那么丑…你直接没有横线也行啊，不仅仅只是那一个"）
+   —— 标题居中 / 称呼顶格 / 正文首行缩进两格 / 落款右下（名字 + 日期）
+   —— 无花、无贴图、无胶带、无蜡封（主人："信纸上不要再用那个图片花去贴图"）
+   —— 纸面只保留极淡的纸纹，不压背景
+   ============================================================ */
+
+/* ============================================================
+   一、信纸本体
+   —— 权重提到 0,3,0（.xg-letter-lined.xg-paper-sheet.ps-letter）：
+      压过 xinge-paper.css 的 .xg-paper-sheet.ps-letter（那条用了
+      09-paper-letter.webp —— 一张带花的信纸图，主人明确不要："不要再用那个图片花去贴图"）
+   —— 纸底用 Wikimedia Commons 的公共领域旧纸（File:Old paper4.jpg，PD）：
+      无花、只有做旧纸纹与霉斑，比贴花干净。淡到不抢文字。
+   —— 2026-10-30：横线整条删掉（红横线 + 右侧装订竖线都不画了）。
+      纸纹走 ::before，正文不再压在任何格线上，行距改成呼吸感的 28px。
+   ============================================================ */
+.xg-letter-lined.xg-paper-sheet.ps-letter,
+.xg-letter-lined.xg-paper-sheet {
+  position: relative;
+  background-color: #FBF8F0;
+  background-image: none;          /* 2026-10-30 主人令：去掉横线 */
+  color: #2F2A24;
+  box-shadow: 0 2px 4px rgba(47, 53, 39, 0.08), 0 12px 32px rgba(47, 53, 39, 0.12);
+}
+/* 心里话纸：淡玫瑰底（同样不画横线） */
+.xg-letter-lined.xg-paper-sheet.is-heart {
+  background-color: #FAF3F1;
+  background-image: none;          /* 2026-10-30 主人令：去掉横线 */
+}
+/* 纸纹：PD 旧纸（Wikimedia Commons · File:Old paper4.jpg · Public domain）
+   —— 无花、只有做旧纸纹与霉斑。压到 22% 才不抢文字。 */
+.xg-letter-lined::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+  background-image: url('../img/xinge/xg-paper-pd.webp');
+  background-size: 100% auto;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+/* 纸纹：极淡，只为质感，不遮内容 */
+.xg-letter-lined::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.32;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+/* 右侧装订边 —— 2026-10-30 主人令：横线与竖线都不要，只留位不留线 */
+.xg-letter-lined::after {
+  content: "";
+  position: absolute;
+  right: 22px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  pointer-events: none;
+  background: none;
+}
+
+/* ============================================================
+   二、标题（居中）
+   ============================================================ */
+.xg-letter-head-block {
+  position: relative;
+  z-index: 2;
+  padding: 30px 28px 6px;
+  text-align: center;
+}
+.xg-letter-title {
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 16.5px;
+  line-height: 1.7;
+  color: #2F2A24;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+/* ============================================================
+   三、称呼（顶格）
+   ============================================================ */
+.xg-letter-lined .xg-letter-head {
+  position: relative;
+  z-index: 2;
+  padding: 6px 28px 2px;
+  text-align: left;
+}
+.xg-letter-lined .xg-letter-hi {
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 14.5px;
+  line-height: 28px;          /* 2026-10-30 去横线后：字距改成呼吸感行距 */
+  color: #2F2A24;
+  letter-spacing: 0.04em;
+  text-indent: 0;
+}
+
+/* ============================================================
+   四、正文（首行缩进两格）
+   ============================================================ */
+.xg-letter-lined .xg-letter-body {
+  position: relative;
+  z-index: 2;
+  padding: 4px 28px 0;
+}
+.xg-letter-lined .xg-letter-para {
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 14px;
+  line-height: 28px;          /* 2026-10-30 去横线：不再压格子 */
+  color: #2F2A24;
+  text-indent: 2em;           /* 首行缩进两格 */
+  margin: 0 0 2px;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: translateY(6px);
+  filter: blur(2px);
+  transition: opacity 0.45s var(--ease-out, ease), transform 0.45s var(--ease-out, ease),
+              filter 0.45s var(--ease-out, ease);
+}
+.xg-letter-lined .xg-letter-para.is-shown,
+.xg-letter-lined .xg-letter-para.is-shown-fast {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+}
+/* 引用段：不做左侧竖线，改成缩进（参考图没有竖线） */
+.xg-letter-lined .xg-letter-para.xg-para-quote {
+  margin-left: 0;
+  padding-left: 2em;
+  border-left: none;
+  font-size: 14px;
+  color: #3D372F;
+  text-indent: 0;
+}
+
+/* ============================================================
+   五、逐字显现
+   ============================================================ */
+.xg-letter-lined .xg-w {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.28s var(--ease-out, ease), transform 0.28s var(--ease-out, ease);
+}
+.xg-letter-lined .xg-letter-para.is-shown .xg-w,
+.xg-letter-lined .xg-letter-para.is-shown-fast .xg-w {
+  opacity: 1;
+  transform: none;
+}
+
+/* ============================================================
+   六、划掉（三态：轻划 / 重划 / 圈涂）—— 保留小柯原本的划法
+   ============================================================ */
+.xg-letter-lined .xg-strike {
+  color: #4A443C;
+  font-style: normal;
+  cursor: pointer;
+}
+.xg-letter-lined .xg-strike-line {
+  text-decoration-line: line-through;
+  text-decoration-color: rgba(74, 68, 60, 0.62);
+  text-decoration-thickness: 1.4px;
+  transition: text-decoration-color 0.2s ease, color 0.2s ease;
+}
+.xg-letter-lined .xg-strike-soft .xg-strike-line {
+  text-decoration-color: rgba(74, 68, 60, 0.42);
+  text-decoration-thickness: 1px;
+}
+.xg-letter-lined .xg-strike-hard .xg-strike-line {
+  text-decoration-color: rgba(74, 68, 60, 0.78);
+  text-decoration-thickness: 2.2px;
+  text-decoration-style: double;
+}
+.xg-letter-lined .xg-strike-circle .xg-strike-line {
+  background-image: radial-gradient(
+    ellipse at center,
+    rgba(74, 68, 60, 0.13) 0 58%,
+    transparent 60%
+  );
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.xg-letter-lined .xg-strike.is-undone .xg-strike-line {
+  text-decoration-color: transparent;
+  color: inherit;
+}
+.xg-letter-lined .xg-strike.is-domino .xg-strike-line {
+  transition-delay: var(--xg-domino-delay, 0ms);
+}
+
+/* ============================================================
+   七、祝语（正文后一行，右）
+   ============================================================ */
+.xg-letter-lined .xg-letter-wish {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 6px 28px 0;
+}
+.xg-letter-lined .xg-wish-word {
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 14px;
+  line-height: 28px;
+  color: #2F2A24;
+  letter-spacing: 0.04em;
+}
+.xg-letter-lined .xg-wish-cursive {
+  font-family: 'XG-Script', 'Great Vibes', cursive;
+  font-size: 17px;
+  color: #5A5248;
+  opacity: 0.9;
+}
+
+/* ============================================================
+   八、落款（右下：名字 + 日期）
+   ============================================================ */
+.xg-letter-lined .xg-sign-zone {
+  position: relative;
+  z-index: 2;
+  margin-top: 18px;
+  padding: 10px 28px 26px;
+  text-align: right;
+}
+.xg-letter-lined .xg-sign-zone::before {
+  display: none;   /* 去掉分隔线，参考图没有 */
+}
+.xg-letter-lined .xg-letter-sign-name {
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 15px;
+  line-height: 26px;
+  color: #2F2A24;
+  letter-spacing: 0.06em;
+  text-align: right;
+}
+.xg-letter-lined .xg-letter-sign-date {
+  margin-top: 2px;
+  padding-right: 0;          /* 原来给火漆让位，火漆已去掉 */
+  font-family: 'XG-Kai', 'Noto Serif SC', serif;
+  font-size: 13px;
+  line-height: 26px;
+  color: #5A5248;
+  text-align: right;
+}
+
+/* ============================================================
+   九、可滚动（主人 2026-10-28：信看不全、不能滑到下面）
+   —— 信纸本身不裁切，整页由 .xg-read-wrap 滚动
+   ============================================================ */
+.xg-read-wrap {
+  position: relative;
+  z-index: var(--xg-z-content, 20);
+  height: 100%;
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 顶部给返回键留位，底部给按钮条留位 */
+  padding: 60px 12px 96px;
+}
+.xg-read-wrap::-webkit-scrollbar { width: 0; height: 0; }
+/* 权重 0,2,0：压过 xinge-paper.css 的 .xg-letter（width:82% + padding:30px 26px，
+   content-box 下实际宽 = 82% + 52px > 屏宽 → 信纸横向溢出、文字被裁） */
+.xg-letter.xg-letter-lined {
+  width: 100%;
+  max-width: 420px;
+  flex: none;                 /* 不被 flex 压扁 */
+  min-height: auto;           /* 内容多高纸就多高 */
+  padding: 0;                 /* 内边距由内部各块自己管 */
+  border-radius: 2px;
+}
+/* 竖排时纸不能被 flex 拉伸变形 */
+.xg-letter-lined .xg-letter-body {
+  flex: none;
+}
+
+/* ============================================================
+   十、低动效降级
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .xg-letter-lined .xg-w,
+  .xg-letter-lined .xg-letter-para,
+  .xg-letter-lined .xg-strike-line {
+    transition: none !important;
+  }
+}

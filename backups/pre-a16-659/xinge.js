@@ -1,0 +1,2852 @@
+/* ============================================================
+   信格 xinge.js — B5a：壳 / 页面栈 / 数据层 / 时间层 / P0 / P1
+   施工图契约：入口 window.showXingePage()（首行铁律）
+   导出面 window.Xinge；内部函数不裸挂
+   降级链：TimeWorld / WanWanMemory / callAI / runWanWanDBRead
+   写档双戳：createdAt(虚拟) + realCreatedAt(现实裸值，仅 INSERT)
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* ===== 0. 常量 ===== */
+  var Xinge; // 本地引用（导出时双写 window.Xinge，eslint 归零）
+  var XG_VER = '1.0.0';
+  var XG_IMG = 'img/xinge/';
+  var DEFAULT_PRESETS = [
+    { key: 'friend',  name: '朋友', tone: '插科打诨里藏真心', icon: 'icon-heart',  prompt: '以相识多年的老友口吻写信：语气轻松、可以互相打趣，但字里行间藏着真挚的关心。可以提旧事、开小玩笑，落款随意。' },
+    { key: 'family',  name: '亲人', tone: '絮叨里全是惦记',   icon: 'icon-laurel', prompt: '以家人的口吻写信：絮絮叨叨讲些家长里短，反复叮嘱，克制而深沉的爱，不说漂亮话但处处是惦记。' },
+    { key: 'lover',   name: '情侣', tone: '克制又汹涌的想念', icon: 'icon-seal',   prompt: '以恋人的口吻写信：温柔、亲密，带一点克制的汹涌想念。可以写细节里的心动，语气缱绻不轻浮。' },
+    { key: 'crush',   name: '暗恋', tone: '欲言又止的心事',   icon: 'icon-star',   prompt: '以暗恋者的口吻写信：欲言又止、小心翼翼，很多话写了一半又咽回去（用划掉的方式表现），字里行间是藏不住又不敢说的心事。' },
+    { key: 'mentor',  name: '师长', tone: '严厉背后是期许',   icon: 'icon-gear',   prompt: '以师长的口吻写信：沉稳、有分寸，偶尔严厉但背后是期许与关怀，像一封值得反复读的信。' },
+    { key: 'stranger',name: '陌生人', tone: '温和的善意',     icon: 'icon-person', prompt: '以一个萍水相逢的陌生人的口吻写信：克制、礼貌、温和，带着不冒犯的善意与一点点好奇。' },
+    { key: 'self',    name: '自己', tone: '与自己坦诚相见',   icon: 'icon-quill',  prompt: '以自己写给自己的口吻：坦诚、不自欺，可以安慰、可以责备、可以只是说说话，像深夜给自己写的一封信。' }
+  ];
+  var COMPOSE_CAPTIONS = ['正在斟酌字句…', '翻了翻记忆…', '墨迹未干…', '慢慢写着…', '封缄中…'];
+
+  /* ===== 1. 降级包装 ===== */
+  function nowTs() {
+    try { return (window.TimeWorld && window.TimeWorld.getNow) ? window.TimeWorld.getNow() : Date.now(); }
+    catch (e) { console.warn('[xinge] TimeWorld 降级', e); return Date.now(); }
+  }
+  function nowReal() { return Date.now(); } // 审计锚：永远裸现实时间
+  function fmtTime(ts) {
+    try { return (window.TimeWorld && window.TimeWorld.getFormattedNow) ? window.TimeWorld.getFormattedNow(ts) : new Date(ts).toLocaleString(); }
+    catch (e) { return new Date(ts).toLocaleString(); }
+  }
+  function dayString() {
+    try { return (window.TimeWorld && window.TimeWorld.getDayString) ? window.TimeWorld.getDayString() : '今天'; }
+    catch (e) { return '今天'; }
+  }
+  function daysSinceChat(charId) {
+    try {
+      if (window.TimeWorld && window.TimeWorld.getTimeSinceLastChat) {
+        var last = window.TimeWorld.getTimeSinceLastChat(charId);
+        return (last && last > 0) ? Math.floor((nowTs() - last) / 86400000) : null;
+      }
+    } catch (e) { console.warn('[xinge] getTimeSinceLastChat 降级', e); }
+    return null;
+  }
+  function toast(msg) {
+    try { window.toast ? window.toast(msg) : console.log('[xinge toast]', msg); }
+    catch (e) { console.log('[xinge toast]', msg); }
+  }
+  function dbRead(fn) {
+    return (window.runWanWanDBRead) ? window.runWanWanDBRead(fn) : fn();
+  }
+  function dbWrite(fn) {
+    return (window.runWanWanDBIdempotentWrite) ? window.runWanWanDBIdempotentWrite(fn) : fn();
+  }
+
+  /* ===== 2. 数据层 ===== */
+  function hasLettersTable() {
+    return !!(window.db && window.db.xingeLetters);
+  }
+  function hasPresetsTable() {
+    return !!(window.db && window.db.xingePresets);
+  }
+  // 设置读写（config 键）
+  function getConfig(key, fallback) {
+    return dbRead(function () {
+      return window.db.config.get(key).then(function (row) {
+        return row ? row.value : fallback;
+      });
+    }).catch(function (e) {
+      console.warn('[xinge] getConfig 失败', key, e);
+      return fallback;
+    });
+  }
+  function setConfig(key, value) {
+    return dbWrite(function () {
+      return window.db.config.put({ key: key, value: value });
+    }).catch(function (e) {
+      console.warn('[xinge] setConfig 失败', key, e);
+    });
+  }
+  // 信件读写（表缺失时降级到 config JSON 暂存，不炸页面）
+  function loadLetters() {
+    return dbRead(function () {
+      if (hasLettersTable()) return window.db.xingeLetters.orderBy('createdAt').reverse().toArray();
+      return getConfig('xinge:lettersFallback', []);
+    }).catch(function (e) {
+      console.warn('[xinge] loadLetters 失败', e);
+      return [];
+    });
+  }
+  function saveLetter(letter) {
+    // 双时间戳：createdAt=虚拟语义锚；realCreatedAt=现实审计锚（仅 INSERT）
+    letter.createdAt = letter.createdAt || nowTs();
+    if (!letter.realCreatedAt) letter.realCreatedAt = nowReal();
+    return dbWrite(function () {
+      if (hasLettersTable()) return window.db.xingeLetters.add(letter);
+      return getConfig('xinge:lettersFallback', []).then(function (arr) {
+        // fallback 必须自带 id（否则后续"信不见了"）
+        if (letter.id === undefined || letter.id === null) {
+          letter.id = 'xl_' + nowReal() + '_' + Math.random().toString(36).slice(2, 7);
+        }
+        arr.unshift(letter);
+        return setConfig('xinge:lettersFallback', arr).then(function () { return letter.id; });
+      });
+    });
+  }
+  function deleteLetter(id) {
+    return dbWrite(function () {
+      if (hasLettersTable()) return window.db.xingeLetters.delete(id);
+      return getConfig('xinge:lettersFallback', []).then(function (arr) {
+        var next = arr.filter(function (x) { return x.id !== id; });
+        return setConfig('xinge:lettersFallback', next);
+      });
+    });
+  }
+  function markRead(id) {
+    return dbWrite(function () {
+      if (hasLettersTable()) return window.db.xingeLetters.update(id, { readAt: nowTs() });
+      return getConfig('xinge:lettersFallback', []).then(function (arr) {
+        arr.forEach(function (x) { if (x.id === id) x.readAt = nowTs(); });
+        return setConfig('xinge:lettersFallback', arr);
+      });
+    });
+  }
+  function toggleFavorite(id, fav) {
+    return dbWrite(function () {
+      if (hasLettersTable()) return window.db.xingeLetters.update(id, { favorite: fav });
+      return getConfig('xinge:lettersFallback', []).then(function (arr) {
+        arr.forEach(function (x) { if (x.id === id) x.favorite = fav; });
+        return setConfig('xinge:lettersFallback', arr);
+      });
+    });
+  }
+  // 预设读写（种子迁移）
+  function loadPresets() {
+    return dbRead(function () {
+      if (hasPresetsTable()) return window.db.xingePresets.toArray();
+      return getConfig('xinge:presetsFallback', DEFAULT_PRESETS.slice());
+    }).catch(function () { return DEFAULT_PRESETS.slice(); });
+  }
+  function ensureSeedPresets() {
+    return loadPresets().then(function (list) {
+      if (list && list.length) return list;
+      return dbWrite(function () {
+        if (hasPresetsTable()) {
+          return window.db.xingePresets.bulkAdd(DEFAULT_PRESETS.map(function (p) {
+            return Object.assign({}, p, { createdAt: nowTs(), realCreatedAt: nowReal() });
+          })).then(function () { return DEFAULT_PRESETS.slice(); });
+        }
+        return setConfig('xinge:presetsFallback', DEFAULT_PRESETS.slice()).then(function () { return DEFAULT_PRESETS.slice(); });
+      });
+    });
+  }
+
+  /* ===== 3. 页面栈 ===== */
+  var _stack = [];        // 页面 id 栈
+  var _timers = [];       // 本页定时器登记（关闭路径全清）
+  var _inFlight = null;   // 生成请求 in-flight 守卫
+
+  function later(fn, ms) {
+    var h = setTimeout(function () {
+      // 移除已执行的 handle，避免长会话下 _timers 无限增长
+      var i = _timers.indexOf(h);
+      if (i >= 0) _timers.splice(i, 1);
+      fn();
+    }, ms);
+    _timers.push(h);
+    return h;
+  }
+  function clearTimers() {
+    _timers.forEach(function (h) { clearTimeout(h); clearInterval(h); });
+    _timers = [];
+  }
+  function every(fn, ms) {
+    var h = setInterval(fn, ms);
+    _timers.push(h);
+    return h;
+  }
+
+  /* 背景动效活动件配置（一景一动；injectDrift 按页 id 自动配景） */
+  var DRIFT_SPECS = {}; // 主人令：背景纯静态原图，图片动效全砍（只留写信+拆信两个动画）
+
+  function injectDrift(el) {
+    var key = String(el.id || '').replace('xg-page-', '');
+    var spec = DRIFT_SPECS[key];
+    // age 页：四时光影挂背景自身
+    if (key === 'age') {
+      var bgSelf = el.querySelector('.xg-bg');
+      if (bgSelf) bgSelf.classList.add('xg-dusk-cycle');
+    }
+    if (!spec) return;
+    var layer = '<div class="xg-drift-layer">' + spec + '</div>';
+    var bg = el.querySelector('.xg-bg');
+    if (bg) bg.insertAdjacentHTML('afterend', layer);
+    else el.insertAdjacentHTML('afterbegin', layer);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // 打开一页（挂 full-page，进栈，页面渐入）
+  // 注意：跳转采用 replace 语义——销毁栈上旧页，只留当前页。
+  // 旧实现只 push 不销毁，导致多页 position:fixed 同时在场、各自跑 is-entering
+  // 动画与背景图 → 整屏闪 + 一卡一卡（主人 2026-10-24 实机投诉）。
+  function openPage(id, html, opts) {
+    opts = opts || {};
+    // 0) 换页时清掉上一页遗留的定时器 —— 否则旧页的动画定时器继续跑，
+    //    往已被销毁的 DOM 上写 class → 闪屏 + 空转（主人 2026-10-24 投诉"一直闪"）
+    clearTimers();
+    // 1) 清空旧页（保留 DOM 里的非 .xg-page 元素）
+    while (_stack.length) {
+      var oldId = _stack.pop();
+      var oldEl = document.getElementById(oldId);
+      if (oldEl && oldEl.parentNode) oldEl.parentNode.removeChild(oldEl);
+    }
+    var el = document.getElementById(id);
+    if (el) el.remove();
+    el = document.createElement('div');
+    el.id = id;
+    el.className = 'full-page xg-page' + (opts.dark ? ' xg-dark' : '');
+    el.innerHTML = html;
+    (window.XG_PAGE_ROOT || document.body).appendChild(el);
+    _stack.push(id);
+    // 背景动效配景（一景一动，按页 id 自动注入）
+    injectDrift(el);
+    // 渐入钩子（登记到 _timers，换页时能一并清掉，不留游离定时器）
+    el.classList.add('is-entering');
+    later(function () { el.classList.remove('is-entering'); }, 700);
+    // 按钮涟漪（深检 2026-10-24 接线：effects.bindRipple 一直零调用；
+    // 统一给本页按钮挂水波反馈，提升手感）
+    if (Xinge.effects && typeof Xinge.effects.bindRipple === 'function') {
+      try {
+        var rippleBtns = el.querySelectorAll('.xg-btn, .xg-icon-btn, .xg-chip, .xg-topbar-back');
+        for (var ri = 0; ri < rippleBtns.length; ri++) {
+          Xinge.effects.bindRipple(rippleBtns[ri]);
+        }
+      } catch (e) { /* 涟漪失败不影响按钮 */ }
+    }
+    return el;
+  }
+  // 退一层（主人规格：只退到上一页）
+  function popPage() {
+    clearTimers();
+    if (_inFlight && _inFlight.cancel) { try { _inFlight.cancel(); } catch (e) {} _inFlight = null; }
+    var id = _stack.pop();
+    if (!id) return;
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('is-closing');
+    later(function () { if (el.parentNode) el.remove(); }, 400);
+  }
+  // 回首页：清空整栈 + 所有页（主人"看完信退不出去"的兜底出口）
+  function resetToHome() {
+    clearTimers();
+    if (_inFlight && _inFlight.cancel) { try { _inFlight.cancel(); } catch (e) {} _inFlight = null; }
+    _stack.length = 0;
+    Array.prototype.slice.call(document.querySelectorAll('.xg-page')).forEach(function (e) {
+      if (e.parentNode) e.parentNode.removeChild(e);
+    });
+  }
+
+  /* ===== 4. 顶栏模板 ===== */
+  function topbar(title, opts) {
+    opts = opts || {};
+    return '<div class="xg-topbar' + (opts.dark ? ' xg-topbar-dark' : '') + '">' +
+      '<button class="xg-topbar-back" data-xg-act="back" aria-label="返回"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>' +
+      '<div class="xg-topbar-title">' + esc(title) + '</div>' +
+      '<div style="min-width:44px">' + (opts.right || '') + '</div>' +
+    '</div>';
+  }
+
+  /* ===== 5. P0 信箱 ===== */
+  function renderInbox() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('信格', { right: '<button class="xg-topbar-back" data-xg-act="go-settings" aria-label="设置"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.7 1.7 0 008 19.4a1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H2a2 2 0 110-4h.1A1.7 1.7 0 004.6 8a1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V2a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H22a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button>' }) +
+      '<div class="xg-scroll">' +
+        '<div class="xg-inbox-wrap xg-content-fade">' +
+          '<div class="xg-inbox-head">' +
+            '<div class="xg-headline"><div class="xg-headline-en xg-script">Post Box</div><div class="xg-headline-cn xg-script-cn">信格</div></div>' +
+            '<div class="xg-inbox-unread" id="xg-inbox-count"></div>' +
+          '</div>' +
+          '<div class="xg-meander-bar xg-inbox-bar"></div>' +
+          // 搜索框 + 筛选行（深检 2026-10-24：xinge-ui.js 的 bindInboxSearch
+          // 一直零调用 —— 搜索功能写好却没上线；此处补 DOM 钩子并接线）
+          '<div class="xg-search-wrap xg-search-row">' +
+            '<span class="xg-search-ic"></span>' +
+            '<input type="search" class="xg-search-input" placeholder="搜一搜信里的内容…" aria-label="搜索信件">' +
+            '<button class="xg-search-clear" aria-label="清空搜索"></button>' +
+          '</div>' +
+          '<div class="xg-filter-row xg-chip-row" id="xg-inbox-filters" data-xg-inbox-filter>' +
+            '<button class="xg-chip is-selected is-sel" data-xg-filter="all">全部</button>' +
+            '<button class="xg-chip" data-xg-filter="unread">未读</button>' +
+            '<button class="xg-chip" data-xg-filter="fav">收藏</button>' +
+          '</div>' +
+          '<div class="xg-inbox-list" id="xg-inbox-list"></div>' +
+        '</div>' +
+      '</div>' +
+      '<button class="xg-fab xg-fab-seal" data-xg-act="go-write" aria-label="让 AI 写封信"><span class="xg-fab-img"><img src="' + XG_IMG + 'xg-crest-laurel.svg" alt=""></span></button>';
+
+    var el = openPage('xg-page-inbox', html);
+    fillInbox(el, 'all');
+
+    // 搜索 + 筛选统一接线（深检 2026-10-24：ui.bindInboxSearch 一直零调用）
+    // —— 搜索框与筛选 chip 都交给 xinge-ui.js 的实现，避免两套并行逻辑打架
+    if (Xinge.ui && typeof Xinge.ui.bindInboxSearch === 'function') {
+      Xinge.ui.bindInboxSearch(el, function (f, kw) {
+        fillInbox(el, f || 'all', kw || '');
+      });
+    }
+
+    el.addEventListener('click', function (e) {
+      var back = e.target.closest('[data-xg-act="back"]');
+      // 信箱页是栈底：返回应退出信格回桌面，而不是 popPage 把自己弹掉（页面残留）
+      if (back) {
+        if (window.showXingePage && window.showXingePage._goHome) window.showXingePage._goHome();
+        else resetToHome();
+        return;
+      }
+      var goWrite = e.target.closest('[data-xg-act="go-write"]');
+      if (goWrite) { clearTimers(); Xinge.nav.write(); return; }
+      var goSet = e.target.closest('[data-xg-act="go-settings"]');
+      if (goSet) { clearTimers(); Xinge.nav.settings(); return; }
+      var card = e.target.closest('[data-xg-letter-id]');
+      if (card && !card.classList.contains('is-flying')) {
+        clearTimers();
+        Xinge.nav.recall(card.getAttribute('data-xg-letter-id'));
+      }
+    });
+    // 长按菜单（8px 阈值区分点击/拖拽）
+    attachLongPress(el, '[data-xg-letter-id]', function (card) {
+      openLetterSheet(el, card.getAttribute('data-xg-letter-id'));
+    });
+  }
+
+  function fillInbox(el, filter, keyword) {
+    var listBox = el.querySelector('#xg-inbox-list');
+    if (listBox) {
+      listBox.innerHTML = '<div class="xg-skeleton xg-skeleton-card"></div>' +
+        '<div class="xg-skeleton xg-skeleton-card"></div>' +
+        '<div class="xg-skeleton xg-skeleton-card"></div>';
+    }
+    loadLetters().then(function (list) {
+      var kw = String(keyword || '').trim().toLowerCase();
+      var filtered = list.filter(function (x) {
+        if (filter === 'unread' && x.readAt) return false;
+        if (filter === 'fav' && !x.favorite) return false;
+        if (kw) {
+          // 搜正文 / 收信人 / 写信人 / 信封留言
+          var hay = [summarize(x), (x.params && x.params.toName) || '',
+                     (x.params && x.params.senderName) || '', x.envelopeNote || ''].join(' ').toLowerCase();
+          var body = '';
+          try {
+            body = (x.papers || []).map(function (p) { return p.body || ''; }).join(' ').toLowerCase();
+          } catch (e) { body = ''; }
+          if (hay.indexOf(kw) < 0 && body.indexOf(kw) < 0) return false;
+        }
+        return true;
+      });
+      var unread = list.filter(function (x) { return !x.readAt; }).length;
+      var countEl = el.querySelector('#xg-inbox-count');
+      if (countEl) countEl.textContent = unread ? (unread + ' 封未读') : '';
+      var listBox = el.querySelector('#xg-inbox-list');
+      if (!listBox) return;
+      if (!filtered.length) {
+        listBox.innerHTML =
+          '<div class="xg-empty is-entering">' +
+            '<img class="xg-empty-art" src="' + XG_IMG + 'asset-emptybox.webp" alt="">' +
+            '<div class="xg-empty-text">' + (filter === 'all' ? '信箱还空着，让 AI 写一封？' : '这里还没有信') + '</div>' +
+            (filter === 'all' ? '<button class="xg-btn xg-btn-primary" data-xg-act="go-write">让 AI 写一封</button>' : '') +
+          '</div>';
+        return;
+      }
+      listBox.innerHTML = filtered.map(function (x, i) {
+        // 信封图标改用邀请函风格信笺（主人 2026-10-24 给图：白底 + 蓝色纹样边框）。
+        // 原先是 asset-stamp.webp（空白邮票底坯）+ xg-postmark.svg（邮戳）两张图
+        // 叠在同一处 → 重合成一团（主人投诉"特别丑"），已改成单张邀请函框。
+        return '<div class="xg-en-card xg-stagger-item' + (x.readAt ? '' : ' is-unread') + '" data-xg-letter-id="' + esc(x.id) + '">' +
+          '<div class="xg-en-stamp"><img src="' + XG_IMG + 'xg-invitation.webp" alt=""></div>' +
+          '<div class="xg-en-main">' +
+            '<div class="xg-en-to">致 ' + esc((x.params && x.params.toName) || '你') + '</div>' +
+            '<div class="xg-en-summary">' + esc(summarize(x)) + '</div>' +
+          '</div>' +
+          '<div class="xg-en-time">' + esc(fmtTime(x.scheduledAt || x.createdAt)) + '</div>' +
+        '</div>';
+      }).join('');
+      // 长按菜单接线（深检 2026-10-24：ui.attachCardLongPress 一直零调用，
+      // xinge.js 自己的 attachLongPress 只做了"收藏/删除"底部弹层，没有盖章动效；
+      // 这里两套并存：卡片长按走 ui.js 的浮层（收藏盖章 + 折纸飞机删除确认）
+      if (Xinge.ui && typeof Xinge.ui.attachCardLongPress === 'function') {
+        var cards = listBox.querySelectorAll('.xg-en-card[data-xg-letter-id]');
+        for (var ci = 0; ci < cards.length; ci++) {
+          try {
+            Xinge.ui.attachCardLongPress(cards[ci], cards[ci].getAttribute('data-xg-letter-id'));
+          } catch (e) { /* 单个卡片失败不影响列表 */ }
+        }
+      }
+    });
+  }
+
+  function summarize(letter) {
+    try {
+      var p = letter.papers && letter.papers[0];
+      if (!p || !p.body) return '一封刚写好的信';
+      return String(p.body).replace(/~~/g, '').slice(0, 40);
+    } catch (e) { return '一封信'; }
+  }
+
+  function openLetterSheet(pageEl, id) {
+    var sheet = document.createElement('div');
+    sheet.className = 'xg-sheet';
+    sheet.innerHTML =
+      '<button class="xg-sheet-item" data-xg-sheet="fav">收藏</button>' +
+      '<div class="xg-sheet-divider"></div>' +
+      '<button class="xg-sheet-item is-danger" data-xg-sheet="del">删除</button>';
+    document.body.appendChild(sheet);
+    requestAnimationFrame(function () { sheet.classList.add('is-on'); });
+    function close() {
+      sheet.classList.remove('is-on');
+      setTimeout(function () { if (sheet.parentNode) sheet.remove(); }, 320);
+    }
+    sheet.addEventListener('click', function (e) {
+      var act = e.target.closest('[data-xg-sheet]');
+      if (!act) return;
+      var kind = act.getAttribute('data-xg-sheet');
+      close();
+      if (kind === 'fav') {
+        toggleFavorite(id, true).then(function () { toast('已收藏'); fillInbox(pageEl, 'all'); });
+      } else if (kind === 'del') {
+        if (!window.confirm('删除这封信？删除后无法恢复')) return;
+        var card = pageEl.querySelector('[data-xg-letter-id="' + id + '"]');
+        if (card) card.classList.add('is-flying'); // 折纸飞机飞走（视觉）
+        deleteLetter(id).then(function () {        // 立即落库，不依赖动画定时器
+          later(function () { fillInbox(pageEl, 'all'); }, 420);
+        });
+      }
+    });
+    // 点空白关
+    setTimeout(function () {
+      document.addEventListener('click', function once(ev) {
+        if (!sheet.contains(ev.target)) { close(); document.removeEventListener('click', once); }
+        else document.addEventListener('click', once, { once: true });
+      }, { once: true });
+    }, 0);
+  }
+
+  /* 长按（8px 阈值区分点击/拖拽；_lastTouchTs 让合成事件让位） */
+  function attachLongPress(root, selector, onLong) {
+    var startX = 0, startY = 0, timer = null, moved = false, lastTouchTs = 0;
+    root.addEventListener('touchstart', function (e) {
+      var t = e.target.closest(selector);
+      if (!t) return;
+      lastTouchTs = Date.now();
+      moved = false;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      timer = setTimeout(function () {
+        if (!moved) { onLong(t); timer = null; }
+      }, 480);
+    }, { passive: true });
+    root.addEventListener('touchmove', function (e) {
+      if (!timer) return;
+      var dx = Math.abs(e.touches[0].clientX - startX);
+      var dy = Math.abs(e.touches[0].clientY - startY);
+      if (dx > 8 || dy > 8) { moved = true; clearTimeout(timer); timer = null; }
+    }, { passive: true });
+    root.addEventListener('touchend', function () {
+      if (timer) { clearTimeout(timer); timer = null; }
+    });
+    root.addEventListener('click', function (e) {
+      if (Date.now() - lastTouchTs < 400) return; // 合成 click 让位
+      var t = e.target.closest(selector);
+      if (!t) return;
+      startX = 0; startY = 0;
+    }, true);
+  }
+
+  /* ===== 6. P1 写信首页 ===== */
+  function renderWrite() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('写信') +
+      '<div class="xg-scroll"><div class="xg-write-wrap xg-content-fade">' +
+        '<div class="xg-write-stage">' +
+          '<div class="xg-write-crest xg-crest"></div>' +
+          '<div class="xg-write-motto">With Love</div>' +
+          '<button class="xg-btn xg-btn-primary xg-btn-hero xg-btn-shine" data-xg-act="compose">' +
+            '<span class="xg-btn-seal xg-wax"></span><span>让 AI 写封信</span>' +
+          '</button>' +
+        '</div>' +
+        '<div id="xg-resume-slot"></div>' +
+        '<div class="xg-recent-row" id="xg-recent-row"></div>' +
+        '<div class="xg-timer-strip" data-xg-act="go-timer" id="xg-timer-strip"></div>' +
+      '</div></div>';
+
+    var el = openPage('xg-page-write', html);
+    fillWriteHome(el);
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      if (e.target.closest('[data-xg-act="compose"]')) { clearTimers(); Xinge.nav.recipient(); return; }
+      if (e.target.closest('[data-xg-act="go-timer"]')) { clearTimers(); Xinge.nav.timer(); return; }
+      if (e.target.closest('[data-xg-act="resume"]')) { clearTimers(); Xinge.nav.recipient(); return; }
+      var recent = e.target.closest('[data-xg-letter-id]');
+      if (recent) { clearTimers(); Xinge.nav.recall(recent.getAttribute('data-xg-letter-id')); }
+    });
+  }
+
+  function fillWriteHome(el) {
+    loadLetters().then(function (list) {
+      var recentBox = el.querySelector('#xg-recent-row');
+      if (recentBox && list.length) {
+        recentBox.innerHTML = list.slice(0, 3).map(function (x) {
+          return '<div class="xg-recent-card xg-hoverable" data-xg-letter-id="' + esc(x.id) + '"></div>';
+        }).join('');
+      }
+      var resumeSlot = el.querySelector('#xg-resume-slot');
+      var settings = getConfig('xinge:settings', null);
+      return settings.then(function (s) {
+        if (resumeSlot && s && s.lastParams) {
+          resumeSlot.innerHTML =
+            '<div class="xg-resume-card" data-xg-act="resume">' +
+              '<span class="xg-resume-tag">继续上次</span>' +
+              '<span class="xg-en-to">写给 ' + esc((s.lastParams && s.lastParams.toName) || '你') + ' 的一封信</span>' +
+            '</div>';
+        }
+        var strip = el.querySelector('#xg-timer-strip');
+        if (strip) {
+          strip.textContent = (s && s.scheduleOn)
+            ? ('定时来信 · ' + (s.freq || '每周') + ' ' + (s.timeHHMM || '21:00') + ' · 已开启')
+            : '定时来信 · 未开启';
+        }
+      });
+    });
+  }
+
+  /* ===== 6.5 写信链 P2–P4（B5b） ===== */
+  var _draft = {};        // 本次写信草稿参数
+  var _lastDraft = null;  // 生成失败重试用
+
+  /* ===== 6.x P2b 谁给我写信（从角色档案提取选择） ===== */
+  function renderSender() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('谁给我写信') +
+      '<div class="xg-scroll"><div class="xg-recipient-wrap xg-content-fade">' +
+        '<div class="xg-question-title">这封信，让谁写给你？</div>' +
+        '<div class="xg-guide-bar" data-xg-act="goto-chars"><span class="xg-guide-text">角色档案里的人（AI 角色）会以自己的身份给你写信</span><span class="xg-guide-arrow">›</span></div>' +
+        // 头像快选（激活死 CSS .xg-crest-picker / .xg-crest-opt：
+        // 头像圆盘一排，点一下就选中写信人；下方列表仍是完整列表）
+        '<div class="xg-crest-picker" id="xg-sender-crest"></div>' +
+        '<div class="xg-group-card" id="xg-sender-list"></div>' +
+        '<div class="xg-orn-divider"><span class="xg-orn-leaf"><img src="' + XG_IMG + '12-laurel.webp" alt=""></span></div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-sender="none">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">不指定</div>' +
+          '<div class="xg-arch-sub">按下一步的关系口吻直接写</div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-sender', html);
+    // 填角色列表
+    var listBox = el.querySelector('#xg-sender-list');
+    if (listBox) listBox.innerHTML = '<div class="xg-skel-row"></div><div class="xg-skel-row"></div>';
+    var charsPromise = (window.db && window.db.characters)
+      ? window.db.characters.toArray().catch(function () { return []; })
+      : Promise.resolve([]);
+    charsPromise.then(function (chars) {
+      if (!listBox || !listBox.isConnected) return;
+      var list = (chars || []).filter(function (c) { return c && c.name; });
+      if (!list.length) {
+        listBox.innerHTML = '<div class="xg-state-mini"><div class="xg-state-mini-text">角色档案里还没有人，先去添加？</div></div>';
+        return;
+      }
+      listBox.innerHTML = list.map(function (c) {
+        return '<div class="xg-avatar-row" data-xg-sender-id="' + esc(c.id) + '">' +
+          '<div class="xg-avatar">' + (c.avatar
+            ? '<img class="xg-avatar-img" src="' + esc(c.avatar) + '" alt="">'
+            : '<div class="xg-avatar-img xg-crest"></div>') +
+          '<div class="xg-avatar-ring"></div></div>' +
+          '<div><div class="xg-avatar-name">' + esc(c.name) + '</div>' +
+          (c.description ? '<div class="xg-avatar-tag">' + esc(String(c.description).slice(0, 18)) + '</div>' : '') +
+          '</div><div class="xg-avatar-arrow">›</div></div>';
+      }).join('');
+      // 头像快选盘（激活死 CSS .xg-crest-picker / .xg-crest-opt）
+      var crestBox = el.querySelector('#xg-sender-crest');
+      if (crestBox) {
+        crestBox.innerHTML = list.slice(0, 8).map(function (c) {
+          var bg = c.avatar
+            ? ' style="background-image:url(' + esc(c.avatar) + ')"'
+            : '';
+          return '<button class="xg-crest-opt" data-xg-sender-crest="' + esc(c.id) + '"' +
+            bg + ' title="' + esc(c.name) + '" aria-label="' + esc(c.name) + '"></button>';
+        }).join('');
+      }
+    });
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      if (e.target.closest('[data-xg-act="goto-chars"]')) {
+        toast('到桌面打开「角色档案」添加人物');
+        return;
+      }
+      var none = e.target.closest('[data-xg-sender="none"]');
+      if (none) {
+        delete _draft.senderName; delete _draft.senderDesc; delete _draft.senderCharId;
+        clearTimers(); Xinge.nav.preset();
+        return;
+      }
+      var row = e.target.closest('[data-xg-sender-id]');
+      // 头像快选盘（与列表同一套选人逻辑）
+      var crest = e.target.closest('[data-xg-sender-crest]');
+      if (crest) {
+        var cid = crest.getAttribute('data-xg-sender-crest');
+        charsPromise.then(function (chars) {
+          var cp = null;
+          (chars || []).forEach(function (c) { if (String(c.id) === String(cid)) cp = c; });
+          if (!cp) return;
+          _draft.senderCharId = cp.id;
+          _draft.senderName = cp.name;
+          _draft.senderDesc = String(cp.description || cp.persona || '').slice(0, 200);
+          clearTimers(); Xinge.nav.preset();
+        });
+        return;
+      }
+      if (row) {
+        var sid = row.getAttribute('data-xg-sender-id');
+        charsPromise.then(function (chars) {
+          var picked = null;
+          (chars || []).forEach(function (c) { if (String(c.id) === String(sid)) picked = c; });
+          if (picked) {
+            _draft.senderCharId = picked.id;
+            _draft.senderName = picked.name;
+            _draft.senderDesc = String(picked.description || picked.persona || '').slice(0, 200);
+          }
+          clearTimers(); Xinge.nav.preset();
+        });
+      }
+    });
+  }
+
+  function renderRecipient() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('收信人') +
+      '<div class="xg-scroll"><div class="xg-recipient-wrap xg-content-fade">' +
+        '<div class="xg-question-title"><span class="xg-laurel-side xg-crest"></span>这封信，写给谁？<span class="xg-laurel-side xg-crest"></span></div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-rec="me">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">给我写的</div>' +
+          '<div class="xg-arch-sub">写给此刻的自己</div>' +
+        '</div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-rec="other">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">给其他人写的</div>' +
+          '<div class="xg-arch-sub">联系人 / 不同年纪的自己 / 心里的某个人</div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-recipient', html);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var me = e.target.closest('[data-xg-rec="me"]');
+      if (me) {
+        _draft = { recipientType: 'me', toName: '我', relationKey: 'self' };
+        clearTimers(); Xinge.nav.sender(); // 先选谁给我写信
+        return;
+      }
+      if (e.target.closest('[data-xg-rec="other"]')) {
+        // 主人 2026-10-28：选「给其他人写的」后要先问一句 —— 自己写还是让 AI 写？
+        // 自己写 → 以那个人的口吻手写（AI 不代笔）；让 AI 写 → 走原来的生成管线。
+        clearTimers(); Xinge.nav.writerChoice();
+      }
+    });
+  }
+
+  /* ===== 6.x 谁来写（自己写 / 让 AI 写） =====
+     主人 2026-10-28 原话：
+     "给其他人写信这一个其他人选择了之后应该再跳转到一个页面是自己给其他人写信，
+      还是让AI给其他人写信？然后再跳转到写给谁联系人自己自定义，
+      然后就以那个人的口吻去写信，或者是自己给其他人写信，那就得自己写，不能让AI来代写"
+     —— 两种都接着走「写给谁（联系人 / 自定义）」，只是最后一步不同。 */
+  function renderWriterChoice() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('谁来写') +
+      '<div class="xg-scroll"><div class="xg-recipient-wrap xg-content-fade">' +
+        '<div class="xg-question-title">这封信，谁来写？</div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-writer="self">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">我自己写</div>' +
+          '<div class="xg-arch-sub">用那个人的口吻亲手写，AI 不代笔</div>' +
+        '</div>' +
+        '<div class="xg-arch-card xg-hoverable" data-xg-writer="ai">' +
+          '<div class="xg-arch-icon xg-crest"></div>' +
+          '<div class="xg-arch-title">让 AI 写</div>' +
+          '<div class="xg-arch-sub">照着设定替你写好这一封</div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-writer-choice', html);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var self = e.target.closest('[data-xg-writer="self"]');
+      if (self) {
+        _draft = Object.assign({}, _draft || {}, { recipientType: 'other', writerMode: 'self' });
+        clearTimers(); Xinge.nav.target();   // → 写给谁（联系人 / 自定义）
+        return;
+      }
+      var ai = e.target.closest('[data-xg-writer="ai"]');
+      if (ai) {
+        _draft = Object.assign({}, _draft || {}, { recipientType: 'other', writerMode: 'ai' });
+        clearTimers(); Xinge.nav.target();
+      }
+    });
+  }
+
+  function renderTarget() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('写给谁') +
+      '<div class="xg-scroll"><div class="xg-target-wrap xg-content-fade">' +
+        '<div class="xg-question-title">写给谁？</div>' +
+        '<div class="xg-target-card" id="xg-card-contacts">' +
+          '<div class="xg-target-head" data-xg-toggle="contacts">' +
+            '<div class="xg-row-icon xg-crest"></div>' +
+            '<div class="xg-target-title">联系人<div class="xg-target-sub">角色档案里的 TA 们</div></div>' +
+            '<div class="xg-row-arrow">▾</div>' +
+          '</div>' +
+          '<div class="xg-contact-list" id="xg-contact-list"></div>' +
+        '</div>' +
+        '<div class="xg-target-card">' +
+          '<div class="xg-target-head" data-xg-act="go-age">' +
+            '<div class="xg-row-icon xg-crest"></div>' +
+            '<div class="xg-target-title">给自己<div class="xg-target-sub">写给不同时候的自己</div></div>' +
+            '<div class="xg-row-arrow">›</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="xg-target-card">' +
+          '<div class="xg-target-head" data-xg-act="go-custom">' +
+            '<div class="xg-row-icon xg-crest"></div>' +
+            '<div class="xg-target-title">自定义<div class="xg-target-sub">写给心里的某个人</div></div>' +
+            '<div class="xg-row-arrow">›</div>' +
+          '</div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-target', html);
+    fillContacts(el);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var toggle = e.target.closest('[data-xg-toggle="contacts"]');
+      if (toggle) {
+        el.querySelector('#xg-card-contacts').classList.toggle('is-on');
+        return;
+      }
+      if (e.target.closest('[data-xg-act="go-age"]')) {
+        _draft = Object.assign({}, _draft, { recipientType: 'self' });
+        clearTimers(); Xinge.nav.age();
+        return;
+      }
+      if (e.target.closest('[data-xg-act="go-custom"]')) {
+        _draft = Object.assign({}, _draft, { recipientType: 'custom' });
+        clearTimers(); Xinge.nav.custom();
+        return;
+      }
+      var row = e.target.closest('[data-xg-char-id]');
+      if (row) {
+        _draft = Object.assign({}, _draft, {
+          recipientType: 'contact',
+          charId: row.getAttribute('data-xg-char-id'),
+          toName: row.getAttribute('data-xg-char-name') || 'TA'
+        });
+        clearTimers();
+        // 自己写 → 直接进手写页（不走 AI 生成）；让 AI 写 → 走原来的预设/生成管线
+        if (_draft.writerMode === 'self') Xinge.nav.selfWrite();
+        else Xinge.nav.preset();
+      }
+    });
+  }
+
+  function fillContacts(el) {
+    var box = el.querySelector('#xg-contact-list');
+    if (!box || !window.db || !window.db.characters) {
+      if (box) box.innerHTML = '<div class="xg-contact-row"><div class="xg-target-sub">角色档案未加载</div></div>';
+      return;
+    }
+    dbRead(function () {
+      return window.db.characters.where('type').anyOf(['char', 'npc']).toArray();
+    }).then(function (chars) {
+      if (!chars || !chars.length) {
+        box.innerHTML = '<div class="xg-contact-row"><div class="xg-target-sub">角色档案里还没有联系人，去添加？</div></div>';
+        return;
+      }
+      box.innerHTML = chars.map(function (c) {
+        var rel = (c.relations && c.relations[0] && (c.relations[0].label || c.relations[0].type)) || '';
+        return '<div class="xg-contact-row xg-hoverable" data-xg-char-id="' + esc(c.id) + '" data-xg-char-name="' + esc(c.name) + '">' +
+          '<div class="xg-crest-frame"><img src="' + esc(c.avatar || (XG_IMG + 'icon-person.svg')) + '" alt=""></div>' +
+          '<div class="xg-contact-name">' + esc(c.name) + '</div>' +
+          (rel ? '<div class="xg-tag">' + esc(rel) + '</div>' : '') +
+        '</div>';
+      }).join('');
+    }).catch(function (e) {
+      console.warn('[xinge] 联系人读取失败', e);
+      box.innerHTML = '<div class="xg-contact-row"><div class="xg-target-sub">联系人读取失败</div></div>';
+    });
+  }
+
+  function renderAge() {
+    var ages = [
+      { key: 'kid',   name: '小时候', range: '0–12 岁', art: 'age-kid.svg' },
+      { key: 'teen',  name: '少年',   range: '13–18 岁', art: 'age-teen.svg' },
+      { key: 'now',   name: '现在',   range: '此刻的自己', art: 'age-now.svg' },
+      { key: 'future',name: '未来',   range: '将来的自己', art: 'age-future.svg' }
+    ];
+    var html =
+      '<div class="xg-bg xg-bg-veil-top"></div>' +
+      topbar('年龄段') +
+      '<div class="xg-scroll"><div class="xg-age-wrap xg-content-fade">' +
+        '<div class="xg-question-title">给哪个年纪的自己？</div>' +
+        '<div class="xg-age-grid">' +
+          ages.map(function (a) {
+            return '<div class="xg-age-card xg-hoverable" data-xg-age="' + a.key + '">' +
+              '<div class="xg-age-art" style="background-image:url(\'' + XG_IMG + a.art + '\')"></div>' +
+              '<div class="xg-age-name">' + a.name + '</div>' +
+              '<div class="xg-age-range">' + a.range + '</div>' +
+              (a.key === 'future'
+                ? '<div class="xg-future-tags"><button class="xg-chip" data-xg-future="1">1 年后</button><button class="xg-chip" data-xg-future="5">5 年后</button><button class="xg-chip" data-xg-future="10">10 年后</button></div>'
+                : '') +
+            '</div>';
+          }).join('') +
+        '</div>' +
+        '<div class="xg-field" style="margin-top:18px">' +
+          '<div class="xg-field-label">想对这个年纪的自己说点什么<span style="opacity:.6">(选填)</span></div>' +
+          '<input class="xg-input" id="xg-age-note" placeholder="有句话，一定写进去">' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-age', html);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var futureTag = e.target.closest('[data-xg-future]');
+      if (futureTag) {
+        e.stopPropagation();
+        el.querySelectorAll('[data-xg-future]').forEach(function (c) { c.classList.remove('is-selected'); });
+        futureTag.classList.add('is-selected');
+        _draft.ageYears = futureTag.getAttribute('data-xg-future');
+        return;
+      }
+      var card = e.target.closest('[data-xg-age]');
+      if (card) {
+        el.querySelectorAll('[data-xg-age]').forEach(function (c) { c.classList.remove('is-selected'); });
+        card.classList.add('is-selected');
+        var key = card.getAttribute('data-xg-age');
+        if (key === 'future' && !_draft.ageYears) return; // 未来要先选年限
+        _draft.ageKey = key;
+        _draft.toName = key === 'now' ? '现在的我' : (key === 'future' ? (_draft.ageYears || '') + '年后的我' : (key === 'kid' ? '小时候的我' : '少年时的我'));
+        _draft.relationKey = 'self';
+        _draft.ageNote = (el.querySelector('#xg-age-note') || {}).value || '';
+        clearTimers(); Xinge.nav.preset();
+      }
+    });
+  }
+
+  function renderCustom() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-soft"></div>' +
+      topbar('自定义') +
+      '<div class="xg-scroll"><div class="xg-custom-wrap xg-content-fade">' +
+        '<div class="xg-ribbon-head"><div class="xg-headline-en">Ink & Words</div></div>' +
+        '<div class="xg-form-card xg-corner-box">' +
+          '<div class="xg-field">' +
+            '<div class="xg-field-label">写给谁<span class="xg-must">*</span></div>' +
+            '<input class="xg-input" id="xg-c-to" placeholder="TA 的称呼">' +
+          '</div>' +
+          '<div class="xg-field">' +
+            '<div class="xg-field-label">关系倾向<span class="xg-must">*</span></div>' +
+            '<input class="xg-input" id="xg-c-rel" placeholder="我们之间的关系">' +
+            '<div class="xg-field-chips">' +
+              ['老友', '恋人', '家人', '师长', '陌生人', '前任'].map(function (c) {
+                return '<button class="xg-chip" data-xg-relchip="' + c + '">' + c + '</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+          '<div class="xg-field">' +
+            '<div class="xg-field-label">背景<span style="opacity:.6">(选填)</span></div>' +
+            '<textarea class="xg-textarea" id="xg-c-bg" placeholder="我们曾是……"></textarea>' +
+          '</div>' +
+          '<div class="xg-field">' +
+            '<div class="xg-field-label">信的调性</div>' +
+            '<div class="xg-field-chips" id="xg-c-tone">' +
+              ['温柔', '平静', '热烈', '苦涩', '调皮'].map(function (c) {
+                return '<button class="xg-chip" data-xg-tonechip="' + c + '">' + c + '</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+          '<div class="xg-field">' +
+            '<div class="xg-field-label">想聊的话题<span style="opacity:.6">(选填)</span></div>' +
+            '<input class="xg-input" id="xg-c-topic" placeholder="有件事，想写进去">' +
+          '</div>' +
+          '<div class="xg-form-actions">' +
+            '<button class="xg-btn xg-btn-primary xg-btn-full" data-xg-act="custom-next">开始写信</button>' +
+          '</div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-custom', html);
+    var tone = '';
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var relChip = e.target.closest('[data-xg-relchip]');
+      if (relChip) {
+        var relInput = el.querySelector('#xg-c-rel');
+        if (relInput) relInput.value = relChip.getAttribute('data-xg-relchip');
+        return;
+      }
+      var toneChip = e.target.closest('[data-xg-tonechip]');
+      if (toneChip) {
+        el.querySelectorAll('[data-xg-tonechip]').forEach(function (c) { c.classList.remove('is-selected'); });
+        toneChip.classList.add('is-selected');
+        tone = toneChip.getAttribute('data-xg-tonechip');
+        return;
+      }
+      if (e.target.closest('[data-xg-act="custom-next"]')) {
+        var to = (el.querySelector('#xg-c-to') || {}).value || '';
+        var rel = (el.querySelector('#xg-c-rel') || {}).value || '';
+        if (!to.trim() || !rel.trim()) {
+          toast('称呼和关系都要填哦');
+          el.querySelector(!to.trim() ? '#xg-c-to' : '#xg-c-rel').classList.add('xg-shake');
+          return;
+        }
+        _draft = Object.assign({}, _draft, {
+          recipientType: 'custom',
+          toName: to.trim(),
+          customRel: rel.trim(),
+          background: (el.querySelector('#xg-c-bg') || {}).value || '',
+          tone: tone || '温柔',
+          topic: (el.querySelector('#xg-c-topic') || {}).value || ''
+        });
+        clearTimers();
+        // 自己写 → 直接进手写页；让 AI 写 → 走预设/生成
+        if (_draft.writerMode === 'self') Xinge.nav.selfWrite();
+        else Xinge.nav.preset();
+      }
+    });
+  }
+
+  /* ===== 6.x 手写信（自己写，以那个人的口吻） =====
+     主人 2026-10-28："或者是自己给其他人写信，那就得自己写，不能让AI来代写"
+     —— 这页是纯手写输入：红横线信纸 + 逐字显示，写完直接落库成一封信。
+     —— 写完信之后的后续步骤（是否寄出/定时等）主人说"这个之后再做"，
+        这里先做最直接的一步：写完 → 落库 → 跳信封页看这封信。 */
+  function renderSelfWrite() {
+    var toName = (_draft && _draft.toName) || 'TA';
+    var html =
+      '<div class="xg-bg xg-bg-veil-soft"></div>' +
+      topbar('自己写') +
+      '<div class="xg-scroll"><div class="xg-selfwrite-wrap xg-content-fade">' +
+        '<div class="xg-selfwrite-to">致 ' + esc(toName) + '</div>' +
+        '<div class="xg-letter xg-paper-sheet xg-letter-lined ps-letter" id="xg-self-paper">' +
+          '<div class="xg-letter-head-block"><div class="xg-letter-title">致 ' + esc(toName) + ' 的一封信</div></div>' +
+          '<div class="xg-letter-to xg-letter-head"><span class="xg-letter-hi">亲爱的 ' + esc(toName) + '：</span></div>' +
+          '<textarea class="xg-selfwrite-input" id="xg-self-input" rows="12" ' +
+            'placeholder="亲爱的 ' + esc(toName) + '：&#10;&#10;在这里写下你想说的话…"></textarea>' +
+          '<div class="xg-letter-sign xg-sign-zone">' +
+            '<div class="xg-letter-sign-name xg-sign-script">' + esc(toName) + '</div>' +
+            '<div class="xg-letter-sign-date">' + esc(fmtTime(nowTs())) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="xg-selfwrite-foot">' +
+          '<button class="xg-btn xg-btn-ghost" data-xg-act="back">再想想</button>' +
+          '<button class="xg-btn xg-btn-primary" data-xg-act="self-send">写好了，寄出</button>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-selfwrite', html);
+    el.classList.add('xg-settings-page');
+
+    // 逐字显示：输入时把已写的字渲染成 .xg-w（跟阅读页同一套显字动效）
+    var ta = el.querySelector('#xg-self-input');
+    if (ta) {
+      ta.addEventListener('input', function () {
+        var paper = el.querySelector('#xg-self-paper');
+        if (!paper) return;
+        var body = paper.querySelector('.xg-letter-body');
+        if (!body) {
+          body = document.createElement('div');
+          body.className = 'xg-letter-body';
+          var sign = paper.querySelector('.xg-sign-zone');
+          if (sign) paper.insertBefore(body, sign); else paper.appendChild(body);
+        }
+        var paras = String(ta.value || '').split(/\n+/).filter(function (s) { return s.trim(); });
+        body.innerHTML = paras.map(function (t) {
+          var chars = Array.from(t).map(function (ch) {
+            return '<span class="xg-w">' + esc(ch) + '</span>';
+          }).join('');
+          return '<p class="xg-letter-p xg-letter-para is-shown">' + chars + '</p>';
+        }).join('');
+      });
+    }
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      if (e.target.closest('[data-xg-act="self-send"]')) {
+        var text = String((el.querySelector('#xg-self-input') || {}).value || '').trim();
+        if (!text) {
+          toast('还没写呢');
+          return;
+        }
+        var paras = text.split(/\n+/).filter(function (s) { return s.trim(); });
+        // 自己写的信 → 同样三张结构（2 张正常 + 1 张心里话）
+        var papers = [
+          { kind: 'letter', title: '', body: paras[0] || text },
+          { kind: 'letter', title: '', body: paras[1] || paras[0] || text },
+          { kind: 'heart', title: '', body: paras[2] || '（这封是你亲手写的，末尾没有藏着的话）' }
+        ];
+        clearTimers();
+        saveLetter({
+          senderKey: (_draft && _draft.presetKey) || 'friend',
+          recipientType: (_draft && _draft.recipientType) || 'other',
+          charId: (_draft && _draft.charId) || null,
+          status: 'done',
+          scheduledAt: null,
+          writerMode: 'self',
+          papers: papers,
+          envelopeNote: '',
+          params: {
+            toName: toName,
+            presetKey: (_draft && _draft.presetKey) || 'friend',
+            mood: (_draft && _draft.mood) || 50,
+            tendency: (_draft && _draft.tendency) || '',
+            mention: '',
+            senderName: toName,
+            senderCharId: null
+          }
+        }).then(function (saved) {
+          toast('信已写好');
+          var lid = saved && (saved.id || saved);
+          Xinge.nav.envelope(lid);
+        }).catch(function (err) {
+          console.warn('[xinge] 手写信保存失败', err);
+          toast('写好了但没存上');
+        });
+      }
+    });
+  }
+
+  function renderPreset() {
+    loadPresets().then(function (presets) {
+      var html =
+        '<div class="xg-bg xg-bg-veil-soft"></div>' +
+        topbar('以谁的口吻') +
+        '<div class="xg-scroll"><div class="xg-preset-wrap xg-content-fade">' +
+          '<div class="xg-headline"><div class="xg-headline-en">In Their Voice</div><div class="xg-headline-zh">以谁的口吻写这封信</div></div>' +
+          '<div class="xg-rel-row" id="xg-rel-row">' +
+            presets.map(function (p) {
+              return '<div class="xg-rel-card xg-hoverable" data-xg-preset="' + esc(p.key || p.id) + '">' +
+                '<div class="xg-rel-crest xg-crest"></div>' +
+                '<div class="xg-rel-name">' + esc(p.name) + '</div>' +
+                '<div class="xg-rel-tone">' + esc(p.tone || '') + '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="xg-link-row"><button class="xg-link" data-xg-act="manage-presets">管理预设</button></div>' +
+          '<div class="xg-preset-fields">' +
+            '<div class="xg-field">' +
+              '<div class="xg-field-label">这封信的倾向<span style="opacity:.6">(选填)</span></div>' +
+              '<textarea class="xg-textarea" id="xg-p-tendency" placeholder="想让 TA 怎么写这封信……"></textarea>' +
+            '</div>' +
+            '<div class="xg-field">' +
+              '<div class="xg-field-label">最近想提的事<span style="opacity:.6">(选填)</span></div>' +
+              '<input class="xg-input" id="xg-p-mention" placeholder="有件事，一定写进去">' +
+            '</div>' +
+          '</div>' +
+          '<div class="xg-mood-block">' +
+            '<div class="xg-mood-head"><div class="xg-field-label">情绪浓度</div><div class="xg-mood-value" id="xg-mood-val">50</div></div>' +
+            '<div class="xg-slider"><input type="range" min="0" max="100" value="50" id="xg-mood"></div>' +
+            '<div class="xg-slider-ends"><span>淡</span><span>浓</span></div>' +
+          '</div>' +
+          '<div class="xg-generate-block">' +
+            '<button class="xg-btn xg-btn-primary xg-btn-full xg-btn-shine" data-xg-act="generate">生成</button>' +
+          '</div>' +
+        '</div></div>';
+      var el = openPage('xg-page-preset', html);
+      var moodEl = el.querySelector('#xg-mood');
+      moodEl.addEventListener('input', function () {
+        el.querySelector('#xg-mood-val').textContent = moodEl.value;
+      });
+      el.addEventListener('click', function (e) {
+        if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+        if (e.target.closest('[data-xg-act="manage-presets"]')) { clearTimers(); Xinge.nav.presetManager(); return; }
+        var card = e.target.closest('[data-xg-preset]');
+        if (card) {
+          el.querySelectorAll('[data-xg-preset]').forEach(function (c) { c.classList.remove('is-selected'); });
+          card.classList.add('is-selected');
+          _draft.presetKey = card.getAttribute('data-xg-preset');
+          return;
+        }
+        if (e.target.closest('[data-xg-act="generate"]')) {
+          if (!_draft.presetKey) { toast('先选一个口吻'); return; }
+          _draft.tendency = (el.querySelector('#xg-p-tendency') || {}).value || '';
+          _draft.mention = (el.querySelector('#xg-p-mention') || {}).value || '';
+          _draft.mood = parseInt(moodEl.value, 10) || 50;
+          clearTimers();
+          Xinge.compose.run(_draft);
+        }
+      });
+    });
+  }
+
+  /* ===== 6.6 生成管线（callAI + 记忆喂料 + 动态日期） ===== */
+  var XG_SYS_BASE = '你是\"信格\"——一台希腊复古风格的手写信装置、代笔人。现在替写信人写一封信，务必严格满足：\n1.【结构】一次输出三张纸（2+1）：前两张是正常信文（寒暄、近况、想说的话），第三张是隐藏的心里话（更真、更私密、平时说不出口的）。\n2.【划掉标注】不好意思说的、真实感受、内心阴暗面，用 ~~...~~ 包住（段落级整段划）。每张信文 1-2 处；心里话纸划掉密度最高，可整段整段划。\n3.【篇幅】第一、二张信文每张 250 字左右（3-5 个自然段，写具体的事、细节、场景，不许空洞抒情）；心里话 200 字左右（2-4 段）。写实打实的内容。\n4.【输出格式】只输出 JSON，不输出任何多余文字：\n{\"papers\":[{\"kind\":\"letter\",\"title\":\"\",\"body\":\"正文，自然段用\\n分隔，划掉段用 ~~...~~\"},{\"kind\":\"letter\",\"title\":\"\",\"body\":\"...\"},{\"kind\":\"heart\",\"title\":\"\",\"body\":\"...\"}],\"envelopeNote\":\"信封上的一句话（8 字以内）\"}\n5.【日期】使用给定的当前日期语境，不写死具体年份也可，落款日期格式自然。' +
+    '1. 输出严格 JSON（无 markdown 包裹），结构：{"papers":[{"kind":"letter","title":"…","body":"…"},{"kind":"letter","title":"…","body":"…"},{"kind":"heart","title":"…","body":"…"}],"envelopeNote":"…"}\n' +
+    '2. 三张信=2+1 结构：前两张是正常的信文（寒暄、近况、想说的话），第三张 kind="heart" 是隐藏的心里话（最真、划掉最多）。\n' +
+    '3. 划掉的字用 ~~…~~ 标注**整段**（表示不好意思说/真实感受/阴暗面）：第 1 张偶尔一句，第 2 张若干段，第 3 张整段整段划。\n' +
+    '4. 语言用简体中文，书信体，有真情实感，禁止空洞套话。\n' +
+    '5. envelopeNote 是信封上的一句话（10 字内）。\n';
+
+  function buildUserPrompt(draft, memoryCtx, presets) {
+    var preset = null;
+    presets.forEach(function (p) { if ((p.key || String(p.id)) === draft.presetKey) preset = p; });
+    var lines = [];
+    lines.push('【当前日期】' + dayString());
+    if (draft.senderName) {
+      lines.push('【写信人】你是「' + draft.senderName + '」' + (draft.senderDesc ? '——' + draft.senderDesc : '') + '，这封信以你自己的身份、口吻和与收信人的关系来写，落款用你的名字。');
+    }
+    lines.push('【口吻】' + (preset ? preset.name + '——' + (preset.prompt || '') : '朋友'));
+    lines.push('【收信人】' + (draft.toName || '你') + (draft.customRel ? '（关系：' + draft.customRel + '）' : ''));
+    if (draft.background) lines.push('【背景】' + draft.background);
+    if (draft.tone) lines.push('【调性】' + draft.tone);
+    if (draft.ageKey) lines.push('【写给】' + (draft.ageKey === 'kid' ? '小时候的自己（0-12 岁）' : draft.ageKey === 'teen' ? '少年时的自己（13-18 岁）' : draft.ageKey === 'now' ? '现在的自己' : (draft.ageYears || '若干') + '年后的自己'));
+    if (draft.ageNote) lines.push('【想说】' + draft.ageNote);
+    if (draft.topic) lines.push('【想聊】' + draft.topic);
+    if (draft.mention) lines.push('【必须写进去的事】' + draft.mention);
+    if (draft.tendency) lines.push('【写信倾向】' + draft.tendency);
+    lines.push('【情绪浓度】' + draft.mood + '/100（越高越浓烈，越低越克制）');
+    var since = draft.charId ? daysSinceChat(draft.charId) : null;
+    if (since != null && since > 30) lines.push('【提示】两人已经很久没见面了（约 ' + since + ' 天），信的主调应是想念。');
+    if (memoryCtx) lines.push('【共同记忆】\n' + String(memoryCtx).slice(0, 2400));
+    return lines.join('\n');
+  }
+
+  function runCompose(draft) {
+    if (_inFlight) { toast('上一封还在写呢'); return; }
+    Xinge.nav.composing();
+    var composeStart = nowTs(); // A1：生成动画最短 2.5s 不闪切
+    _lastDraft = draft;         // 失败重试用
+    var userPrompt = '';
+    var memPromise;
+    try {
+      memPromise = (window.WanWanMemory && window.WanWanMemory.getMemoryContext && draft.charId)
+        ? window.WanWanMemory.getMemoryContext(null, draft.charId, window._wechatUid || '', [draft.tendency || draft.topic || '写信']).catch(function () { return ''; })
+        : Promise.resolve('');
+    } catch (e) { memPromise = Promise.resolve(''); }
+
+    var cancelled = false;
+    _inFlight = {
+      cancel: function () { cancelled = true; }
+    };
+
+    memPromise.then(function (memCtx) {
+      return loadPresets().then(function (presets) {
+        if (cancelled) return null;
+        userPrompt = buildUserPrompt(draft, memCtx, presets);
+        if (!window.callAI) throw new Error('callAI 未加载');
+        return window.callAI([{ role: 'user', content: userPrompt }], { system: XG_SYS_BASE });
+      });
+    }).then(function (result) {
+      if (cancelled || !result) return;
+      var text = (typeof result === 'string') ? result : (result.content || result.text || result.message || '');
+      var parsed = parseLetterJSON(text);
+      if (!parsed) throw new Error('信件 JSON 解析失败');
+      return saveLetter({
+        senderKey: draft.presetKey || 'friend',
+        recipientType: draft.recipientType || 'me',
+        charId: draft.charId || null,
+        // 写信人（角色档案选人页选的）：必须落库，否则阅读页署名取不到
+        senderName: draft.senderName || '',
+        senderCharId: draft.senderCharId || null,
+        status: 'done',
+        scheduledAt: draft.scheduledAt || null,
+        papers: parsed.papers,
+        envelopeNote: parsed.envelopeNote || '',
+        params: {
+          toName: draft.toName || '你',
+          presetKey: draft.presetKey,
+          mood: draft.mood,
+          tendency: draft.tendency || '',
+          mention: draft.mention || '',
+          // 写信人落 params（阅读页署名优先取它）
+          senderName: draft.senderName || '',
+          senderCharId: draft.senderCharId || null
+        }
+      });
+    }).then(function () {
+      _inFlight = null;
+      if (cancelled) return;
+      return loadLetters().then(function (list) {
+        var newest = list[0];
+        // 记住"继续上次"
+        getConfig('xinge:settings', {}).then(function (s) {
+          s = s || {};
+          s.lastParams = { toName: draft.toName, presetKey: draft.presetKey };
+          return setConfig('xinge:settings', s);
+        });
+        // A1：动画最短 2.5s，不足则补足再进 P6（不闪切）
+        var elapsed = nowTs() - composeStart;
+        var waitMs = Math.max(0, 2500 - elapsed);
+        if (waitMs > 0) later(function () { Xinge.nav.envelope(newest && newest.id); }, waitMs);
+        else Xinge.nav.envelope(newest && newest.id);
+      });
+    }).catch(function (err) {
+      _inFlight = null;
+      console.error('[xinge] 生成失败', err);
+      if (!cancelled) Xinge.compose.fail();
+    });
+  }
+
+  function parseLetterJSON(text) {
+    try {
+      var cleaned = String(text).trim()
+        .replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+      var start = cleaned.indexOf('{');
+      var end = cleaned.lastIndexOf('}');
+      if (start < 0 || end <= start) return null;
+      var obj = JSON.parse(cleaned.slice(start, end + 1));
+      if (!obj.papers || !Array.isArray(obj.papers) || obj.papers.length < 2) return null;
+      // 容错：不足 3 张补空心里话（2+1 结构兜底）
+      while (obj.papers.length < 3) {
+        obj.papers.push({ kind: 'heart', title: '', body: '（这封信的心里话没写成，下次再写）' });
+      }
+      obj.papers = obj.papers.slice(0, 3).map(function (p, i) {
+        return {
+          kind: i === 2 ? 'heart' : (p.kind === 'heart' ? 'heart' : 'letter'),
+          title: p.title || '',
+          body: p.body || ''
+        };
+      });
+      return obj;
+    } catch (e) {
+      console.warn('[xinge] JSON 解析失败', e);
+      return null;
+    }
+  }
+
+  /* ===== 6.7 P5 生成动画页（B5c） ===== */
+  function renderComposing() {
+    var html =
+      '<div class="xg-bg xg-bg-veil-dark"></div>' +
+      '<div class="xg-compose-wrap">' +
+        '<div class="xg-c2-stage">' +
+          '<div class="xg-c2-paper xg-parchment">' +
+            // parchment 装饰系统（主人 2026-10-24 分镜明写：双线框+四角回纹花+顶部月桂弧）
+            '<div class="xg-parchment-grain"></div>' +
+            '<div class="xg-parchment-wear"></div>' +
+            '<div class="xg-parchment-crease c-1"></div>' +
+            '<div class="xg-parchment-crease c-2"></div>' +
+            '<div class="xg-parchment-crease-v cv-1"></div>' +
+            '<div class="xg-parchment-frame"></div>' +
+            '<i class="xg-parchment-corner f-tl"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<i class="xg-parchment-corner f-tr"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<i class="xg-parchment-corner f-bl"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<i class="xg-parchment-corner f-br"><svg viewBox="0 0 24 24"><path d="M2 2h10v3H5v7H2V2Z" fill="none" stroke="#896D59" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 6h6v2H8v4H6V6Z" fill="none" stroke="#896D59" stroke-width="1.2"/></svg></i>' +
+            '<div class="xg-parchment-laurel"><svg viewBox="0 0 132 26">' +
+              '<path d="M26 20C40 4 92 4 106 20" fill="none" stroke="#896D59" stroke-width="1.4" stroke-linecap="round"/>' +
+              '<g fill="rgba(158,169,141,0.62)">' +
+              '<ellipse cx="40" cy="12" rx="5" ry="2.4" transform="rotate(-28 40 12)"/>' +
+              '<ellipse cx="54" cy="8" rx="5" ry="2.4" transform="rotate(-12 54 8)"/>' +
+              '<ellipse cx="66" cy="7" rx="5" ry="2.4"/>' +
+              '<ellipse cx="78" cy="8" rx="5" ry="2.4" transform="rotate(12 78 8)"/>' +
+              '<ellipse cx="92" cy="12" rx="5" ry="2.4" transform="rotate(28 92 12)"/>' +
+              '</g>' +
+              '<circle cx="66" cy="14" r="2.6" fill="rgba(199,161,155,0.7)"/>' +
+              '</svg></div>' +
+            '<div class="xg-c2-frame"><i class="f-tl"></i><i class="f-tr"></i><i class="f-bl"></i><i class="f-br"></i></div>' +
+            '<svg class="xg-c2-orn" viewBox="0 0 220 160" preserveAspectRatio="none">' +
+            '<g stroke="rgba(137,109,89,0.5)" fill="none" stroke-width="1.2" stroke-linecap="round">' +
+            '<path d="M82 14c8-5 16-7 28-7s20 2 28 7"/>' +
+            '</g>' +
+            '<g fill="rgba(158,169,141,0.6)">' +
+            '<ellipse cx="92" cy="11" rx="4" ry="2" transform="rotate(-22 92 11)"/>' +
+            '<ellipse cx="110" cy="7" rx="4" ry="2"/>' +
+            '<ellipse cx="128" cy="11" rx="4" ry="2" transform="rotate(22 128 11)"/>' +
+            '</g>' +
+            '<g stroke="rgba(137,109,89,0.45)" fill="none" stroke-width="1.1" stroke-linecap="round">' +
+            '<path d="M30 146c8 3 16 3 22-2M168 146c8 3 16 3 22-2"/>' +
+            '</g>' +
+            '</svg>' +
+            '<svg class="xg-c2-ink" viewBox="0 0 220 160">' +
+            // 行首小花点（主人 2026-10-24 分镜：行首落一朵小花点）
+            // 五瓣小花 + 花心，描边随笔迹渐显
+            '<g class="xg-c2-dot"><path d="M14 26c0-2.6 2.2-4.4 4.6-3.9-1-2.3.6-5 3-5.4-1.6-1.9-.9-4.8 1.4-6 .1 2.7 2.6 4.2 5 3.6 1-2.6 4.4-3.2 6.2-1.2-1.9 1.7-1.5 4.7.8 6.3 2.4-1 5 .6 5.6 3.1 2.4-1 5 1.4 5 4.2-2.6.5-4.4 2.6-3.9 4.7 1.9 2.1.3 5-1.8 6.1 2.3-1.1 4.8-4.2 4.7-1.2 2.4-4.3 3.4-6.3 2.4 1.1 4.6-.4 6.1-2.8 1.4 2.4-1.3 4.6-4 4.3Z"/><circle cx="14.6" cy="22" r="1.5"/></g>' +
+            '<g class="xg-c2-dot"><path d="M16 64c0-2.6 2.2-4.4 4.6-3.9-1-2.3.6-5 3-5.4-1.6-1.9-.9-4.8 1.4-6 .1 2.7 2.6 4.2 5 3.6 1-2.6 4.4-3.2 6.2-1.2-1.9 1.7-1.5 4.7.8 6.3 2.4-1 5 .6 5.6 3.1 2.4-1 5 1.4 5 4.2-2.6.5-4.4 2.6-3.9 4.7 1.9 2.1.3 5-1.8 6.1 2.3-1.1 4.8-4.2 4.7-1.2 2.4-4.3 3.4-6.3 2.4 1.1 4.6-.4 6.1-2.8 1.4 2.4-1.3 4.6-4 4.3Z"/><circle cx="16.6" cy="60" r="1.5"/></g>' +
+            '<g class="xg-c2-dot"><path d="M20 102c0-2.6 2.2-4.4 4.6-3.9-1-2.3.6-5 3-5.4-1.6-1.9-.9-4.8 1.4-6 .1 2.7 2.6 4.2 5 3.6 1-2.6 4.4-3.2 6.2-1.2-1.9 1.7-1.5 4.7.8 6.3 2.4-1 5 .6 5.6 3.1 2.4-1 5 1.4 5 4.2-2.6.5-4.4 2.6-3.9 4.7 1.9 2.1.3 5-1.8 6.1 2.3-1.1 4.8-4.2 4.7-1.2 2.4-4.3 3.4-6.3 2.4 1.1 4.6-.4 6.1-2.8 1.4 2.4-1.3 4.6-4 4.3Z"/><circle cx="20.6" cy="98" r="1.5"/></g>' +
+            '<path d="M26 28 C 52 18, 78 36, 106 26 S 156 16, 196 30"/>' +
+            '<path d="M28 66 C 58 56, 84 74, 114 64 S 162 54, 198 68"/>' +
+            '<path d="M32 104 C 60 96, 88 112, 120 102 S 166 94, 198 106"/>' +
+            // 行尾收笔卷草勾（主人分镜：行尾收笔卷草勾）
+            '<g class="xg-c2-flourish">' +
+            '<path d="M168 118c9 4 18 3 25-4"/>' +
+            '<path d="M186 113c4-3 9-3 12 1-3 4-9 5-12-1Z"/>' +
+            '<path d="M193 114c3-4 8-4 11 0-3 4-8 5-11 0Z"/>' +
+            '<path d="M198 117c4-2 8 0 8 4-4 2-8 0-8-4Z"/>' +
+            '</g>' +
+            '</svg>' +
+            '<div class="xg-c2-blot"></div>' +
+          '</div>' +
+          '<div class="xg-c2-dip"></div>' +
+          '<div class="xg-c2-pen"><svg viewBox="0 0 90 140"><path d="M78 8 C 60 20, 44 44, 32 76 L 26 96" fill="none" stroke="#EDE5D6" stroke-width="5" stroke-linecap="round"/><path d="M78 8 C 66 6, 52 12, 46 24 C 56 22, 68 18, 78 8 Z" fill="rgba(238,232,218,0.85)"/><path d="M70 12 C 58 18, 50 30, 46 42" fill="none" stroke="rgba(137,109,89,0.5)" stroke-width="1.6"/><path d="M62 18 C 52 26, 46 38, 42 50" fill="none" stroke="rgba(137,109,89,0.4)" stroke-width="1.3"/><path d="M26 96 L 22 118 L 28 112 Z" fill="#896D59"/><path d="M22 118 L 20 128" stroke="rgba(47,53,39,0.8)" stroke-width="2" stroke-linecap="round"/></svg></div>' +
+          '<div class="xg-c2-inkpot"><svg viewBox="0 0 80 90"><path d="M18 34 L 22 78 C 22 82, 26 84, 32 84 L 48 84 C 54 84, 58 82, 58 78 L 62 34 Z" fill="rgba(70,95,120,0.85)" stroke="#896D59" stroke-width="2"/><rect x="14" y="26" width="52" height="10" rx="3" fill="#B9D2E2" stroke="#896D59" stroke-width="2"/><ellipse cx="40" cy="30" rx="14" ry="4" fill="rgba(47,53,39,0.8)"/><path d="M28 44 L 30 72" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linecap="round"/></svg></div>' +
+          '<div class="xg-c2-sealdrop"></div>' +
+        '</div>' +
+        '<div class="xg-p5-line" id="xg-caption"></div>' +
+        '<div class="xg-progress" id="xg-progress"><div class="xg-progress-fill"></div></div>' +
+        '<button class="xg-p5-skip" data-xg-act="compose-skip">跳过</button>' +
+      '</div>';
+    var el = openPage('xg-page-composing', html, { dark: true });
+
+    // 文案轮播（每 2.2s 换句）
+    var ci = 0;
+    var captionEl = el.querySelector('#xg-caption');
+    every(function () {
+      ci = (ci + 1) % COMPOSE_CAPTIONS.length;
+      if (captionEl) captionEl.textContent = COMPOSE_CAPTIONS[ci];
+    }, 2200);
+
+    // 假进度：到 90% 封顶（真完成由 compose.finish 推 100）
+    var pct = 0;
+    var progressEl = el.querySelector('#xg-progress');
+    every(function () {
+      if (pct < 90) {
+        pct += Math.max(2, (90 - pct) * 0.12);
+        if (progressEl) progressEl.style.width = pct.toFixed(0) + '%';
+      }
+    }, 600);
+
+    el.addEventListener('click', function (e) {
+      // 生成页「跳过」：HTML 生成的是 data-xg-act="compose-skip"，
+      // 原处理器只匹配 "skip" → 按钮点了完全没反应（深检 2026-10-24 实锤）
+      if (e.target.closest('[data-xg-act="compose-skip"]') ||
+          e.target.closest('[data-xg-act="skip"]')) {
+        clearTimers();
+        Xinge.compose.skipToResult();
+        return;
+      }
+      // 「再写一次」：xinge-ui.js 生成的是 compose-retry，这里两个名字都接
+      if (e.target.closest('[data-xg-act="compose-retry"]') ||
+          e.target.closest('[data-xg-act="retry"]')) {
+        clearTimers();
+        el.classList.remove('is-error');
+        Xinge.compose.run(_draft);
+      }
+    });
+  }
+
+  /* ===== 6.8 P6 信封页 + 拆信动画驱动 ===== */
+  var _currentLetterId = null;
+  var _revealLetterId = null;   // 刚拆开的信：必走显字动画
+  var _readModePref = '直接全文'; // S5 偏好缓存（renderPrefs 同步）
+  var _arrangedLetterId = null; // 已在信封页落成叠放的信（阅读页返回时不再重拆）
+
+  /* 三张纸的三态（信封页与叠放页共用同一套规则）
+     idx === readIdx → is-next（当前该读，浮到最上层，可点）
+     idx <  readIdx → is-read（已读过，可回看）
+     idx >  readIdx → is-locked（还没轮到，点它弹提示） */
+  function applyPaperLocks(papersEls, readIdx) {
+    papersEls.forEach(function (pp, idx) {
+      pp.classList.remove('is-next', 'is-locked', 'is-read');
+      if (idx === readIdx) pp.classList.add('is-next');
+      else if (idx < readIdx) pp.classList.add('is-read');
+      else pp.classList.add('is-locked');
+    });
+  }
+  /* 三层角色（top/mid/back）按主人 2026-10-24 定的堆叠提示词分配：
+     当前该读的那张 → top（居中、轮廓完整、最上层）
+     其余两张按先后顺序占 mid（偏左顺时针）/ back（偏右逆时针）
+     —— 2026-10-30 修正：原来"没轮到的都算 back"，两张纸会叠在同一个位置，
+        豆包那个"三张各占一层、边缘互相穿插"的构图就没了。
+        现在三张各占一层，谁在最上永远跟着当前该读的那张走。 */
+  function applyPaperRoles(papersEls, readIdx) {
+    var n = papersEls.length;
+    var rest = [];
+    papersEls.forEach(function (pp, idx) { if (idx !== readIdx) rest.push(pp); });
+    papersEls.forEach(function (pp, idx) {
+      var role;
+      if (readIdx >= n) {
+        // 全读完了：按顺序各占一层
+        role = idx === 0 ? 'top' : (idx === 1 ? 'mid' : 'back');
+      } else if (idx === readIdx) {
+        role = 'top';
+      } else {
+        role = rest.indexOf(pp) === 0 ? 'mid' : 'back';
+      }
+      pp.setAttribute('data-xg-role', role);
+    });
+  }
+
+  function renderEnvelope(letterId, opts) {
+    opts = opts || {};
+    _currentLetterId = letterId;
+    var readIdx = parseInt(opts.readIdx, 10);
+    if (isNaN(readIdx) || readIdx < 0) readIdx = 0;
+    loadLetters().then(function (list) {
+      var letter = null;
+      list.forEach(function (x) { if (String(x.id) === String(letterId)) letter = x; });
+      if (!letter) { toast('信不见了'); popPage(); return; }
+      var papers = letter.papers || [];
+      // 每张纸露出的第一行（第三张是心里话，不露正文）
+      function headOf(p) {
+        if (!p) return '';
+        return String(p.body || '').replace(/~~/g, '').replace(/\n+/g, ' ').trim().slice(0, 24);
+      }
+      var html =
+        '<div class="xg-bg"></div>' +
+        topbar('一封信') +
+        // 波浪纸边滤镜（叠放页同款；信封页也要一份，否则滤镜引用落空）
+        '<svg width="0" height="0" style="position:absolute"><defs>' +
+        '<filter id="xg-wavy-paper"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/>' +
+        '<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter>' +
+        '</defs></svg>' +
+        '<div class="xg-scroll"><div class="xg-content-fade xg-env-wrap xg-env-wrap-burst" id="xg-env-wrap">' +
+        '<div class="xg-env4-stage is-arriving" id="xg-env2-stage">' +
+          '<div class="xg-env4">' +
+            // 信封本体（退场时整体缩小淡出）：纸**不在**这一层里，
+            // 纸飞出来的时候不会被信封带着一起淡出（实测踩过：纸一起没了）
+            '<div class="xg-env4-body">' +
+              '<div class="xg-env4-back"></div>' +
+              '<div class="xg-env4-pocket">' +
+                '<div class="xg-env4-vine"><svg viewBox="0 0 460 310" preserveAspectRatio="none"><g stroke="rgba(137,109,89,0.6)" fill="none" stroke-width="1.3" stroke-linecap="round"><path d="M60 292c26-5 46-16 56-32 7-12 6-24-2-31-7-6-17-5-21 2-4 5-1 12 5 13 4 1 8-2 7-6"/><path d="M400 292c-26-5-46-16-56-32-7-12-6-24 2-31 7-6 17-5 21 2 4 5 1 12-5 13-4 1-8-2-7-6"/><path d="M180 28c12 5 28 5 40 0M240 28c12 5 28 5 40 0"/></g><g fill="none" stroke="rgba(137,109,89,0.55)" stroke-width="1.1"><path d="M76 262c-4-7-3-14 3-19M96 246c-5-6-5-13-1-18M384 262c4-7 3-14-3-19M364 246c5-6 5-13 1-18"/><path d="M212 40c-5-7-4-15 2-20M226 48c-6-5-8-13-5-19M248 48c6-5 8-13 5-19M262 40c5-7 4-15-2-20"/></g></svg></div>' +
+              '</div>' +
+              '<div class="xg-env4-hinge">' +
+                '<div class="xg-env4-flap">' +
+                  '<div class="xg-env4-flap-out"></div>' +
+                  '<div class="xg-env4-flap-in"></div>' +
+                '</div>' +
+              '</div>' +
+              // 探出的那条纸边（装饰层，在袋口之下 → 被 V 口切出豁口）
+              '<div class="xg-env4-mouth" id="xg-env-mouth"><div class="xg-env4-mouth-edge"></div></div>' +
+              '<div class="xg-env4-seal-hinge">' +
+              '<div class="xg-env4-seal">' +
+                '<div class="xg-seal-overflow"></div><div class="xg-seal-overflow b"></div>' +
+                '<div class="xg-seal-wax"></div>' +
+                '<svg class="xg-seal-wreath" viewBox="0 0 62 62">' +
+                '<g fill="rgba(70,95,120,0.32)">' +
+                '<ellipse cx="31" cy="8.5" rx="3.4" ry="2"/><ellipse cx="46.8" cy="15.2" rx="3.4" ry="2" transform="rotate(45 46.8 15.2)"/>' +
+                '<ellipse cx="53.5" cy="31" rx="2" ry="3.4"/><ellipse cx="46.8" cy="46.8" rx="3.4" ry="2" transform="rotate(-45 46.8 46.8)"/>' +
+                '<ellipse cx="31" cy="53.5" rx="3.4" ry="2"/><ellipse cx="15.2" cy="46.8" rx="3.4" ry="2" transform="rotate(45 15.2 46.8)"/>' +
+                '<ellipse cx="8.5" cy="31" rx="2" ry="3.4"/><ellipse cx="15.2" cy="15.2" rx="3.4" ry="2" transform="rotate(-45 15.2 15.2)"/>' +
+                '</g></svg>' +
+                '<div class="xg-seal-swan"><svg viewBox="0 0 40 40">' +
+                '<path d="M26.6 11.4c-.8-4-4.3-6.7-8.1-6.2-3.7.5-6.2 3.6-5.9 7.2.2 2.9 2.1 5.2 4.7 6.2l-7.7 3.7c-1.3.6-1.8 2.2-1.1 3.4.6 1.3 2.2 1.8 3.5 1.1l19.6-9.4c2.6-1.2 4-4 3.4-6.8-.35-1.6-1.2-2.8-2.3-3.5z" fill="rgba(238,232,218,0.94)"/>' +
+                '<path d="M16.8 15.8c2.5.35 4.8-.5 6.6-2.2" fill="none" stroke="rgba(70,95,120,0.55)" stroke-width="1.1" stroke-linecap="round"/>' +
+                '<path d="M15.2 18.6c2.9.5 5.6-.2 7.8-2" fill="none" stroke="rgba(70,95,120,0.4)" stroke-width="1" stroke-linecap="round"/>' +
+                '<path d="M13.6 21.2c3.3.65 6.4-.05 9-1.8" fill="none" stroke="rgba(70,95,120,0.32)" stroke-width="0.9" stroke-linecap="round"/>' +
+                '<path d="M12.3 27c-2.6 2.4-3 6-.7 8 2.2-1.3 3.2-3.4 2.7-5.4M27.7 27c2.6 2.4 3 6 .7 8-2.2-1.3-3.2-3.4-2.7-5.4" fill="none" stroke="rgba(70,95,120,0.5)" stroke-width="1" stroke-linecap="round"/>' +
+                '<circle cx="22.9" cy="10.1" r="0.95" fill="rgba(70,95,120,0.9)"/>' +
+                '<path d="M25.1 10.4l2.9-.9-2.5 2.1z" fill="rgba(206,155,105,0.95)"/>' +
+                '</svg></div>' +
+                '<div class="xg-seal-gloss"></div>' +
+              '</div>' +
+            '</div>' +   // 封 .xg-env4-seal-hinge
+          '</div>' +     // 封 .xg-env4-body
+          // 探出信纸的点击热区（挂在信封里 → 百分比按信封算；
+          // 挂在外面会被信封自己的盒子拉偏）
+          '<button class="xg-env4-mouth-hit" id="xg-mouth-hit" aria-label="抽出信纸"></button>' +
+        '</div>' +       // 封 .xg-env4
+        '<div class="xg-env4-hint" id="xg-env-hint">拆开看看</div>' +
+      '</div>' +         // 封 .xg-env4-stage
+      // 三张纸：**住在页面层，不挂在信封里**
+      // —— 挂在 .xg-env4 里会被信封的层整个盖住（实测：纸明明在那儿，却一个像素都看不见）；
+      //    挂在页面层才画得出来。探出的那条纸边另有装饰元素（.xg-env4-mouth）。
+      '<div class="xg-fan2-stage xg-fan2-stage-env" id="xg-fan-stage">' +
+        '<div class="xg-fan2-paper fp-1" data-xg-idx="0"><div class="xg-fan2-sheet">' +
+          '<div class="xg-fan2-first">' + esc(headOf(papers[0])) + '</div></div></div>' +
+        '<div class="xg-fan2-paper fp-2" data-xg-idx="1"><div class="xg-fan2-sheet">' +
+          '<div class="xg-fan2-first">' + esc(headOf(papers[1])) + '</div></div></div>' +
+        // 第三张是心里话：不给正文，只给"点开才知"的暗示
+        '<div class="xg-fan2-paper fp-3" data-xg-idx="2"><div class="xg-fan2-sheet">' +
+          '<div class="xg-fan2-secret">藏着的一张</div>' +
+        '</div></div>' +
+      '</div>' +
+      // 落定后的提示条 + 读完三封的收尾卡
+      '<div class="xg-env-burst-foot" id="xg-burst-foot">共三封 · 按顺序拆读</div>' +
+      '<div class="xg-env-finale" id="xg-finale">' +
+        '<button class="xg-btn xg-btn-ghost" data-xg-act="fav">收藏</button>' +
+        '<button class="xg-btn xg-btn-primary" data-xg-act="again">再来一封</button>' +
+        '<button class="xg-btn xg-btn-ghost" data-xg-act="inbox">回信箱</button>' +
+      '</div>' +
+      '</div></div>';
+      var el = openPage('xg-page-envelope', html);
+      // 信封背景注入（bg-P6）
+      var bg = el.querySelector('.xg-bg');
+      if (bg) bg.style.backgroundImage = 'url(' + XG_IMG + 'bg-P6-vx.webp)';
+
+      var stage = el.querySelector('#xg-env2-stage');
+      var fanStage = el.querySelector('#xg-fan-stage');
+      var hintEl = el.querySelector('#xg-env-hint');
+      var footEl = el.querySelector('#xg-burst-foot');
+      var finaleEl = el.querySelector('#xg-finale');
+      var papersEls = Array.prototype.slice.call(el.querySelectorAll('.xg-fan2-paper'));
+      var opened = false;        // 拆信（火漆 + 翻盖）已触发
+      var pulled = false;        // 已点信纸抽出
+      var sealFinished = false;  // 拆信动画是否已走完（走完后返回键恢复可用）
+      var lowMotion = document.body.classList.contains('xg-motion-low');
+      var peek = null;           // 起飞点（从袋口那条纸边量出来的）
+
+      /* ===== 起飞点：三张纸从袋口探出的那条纸边那儿起飞 =====
+         —— 位置全部量出来算，别写死像素（信封宽度是流体的）。
+         —— 量的时候必须**临时关掉过渡**：清掉 transform 会触发 0.62s 的过渡，
+            这时量到的是动画起点而不是静态位置 → 算出来的偏移全错（实测踩过）。 */
+      function measurePeek() {
+        var mouthEl = el.querySelector('#xg-env-mouth');
+        if (!mouthEl || !papersEls.length || !fanStage) return false;
+        var mr = mouthEl.getBoundingClientRect();
+        if (!mr.height) return false;              // 布局还没稳 → 稍后重试
+        var s = 0.44;                              // 缩着塞在信封里
+        var items = [];
+        papersEls.forEach(function (p, i) {
+          var pt = p.style.transition;
+          p.style.transition = 'none';             // 量静态位置：过渡必须关
+          p.style.transform = '';
+          var r = p.getBoundingClientRect();
+          p.style.transition = pt;
+          items.push({
+            dx: (mr.left + mr.width / 2) - (r.left + r.width / 2) + (i - 1) * 6,
+            dy: (mr.top + (r.height * s) / 2) - (r.top + r.height / 2),
+            s: s
+          });
+        });
+        peek = { items: items };
+        return true;
+      }
+
+      /* ===== 探出位置：把三张纸摆到"袋口只露一条边"的地方 =====
+         —— 袋口是 V 形（中间低两边高），信纸从中间探出来，
+            下缘被袋口切出一个 V 豁口 —— 老信封插着信的样子。
+         —— 位置全部量出来算，别写死像素（信封宽度是流体的）。
+         —— 量的时候必须**临时关掉过渡**：清掉 transform 会触发 0.62s 的过渡，
+            这时量到的是动画起点而不是静态位置 → 算出来的偏移全错（实测踩过）。 */
+      function measurePeek() {
+        var pocket = el.querySelector('.xg-env4-pocket');
+        if (!pocket || !papersEls.length) return false;
+        var pr = pocket.getBoundingClientRect();
+        if (!pr.height) return false;                 // 布局还没稳（袋口还没高度）→ 稍后重试
+        var vBottom = pr.top + pr.height * 0.20;       // V 口最低点（中心）
+        var visible = Math.max(30, pr.height * 0.22); // 露出多少
+        var wantTop = vBottom - visible;               // 纸顶边该在的位置
+        var s = 0.44;                                  // 缩着塞在信封里
+        var items = [];
+        papersEls.forEach(function (p, i) {
+          var pt = p.style.transition;
+          p.style.transition = 'none';                // 量静态位置：过渡必须关
+          p.style.transform = '';
+          var r = p.getBoundingClientRect();
+          p.style.transition = pt;
+          var staticCenter = r.top + r.height / 2;
+          items.push({
+            dx: (i - 1) * 5,                           // 三张错开一点，像一叠
+            dy: (wantTop + r.height * s / 2) - staticCenter
+          });
+        });
+        peek = { items: items, s: s };
+        return true;
+      }
+
+      /* ===== S1–S3：压印 → 开启 → 探出（到探出为止就停，等主人点） ===== */
+      function playUnseal() {
+        if (!stage) return;
+        if (lowMotion) {
+          stage.classList.remove('is-arriving', 'is-waiting');
+          stage.classList.add('is-p2-open', 'is-p3-mouth');
+          measurePeek();
+          sealFinished = true;
+          if (hintEl) hintEl.textContent = '点信纸抽出来';
+          return;
+        }
+        stage.classList.remove('is-arriving', 'is-waiting');
+        stage.classList.add('is-p1-press');           // S1 火漆按压（含顿帧）
+        later(function () {
+          stage.classList.remove('is-p1-press');
+          stage.classList.add('is-p2-open');          // S2 翻盖绕顶边 0°→-165°
+          later(function () {
+            // S3 信纸只从袋口探出一条边 —— 然后停住，等主人点它
+            // 起飞点这时才量：页面刚建好时布局还会再挪几十像素（图片/字体落定），
+            // 那时量出来的偏移会偏 —— 翻盖打开时布局早稳了。
+            if (!measurePeek()) later(function () { measurePeek(); }, 120);
+            stage.classList.add('is-p3-mouth');
+            if (hintEl) hintEl.textContent = '点信纸抽出来';
+            sealFinished = true;                      // 动画走完 → 返回键可用
+          }, 640);
+        }, 340);
+      }
+
+      /* ===== S4–S5：抽出三张 → 落进叠放 → 信封退场 ===== */
+      function playPull() {
+        if (pulled || !fanStage) return;
+        pulled = true;
+        var hit = el.querySelector('#xg-mouth-hit');
+        if (hit) hit.style.display = 'none';
+        // 纸在页面层，本来就压在信封上面，不用抬层
+        fanStage.classList.add('is-fanned');
+        applyPaperRoles(papersEls, readIdx);   // 落点 = 主人定的那套叠放
+        void fanStage.offsetWidth;             // 强制回流，终态先算出来
+        // 逐张起飞：keyframes 从袋口那条纸边飞到"叠放位"（错峰 0/110/220ms）
+        papersEls.forEach(function (p, i) {
+          var it = (peek && peek.items[i]) || { dx: 0, dy: 0, s: 0.44 };
+          p.style.setProperty('--bx', it.dx + 'px');
+          p.style.setProperty('--by', it.dy + 'px');
+          p.style.setProperty('--bs', String(it.s));
+          p.style.setProperty('--xg-burst-i', String(i));
+          p.classList.add('is-flying', 'is-show');
+        });
+        later(function () { stage.classList.add('is-p5-away'); }, 220);
+        later(function () {
+          stage.classList.add('is-gone');
+          // 动画跑完：交还控制权（去掉 is-flying 与 inline transform，
+          // 之后点开转场 A5 才能再改 transform）
+          papersEls.forEach(function (p) {
+            p.classList.remove('is-flying', 'is-show');
+            p.style.transform = '';
+            p.style.removeProperty('--bx');
+            p.style.removeProperty('--by');
+            p.style.removeProperty('--bs');
+            p.style.removeProperty('--xg-burst-i');
+          });
+          applyPaperLocks(papersEls, readIdx);
+          _arrangedLetterId = String(letterId);
+          markRead(letterId);
+          _revealLetterId = letterId;          // 阅读页必走显字
+          if (hintEl) hintEl.style.display = 'none';
+          if (footEl) footEl.classList.add('is-on');
+          if (finaleEl) finaleEl.classList.toggle('is-on', readIdx >= 3);
+        }, 980);
+      }
+
+      /* ===== 三张纸：顺序锁 + 点开转场（与叠放页同一套规则） ===== */
+      function openPaperFromFan(paper) {
+        var idx = parseInt(paper.getAttribute('data-xg-idx'), 10) || 0;
+        if (idx > readIdx) {
+          // A9 顺序锁：nudge + toast（点后面的要提示先点第一张）
+          paper.classList.remove('is-nudge');
+          void paper.offsetWidth;
+          paper.classList.add('is-nudge');
+          toast(readIdx === 0 ? '先从第一封看起' : '先看完第 ' + (readIdx + 1) + ' 封');
+          return;
+        }
+        if (idx < readIdx) {
+          clearTimers();
+          Xinge.nav.reading(letterId, idx);
+          return;
+        }
+        // A5 点开转场：当前张前移放大，其余后退虚影，然后进 P8
+        clearTimers();
+        paper.classList.add('is-open');
+        fanStage.classList.add('is-opening');
+        later(function () { Xinge.nav.reading(letterId, idx); }, lowMotion ? 10 : 520);
+      }
+
+      /* ===== 直接进叠放态（从阅读页返回，不重拆） ===== */
+      if (opts.arranged) {
+        stage.classList.remove('is-arriving');
+        stage.classList.add('is-gone');
+        fanStage.classList.add('is-fanned');
+        applyPaperRoles(papersEls, readIdx);
+        applyPaperLocks(papersEls, readIdx);
+        papersEls.forEach(function (p) { p.style.transform = ''; p.classList.add('is-show'); });
+        if (hintEl) hintEl.style.display = 'none';
+        if (footEl) footEl.classList.add('is-on');
+        if (finaleEl) finaleEl.classList.toggle('is-on', readIdx >= 3);
+        sealFinished = true;
+      } else {
+        // S0 出现动画播完 → 静置微晃（等待拆信）
+        // 注意：若用户在这之前已点开信封，这个定时器不能再把 is-waiting 加回去
+        // （否则状态类打架，翻盖动画被压掉 —— 主人 2026-10-28 实测踩到）
+        later(function () {
+          if (stage && !opened) {
+            stage.classList.remove('is-arriving');
+            stage.classList.add('is-waiting');
+          }
+        }, 880);
+        // 探出位置等 S3 再量（那时布局已稳）；这里先把纸按原位摆好（不可见）
+        peek = null;
+      }
+
+      // 点击：信封 → 拆信；信纸 → 抽出；三张纸 → 顺序锁
+      el.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-xg-act="back"]')) {
+          // 主人 2026-10-24 投诉"退出键点了没用"：
+          // 原来 opened 一旦为 true 就直接 return，返回键永久失灵。
+          // 现在：动画进行中仍拦（防半截状态），但动画结束后一律能退。
+          if (opened && !sealFinished) return;
+          clearTimers();
+          popPage();
+          return;
+        }
+        if (ev.target.closest('[data-xg-act="fav"]')) {
+          toggleFavorite(letterId, true).then(function () { toast('已盖「藏」章'); });
+          return;
+        }
+        if (ev.target.closest('[data-xg-act="again"]')) {
+          clearTimers();
+          Xinge.nav.write();
+          return;
+        }
+        if (ev.target.closest('[data-xg-act="inbox"]')) {
+          clearTimers();
+          while (_stack.length > 1) popPage();
+          return;
+        }
+        // 三张纸（抽出之后才可点）
+        var paper = ev.target.closest('.xg-fan2-paper');
+        if (paper && pulled) { openPaperFromFan(paper); return; }
+        // 点信纸 → 把三张抽出来
+        if (ev.target.closest('#xg-mouth-hit')) { playPull(); return; }
+        if (pulled || opened) return;
+        opened = true;
+        playUnseal();
+      });
+    });
+  }
+
+  // 分拍驱动：p0 160ms → p1 620ms → p2 850ms → p3 450ms → done
+  function driveUnseal(el, done) {
+    var stage = el.querySelector('#xg-env-stage');
+    var flap = el.querySelector('#xg-env-flap');
+    var body = el.querySelector('#xg-env-body');
+    var pull = el.querySelector('#xg-letters-pull');
+    if (!stage || !flap) { done(); return; }
+    stage.classList.add('xg-p0-press');
+    later(function () {
+      stage.classList.remove('xg-p0-press');
+      flap.classList.add('xg-p1-unseal');
+      body.classList.add('xg-p1-unseal');
+      later(function () {
+        if (pull) pull.classList.add('xg-p2-pull');
+        body.classList.add('xg-p2-pull');
+        later(function () {
+          stage.classList.add('xg-p3-exit');
+          later(done, 430);
+        }, 850);
+      }, 640);
+    }, 170);
+  }
+
+  /* ===== 6.9 P7 扇形三张（顺序锁） ===== */
+  function renderFan(letterId, readIndex) {
+    _currentLetterId = letterId;
+    loadLetters().then(function (list) {
+      var letter = null;
+      list.forEach(function (x) { if (String(x.id) === String(letterId)) letter = x; });
+      if (!letter) { toast('信不见了'); popPage(); return; }
+      var readIdx = readIndex || 0;
+      var papers = letter.papers || [];
+      var html =
+        '<div class="xg-bg"></div>' +
+        topbar('三封 · 按顺序拆读') +
+        '<svg width="0" height="0" style="position:absolute"><defs>' +
+        '<filter id="xg-wavy-paper"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/>' +
+        '<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter>' +
+        '</defs></svg>' +
+        '<div class="xg-fan-wrap xg-content-fade">' +
+          '<div class="xg-fan2-stage is-fanned" id="xg-fan-stage">' +
+            '<div class="xg-fan2-paper fp-1" data-xg-idx="0"><div class="xg-fan2-sheet">' +
+              '<div class="xg-fan2-first">' + esc(((papers[0] && papers[0].body) || '').replace(/~~/g, '').slice(0, 24)) + '</div></div></div>' +
+            '<div class="xg-fan2-paper fp-2" data-xg-idx="1"><div class="xg-fan2-sheet">' +
+              '<div class="xg-fan2-first">' + esc(((papers[1] && papers[1].body) || '').replace(/~~/g, '').slice(0, 24)) + '</div></div></div>' +
+            // 第三张是心里话：不给正文，只给"点开才知"的暗示（主人分镜：点开才知的秘密）
+            '<div class="xg-fan2-paper fp-3" data-xg-idx="2"><div class="xg-fan2-sheet">' +
+              '<div class="xg-fan2-secret">藏着的一张</div>' +
+            '</div></div>' +
+          '</div>' +
+          '<div class="xg-fan2-foot" id="xg-fan2-foot">共三封 · 按顺序拆读</div>' +
+          '<div class="xg-fan-finale" id="xg-finale">' +
+            '<button class="xg-btn xg-btn-ghost" data-xg-act="fav">收藏</button>' +
+            '<button class="xg-btn xg-btn-primary" data-xg-act="again">再来一封</button>' +
+            '<button class="xg-btn xg-btn-ghost" data-xg-act="inbox">回信箱</button>' +
+          '</div>' +
+        '</div>';
+      var el = openPage('xg-page-fan', html);
+      var stage = el.querySelector('#xg-fan-stage');
+      var papers2 = Array.prototype.slice.call(el.querySelectorAll('.xg-fan2-paper'));
+
+      function syncLocks() {
+        // 三态（主人 2026-10-24 定）：
+        //   idx === readIdx → is-next（当前该读，浮到最上层，可点）
+        //   idx <  readIdx → is-read（已读过，可回看）
+        //   idx >  readIdx → is-locked（还没轮到，压最底，点它弹提示）
+        //
+        // 三层角色（top/mid/back）按主人的堆叠提示词分配：
+        //   当前该读的那张 → top（居中、轮廓完整、最上层）
+        //   已读过的       → mid（偏左顺时针）
+        //   未解锁的       → back（偏右逆时针）
+        // 这样「谁在最上」永远跟着当前该读的那张走 → 点它一定能点中。
+        //
+        // 2026-10-30：信封页也用同一套规则（那边是"抽出三张后落到叠放位"），
+        // 所以抽成两个共用函数，两边不会走偏。
+        applyPaperLocks(papers2, readIdx);
+        applyPaperRoles(papers2, readIdx);
+        var finale = el.querySelector('#xg-finale');
+        if (finale && readIdx >= 3) finale.style.display = '';
+        else if (finale) finale.style.display = 'none';
+      }
+      syncLocks();
+
+      el.addEventListener('click', function (e) {
+        if (e.target.closest('[data-xg-act="back"]')) {
+          clearTimers();
+          if (_revealLetterId === null) popPage();
+          else Xinge.nav.envelope(letterId);
+          return;
+        }
+        if (e.target.closest('[data-xg-act="fav"]')) {
+          toggleFavorite(letterId, true).then(function () { toast('已盖「藏」章'); });
+          return;
+        }
+        if (e.target.closest('[data-xg-act="again"]')) {
+          clearTimers();
+          Xinge.nav.write();
+          return;
+        }
+        if (e.target.closest('[data-xg-act="inbox"]')) {
+          clearTimers();
+          while (_stack.length > 1) popPage();
+          return;
+        }
+        var paper = e.target.closest('.xg-fan2-paper');
+        if (!paper) return;
+        var idx = parseInt(paper.getAttribute('data-xg-idx'), 10) || 0;
+        if (idx > readIdx) {
+          // A9 顺序锁：nudge + toast（主人 2026-10-24：点后面的要提示先点第一张）
+          paper.classList.remove('is-nudge');
+          void paper.offsetWidth;
+          paper.classList.add('is-nudge');
+          toast(readIdx === 0 ? '先从第一封看起' : '先看完第 ' + (readIdx + 1) + ' 封');
+          return;
+        }
+        if (idx < readIdx) {
+          // 已读过：可回看
+          clearTimers();
+          Xinge.nav.reading(letterId, idx);
+          return;
+        }
+        // A5 点开转场：当前张前移放大，其余后退虚影，然后进 P8
+        clearTimers();
+        paper.classList.add('is-open');
+        stage.classList.add('is-opening');
+        var wait = document.body.classList.contains('xg-motion-low') ? 10 : 520;
+        later(function () {
+          Xinge.nav.reading(letterId, idx);
+        }, wait);
+      });
+
+      // 读完三封显示收尾卡
+      if (readIdx >= 3) {
+        var finale2 = el.querySelector('#xg-finale');
+        if (finale2) finale2.style.display = '';
+      }
+    });
+  }
+
+  function renderReading(letterId, paperIndex) {
+    _currentLetterId = letterId;
+    loadLetters().then(function (list) {
+      var letter = null;
+      list.forEach(function (x) { if (String(x.id) === String(letterId)) letter = x; });
+      if (!letter || !letter.papers || !letter.papers[paperIndex]) { toast('信不见了'); popPage(); return; }
+      var paper = letter.papers[paperIndex];
+      var isHeart = paper.kind === 'heart';
+      var paras = String(paper.body || '').split(/\n+/).filter(function (s) { return s.trim(); });
+      // 显字判定：刚拆的信必走显现；S5"重放动画"时已读也走；其余已读直接全文
+      var fresh = String(letterId) === String(_revealLetterId);
+      if (fresh) _revealLetterId = null;
+      var readMode = fresh ? false : (_readModePref === '重放动画' ? false : !!letter.readAt);
+
+      var total = (letter.papers && letter.papers.length) || 1;
+      var isLast = paperIndex >= total - 1;
+      // 落款署名：优先写信人（params.senderName），缺省回落收信人
+      var signWho = (letter.params && letter.params.senderName) || (letter.params && letter.params.toName) || '';
+
+      var html =
+        '<div class="xg-bg"></div>' +
+        '<div class="xg-read-topbar">' +
+          '<button class="xg-read-back" data-xg-act="back" aria-label="返回">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>' +
+          '</button>' +
+          '<div class="xg-read-title">第 ' + (paperIndex + 1) + ' / ' + total + ' 封</div>' +
+          '<div class="xg-read-spacer"></div>' +
+        '</div>' +
+        '<div class="xg-read-wrap">' +
+          // 信纸：2026-10-28 按主人给的格式参考重做
+          // —— 米白纸 + 淡红横线（CSS 画，不贴任何图）
+          // —— 标题居中 / 称呼顶格 / 正文首行缩进两格 / 落款右下（名字 + 日期）
+          // —— 拆掉 2026-10-24 我加的所有贴花装饰（回纹角花/胶带/折痕/蜡封/玫瑰枝）——
+          //    主人原话："信纸上不要再用那个图片花去贴图，那个花都没有抠像"
+          '<div class="xg-letter xg-paper-sheet xg-letter-lined' + (isHeart ? ' is-heart xg-heart-paper ps-heart' : ' ps-letter') + '" id="xg-letter">' +
+            '<div class="xg-letter-head-block">' +
+              '<div class="xg-letter-title">致 ' + esc((letter.params && letter.params.toName) || '你') + ' 的一封信</div>' +
+            '</div>' +
+            '<div class="xg-letter-to xg-letter-head"><span class="xg-letter-hi">亲爱的 ' + esc((letter.params && letter.params.toName) || '你') + '：</span></div>' +
+            '<div class="xg-letter-body" id="xg-letter-body">' +
+              paras.map(function (t) {
+                var isStrike = /^~~[\s\S]*~~$/.test(t.trim());
+                var inner = isStrike ? t.trim().slice(2, -2) : t;
+                var chars = Array.from(inner).map(function (ch) {
+                  return '<span class="xg-w">' + esc(ch) + '</span>';
+                }).join('');
+                if (isStrike) {
+                  return '<p class="xg-letter-p xg-letter-para is-struck is-unsure xg-strike-soft"><span class="xg-strike"><span class="xg-strike-line">' + chars + '</span></span></p>';
+                }
+                return '<p class="xg-letter-p xg-letter-para">' + esc(inner) + '</p>';
+              }).join('') +
+            '</div>' +
+            '<div class="xg-letter-wish"><span class="xg-wish-word">愿你一切都好。</span>' +
+              '<span class="xg-wish-cursive">Yours,</span></div>' +
+            '<div class="xg-letter-sign xg-sign-zone">' +
+              // 落款：名字 + 日期右上下对齐（参考图格式）；去掉月桂徽章贴图与回纹条
+              '<div class="xg-letter-sign-name xg-sign-script">' + esc(signWho) + '</div>' +
+              '<div class="xg-letter-sign-date">' + esc(fmtTime(letter.scheduledAt || letter.createdAt)) + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="xg-read-foot">' +
+          '<button class="xg-icon-btn xg-strike-toggle" data-xg-act="toggle-strikes" aria-label="切换划线"><img src="' + XG_IMG + 'icon-heart.svg" alt=""></button>' +
+          // 下一张按钮（主人 2026-10-24 明确要：看完第一张就能点下一张；最后一封显示"回信箱"）
+          '<button class="xg-btn xg-btn-primary xg-read-next" data-xg-act="next-paper">' +
+            (isLast ? '回到信箱' : '下一封') +
+          '</button>' +
+        '</div>';
+
+      var el = openPage('xg-page-reading', html);
+      var parasEls = Array.prototype.slice.call(el.querySelectorAll('.xg-letter-p'));
+      // 邮戳盖章动效（深检 2026-10-24 接线：effects.stampPostmark 一直零调用，
+      // 邮戳的 is-stamping 类是静态写死的 → 盖章动画永远停在首帧，永远不播）
+      if (Xinge.effects && typeof Xinge.effects.stampPostmark === 'function') {
+        try { Xinge.effects.stampPostmark(el); } catch (e) { /* 不影响阅读 */ }
+      }
+
+      // 显字驱动（快于默读：段间 400–700ms）
+      var allShown = false;
+      if (readMode) {
+        parasEls.forEach(function (p) { p.classList.add('is-shown'); });
+        el.querySelectorAll('.xg-strike').forEach(function (s) { s.classList.add('is-swept'); });
+        allShown = true;
+      } else {
+        parasEls.forEach(function (p, i) {
+          later(function () {
+            p.classList.add('is-shown');
+            var strike = p.querySelector('.xg-strike');
+            if (strike) later(function () { strike.classList.add('is-swept'); }, 240);
+            if (i === parasEls.length - 1) allShown = true;
+          }, 300 + i * 520);
+        });
+      }
+
+      el.addEventListener('click', function (e) {
+        // 返回键：回扇形页（主人 2026-10-24 投诉"退出键点了没用"——原来阅读页压根没有返回键）
+        // 2026-10-30：信是在信封页里抽出来落到叠放位的 → 回到信封页的叠放态，
+        // 别跳到旧的扇形页（那样会看见信封又冒出来）
+        if (e.target.closest('[data-xg-act="back"]')) {
+          clearTimers();
+          backToPapers(letterId, nextReadIndex(paperIndex));
+          return;
+        }
+        // 下一封 / 回到信箱
+        if (e.target.closest('[data-xg-act="next-paper"]')) {
+          clearTimers();
+          if (isLast) {
+            // 最后一封：直接回信箱（明确出口，别让主人找不到路）
+            Xinge.nav.inbox();
+          } else {
+            Xinge.nav.reading(letterId, paperIndex + 1);
+          }
+          return;
+        }
+        // 划线切换（全局多米诺）
+        if (e.target.closest('[data-xg-act="toggle-strikes"]')) {
+          var strikes = Array.prototype.slice.call(el.querySelectorAll('.xg-strike'));
+          var anyVisible = strikes.some(function (s) { return !s.classList.contains('is-undone'); });
+          strikes.forEach(function (s, i) {
+            s.style.setProperty('--xg-domino-delay', (i * 30) + 'ms');
+            s.classList.add('is-domino');
+            if (anyVisible) s.classList.add('is-undone');
+            else s.classList.remove('is-undone');
+          });
+          return;
+        }
+        // 单段划线：点击横线消失/恢复
+        var strike = e.target.closest('.xg-strike');
+        if (strike) {
+          strike.classList.toggle('is-undone');
+          return;
+        }
+        // 点空白：显现中→立即全文；全显后→回扇形页（主人拍板）
+        if (!allShown) {
+          parasEls.forEach(function (p) { p.classList.remove('is-shown'); p.classList.add('is-shown-fast'); });
+          el.querySelectorAll('.xg-strike').forEach(function (s) { s.classList.add('is-swept'); });
+          allShown = true;
+          return;
+        }
+        if (!e.target.closest('.xg-strike-toggle') && !e.target.closest('.xg-read-foot')) {
+          clearTimers();
+          backToPapers(letterId, nextReadIndex(paperIndex));
+        }
+      });
+    });
+  }
+
+  function nextReadIndex(paperIndex) {
+    // 读完第 i 张后扇形页应看第 i+1 张（顺序锁推进）
+    return Math.min(3, (parseInt(paperIndex, 10) || 0) + 1);
+  }
+
+  /* 读完一张后回到"三张纸"那边
+     —— 2026-10-30：这封信是在信封页里点信纸抽出来、落到叠放位的 →
+        回信封页的叠放态（不重拆信、不重播抽出动画）
+     —— 从信箱直接翻旧信（没走抽信流程）→ 仍旧回旧的扇形页 */
+  function backToPapers(letterId, readIdx) {
+    if (_arrangedLetterId === String(letterId)) {
+      Xinge.nav.envelope(letterId, { arranged: 1, readIdx: readIdx });
+      return;
+    }
+    Xinge.nav.fan(letterId, readIdx);
+  }
+
+  /* ===== 6.11 回看（R1） ===== */
+  function renderRecall(letterId) {
+    loadLetters().then(function (list) {
+      var letter = null;
+      list.forEach(function (x) { if (String(x.id) === String(letterId)) letter = x; });
+      if (!letter) { toast('信不见了'); popPage(); return; }
+      if (!letter.readAt) {
+        // 未读：完整拆信仪式
+        Xinge.nav.envelope(letterId);
+      } else {
+        // 已读：扇形页全解锁可任点
+        Xinge.nav.fan(letterId, 3);
+      }
+    });
+  }
+
+  /* ===== 6.12 S1–S7 设置组（B5d） ===== */
+  function renderSettings() {
+    var rows = [
+      { key: 'perm',    icon: 'icon-person',  title: '谁能给我写信' },
+      { key: 'timer',   icon: 'icon-clock',   title: '定时写信' },
+      { key: 'presets', icon: 'icon-laurel',  title: '关系提示词' },
+      { key: 'prefs',   icon: 'icon-heart',   title: '阅读偏好' },
+      { key: 'notify',  icon: 'icon-bell',    title: '通知' },
+      { key: 'data',    icon: 'icon-seal',    title: '数据管理' }
+    ];
+    var html =
+      topbar('设置', { dark: true, right: '' }) +
+      '<div class="xg-settings-wrap xg-content-fade">' +
+        '<div class="xg-group-title">信格设置</div>' +
+        '<div class="xg-group-card">' +
+          rows.map(function (r) {
+            return '<div class="xg-row-item" data-xg-set="' + r.key + '">' +
+              '<div class="xg-row-icon"><img src="' + XG_IMG + r.icon + '.svg" width="24" height="24" alt=""></div>' +
+              '<div class="xg-row-title">' + r.title + '</div>' +
+              '<div class="xg-row-arrow">›</div>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+    var el = openPage('xg-page-settings', html);
+    el.querySelector('.xg-topbar').insertAdjacentHTML('afterend', '');
+    el.querySelector('.xg-settings-wrap').insertAdjacentHTML('beforebegin', '');
+    el.classList.add('xg-settings-page');
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var row = e.target.closest('[data-xg-set]');
+      if (!row) return;
+      clearTimers();
+      var k = row.getAttribute('data-xg-set');
+      if (k === 'perm') renderPerm();
+      else if (k === 'timer') renderTimer();
+      else if (k === 'presets') renderPresetManager();
+      else if (k === 'prefs') renderPrefs();
+      else if (k === 'notify') renderNotify();
+      else if (k === 'data') renderData();
+    });
+  }
+
+  /* S2 谁能给我写信 */
+  function renderPerm() {
+    var html =
+      topbar('谁能给我写信', { dark: true }) +
+      '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
+        '<div class="xg-group-title">允许主动来信的人</div>' +
+        '<div class="xg-selectall-row"><span class="xg-selectall-label">全选 / 全不选</span>' +
+        '<button class="xg-wax-switch" data-xg-perm-all aria-label="全选"></button></div>' +
+        '<div class="xg-group-card" id="xg-perm-list"></div>' +
+      '</div></div>';
+    var el = openPage('xg-page-perm', html);
+    el.classList.add('xg-settings-page');
+    fillPerm(el);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var allBtn = e.target.closest('[data-xg-perm-all]');
+      if (allBtn) {
+        var turnOn = !allBtn.classList.contains('is-on');
+        allBtn.classList.toggle('is-on', turnOn);
+        getConfig('xinge:pool', { allow: {}, all: false }).then(function (pool) {
+          pool.all = turnOn;
+          pool.allow = pool.allow || {};
+          if (turnOn) {
+            el.querySelectorAll('[data-xg-perm-switch]').forEach(function (sw) {
+              sw.classList.add('is-on');
+              var cid = sw.getAttribute('data-xg-perm-switch');
+              pool.allow[cid] = pool.allow[cid] || '偶尔';
+            });
+          } else {
+            pool.allow = {};
+            el.querySelectorAll('[data-xg-perm-switch]').forEach(function (sw) { sw.classList.remove('is-on'); });
+          }
+          return setConfig('xinge:pool', pool);
+        });
+        return;
+      }
+      var sw = e.target.closest('[data-xg-perm-switch]');
+      if (sw) {
+        var charId = sw.getAttribute('data-xg-perm-switch');
+        getConfig('xinge:pool', { allow: {}, all: false }).then(function (pool) {
+          pool.allow = pool.allow || {};
+          var on = !sw.classList.contains('is-on');
+          sw.classList.toggle('is-on', on);
+          if (on) pool.allow[charId] = pool.allow[charId] || '偶尔';
+          else delete pool.allow[charId];
+          return setConfig('xinge:pool', pool);
+        });
+        return;
+      }
+      var freq = e.target.closest('[data-xg-freq]');
+      if (freq) {
+        var fid = freq.getAttribute('data-xg-freq-id');
+        var fval = freq.getAttribute('data-xg-freq');
+        getConfig('xinge:pool', { allow: {} }).then(function (pool) {
+          pool.allow = pool.allow || {};
+          pool.allow[fid] = fval;
+          freq.parentNode.querySelectorAll('.xg-chip').forEach(function (c) { c.classList.remove('is-selected'); });
+          freq.classList.add('is-selected');
+          return setConfig('xinge:pool', pool);
+        });
+      }
+    });
+  }
+
+  function fillPerm(el) {
+    var box = el.querySelector('#xg-perm-list');
+    dbRead(function () {
+      return (window.db && window.db.characters)
+        ? window.db.characters.where('type').anyOf(['char', 'npc']).toArray()
+        : Promise.resolve([]);
+    }).then(function (chars) {
+      return getConfig('xinge:pool', { allow: {}, all: false }).then(function (pool) {
+        pool.allow = pool.allow || {};
+        if (!chars || !chars.length) {
+          box.innerHTML = '<div class="xg-perm-row"><div class="xg-target-sub">角色档案里还没有联系人，去添加？</div></div>';
+          return;
+        }
+        box.innerHTML = chars.map(function (c) {
+          var on = !!pool.allow[c.id];
+          var freq = pool.allow[c.id] || '偶尔';
+          return '<div class="xg-perm-row">' +
+            '<div class="xg-crest-frame"><img src="' + esc(c.avatar || (XG_IMG + 'icon-person.svg')) + '" alt=""></div>' +
+            '<div class="xg-perm-main">' +
+              '<div class="xg-perm-name">' + esc(c.name) + '</div>' +
+              '<div class="xg-freq-tags">' +
+                ['常来', '偶尔', '很少'].map(function (f) {
+                  return '<button class="xg-chip' + (f === freq ? ' is-selected' : '') + '" data-xg-freq="' + f + '" data-xg-freq-id="' + esc(c.id) + '">' + f + '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            '<button class="xg-switch' + (on ? ' is-on' : '') + '" data-xg-perm-switch="' + esc(c.id) + '" aria-label="允许来信"></button>' +
+          '</div>';
+        }).join('');
+      });
+    }).catch(function (e) {
+      console.warn('[xinge] S2 渲染失败', e);
+      box.innerHTML = '<div class="xg-perm-row"><div class="xg-target-sub">读取失败</div></div>';
+    });
+  }
+
+  /* S3 定时写信 */
+  function renderTimer() {
+    var html =
+      topbar('定时写信', { dark: true }) +
+      '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
+        '<div class="xg-timer-hero">' +
+          '<div><div class="xg-timer-hero-title">定时来信</div><div class="xg-timer-hero-sub">到点自动写，下次打开时寄达</div></div>' +
+          '<button class="xg-switch xg-switch-lg" id="xg-schedule-switch" aria-label="定时开关"></button>' +
+        '</div>' +
+        '<div class="xg-group-card">' +
+          '<div class="xg-timer-line"><div class="xg-timer-label">频率</div><div class="xg-freq-tags" id="xg-freq-pick">' +
+            ['每天', '每周', '每月', '随机惊喜'].map(function (f) {
+              return '<button class="xg-chip" data-xg-sfreq="' + f + '">' + f + '</button>';
+            }).join('') +
+          '</div></div>' +
+          '<div class="xg-timer-line"><div class="xg-timer-label">时间</div>' +
+            '<div class="xg-time-pick xg-wheel-pair">' +
+              // 滚轮选时间（深检 2026-10-24 提升：effects.bindWheel 一直零调用，
+              // 定时页原来只能手敲数字；现接上滚轮，input 保留作降级/无障碍路径）
+              '<div class="xg-wheel" id="xg-wheel-hh"><div class="xg-wheel-list"></div></div>' +
+              '<span class="xg-wheel-sep">:</span>' +
+              '<div class="xg-wheel" id="xg-wheel-mm"><div class="xg-wheel-list"></div></div>' +
+              '<input class="xg-input xg-time-input" id="xg-time-hh" maxlength="2" value="21" inputmode="numeric" aria-label="小时">' +
+              '<input class="xg-input xg-time-input" id="xg-time-mm" maxlength="2" value="00" inputmode="numeric" aria-label="分钟">' +
+            '</div>' +
+          '</div>' +
+          '<div class="xg-timer-line"><div class="xg-timer-label">写信人</div><div class="xg-freq-tags" id="xg-sender-pick">' +
+            ['指定', '轮换', '随机'].map(function (m) {
+              return '<button class="xg-chip" data-xg-sendermode="' + m + '">' + m + '</button>';
+            }).join('') +
+          '</div></div>' +
+        '</div>' +
+        '<div class="xg-next-strip" id="xg-next-strip"></div>' +
+      '</div></div>';
+    var el = openPage('xg-page-timer', html);
+    el.classList.add('xg-settings-page');
+    // 滚轮选时间（深检 2026-10-24 提升：effects.bindWheel 一直零调用）
+    var _wheelHH = null, _wheelMM = null;
+    if (Xinge.effects && typeof Xinge.effects.bindWheel === 'function') {
+      var hhVals = [], mmVals = [];
+      for (var wi = 0; wi < 24; wi++) hhVals.push(String(wi).padStart(2, '0'));
+      for (var wj = 0; wj < 60; wj++) mmVals.push(String(wj).padStart(2, '0'));
+      var hhIn = el.querySelector('#xg-time-hh'), mmIn = el.querySelector('#xg-time-mm');
+      try {
+        _wheelHH = Xinge.effects.bindWheel(el.querySelector('#xg-wheel-hh'), hhVals, function (v) {
+          if (hhIn && hhIn.value !== v) { hhIn.value = v; saveTimerFields(el, {}); }
+        });
+        _wheelMM = Xinge.effects.bindWheel(el.querySelector('#xg-wheel-mm'), mmVals, function (v) {
+          if (mmIn && mmIn.value !== v) { mmIn.value = v; saveTimerFields(el, {}); }
+        });
+      } catch (e) { _wheelHH = null; _wheelMM = null; }
+    }
+    // 注：ui.bindFreqExpand 的选择器已扩展到认本页的 data-xg-sfreq，
+    // 但本页原有委托已完整实现频次/写信人切换（落库 + 下一封预览），
+    // 再叠一层属重复处理 → 这里不重复绑定。
+
+    getConfig('xinge:settings', {}).then(function (s) {
+      s = s || {};
+      var sw = el.querySelector('#xg-schedule-switch');
+      if (s.scheduleOn) sw.classList.add('is-on');
+      var hh = el.querySelector('#xg-time-hh'), mm = el.querySelector('#xg-time-mm');
+      if (s.timeHHMM) {
+        var parts = String(s.timeHHMM).split(':');
+        hh.value = parts[0] || '21';
+        mm.value = parts[1] || '00';
+      }
+      el.querySelectorAll('[data-xg-sfreq]').forEach(function (c) {
+        if (c.getAttribute('data-xg-sfreq') === (s.freq || '每周')) c.classList.add('is-selected');
+      });
+      el.querySelectorAll('[data-xg-sendermode]').forEach(function (c) {
+        if (c.getAttribute('data-xg-sendermode') === (s.senderMode || '随机')) c.classList.add('is-selected');
+      });
+      updateNextStrip(el, s);
+      // 滚轮回填（深检 2026-10-24 提升：接入 effects.bindWheel）
+      if (_wheelHH && _wheelMM) {
+        _wheelHH.setValue(hh.value);
+        _wheelMM.setValue(mm.value);
+      }
+    });
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var sw = e.target.closest('#xg-schedule-switch');
+      if (sw) {
+        getConfig('xinge:settings', {}).then(function (s) {
+          s = s || {};
+          s.scheduleOn = !sw.classList.contains('is-on');
+          sw.classList.toggle('is-on', s.scheduleOn);
+          return setConfig('xinge:settings', s);
+        }).then(function () { return getConfig('xinge:settings', {}); }).then(function (s) { updateNextStrip(el, s || {}); });
+        return;
+      }
+      var sfreq = e.target.closest('[data-xg-sfreq]');
+      if (sfreq) {
+        el.querySelectorAll('[data-xg-sfreq]').forEach(function (c) { c.classList.remove('is-selected'); });
+        sfreq.classList.add('is-selected');
+        saveTimerFields(el, { freq: sfreq.getAttribute('data-xg-sfreq') });
+        return;
+      }
+      var smode = e.target.closest('[data-xg-sendermode]');
+      if (smode) {
+        el.querySelectorAll('[data-xg-sendermode]').forEach(function (c) { c.classList.remove('is-selected'); });
+        smode.classList.add('is-selected');
+        saveTimerFields(el, { senderMode: smode.getAttribute('data-xg-sendermode') });
+      }
+    });
+    // 时间输入即时存
+    ['xg-time-hh', 'xg-time-mm'].forEach(function (id) {
+      var input = el.querySelector('#' + id);
+      input.addEventListener('change', function () { saveTimerFields(el, {}); });
+    });
+  }
+
+  function saveTimerFields(el, patchObj) {
+    getConfig('xinge:settings', {}).then(function (s) {
+      s = s || {};
+      var hh = (el.querySelector('#xg-time-hh') || {}).value || '21';
+      var mm = (el.querySelector('#xg-time-mm') || {}).value || '00';
+      s.timeHHMM = hh.padStart(2, '0') + ':' + mm.padStart(2, '0');
+      Object.assign(s, patchObj || {});
+      return setConfig('xinge:settings', s);
+    }).then(function () { return getConfig('xinge:settings', {}); }).then(function (s) { updateNextStrip(el, s || {}); });
+  }
+
+  function updateNextStrip(el, s) {
+    var strip = el.querySelector('#xg-next-strip');
+    if (!strip) return;
+    if (!s.scheduleOn) {
+      strip.textContent = '定时来信未开启';
+      return;
+    }
+    var plan = nextSlotTs(s, nowTs());
+    strip.textContent = '下一封：' + fmtTime(plan) + ' 前后寄达';
+  }
+
+  /* S5 阅读偏好 */
+  function renderPrefs() {
+    var prefs = [
+      { key: 'speed',      label: '文字显现速度', opts: ['慢', '标准', '快'], def: '标准' },
+      { key: 'readMode',   label: '已读信默认呈现', opts: ['直接全文', '重放动画'], def: '直接全文' },
+      { key: 'strikeDefault', label: '划掉横线默认', opts: ['显示', '隐藏'], def: '显示' },
+      { key: 'motionLevel', label: '动效档位', opts: ['全量', '简化'], def: '全量' }
+    ];
+    var html =
+      topbar('阅读偏好', { dark: true }) +
+      '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
+        '<div class="xg-group-title">阅读</div>' +
+        '<div class="xg-group-card">' +
+          prefs.map(function (p) {
+            return '<div class="xg-pref-row"><div class="xg-pref-label">' + p.label + '</div>' +
+              '<div class="xg-segment" data-xg-pref="' + p.key + '">' +
+                p.opts.map(function (o) {
+                  return '<button class="xg-segment-item" data-xg-pref-opt="' + o + '">' + o + '</button>';
+                }).join('') +
+              '</div></div>';
+          }).join('') +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-prefs', html);
+    el.classList.add('xg-settings-page');
+    // 注：ui.bindSeg 已把选择器扩展到兼容本页的 .xg-segment / .xg-segment-item，
+    // 但本页原有 click 委托已完整实现分段切换（落库 + 动效降级），
+    // 再叠一层会重复处理 → 这里不重复绑定，保留原实现。
+    getConfig('xinge:settings', {}).then(function (s) {
+      s = s || {};
+      prefs.forEach(function (p) {
+        var cur = s[p.key] || p.def;
+        el.querySelectorAll('[data-xg-pref="' + p.key + '"] [data-xg-pref-opt]').forEach(function (b) {
+          if (b.getAttribute('data-xg-pref-opt') === cur) b.classList.add('is-selected');
+        });
+      });
+    });
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var opt = e.target.closest('[data-xg-pref-opt]');
+      if (!opt) return;
+      var group = opt.closest('[data-xg-pref]');
+      var key = group.getAttribute('data-xg-pref');
+      group.querySelectorAll('.xg-segment-item').forEach(function (b) { b.classList.remove('is-selected'); });
+      opt.classList.add('is-selected');
+      getConfig('xinge:settings', {}).then(function (s) {
+        s = s || {};
+        s[key] = opt.getAttribute('data-xg-pref-opt');
+        if (key === 'motionLevel') {
+          document.body.classList.toggle('xg-motion-low', s.motionLevel === '简化');
+        }
+        if (key === 'readMode') _readModePref = s[key];
+        return setConfig('xinge:settings', s);
+      });
+    });
+  }
+
+  /* S6 通知 */
+  function renderNotify() {
+    var html =
+      topbar('通知', { dark: true }) +
+      '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
+        '<div class="xg-group-title">提醒</div>' +
+        '<div class="xg-group-card">' +
+          '<div class="xg-quiet-row"><div class="xg-pref-label">新信提醒</div><button class="xg-switch" id="xg-notify-switch"></button></div>' +
+          '<div class="xg-quiet-row"><div class="xg-pref-label">静默时段（不弹提醒）</div><div class="xg-time-pick"><input class="xg-input" id="xg-quiet-hh" maxlength="2" value="22"> : <input class="xg-input" id="xg-quiet-mm" maxlength="2" value="00"></div></div>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-notify', html);
+    el.classList.add('xg-settings-page');
+    getConfig('xinge:settings', {}).then(function (s) {
+      s = s || {};
+      if (s.notifyOn !== false) el.querySelector('#xg-notify-switch').classList.add('is-on');
+      if (s.quietRange) {
+        var p = String(s.quietRange).split(':');
+        el.querySelector('#xg-quiet-hh').value = p[0] || '22';
+        el.querySelector('#xg-quiet-mm').value = p[1] || '00';
+      }
+    });
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      var sw = e.target.closest('#xg-notify-switch');
+      if (sw) {
+        getConfig('xinge:settings', {}).then(function (s) {
+          s = s || {};
+          s.notifyOn = !sw.classList.contains('is-on');
+          sw.classList.toggle('is-on', s.notifyOn);
+          return setConfig('xinge:settings', s);
+        });
+      }
+    });
+    el.querySelectorAll('#xg-quiet-hh, #xg-quiet-mm').forEach(function (input) {
+      input.addEventListener('change', function () {
+        getConfig('xinge:settings', {}).then(function (s) {
+          s = s || {};
+          s.quietRange = (el.querySelector('#xg-quiet-hh').value || '22') + ':' + (el.querySelector('#xg-quiet-mm').value || '00');
+          s.quietOn = true;
+          return setConfig('xinge:settings', s);
+        });
+      });
+    });
+  }
+
+  /* S7 数据管理 */
+  function renderData() {
+    var html =
+      topbar('数据管理', { dark: true }) +
+      '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
+        '<div class="xg-group-title">存储</div>' +
+        '<div class="xg-group-card"><div class="xg-storage-block">' +
+          '<div class="xg-storage-text" id="xg-storage-text">统计中…</div>' +
+          '<div class="xg-storage-bar"><div class="xg-storage-fill" id="xg-storage-fill"></div></div>' +
+          // 存储图例（ui.bindDataPage 会往这里写 KB / 信件数）
+          '<div class="xg-storage-legend" id="xg-storage-legend">' +
+            '<span class="xg-storage-legend-kb">0 KB</span>' +
+            '<span class="xg-storage-legend-n">0 封信</span>' +
+          '</div>' +
+        '</div></div>' +
+        // 导出 / 导入（深检 2026-10-24：xinge-effects.js 的 exportLetters/importLetters
+        // 一直零调用 —— 写信导出功能写好却没上线；此处补按钮并接线）
+        '<div class="xg-group-title">备份</div>' +
+        '<div class="xg-group-card"><div class="xg-data-actions">' +
+          '<button class="xg-btn xg-btn-full" data-xg-act="export-letters">导出全部信件（JSON）</button>' +
+          '<button class="xg-btn xg-btn-full" data-xg-act="import-letters">从备份导入</button>' +
+          '<input type="file" accept="application/json,.json" class="xg-file-input" id="xg-import-file" hidden>' +
+        '</div></div>' +
+        '<div class="xg-danger-zone xg-danger-block">' +
+          '<div class="xg-danger-title">危险操作</div>' +
+          '<div class="xg-danger-desc">清空后所有信件将被永久删除，无法找回。建议先导出备份。</div>' +
+          '<button class="xg-btn xg-btn-danger xg-danger-btn xg-btn-full" data-xg-act="clear-all">清空信箱（不可恢复）</button>' +
+        '</div>' +
+      '</div></div>';
+    var el = openPage('xg-page-data', html);
+    el.classList.add('xg-settings-page');
+    loadLetters().then(function (list) {
+      var textEl = el.querySelector('#xg-storage-text');
+      var fill = el.querySelector('#xg-storage-fill');
+      var n = list.length;
+      if (textEl) textEl.textContent = '信箱里有 ' + n + ' 封信';
+      if (fill) fill.style.width = Math.min(100, n * 2) + '%';
+    });
+    // 存储条图例 + 导出按钮接线（激活 ui.bindDataPage / effects.exportLetters）
+    if (Xinge.ui && typeof Xinge.ui.bindDataPage === 'function') {
+      try { Xinge.ui.bindDataPage(el); } catch (e) { /* 降级：不影响清空功能 */ }
+    }
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+      // 导入：点按钮唤起文件选择
+      if (e.target.closest('[data-xg-act="import-letters"]')) {
+        var fileInput = el.querySelector('#xg-import-file');
+        if (fileInput) fileInput.click();
+        return;
+      }
+      if (e.target.closest('[data-xg-act="clear-all"]')) {
+        if (!window.confirm('清空信箱？所有信件将永久删除，无法恢复')) return;
+        dbWrite(function () {
+          if (hasLettersTable()) return window.db.xingeLetters.clear();
+          return setConfig('xinge:lettersFallback', []);
+        }).then(function () { toast('信箱已清空'); popPage(); renderData(); });
+      }
+    });
+    // 导入文件选中后走 effects.importLetters
+    var importInput = el.querySelector('#xg-import-file');
+    if (importInput && Xinge.effects && typeof Xinge.effects.importLetters === 'function') {
+      importInput.addEventListener('change', function () {
+        var f = importInput.files && importInput.files[0];
+        if (!f) return;
+        Xinge.effects.importLetters(f, function (done, total) {
+          toast('正在导入 ' + done + '/' + total);
+        }).then(function (n) {
+          toast('已导入 ' + n + ' 封信', 'ok');
+          importInput.value = '';
+          renderData();
+        }).catch(function (err) {
+          toast('导入失败：' + ((err && err.message) || '文件不对'));
+          importInput.value = '';
+        });
+      });
+    }
+  }
+
+  /* S4 关系提示词管理 */
+  function renderPresetManager() {
+    loadPresets().then(function (presets) {
+      var html =
+        topbar('关系提示词', { dark: true, right: '<button class="xg-topbar-back" data-xg-act="restore-default" style="width:auto;padding:0 8px;font-size:12px">恢复默认</button>' }) +
+        '<div class="xg-settings-wrap"><div class="xg-content-fade">' +
+          '<div class="xg-group-title">预设（' + presets.length + '）</div>' +
+          '<div class="xg-preset-list">' +
+            presets.map(function (p, i) {
+              return '<div class="xg-preset-row" data-xg-edit-preset="' + i + '">' +
+                '<div class="xg-preset-crest xg-crest"></div>' +
+                '<div class="xg-preset-main">' +
+                  '<div class="xg-preset-name">' + esc(p.name) + '</div>' +
+                  '<div class="xg-preset-tone">' + esc(p.tone || '') + '</div>' +
+                '</div>' +
+                '<button class="xg-preset-edit">✎</button>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="xg-danger-block"><button class="xg-btn xg-btn-ghost xg-btn-full" data-xg-act="add-preset">新增预设</button></div>' +
+        '</div></div>';
+      var el = openPage('xg-page-presets', html);
+      el.classList.add('xg-settings-page');
+      el._presets = presets;
+      el.addEventListener('click', function (e) {
+        if (e.target.closest('[data-xg-act="back"]')) { clearTimers(); popPage(); return; }
+        if (e.target.closest('[data-xg-act="restore-default"]')) {
+          setConfig('xinge:presetsFallback', DEFAULT_PRESETS.slice()).then(function () {
+            if (hasPresetsTable()) return dbWrite(function () { return window.db.xingePresets.clear(); }).then(function () { return ensureSeedPresets(); });
+            return null;
+          }).then(function () { toast('已恢复默认'); clearTimers(); popPage(); renderPresetManager(); });
+          return;
+        }
+        if (e.target.closest('[data-xg-act="add-preset"]')) {
+          openPresetEditor(el, null);
+          return;
+        }
+        var row = e.target.closest('[data-xg-edit-preset]');
+        if (row) openPresetEditor(el, presets[parseInt(row.getAttribute('data-xg-edit-preset'), 10)]);
+      });
+    });
+  }
+
+  function openPresetEditor(pageEl, preset) {
+    var overlay = document.createElement('div');
+    overlay.className = 'xg-modal-overlay';
+    overlay.innerHTML =
+      '<div class="xg-modal">' +
+        '<div class="xg-modal-title">' + (preset ? '编辑预设' : '新增预设') + '</div>' +
+        '<div class="xg-field"><div class="xg-field-label">名字</div><input class="xg-input" id="xg-pe-name" value="' + esc(preset ? preset.name : '') + '"></div>' +
+        '<div class="xg-field"><div class="xg-field-label">口吻例句</div><input class="xg-input" id="xg-pe-tone" value="' + esc(preset ? (preset.tone || '') : '') + '"></div>' +
+        '<div class="xg-field"><div class="xg-field-label">提示词</div><textarea class="xg-textarea" id="xg-pe-prompt">' + esc(preset ? (preset.prompt || '') : '') + '</textarea></div>' +
+        '<div class="xg-field-chips" style="justify-content:flex-end">' +
+          (preset ? '<button class="xg-btn xg-btn-danger" data-xg-pe="del">删除</button>' : '') +
+          '<button class="xg-btn xg-btn-ghost" data-xg-pe="cancel">取消</button>' +
+          '<button class="xg-btn xg-btn-primary" data-xg-pe="save">保存</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function () { overlay.classList.add('is-on'); });
+    function close() {
+      overlay.classList.remove('is-on');
+      setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 260);
+    }
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) { close(); return; }
+      var act = e.target.closest('[data-xg-pe]');
+      if (!act) return;
+      var kind = act.getAttribute('data-xg-pe');
+      if (kind === 'cancel') { close(); return; }
+      if (kind === 'del') {
+        if (!window.confirm('删除这个预设？')) return;
+        loadPresets().then(function (list) {
+          var next = list.filter(function (x) { return (x.key || x.id) !== (preset.key || preset.id); });
+          return setConfig('xinge:presetsFallback', next);
+        }).then(function () { close(); toast('已删除'); clearTimers(); popPage(); renderPresetManager(); });
+        return;
+      }
+      if (kind === 'save') {
+        var name = overlay.querySelector('#xg-pe-name').value.trim();
+        if (!name) { toast('名字要填'); return; }
+        loadPresets().then(function (list) {
+          list = list || [];
+          if (preset) {
+            list.forEach(function (x) {
+              if ((x.key || x.id) === (preset.key || preset.id)) {
+                x.name = name;
+                x.tone = overlay.querySelector('#xg-pe-tone').value.trim();
+                x.prompt = overlay.querySelector('#xg-pe-prompt').value.trim();
+              }
+            });
+          } else {
+            list.push({
+              key: 'custom_' + Date.now(),
+              name: name,
+              tone: overlay.querySelector('#xg-pe-tone').value.trim(),
+              prompt: overlay.querySelector('#xg-pe-prompt').value.trim(),
+              icon: 'icon-heart'
+            });
+          }
+          return setConfig('xinge:presetsFallback', list);
+        }).then(function () { close(); toast('已保存'); clearTimers(); popPage(); renderPresetManager(); });
+      }
+    });
+  }
+
+  /* ===== 6.13 定时补信（打开 App 补生成，主人拍板方案 a） ===== */
+  function nextSlotTs(s, fromTs) {
+    // 从 fromTs 起算下一个计划寄达点（时:分 落在今天/未来）
+    var base = new Date(fromTs);
+    var parts = String(s.timeHHMM || '21:00').split(':');
+    var h = parseInt(parts[0], 10) || 21;
+    var m = parseInt(parts[1], 10) || 0;
+    var slot = new Date(base);
+    slot.setHours(h, m, 0, 0);
+    if (slot.getTime() <= fromTs) slot.setDate(slot.getDate() + 1);
+    return slot.getTime();
+  }
+
+  function checkSchedule() {
+    if (!hasLettersTable() && !window.db) return Promise.resolve();
+    return getConfig('xinge:settings', {}).then(function (s) {
+      if (!s || !s.scheduleOn) return null;
+      return getConfig('xinge:lastRun', {}).then(function (last) {
+        var now = nowTs();
+        var periodDays = s.freq === '每天' ? 1 : s.freq === '每月' ? 30 : s.freq === '随机惊喜' ? 3 : 7;
+        var lastPlan = (last && last.scheduledFor) || 0;
+        var due = lastPlan ? (lastPlan + periodDays * 86400000) : nextSlotTs(s, now - periodDays * 86400000);
+        if (now < due) return null;
+        // 补生成（静默：不弹页面）
+        return getConfig('xinge:pool', { allow: {} }).then(function (pool) {
+          return pickScheduledSender(s, pool).then(function (sender) {
+            return generateScheduledLetter(s, sender, due).then(function () {
+              return setConfig('xinge:lastRun', { ts: now, scheduledFor: due });
+            });
+          });
+        });
+      });
+    }).catch(function (e) {
+      console.warn('[xinge] 定时补信检查失败', e);
+    });
+  }
+
+  function pickScheduledSender(s, pool) {
+    // senderMode: 指定 / 轮换 / 随机；从允许池出
+    return loadPresets().then(function (presets) {
+      var allowIds = Object.keys((pool && pool.allow) || {});
+      var presetList = presets && presets.length ? presets : DEFAULT_PRESETS;
+      var pick = null;
+      if (s.senderMode === '指定' && s.senderId) {
+        presetList.forEach(function (p) { if ((p.key || String(p.id)) === s.senderId) pick = p; });
+      }
+      if (!pick) {
+        // 轮换：按已发封数取模；随机：random
+        if (s.senderMode === '轮换') {
+          pick = presetList[(s._rotateIndex || 0) % presetList.length];
+        } else {
+          pick = presetList[Math.floor(Math.random() * presetList.length)];
+        }
+      }
+      return { preset: pick, allowIds: allowIds };
+    });
+  }
+
+  function generateScheduledLetter(s, sender, planTs) {
+    // 静默生成：不 nav.composing、不跳页，只落库+提醒
+    var draft = {
+      recipientType: 'me',
+      toName: '我',
+      presetKey: sender.preset && (sender.preset.key || String(sender.preset.id)),
+      mood: 50,
+      tendency: '按最近的记忆写一封定时来信',
+      scheduledAt: planTs
+    };
+    var memPromise;
+    try {
+      memPromise = (window.WanWanMemory && window.WanWanMemory.getMemoryContext)
+        ? window.WanWanMemory.getMemoryContext(null, sender.allowIds[0] || null, window._wechatUid || '', ['定时来信']).catch(function () { return ''; })
+        : Promise.resolve('');
+    } catch (e) { memPromise = Promise.resolve(''); }
+
+    return memPromise.then(function (memCtx) {
+      return loadPresets().then(function (presets) {
+        if (!window.callAI) throw new Error('callAI 未加载');
+        var prompt = buildUserPrompt(draft, memCtx, presets);
+        return window.callAI([{ role: 'user', content: prompt }], { system: XG_SYS_BASE });
+      });
+    }).then(function (result) {
+      if (!result) return null;
+      var text = (typeof result === 'string') ? result : (result.content || result.text || result.message || '');
+      var parsed = parseLetterJSON(text);
+      if (!parsed) throw new Error('定时信 JSON 解析失败');
+      return saveLetter({
+        senderKey: draft.presetKey || 'friend',
+        recipientType: 'me',
+        charId: sender.allowIds[0] || null,
+        status: 'done',
+        scheduledAt: planTs,
+        papers: parsed.papers,
+        envelopeNote: parsed.envelopeNote || '',
+        params: { toName: '我', presetKey: draft.presetKey, mood: 50, tendency: draft.tendency, mention: '' }
+      });
+    }).then(function (saved) {
+      if (saved) {
+        // 静默时段外才提醒（S6）
+        if (s.notifyOn !== false) toast('有一封新的信到了');
+      }
+      return saved;
+    });
+  }
+
+  /* ===== 7. 导出面 & 入口 ===== */
+  Xinge = window.Xinge = {
+    ver: XG_VER,
+    nav: {
+      write: renderWrite,
+      inbox: renderInbox,
+      sender: renderSender,
+      recipient: renderRecipient,
+      target: renderTarget,
+      age: renderAge,
+      custom: renderCustom,
+      preset: renderPreset,
+      composing: renderComposing,
+      envelope: renderEnvelope,
+      fan: renderFan,
+      reading: renderReading,
+      recall: renderRecall,
+      // 深检 2026-10-24：xinge-ui.js 调用了这两个方法但 nav 上没有 → 点了没反应。
+      // back：失败态「先回去」按钮；refreshInbox：删信后刷新信箱。
+      back: function () {
+        clearTimers();
+        popPage();
+      },
+      // 原地重填信箱列表（不重开页面，避免闪屏）
+      refreshInbox: function () {
+        var el = document.getElementById('xg-page-inbox');
+        if (el) { fillInbox(el, 'all'); return true; }
+        return renderInbox();
+      },
+      settings: function () { if (typeof renderSettings === 'function') renderSettings(); else toast('设置页马上就位'); },
+      timer: function () { if (typeof renderTimer === 'function') renderTimer(); else toast('设置页马上就位'); },
+      presetManager: function () { if (typeof renderPresetManager === 'function') renderPresetManager(); else toast('设置页马上就位'); },
+      // 主人 2026-10-28：谁来写（自己写 / 让 AI 写）+ 手写信编辑页
+      writerChoice: renderWriterChoice,
+      selfWrite: renderSelfWrite
+    },
+    compose: {
+      run: runCompose,
+      fail: function (err) {
+        _inFlight = null;
+        var el = document.getElementById('xg-page-composing');
+        if (!el) return;
+        if (Xinge.ui && Xinge.ui.showComposeFail) {
+          Xinge.ui.showComposeFail(el, err || new Error('生成失败'), function () {
+            if (_lastDraft) { clearTimers(); runCompose(_lastDraft); }
+            else popPage();
+          });
+        } else {
+          el.classList.add('is-error');
+          var cap = el.querySelector('#xg-caption');
+          if (cap) cap.textContent = '墨水洒了……返回后重来一次';
+        }
+      },
+      skipToResult: function () {
+        clearTimers();
+        if (!_inFlight) {
+          loadLetters().then(function (list) {
+            Xinge.nav.envelope(list[0] && list[0].id);
+          });
+        } else {
+          var el = document.getElementById('xg-page-composing');
+          var cap = el && el.querySelector('#xg-caption');
+          if (cap) { cap.textContent = '马上就好…'; cap.classList.remove('xg-typing'); }
+          var prog = el && el.querySelector('#xg-progress');
+          if (prog) prog.style.width = '95%';
+        }
+      },
+      get inFlight() { return !!_inFlight; }
+    },
+    data: {
+      loadLetters: loadLetters,
+      saveLetter: saveLetter,
+      deleteLetter: deleteLetter,
+      markRead: markRead,
+      toggleFavorite: toggleFavorite,
+      loadPresets: loadPresets,
+      ensureSeedPresets: ensureSeedPresets,
+      getConfig: getConfig,
+      setConfig: setConfig,
+      DEFAULT_PRESETS: DEFAULT_PRESETS,
+      // 深检 2026-10-24：xinge-effects.js 的导出功能调用 Xinge.data.nowTs()，
+      // 但 data 面没有这个成员 → 导出信件必抛 TypeError。补上（与 util 同源）。
+      nowTs: nowTs,
+      nowReal: nowReal,
+      // xinge-ui.js 调用 Xinge.data.isFavorite 判断是否已收藏（原来恒为 false）
+      isFavorite: function (letter) {
+        try { return !!(letter && letter.favorite); } catch (e) { return false; }
+      }
+    },
+    util: {
+      nowTs: nowTs, nowReal: nowReal, fmtTime: fmtTime, dayString: dayString,
+      daysSinceChat: daysSinceChat, toast: toast, esc: esc,
+      later: later, every: every, clearTimers: clearTimers,
+      openPage: openPage, popPage: popPage, topbar: topbar,
+      attachLongPress: attachLongPress
+    },
+    ui: { renderInbox: renderInbox, renderWrite: renderWrite }
+  };
+  /* xinge-ui.js 挂载时用它自己的 ui 对象整体覆盖了上面的 { renderInbox, renderWrite }，
+     导致这两个成员被抹掉（深检 2026-10-24）。这里提供合并口，ui.js 改为并入而非覆盖。 */
+  window.__xingeMergeUI = function (incoming) {
+    try {
+      Xinge.ui = Object.assign({}, Xinge.ui || {}, incoming || {});
+    } catch (e) { Xinge.ui = incoming; }
+  };
+
+  // 入口首行铁律
+  window.showXingePage = function () {
+    // 重入清栈（桌面临布点开不叠页）
+    while (_stack.length) {
+      var old = document.getElementById(_stack.pop());
+      if (old) old.remove();
+    }
+    Xinge.data.ensureSeedPresets().then(function () {
+      renderInbox();
+    }).catch(function (e) {
+      console.error('[xinge] 入口失败', e);
+      renderInbox(); // 兜底也要进页
+    });
+    // 定时补信检查（静默，不阻塞进页；方案 a：打开 App 补生成）
+    checkSchedule();
+    // S5 偏好缓存初始化
+    getConfig('xinge:settings', {}).then(function (s) {
+      if (s && s.readMode) _readModePref = s.readMode;
+      if (s && s.motionLevel === '简化') document.body.classList.add('xg-motion-low');
+    });
+  };
+  /* 退出信格回桌面（深检 2026-10-24 接线：原先 _goHome 从未被赋值，
+     信箱页返回键永远走 popPage 把自己弹掉 → 页面残留、主人说"退不出去"） */
+  window.showXingePage._goHome = function () {
+    resetToHome();
+    // 若桌面提供关闭接口就走它，否则信格页面已清空 = 视觉上已退出
+    try {
+      if (typeof window.closeXingePage === 'function') { window.closeXingePage(); return; }
+      if (window.XG_PAGE_ROOT && window.XG_PAGE_ROOT.classList) {
+        window.XG_PAGE_ROOT.classList.remove('xg-page-active');
+      }
+    } catch (e) { /* 桌面无对应接口时静默 */ }
+  };
+
+  console.log('[xinge] xinge.js ' + XG_VER + ' 就绪');
+})();

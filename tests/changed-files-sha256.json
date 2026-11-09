@@ -1,0 +1,14 @@
+{
+  "js/shili-page.js": "b8887c18fc6057ac159d7437b518a4c4c7299714233597513e41b7beb2c0350e",
+  "js/shili-service.js": "7aa915dbaa6178172562462831d25744dd622f1517cca571c6f3593f51de9a2d",
+  "js/shili-core.js": "10ddfdf211a902a81b760999d0fc5af177e15a27124f7e7204ea4729bbd9cdb4",
+  "js/shili-bridge.js": "2f4cadaeb039eb0263dcf5825ab6614a126edafa0f37e338880089eba808d89e",
+  "js/shili-image.js": "66d4c6918d8f07d7a8fe7449c4f124eafeff5ded1ac3e7b5ab4565e375878558",
+  "js/shili-planner.js": "48fa2987fca7cf0f970c485a46959adf08b6ff3c17603671d153eca80c77423b",
+  "js/shili-integration.js": "2f08679a754e50d617eb23e31e1f104de3a8aa98dca1039f4a058978a5500aba",
+  "js/shili-repository.js": "a32de45672884033d11817dd21d4e2ae509f6a3398c8a7807d1bf08d4463e8f6",
+  "js/shili-portable.js": "bede5e08471feb9fceb3bd721c90280bd5749e0f31c3019e64f559c3c4b9d289",
+  "js/settings.js": "8ef7f10b16b8390314aa35d1a3fd477d3bc02cfcc9efa1caab69c3d56e8bb16d",
+  "js/wechat.js": "672e8ee556130d121e209d4e3420a797c2c84361dcbb552c27569c2c9f303768",
+  "js/ensemble.js": "b4a01b0afa5b86873b164efddd08f8a4d3f1a3c5b3861e1765e9f2ca65e3c007"
+}
